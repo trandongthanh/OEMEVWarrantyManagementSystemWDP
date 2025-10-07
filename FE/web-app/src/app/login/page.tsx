@@ -2,8 +2,17 @@
 
 import { useState, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Shield, Eye, EyeOff, Mail, Lock, ArrowLeft } from "lucide-react";
+import {
+  Shield,
+  Eye,
+  EyeOff,
+  Mail,
+  Lock,
+  ArrowLeft,
+  AlertCircle,
+} from "lucide-react";
 import Link from "next/link";
+import { useAuth } from "@/hooks/useAuth";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
   useGLTF,
@@ -149,28 +158,40 @@ function CarScene() {
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
-    email: "",
+    username: "",
     password: "",
   });
-  const [isLoading, setIsLoading] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  const { login, isLoading } = useAuth();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
     });
+    // Clear error when user starts typing
+    if (localError) setLocalError(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setLocalError(null);
 
-    // Simulate login process
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setIsLoading(false);
+    // Validate inputs
+    if (!formData.username || !formData.password) {
+      setLocalError("Please enter both username and password");
+      return;
+    }
 
-    // Handle login logic here
-    console.log("Login submitted:", formData);
+    try {
+      await login(formData.username, formData.password);
+      // Navigation is handled by the useAuth hook
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Login failed";
+      setLocalError(errorMessage);
+    }
   };
 
   return (
@@ -246,26 +267,38 @@ export default function LoginPage() {
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Email Field */}
+              {/* Error Message */}
+              {localError && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3"
+                >
+                  <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-200">{localError}</p>
+                </motion.div>
+              )}
+
+              {/* Username Field */}
               <div className="space-y-2">
                 <label
-                  htmlFor="email"
+                  htmlFor="username"
                   className="text-sm font-semibold text-gray-200 flex items-center gap-2"
                 >
                   <Mail className="w-4 h-4 text-blue-400" />
-                  Email Address
+                  Username
                 </label>
                 <div className="relative group">
                   <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 group-focus-within:text-blue-400 transition-colors" />
                   <input
-                    id="email"
-                    name="email"
-                    type="email"
+                    id="username"
+                    name="username"
+                    type="text"
                     required
-                    value={formData.email}
+                    value={formData.username}
                     onChange={handleInputChange}
                     className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white/10 transition-all backdrop-blur-sm hover:border-white/20"
-                    placeholder="your.email@example.com"
+                    placeholder="Enter your username"
                   />
                 </div>
               </div>
