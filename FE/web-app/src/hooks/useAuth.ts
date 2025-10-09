@@ -16,6 +16,21 @@ interface UseAuthReturn {
   error: string | null;
 }
 
+/**
+ * Get dashboard route based on user role
+ */
+function getDashboardRouteByRole(roleName: string): string {
+  const roleRoutes: Record<string, string> = {
+    service_center_staff: "/dashboard/staff",
+    service_center_technician: "/dashboard/technician",
+    service_center_manager: "/dashboard/manager",
+    emv_admin: "/dashboard/admin",
+    emv_staff: "/dashboard/admin",
+  };
+
+  return roleRoutes[roleName] || "/dashboard";
+}
+
 export function useAuth(): UseAuthReturn {
   const [user, setUser] = useState<DecodedToken | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -64,8 +79,9 @@ export function useAuth(): UseAuthReturn {
         setUser(decodedUser);
         setIsAuthenticated(true);
 
-        // Redirect to dashboard
-        router.push("/dashboard");
+        // Role-based redirect to appropriate dashboard
+        const dashboardRoute = getDashboardRouteByRole(decodedUser.roleName);
+        router.push(dashboardRoute);
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Login failed";
