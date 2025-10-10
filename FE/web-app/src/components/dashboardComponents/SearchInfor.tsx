@@ -60,16 +60,28 @@ export default function SearchInfor() {
   const [value, setValue] = useState("");
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState(1);
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
 
+  // Dữ liệu nhập thêm
+  const [newInfo, setNewInfo] = useState({
+    licensePlate: "",
+    purchaseDate: "",
+    owner: "",
+  });
+  const [formError, setFormError] = useState("");
+
+  // --- Search ---
   const mockSearch = (vin: string) => {
     const found = mockData.find((v) => v.vin === vin);
     if (found) {
       setVehicle(found);
       setError(null);
+      setStep(1);
     } else {
       setVehicle(null);
       setError("Không tìm thấy thông tin cho VIN này.");
+      setStep(1);
     }
     onOpen();
   };
@@ -92,6 +104,29 @@ export default function SearchInfor() {
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") triggerSearch();
+  };
+
+  // --- Step 2: Save thông tin mới ---
+  const handleSave = () => {
+    if (!newInfo.licensePlate || !newInfo.purchaseDate || !newInfo.owner) {
+      setFormError("Vui lòng điền đầy đủ tất cả thông tin trước khi lưu.");
+      return;
+    }
+
+    console.log("✅ Saved new info:", newInfo);
+
+    // Giả lập cập nhật dữ liệu cho vehicle
+    if (vehicle) {
+      setVehicle({
+        ...vehicle,
+        licensePlate: newInfo.licensePlate,
+        purchaseDate: newInfo.purchaseDate,
+        owner: newInfo.owner,
+      });
+    }
+
+    setFormError("");
+    onOpenChange(); // đóng modal
   };
 
   return (
@@ -137,7 +172,7 @@ export default function SearchInfor() {
         />
       </div>
 
-      {/* Modal show result */}
+      {/* Modal */}
       <Modal
         isOpen={isOpen}
         onOpenChange={onOpenChange}
@@ -157,80 +192,193 @@ export default function SearchInfor() {
           "
         >
           <ModalHeader className="text-3xl font-bold border-b border-white/10 pb-4 text-center">
-            Vehicle Information
+            {step === 1 ? "Vehicle Information" : "Enter Missing Information"}
           </ModalHeader>
+
           <ModalBody className="pt-8">
-            {error ? (
-              <p className="text-center text-red-400 font-medium">{error}</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {[
-                  ["VIN", vehicle?.vin],
-                  ["Model", vehicle?.model],
-                  ["Company", vehicle?.company],
-                  ["Date of Manufacture", vehicle?.dateOfManufacture],
-                  ["Place of Manufacture", vehicle?.placeOfManufacture],
-                  ["License Plate", vehicle?.licensePlate],
-                  ["Purchase Date", vehicle?.purchaseDate],
-                  ["Owner", vehicle?.owner],
-                ].map(([label, value], i) => (
-                  <div
-                    key={i}
-                    className="
-                      bg-gradient-to-br from-white/5 to-black/20
-                      border border-white/10
-                      backdrop-blur-xl
-                      p-5 rounded-xl
-                      hover:border-blue-400/50
-                      hover:shadow-[0_0_12px_rgba(59,130,246,0.3)]
-                      transition-all duration-200
-                    "
-                  >
-                    <p className="text-gray-400 text-sm">{label}</p>
-                    <p className="font-semibold text-lg break-all text-white">
-                      {value ?? "—"}
+            {/* STEP 1 */}
+            {step === 1 && (
+              <>
+                {error ? (
+                  <p className="text-center text-red-400 font-medium">
+                    {error}
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {[
+                      ["VIN", vehicle?.vin],
+                      ["Model", vehicle?.model],
+                      ["Company", vehicle?.company],
+                      ["Date of Manufacture", vehicle?.dateOfManufacture],
+                      ["Place of Manufacture", vehicle?.placeOfManufacture],
+                      ["License Plate", vehicle?.licensePlate],
+                      ["Purchase Date", vehicle?.purchaseDate],
+                      ["Owner", vehicle?.owner],
+                    ].map(([label, value], i) => (
+                      <div
+                        key={i}
+                        className="
+                          bg-gradient-to-br from-white/5 to-black/20
+                          border border-white/10
+                          backdrop-blur-xl
+                          p-5 rounded-xl
+                          hover:border-blue-400/50
+                          hover:shadow-[0_0_12px_rgba(59,130,246,0.3)]
+                          transition-all duration-200
+                        "
+                      >
+                        <p className="text-gray-400 text-sm">{label}</p>
+                        <p className="font-semibold text-lg break-all text-white">
+                          {value ?? "—"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* STEP 2 */}
+            {step === 2 && (
+              <div className="space-y-6">
+                {/* Vehicle Information Section */}
+                <div className="bg-slate-800/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-lg overflow-visible">
+                  {/* Header */}
+                  <div className="bg-green-500/20 px-4 py-2 rounded-t-2xl border-b border-white/5">
+                    <p className="font-semibold text-green-300 text-lg">
+                      Missing Information
                     </p>
                   </div>
-                ))}
+
+                  {/* Inputs */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 p-4">
+                    {/* License Plate */}
+                    <Input
+                      placeholder="License Plate (e.g., 30A-99999)"
+                      value={newInfo.licensePlate}
+                      onChange={(e) =>
+                        setNewInfo({ ...newInfo, licensePlate: e.target.value })
+                      }
+                      classNames={{
+                        inputWrapper:
+                          "bg-slate-900/40 backdrop-blur-sm placeholder-white/60 rounded-lg border border-white/10 transition-all !shadow-none !outline-none hover:border-green-400/60 focus-within:border-green-400/80 h-12",
+                        input:
+                          "text-white font-medium !outline-none placeholder:text-gray-400",
+                      }}
+                    />
+
+                    {/* Purchase Date */}
+                    <Input
+                      type="date"
+                      placeholder="Purchase Date"
+                      value={newInfo.purchaseDate}
+                      onChange={(e) =>
+                        setNewInfo({ ...newInfo, purchaseDate: e.target.value })
+                      }
+                      classNames={{
+                        inputWrapper:
+                          "bg-slate-900/40 backdrop-blur-sm placeholder-white/60 rounded-lg border border-white/10 transition-all !shadow-none !outline-none hover:border-green-400/60 focus-within:border-green-400/80 h-12",
+                        input:
+                          "text-white font-medium !outline-none placeholder:text-gray-400 [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:opacity-70",
+                      }}
+                    />
+
+                    {/* Owner */}
+                    <Input
+                      placeholder="Owner (e.g., Nguyen Van B)"
+                      value={newInfo.owner}
+                      onChange={(e) =>
+                        setNewInfo({ ...newInfo, owner: e.target.value })
+                      }
+                      classNames={{
+                        inputWrapper:
+                          "bg-slate-900/40 backdrop-blur-sm placeholder-white/60 rounded-lg border border-white/10 transition-all !shadow-none !outline-none hover:border-green-400/60 focus-within:border-green-400/80 h-12",
+                        input:
+                          "text-white font-medium !outline-none placeholder:text-gray-400",
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Error message */}
+                {formError && (
+                  <p className="text-red-400 text-center mt-2 font-medium">
+                    {formError}
+                  </p>
+                )}
               </div>
             )}
           </ModalBody>
 
           {/* Footer */}
           <div className="flex justify-end gap-4 pt-6 border-t border-white/10 mt-6">
-            <button
-              onClick={onOpenChange}
-              className="
-                px-6 py-2 rounded-lg
-                bg-gradient-to-br from-white/5 to-black/30
-                border border-white/20
-                text-gray-300
-                hover:border-blue-400/60
-                hover:shadow-[0_0_10px_rgba(59,130,246,0.25)]
-                transition-all
-              "
-            >
-              Cancel
-            </button>
-
-            {vehicle &&
-              !vehicle.licensePlate &&
-              !vehicle.purchaseDate &&
-              !vehicle.owner && (
+            {step === 1 ? (
+              <>
                 <button
-                  onClick={() => console.log("Next clicked")}
+                  onClick={onOpenChange}
                   className="
                     px-6 py-2 rounded-lg
-                    bg-gradient-to-br from-blue-400 to-blue-600
-                    text-white font-medium
-                    hover:from-blue-300 hover:to-blue-400
-                    hover:shadow-[0_0_15px_rgba(59,130,246,0.4)]
+                    bg-gradient-to-br from-white/5 to-black/30
+                    border border-white/20
+                    text-gray-300
+                    hover:border-blue-400/60
+                    hover:shadow-[0_0_10px_rgba(59,130,246,0.25)]
                     transition-all
                   "
                 >
-                  Next
+                  Cancel
                 </button>
-              )}
+
+                {vehicle &&
+                  !vehicle.licensePlate &&
+                  !vehicle.purchaseDate &&
+                  !vehicle.owner && (
+                    <button
+                      onClick={() => setStep(2)}
+                      className="
+                     px-6 py-2 rounded-lg
+                     bg-gradient-to-br from-green-400 to-green-600
+                     text-white font-medium
+                     hover:from-green-300 hover:to-green-400
+                     hover:shadow-[0_0_15px_rgba(34,197,94,0.4)]
+                     transition-all
+                      "
+                    >
+                      Next
+                    </button>
+                  )}
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => setStep(1)}
+                  className="
+                    px-6 py-2 rounded-lg
+                    bg-gradient-to-br from-white/5 to-black/30
+                    border border-white/20
+                    text-gray-300
+                    hover:border-blue-400/60
+                    hover:shadow-[0_0_10px_rgba(59,130,246,0.25)]
+                    transition-all
+                  "
+                >
+                  Back
+                </button>
+                <button
+                  onClick={handleSave}
+                  className="
+                    px-6 py-2 rounded-lg
+                    bg-gradient-to-br from-green-400 to-green-600
+                    text-white font-medium
+                    hover:from-green-300 hover:to-green-400
+                    hover:shadow-[0_0_15px_rgba(34,197,94,0.4)]
+                    transition-all
+                  "
+                >
+                  Save
+                </button>
+              </>
+            )}
           </div>
         </ModalContent>
       </Modal>
