@@ -97,46 +97,44 @@ export default function SearchInfor() {
   return (
     <>
       {/* Search bar */}
-      <div className="flex justify-center w-full mt-6">
-        <div className="flex-1 max-w-md">
-          <Input
-            value={value}
-            onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            placeholder="Search by VIN or Customer ID..."
-            startContent={
-              <Search
-                className="text-gray-400 w-5 h-5 ml-1 mr-2 cursor-pointer"
-                onClick={triggerSearch}
-              />
-            }
-            className="rounded-xl text-white"
-            classNames={{
-              inputWrapper: [
-                "bg-gradient-to-br from-white/5 to-black/20",
-                "backdrop-blur-xl",
-                "border",
-                "border-white/20",
-                "hover:border-blue-400/60",
-                "focus-within:!border-blue-400/80",
-                "shadow-sm",
-                "transition-all",
-                "hover:shadow-[0_0_12px_rgba(59,130,246,0.2)]",
-                "focus-within:shadow-[0_0_15px_rgba(59,130,246,0.3)]",
-                "!outline-none",
-                "!ring-0",
-                "h-12",
-                "rounded-xl",
-              ],
-              input: [
-                "text-white",
-                "placeholder:text-gray-400",
-                "pl-1",
-                "!outline-none",
-              ],
-            }}
-          />
-        </div>
+      <div className="w-full">
+        <Input
+          value={value}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          placeholder="Search by VIN or Customer ID..."
+          startContent={
+            <Search
+              className="text-gray-400 w-5 h-5 ml-1 mr-2 cursor-pointer"
+              onClick={triggerSearch}
+            />
+          }
+          className="rounded-xl text-white"
+          classNames={{
+            inputWrapper: [
+              "bg-gradient-to-br from-white/5 to-black/20",
+              "backdrop-blur-xl",
+              "border",
+              "border-white/20",
+              "hover:border-blue-400/60",
+              "focus-within:!border-blue-400/80",
+              "shadow-sm",
+              "transition-all",
+              "hover:shadow-[0_0_12px_rgba(59,130,246,0.2)]",
+              "focus-within:shadow-[0_0_15px_rgba(59,130,246,0.3)]",
+              "!outline-none",
+              "!ring-0",
+              "h-12",
+              "rounded-xl",
+            ],
+            input: [
+              "text-white",
+              "placeholder:text-gray-400",
+              "pl-1",
+              "!outline-none",
+            ],
+          }}
+        />
       </div>
 
       {/* Modal show result */}
