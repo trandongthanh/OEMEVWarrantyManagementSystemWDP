@@ -23,6 +23,7 @@ module.exports = (sequelize, DataTypes) => {
 
       sku: {
         type: DataTypes.STRING,
+        unique: true,
         allowNull: false,
         field: "sku",
       },
