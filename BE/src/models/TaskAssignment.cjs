@@ -15,9 +15,15 @@ module.exports = (sequelize, DataTypes) => {
         field: "technician_id",
       },
 
+      guaranteeCaseId: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        field: "guarantee_case_id",
+      },
+
       caseLineId: {
         type: DataTypes.UUID,
-        allowNull: false,
+        allowNull: true,
         field: "case_line_id",
       },
 
@@ -28,16 +34,16 @@ module.exports = (sequelize, DataTypes) => {
         field: "assigned_at",
       },
 
-      startedAt: {
-        type: DataTypes.DATE,
-        allowNull: true,
-        field: "started_at",
-      },
-
       completedAt: {
         type: DataTypes.DATE,
         allowNull: true,
         field: "completed_at",
+      },
+
+      taskType: {
+        type: DataTypes.ENUM("DIAGNOSIS", "REPAIR"),
+        allowNull: false,
+        field: "task_type",
       },
 
       isActive: {
@@ -60,6 +66,10 @@ module.exports = (sequelize, DataTypes) => {
     TaskAssignment.belongsTo(models.CaseLine, {
       foreignKey: "case_line_id",
       as: "caseLine",
+    });
+    TaskAssignment.belongsTo(models.GuaranteeCase, {
+      foreignKey: "guarantee_case_id",
+      as: "guaranteeCase",
     });
   };
 

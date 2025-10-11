@@ -1,4 +1,4 @@
-import db from "../../models/index.cjs";
+import db from "../models/index.cjs";
 
 const { ServiceCenter, VehicleCompany } = db;
 
@@ -19,6 +19,10 @@ class ServiceCenterRepository {
         },
       ],
     });
+
+    if (!company) {
+      return null;
+    }
 
     return company.toJSON();
   };

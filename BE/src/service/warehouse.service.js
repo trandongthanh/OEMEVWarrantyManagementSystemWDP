@@ -1,19 +1,35 @@
-import { BadRequestError } from "../error";
+import { BadRequestError } from "../error/index.js";
 
 class WarehouseService {
-  constructor({ warehouseRepository }) {
-    this.warehouseRepository = warehouseRepository;
+  constructor({ wareHouseRepository }) {
+    this.wareHouseRepository = wareHouseRepository;
   }
 
-  getQuantityTypeComponentInStock = async ({
+  searchCompatibleComponentsInStock = async ({
     serviceCenterId,
-    vehicleProcessingRecordId,
+    searchName,
+    category,
+    modelId,
   }) => {
-    if (!serviceCenterId || !typeComponentId || !vehicleProcessingRecordId) {
+    if (!serviceCenterId || !category || !modelId) {
       throw new BadRequestError(
-        "serviceCenterId, typeComponentId, vehicleProcessingRecordId is required"
+        "serviceCenterId, category, vehicleProcessingRecordId, modelId is required"
       );
     }
+
+    if (!searchName) {
+      searchName = "";
+    }
+
+    const components =
+      await this.wareHouseRepository.searchCompatibleComponentsInStock({
+        serviceCenterId: serviceCenterId,
+        searchName: searchName,
+        category: category,
+        modelId: modelId,
+      });
+
+    return components;
   };
 }
 
