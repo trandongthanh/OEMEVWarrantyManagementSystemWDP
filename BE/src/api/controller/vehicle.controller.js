@@ -1,4 +1,4 @@
-import { BadRequestError } from "../error/index.js";
+import { BadRequestError } from "../../error/index.js";
 
 class VehicleController {
   constructor({ vehicleService, serviceCenterService, customerService }) {
@@ -8,7 +8,7 @@ class VehicleController {
   }
 
   findVehicleByVin = async (req, res, next) => {
-    const { vin } = req.query;
+    const { vin } = req.params;
 
     const { companyId } = req;
 
@@ -66,22 +66,15 @@ class VehicleController {
   findVehicleByVinWithWarranty = async (req, res, next) => {
     const { vin } = req.params;
 
-    const { serviceCenterId } = req.user;
+    const { companyId } = req;
 
-    const { odometer } = req.body;
-
-    const company =
-      await this.serviceCenterService.findCompanyWithServiceCenterId({
-        serviceCenterId: serviceCenterId,
-      });
-
-    const vehicleCompanyId = company.vehicle_company_id;
+    const { odometer } = req.query;
 
     const existingVehicle =
       await this.vehicleService.findVehicleByVinWithWarranty({
         vin: vin,
-        companyId: vehicleCompanyId,
-        odermeodometerter: odometer,
+        companyId: companyId,
+        odometer: odometer,
       });
 
     if (!existingVehicle) {
@@ -94,7 +87,37 @@ class VehicleController {
     res.status(200).json({
       status: "success",
       data: {
-        result: existingVehicle,
+        vehicle: existingVehicle,
+      },
+    });
+  };
+
+  findVehicleByVinWithWarrantyPreview = async (req, res, next) => {
+    const { vin } = req.params;
+
+    const { companyId } = req;
+
+    const { odometer, purchaseDate } = req.body;
+
+    const vehicle =
+      await this.vehicleService.findVehicleByVinWithWarrantyPreview({
+        vin: vin,
+        companyId: companyId,
+        odometer: odometer,
+        purchaseDate: purchaseDate,
+      });
+
+    if (!vehicle) {
+      return res.status(404).json({
+        status: "success",
+        message: `Cannot find vehicle with this VIN: ${vin}`,
+      });
+    }
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        vehicle: vehicle,
       },
     });
   };
