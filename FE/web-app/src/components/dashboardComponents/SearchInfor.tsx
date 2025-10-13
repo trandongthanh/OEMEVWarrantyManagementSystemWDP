@@ -184,16 +184,17 @@ export default function SearchInfor() {
       >
         <ModalContent
           className="
-            bg-gradient-to-br from-white/10 to-black/40
-            backdrop-blur-2xl
-            text-white
-            p-8
-            rounded-2xl
-            border border-white/20
-            shadow-[0_8px_32px_rgba(0,0,0,0.4)]
-          "
+      bg-gradient-to-br from-white/80 to-blue-100/60
+      backdrop-blur-3xl
+      text-gray-800
+      p-8
+      rounded-2xl
+      border border-blue-200/50
+      shadow-[0_8px_40px_rgba(59,130,246,0.2)]
+      transition-all
+    "
         >
-          <ModalHeader className="text-3xl font-bold border-b border-white/10 pb-4 text-center">
+          <ModalHeader className="text-3xl font-bold border-b border-blue-200/50 pb-4 text-center text-blue-700">
             {step === 1 ? "Vehicle Information" : "Enter Missing Information"}
           </ModalHeader>
 
@@ -202,7 +203,7 @@ export default function SearchInfor() {
             {step === 1 && (
               <>
                 {error ? (
-                  <p className="text-center text-red-400 font-medium">
+                  <p className="text-center text-red-500 font-medium">
                     {error}
                   </p>
                 ) : (
@@ -220,17 +221,19 @@ export default function SearchInfor() {
                       <div
                         key={i}
                         className="
-                          bg-gradient-to-br from-white/5 to-black/20
-                          border border-white/10
-                          backdrop-blur-xl
-                          p-5 rounded-xl
-                          hover:border-blue-400/50
-                          hover:shadow-[0_0_12px_rgba(59,130,246,0.3)]
-                          transition-all duration-200
-                        "
+                    bg-white/60
+                    border border-blue-200/50
+                    backdrop-blur-xl
+                    p-5 rounded-xl
+                    hover:border-blue-400
+                    hover:shadow-[0_0_16px_rgba(59,130,246,0.25)]
+                    transition-all duration-200
+                  "
                       >
-                        <p className="text-gray-400 text-sm">{label}</p>
-                        <p className="font-semibold text-lg break-all text-white">
+                        <p className="text-gray-500 text-sm font-medium">
+                          {label}
+                        </p>
+                        <p className="font-semibold text-lg break-all text-blue-900">
                           {value ?? "—"}
                         </p>
                       </div>
@@ -243,11 +246,10 @@ export default function SearchInfor() {
             {/* STEP 2 */}
             {step === 2 && (
               <div className="space-y-6">
-                {/* Vehicle Information Section */}
-                <div className="bg-slate-800/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-lg overflow-visible">
+                <div className="bg-white/70 backdrop-blur-xl border border-blue-200/50 rounded-2xl shadow-md overflow-visible">
                   {/* Header */}
-                  <div className="bg-green-500/20 px-4 py-2 rounded-t-2xl border-b border-white/5">
-                    <p className="font-semibold text-green-300 text-lg">
+                  <div className="bg-gradient-to-r from-blue-100 to-blue-200 px-4 py-2 rounded-t-2xl border-b border-blue-200/50">
+                    <p className="font-semibold text-blue-700 text-lg">
                       Missing Information
                     </p>
                   </div>
@@ -262,10 +264,18 @@ export default function SearchInfor() {
                         setNewInfo({ ...newInfo, licensePlate: e.target.value })
                       }
                       classNames={{
-                        inputWrapper:
-                          "bg-slate-900/40 backdrop-blur-sm placeholder-white/60 rounded-lg border border-white/10 transition-all !shadow-none !outline-none hover:border-green-400/60 focus-within:border-green-400/80 h-12",
-                        input:
-                          "text-white font-medium !outline-none placeholder:text-gray-400",
+                        inputWrapper: `
+              bg-white/60 backdrop-blur-md rounded-lg border-none
+              shadow-inner transition-all duration-200
+              hover:shadow-[0_0_8px_rgba(59,130,246,0.25)]
+              focus-within:shadow-[0_0_10px_rgba(59,130,246,0.4)]
+              h-12
+              !outline-none !ring-0
+            `,
+                        input: `
+              text-gray-800 font-medium placeholder:text-gray-400
+              !outline-none !ring-0 focus:!outline-none focus:!ring-0
+            `,
                       }}
                     />
 
@@ -278,10 +288,19 @@ export default function SearchInfor() {
                         setNewInfo({ ...newInfo, purchaseDate: e.target.value })
                       }
                       classNames={{
-                        inputWrapper:
-                          "bg-slate-900/40 backdrop-blur-sm placeholder-white/60 rounded-lg border border-white/10 transition-all !shadow-none !outline-none hover:border-green-400/60 focus-within:border-green-400/80 h-12",
-                        input:
-                          "text-white font-medium !outline-none placeholder:text-gray-400 [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:opacity-70",
+                        inputWrapper: `
+              bg-white/60 backdrop-blur-md rounded-lg border-none
+              shadow-inner transition-all duration-200
+              hover:shadow-[0_0_8px_rgba(59,130,246,0.25)]
+              focus-within:shadow-[0_0_10px_rgba(59,130,246,0.4)]
+              h-12
+              !outline-none !ring-0
+            `,
+                        input: `
+              text-gray-800 font-medium placeholder:text-gray-400
+              [&::-webkit-calendar-picker-indicator]:opacity-80
+              !outline-none !ring-0 focus:!outline-none focus:!ring-0
+            `,
                       }}
                     />
 
@@ -293,18 +312,25 @@ export default function SearchInfor() {
                         setNewInfo({ ...newInfo, owner: e.target.value })
                       }
                       classNames={{
-                        inputWrapper:
-                          "bg-slate-900/40 backdrop-blur-sm placeholder-white/60 rounded-lg border border-white/10 transition-all !shadow-none !outline-none hover:border-green-400/60 focus-within:border-green-400/80 h-12",
-                        input:
-                          "text-white font-medium !outline-none placeholder:text-gray-400",
+                        inputWrapper: `
+              bg-white/60 backdrop-blur-md rounded-lg border-none
+              shadow-inner transition-all duration-200
+              hover:shadow-[0_0_8px_rgba(59,130,246,0.25)]
+              focus-within:shadow-[0_0_10px_rgba(59,130,246,0.4)]
+              h-12
+              !outline-none !ring-0
+            `,
+                        input: `
+              text-gray-800 font-medium placeholder:text-gray-400
+              !outline-none !ring-0 focus:!outline-none focus:!ring-0
+            `,
                       }}
                     />
                   </div>
                 </div>
 
-                {/* Error message */}
                 {formError && (
-                  <p className="text-red-400 text-center mt-2 font-medium">
+                  <p className="text-red-500 text-center mt-2 font-medium">
                     {formError}
                   </p>
                 )}
@@ -312,39 +338,40 @@ export default function SearchInfor() {
             )}
           </ModalBody>
 
-          {/* Footer */}
-          <div className="flex justify-end gap-4 pt-6 border-t border-white/10 mt-6">
+          {/* FOOTER */}
+          <div className="flex justify-end gap-4 pt-6 border-t border-blue-200/50 mt-6">
             {step === 1 ? (
               <>
                 <button
                   onClick={onOpenChange}
                   className="
-                    px-6 py-2 rounded-lg
-                    bg-gradient-to-br from-white/5 to-black/30
-                    border border-white/20
-                    text-gray-300
-                    hover:border-blue-400/60
-                    hover:shadow-[0_0_10px_rgba(59,130,246,0.25)]
-                    transition-all
-                  "
+              px-6 py-2 rounded-lg
+              bg-white/60
+              border border-blue-200/60
+              text-blue-700 font-medium
+              hover:bg-blue-50
+              hover:border-blue-400
+              hover:shadow-[0_0_10px_rgba(59,130,246,0.2)]
+              transition-all
+            "
                 >
                   Cancel
                 </button>
 
                 {vehicle &&
-                  !vehicle.licensePlate &&
-                  !vehicle.purchaseDate &&
-                  !vehicle.owner && (
+                  (!vehicle.licensePlate ||
+                    !vehicle.purchaseDate ||
+                    !vehicle.owner) && (
                     <button
                       onClick={() => setStep(2)}
                       className="
-                     px-6 py-2 rounded-lg
-                     bg-gradient-to-br from-green-400 to-green-600
-                     text-white font-medium
-                     hover:from-green-300 hover:to-green-400
-                     hover:shadow-[0_0_15px_rgba(34,197,94,0.4)]
-                     transition-all
-                      "
+                  px-6 py-2 rounded-lg
+                  bg-gradient-to-br from-blue-500 to-blue-600
+                  text-white font-medium
+                  hover:from-blue-400 hover:to-blue-500
+                  hover:shadow-[0_0_15px_rgba(59,130,246,0.4)]
+                  transition-all
+                "
                     >
                       Next
                     </button>
@@ -355,27 +382,28 @@ export default function SearchInfor() {
                 <button
                   onClick={() => setStep(1)}
                   className="
-                    px-6 py-2 rounded-lg
-                    bg-gradient-to-br from-white/5 to-black/30
-                    border border-white/20
-                    text-gray-300
-                    hover:border-blue-400/60
-                    hover:shadow-[0_0_10px_rgba(59,130,246,0.25)]
-                    transition-all
-                  "
+              px-6 py-2 rounded-lg
+              bg-white/60
+              border border-blue-200/60
+              text-blue-700 font-medium
+              hover:bg-blue-50
+              hover:border-blue-400
+              hover:shadow-[0_0_10px_rgba(59,130,246,0.2)]
+              transition-all
+            "
                 >
                   Back
                 </button>
                 <button
                   onClick={handleSave}
                   className="
-                    px-6 py-2 rounded-lg
-                    bg-gradient-to-br from-green-400 to-green-600
-                    text-white font-medium
-                    hover:from-green-300 hover:to-green-400
-                    hover:shadow-[0_0_15px_rgba(34,197,94,0.4)]
-                    transition-all
-                  "
+              px-6 py-2 rounded-lg
+              bg-gradient-to-br from-green-400 to-green-500
+              text-white font-medium
+              hover:from-green-300 hover:to-green-400
+              hover:shadow-[0_0_15px_rgba(34,197,94,0.4)]
+              transition-all
+            "
                 >
                   Save
                 </button>
