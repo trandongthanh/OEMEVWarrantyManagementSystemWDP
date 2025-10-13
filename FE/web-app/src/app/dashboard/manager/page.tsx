@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import DashboardHeader from "@/components/dashboardComponents/DashboardHeader";
 import Beams from "@/components/Beams";
 import { Users, TrendingUp, FileBarChart } from "lucide-react";
+import LogoutDock from "@/components/dashboardComponents/LogoutDock";
 
 export default function ManagerDashboard() {
   return (
@@ -107,6 +108,15 @@ export default function ManagerDashboard() {
           </motion.div>
         </div>
       </main>
+
+      {/* Logout Dock */}
+      <motion.div
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.5 }}
+      >
+        <LogoutDock />
+      </motion.div>
     </div>
   );
 }

@@ -1,6 +1,4 @@
-const { DataTypes } = require("sequelize");
-
-module.exports = (sequelize) => {
+module.exports = (sequelize, DataTypes) => {
   const CaseLine = sequelize.define("CaseLine", {
     id: {
       type: DataTypes.UUID,
@@ -79,9 +77,14 @@ module.exports = (sequelize) => {
       as: "typeComponent",
     });
 
-    CaseLine.hasMany(models.TaskAssignment, {
+    // CaseLine.hasMany(models.TaskAssignment, {
+    //   foreignKey: "case_line_id",
+    //   as: "assignments",
+    // });
+
+    CaseLine.hasMany(models.ComponentReservation, {
       foreignKey: "case_line_id",
-      as: "assignments",
+      as: "reservations",
     });
   };
 

@@ -18,7 +18,7 @@ import type {
 
 /**
  * Find vehicle by VIN
- * GET /vehicle?vin={vin}
+ * GET /vehicles/{vin}
  *
  * @param vin - Vehicle Identification Number
  * @returns Vehicle information with owner and model details
@@ -27,9 +27,7 @@ export const findVehicleByVin = async (
   vin: string
 ): Promise<VehicleResponse> => {
   try {
-    const response = await apiClient.get(`/vehicle`, {
-      params: { vin },
-    });
+    const response = await apiClient.get(`/vehicles/${vin}`);
 
     return response.data;
   } catch (error: any) {
@@ -40,7 +38,7 @@ export const findVehicleByVin = async (
 
 /**
  * Check vehicle warranty status
- * GET /vehicle/{vin}
+ * GET /vehicles/{vin}/warranty
  *
  * Checks warranty eligibility based on:
  * - Purchase date and warranty duration
@@ -56,8 +54,8 @@ export const checkVehicleWarranty = async (
   odometer: number
 ): Promise<VehicleWarrantyCheckResponse> => {
   try {
-    const response = await apiClient.get(`/vehicle/${vin}`, {
-      data: { odometer }, // Backend uses req.body for GET with data
+    const response = await apiClient.get(`/vehicles/${vin}/warranty`, {
+      params: { odometer },
     });
 
     return response.data;
@@ -69,7 +67,7 @@ export const checkVehicleWarranty = async (
 
 /**
  * Register owner for vehicle
- * PATCH /vehicle/{vin}
+ * PATCH /vehicles/{vin}
  *
  * Registers a customer as the owner of a vehicle.
  * Can either use existing customer ID or create new customer.
@@ -83,7 +81,7 @@ export const registerVehicleOwner = async (
   data: RegisterOwnerRequest
 ): Promise<RegisterOwnerResponse> => {
   try {
-    const response = await apiClient.patch(`/vehicle/${vin}`, data);
+    const response = await apiClient.patch(`/vehicles/${vin}`, data);
 
     return response.data;
   } catch (error: any) {

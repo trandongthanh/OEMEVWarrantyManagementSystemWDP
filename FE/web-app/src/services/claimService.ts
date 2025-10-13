@@ -18,7 +18,7 @@ import type {
 
 /**
  * Create a new warranty claim (Vehicle Processing Record)
- * POST /vehicleProcessingRecord
+ * POST /processing-records
  *
  * Creates a vehicle processing record with guarantee cases.
  *
@@ -27,11 +27,11 @@ import type {
  *   odometer: number,
  *   guaranteeCases: [
  *     { contentGuarantee: string }
- *   ]
+ *   ],
+ *   vin: string
  * }
  *
  * The backend automatically:
- * - Extracts VIN from route params
  * - Gets createdByStaffId from authenticated user
  * - Validates vehicle and owner existence
  * - Checks for existing active records
@@ -45,8 +45,9 @@ export const createClaim = async (
   data: CreateClaimRequest
 ): Promise<CreateClaimResponse> => {
   try {
-    // Backend expects vin in req.params, so we use URL path parameter
-    const response = await apiClient.post(`/vehicleProcessingRecord/${vin}`, data);
+    // Backend expects vin in req.body
+    const payload = { ...data, vin };
+    const response = await apiClient.post(`/processing-records`, payload);
 
     return response.data;
   } catch (error: unknown) {
@@ -57,7 +58,7 @@ export const createClaim = async (
 
 /**
  * Assign main technician to a claim
- * PATCH /vehicleProcessingRecord/:id/assign-technician
+ * PATCH /processing-records/{id}/assignment
  *
  * @param vehicleProcessingRecordId - Record ID
  * @param technicianId - Technician user ID
@@ -68,7 +69,7 @@ export const assignTechnician = async (
 ): Promise<AssignTechnicianResponse> => {
   try {
     const response = await apiClient.patch(
-      `/vehicleProcessingRecord/${data.vehicleProcessingRecordId}/assign-technician`,
+      `/processing-records/${data.vehicleProcessingRecordId}/assignment`,
       { technicianId: data.technicianId }
     );
 
@@ -81,7 +82,7 @@ export const assignTechnician = async (
 
 /**
  * Get claim details by ID
- * GET /vehicleProcessingRecord/:id
+ * GET /processing-records/{id}
  *
  * @param id - Vehicle processing record ID
  * @returns Detailed claim information
@@ -90,7 +91,7 @@ export const getClaimDetails = async (
   id: string
 ): Promise<ClaimDetailsResponse> => {
   try {
-    const response = await apiClient.get(`/vehicleProcessingRecord/${id}`);
+    const response = await apiClient.get(`/processing-records/${id}`);
 
     return response.data;
   } catch (error: any) {
