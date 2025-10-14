@@ -5,3 +5,23 @@ export type {
   LoginResponse,
   DecodedToken,
 } from "./authService";
+
+export { default as userService } from "./userService";
+export type { User, CreateUserData, Technician } from "./userService";
+
+export { default as warehouseService } from "./warehouseService";
+export type {
+  Warehouse,
+  Stock,
+  WarehouseQueryParams,
+} from "./warehouseService";
+
+export { default as taskService } from "./taskService";
+export type {
+  TaskAssignment,
+  CaseLine,
+  CreateCaseLineData,
+} from "./taskService";
+
+export { default as customerService } from "./customerService";
+export type { Customer } from "./customerService";
