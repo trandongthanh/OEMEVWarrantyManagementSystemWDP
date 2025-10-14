@@ -5,7 +5,7 @@ import { configDotenv } from "dotenv";
 // import { initializeScheduleGeneration } from "./src/scheduler/scheduleGenerator.js";
 configDotenv();
 
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 8000;
 const server = http.createServer(app);
 
 db.sequelize

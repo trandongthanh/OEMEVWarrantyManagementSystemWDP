@@ -10,17 +10,14 @@ import {
   ArrowRight,
   X,
   Shield,
+  Gauge,
   FileText,
-  Users,
-  Camera,
   Eye,
 } from "lucide-react";
-import { WarrantyValidationStep } from "./claimSteps/WarrantyValidationStep";
-import { IssueDescriptionStep } from "./claimSteps/IssueDescriptionStep";
-import { GuaranteeCaseStep } from "./claimSteps/GuaranteeCaseStep";
-import { TechnicianAssignmentStep } from "./claimSteps/TechnicianAssignmentStep";
-import { InitialDocumentationStep } from "./claimSteps/InitialDocumentationStep";
-import { ReviewCreateStep } from "./claimSteps/ReviewCreateStep";
+import { VehicleValidationStep } from "./claimSteps/VehicleValidationStep";
+import { OdometerStep } from "./claimSteps/OdometerStep";
+import { WarrantyIssuesStep } from "./claimSteps/WarrantyIssuesStep";
+import { ReviewSubmitStep } from "./claimSteps/ReviewSubmitStep";
 import type { ClaimData } from "./claimSteps/types";
 
 interface NewClaimModalProps {
@@ -28,41 +25,38 @@ interface NewClaimModalProps {
   onClose: () => void;
 }
 
+/**
+ * 4-Step Warranty Claim Process
+ *
+ * Aligned with backend requirements:
+ * 1. Vehicle Validation - GET /vehicle?vin={vin}
+ * 2. Odometer Reading - GET /vehicle/{vin} with odometer
+ * 3. Warranty Issues - Collect guarantee cases
+ * 4. Review & Submit - POST /vehicleProcessingRecord
+ */
 const STEPS = [
   {
     id: 1,
-    title: "Vehicle Check",
-    subtitle: "Verify warranty status",
+    title: "Vehicle Verification",
+    subtitle: "Verify vehicle & owner",
     icon: Shield,
   },
   {
     id: 2,
-    title: "Issue Details",
-    subtitle: "Describe the problem",
-    icon: FileText,
+    title: "Odometer Reading",
+    subtitle: "Check warranty status",
+    icon: Gauge,
   },
   {
     id: 3,
-    title: "Warranty Case",
-    subtitle: "Select warranty type & parts",
-    icon: Shield,
+    title: "Warranty Issues",
+    subtitle: "Describe problems",
+    icon: FileText,
   },
   {
     id: 4,
-    title: "Expert Team",
-    subtitle: "Assign technicians",
-    icon: Users,
-  },
-  {
-    id: 5,
-    title: "Documentation",
-    subtitle: "Upload files & notes",
-    icon: Camera,
-  },
-  {
-    id: 6,
-    title: "Final Review",
-    subtitle: "Create warranty claim",
+    title: "Review & Submit",
+    subtitle: "Finalize claim",
     icon: Eye,
   },
 ];
@@ -70,10 +64,9 @@ const STEPS = [
 export default function NewClaimModal({ isOpen, onClose }: NewClaimModalProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [claimData, setClaimData] = useState<ClaimData>({});
-  const [isLoading, setIsLoading] = useState(false);
 
   const handleNext = async () => {
-    if (currentStep < 6) {
+    if (currentStep < 4 && canProceed()) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -94,42 +87,43 @@ export default function NewClaimModal({ isOpen, onClose }: NewClaimModalProps) {
     onClose();
   };
 
+  // Keyboard shortcuts
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Only handle if not in an input/textarea
+    const target = e.target as HTMLElement;
+    const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+    
+    if (!isInput) {
+      if (e.key === 'ArrowRight' && currentStep < 4 && canProceed()) {
+        e.preventDefault();
+        handleNext();
+      } else if (e.key === 'ArrowLeft' && currentStep > 1) {
+        e.preventDefault();
+        handlePrevious();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        handleClose();
+      }
+    }
+  };
+
   const renderStepContent = () => {
     switch (currentStep) {
       case 1:
         return (
-          <WarrantyValidationStep
+          <VehicleValidationStep
             data={claimData}
             onDataChange={handleStepData}
           />
         );
       case 2:
-        return (
-          <IssueDescriptionStep
-            data={claimData}
-            onDataChange={handleStepData}
-          />
-        );
+        return <OdometerStep data={claimData} onDataChange={handleStepData} />;
       case 3:
         return (
-          <GuaranteeCaseStep data={claimData} onDataChange={handleStepData} />
+          <WarrantyIssuesStep data={claimData} onDataChange={handleStepData} />
         );
       case 4:
-        return (
-          <TechnicianAssignmentStep
-            data={claimData}
-            onDataChange={handleStepData}
-          />
-        );
-      case 5:
-        return (
-          <InitialDocumentationStep
-            data={claimData}
-            onDataChange={handleStepData}
-          />
-        );
-      case 6:
-        return <ReviewCreateStep data={claimData} onClose={handleClose} />;
+        return <ReviewSubmitStep data={claimData} onClose={handleClose} />;
       default:
         return null;
     }
@@ -138,20 +132,22 @@ export default function NewClaimModal({ isOpen, onClose }: NewClaimModalProps) {
   const canProceed = () => {
     switch (currentStep) {
       case 1:
-        return claimData.vehicleInfo?.vin;
+        // Step 1: Vehicle must be validated
+        return claimData.vehicleInfo?.vin && claimData.vehicleInfo?.owner;
       case 2:
-        return claimData.issueType && claimData.description;
+        // Step 2: Odometer must be checked and warranty validated
+        return claimData.odometer !== undefined && claimData.warrantyCheck;
       case 3:
+        // Step 3: At least one guarantee case with content
         return (
-          claimData.warrantyType &&
-          claimData.reportAssignee &&
-          claimData.odometerReading
+          claimData.guaranteeCases &&
+          claimData.guaranteeCases.length > 0 &&
+          claimData.guaranteeCases.every(
+            (c) => c.contentGuarantee.trim().length > 0
+          )
         );
       case 4:
-        return claimData.technician;
-      case 5:
-        return true; // Documentation is optional
-      case 6:
+        // Step 4: Final review (submission handled in component)
         return true;
       default:
         return false;
@@ -197,8 +193,11 @@ export default function NewClaimModal({ isOpen, onClose }: NewClaimModalProps) {
         },
       }}
     >
-      <ModalContent className="max-h-[95vh] overflow-hidden w-full max-w-[98vw] md:max-w-6xl">
-        <div className="flex h-full min-h-[450px] md:min-h-[500px]">
+      <ModalContent 
+        className="max-h-[96vh] overflow-hidden w-full max-w-[98vw] md:max-w-6xl"
+        onKeyDown={handleKeyDown}
+      >
+        <div className="flex h-full min-h-[600px] md:min-h-[680px]">
           {/* Left Sidebar - Vertical Progress */}
           <div className="w-60 md:w-64 bg-gray-900 border-r-2 border-gray-700 p-4 md:p-6 flex flex-col justify-between">
             <div>
@@ -321,7 +320,18 @@ export default function NewClaimModal({ isOpen, onClose }: NewClaimModalProps) {
                     <span>Our system will recommend the best technician</span>
                   </p>
                 </div>
-                <div className="text-xs text-gray-500">
+                <div className="mt-3 pt-3 border-t border-gray-800 space-y-1 text-xs text-gray-500">
+                  <p className="flex items-center gap-2">
+                    <kbd className="px-1.5 py-0.5 bg-gray-800 rounded text-gray-400 font-mono text-[10px]">ESC</kbd>
+                    <span>Close modal</span>
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <kbd className="px-1.5 py-0.5 bg-gray-800 rounded text-gray-400 font-mono text-[10px]">←</kbd>
+                    <kbd className="px-1.5 py-0.5 bg-gray-800 rounded text-gray-400 font-mono text-[10px]">→</kbd>
+                    <span>Navigate steps</span>
+                  </p>
+                </div>
+                <div className="text-xs text-gray-500 pt-2">
                   <span className="inline-flex items-center gap-1">
                     <span className="w-1 h-1 bg-green-400 rounded-full animate-pulse"></span>
                     Live support available 24/7
@@ -370,7 +380,7 @@ export default function NewClaimModal({ isOpen, onClose }: NewClaimModalProps) {
             </div>
 
             {/* Content */}
-            <div className="flex-1 p-4 overflow-y-auto">
+            <div className="flex-1 p-6 md:p-8 overflow-y-auto custom-scrollbar">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={currentStep}
@@ -386,45 +396,36 @@ export default function NewClaimModal({ isOpen, onClose }: NewClaimModalProps) {
             </div>
 
             {/* Navigation Footer */}
-            <div className="p-4 border-t-2 border-gray-700 bg-gray-900">
-              <div className="flex justify-between items-center">
+            <div className="p-5 md:p-6 border-t-2 border-gray-700 bg-gray-900">
+              <div className="flex justify-between items-center gap-4">
                 <Button
                   variant="bordered"
                   onPress={currentStep === 1 ? handleClose : handlePrevious}
                   size="lg"
-                  className="border-2 border-gray-600 text-gray-300 hover:text-white hover:border-gray-400 px-8 py-3 font-medium transition-all duration-300 rounded-xl"
+                  className="border-2 border-gray-600 text-gray-300 hover:text-white hover:border-gray-400 hover:bg-gray-800 px-6 md:px-8 py-3 font-medium transition-all duration-300 rounded-xl"
                   startContent={<ArrowLeft className="w-4 h-4" />}
                 >
-                  {currentStep === 1 ? "Cancel" : "Previous Step"}
+                  {currentStep === 1 ? "Cancel" : "Back"}
                 </Button>
 
-                {currentStep < 6 ? (
+                {currentStep < 4 ? (
                   <Button
                     onPress={handleNext}
                     isDisabled={!canProceed()}
                     size="lg"
-                    className="bg-gradient-to-r from-gray-200 to-gray-300 text-gray-900 hover:from-gray-300 hover:to-gray-400 px-8 py-3 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-lg rounded-xl"
+                    className="bg-gradient-to-r from-gray-200 to-gray-300 text-gray-900 hover:from-gray-300 hover:to-gray-400 px-6 md:px-10 py-3 font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl rounded-xl"
                     endContent={<ArrowRight className="w-4 h-4" />}
                   >
-                    Continue to Next Step
+                    {currentStep === 3 ? "Review Claim" : "Next Step"}
                   </Button>
                 ) : (
-                  <Button
-                    onPress={() => {
-                      // Handle final submission
-                      setIsLoading(true);
-                      setTimeout(() => {
-                        setIsLoading(false);
-                        handleClose();
-                      }, 2000);
-                    }}
-                    isLoading={isLoading}
-                    size="lg"
-                    className="bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 px-6 py-3 font-semibold shadow-lg transition-all duration-200"
-                    endContent={<CheckCircle2 className="w-4 h-4" />}
-                  >
-                    Create Warranty Claim
-                  </Button>
+                  <div className="text-gray-400 text-sm italic flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-gray-500" />
+                    <span className="hidden md:inline">
+                      Review information and submit claim above
+                    </span>
+                    <span className="md:hidden">Submit above</span>
+                  </div>
                 )}
               </div>
             </div>
