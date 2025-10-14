@@ -62,7 +62,7 @@ class GuaranteeCaseRepository {
       guaranteeCaseId,
       {
         transaction: option,
-        attributes: ["leadTechId"],
+        attributes: ["leadTechId", "status"],
         include: [
           {
             model: VehicleProcessingRecord,
@@ -78,6 +78,46 @@ class GuaranteeCaseRepository {
             ],
           },
         ],
+      }
+    );
+
+    if (!existingGuaranteeCase) {
+      return null;
+    }
+
+    return existingGuaranteeCase.toJSON();
+  };
+
+  updateStatus = async ({ guaranteeCaseId, status }, option = null) => {
+    const rowEffect = await GuaranteeCase.update(
+      { status },
+      {
+        where: { guaranteeCaseId: guaranteeCaseId },
+        returning: true,
+        transaction: option,
+      }
+    );
+
+    if (rowEffect <= 0) {
+      return null;
+    }
+
+    const updatedGuaranteeCase = await GuaranteeCase.findByPk(guaranteeCaseId, {
+      transaction: option,
+    });
+
+    if (!updatedGuaranteeCase) {
+      return null;
+    }
+
+    return updatedGuaranteeCase.toJSON();
+  };
+
+  findById = async ({ guaranteeCaseId }, option = null) => {
+    const existingGuaranteeCase = await GuaranteeCase.findByPk(
+      guaranteeCaseId,
+      {
+        transaction: option,
       }
     );
 
