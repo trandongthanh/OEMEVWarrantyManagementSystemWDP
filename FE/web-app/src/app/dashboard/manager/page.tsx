@@ -1,44 +1,39 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
-  Search,
-  Bell,
-  Mail,
   Home,
-  CreditCard,
   Users,
+  ClipboardList,
   BarChart3,
-  Clock,
-  Send,
-  TrendingUp,
+  Calendar,
   Settings as SettingsIcon,
-  UserCheck,
-  Menu,
-  X,
+  FileText,
+  TrendingUp,
+  Activity,
+  CheckCircle,
+  AlertCircle,
+  XCircle,
 } from "lucide-react";
+import { authService, userService, Technician } from "@/services";
 import {
-  authService,
-  userService,
-  customerService,
-  Technician,
-  Customer,
-} from "@/services";
+  Sidebar,
+  DashboardHeader,
+  PlaceholderContent,
+} from "@/components/dashboard";
 
-interface User {
+interface CurrentUser {
   userId: string;
   roleName: string;
 }
 
 export default function ManagerDashboard() {
   const [activeNav, setActiveNav] = useState("dashboard");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [searchResult, setSearchResult] = useState<Customer | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
 
   useEffect(() => {
     const user = authService.getCurrentUser();
@@ -54,6 +49,15 @@ export default function ManagerDashboard() {
       console.error("Error fetching data:", error);
     }
   };
+
+  const navItems = [
+    { id: "dashboard", icon: Home, label: "Dashboard" },
+    { id: "team", icon: Users, label: "Team" },
+    { id: "tasks", icon: ClipboardList, label: "Tasks" },
+    { id: "analytics", icon: BarChart3, label: "Analytics" },
+    { id: "schedule", icon: Calendar, label: "Schedule" },
+    { id: "settings", icon: SettingsIcon, label: "Settings" },
+  ];
 
   const workingCount = technicians.filter(
     (t) => t.workSchedule?.status === "WORKING"
@@ -74,623 +78,278 @@ export default function ManagerDashboard() {
   const avgWorkload =
     technicians.length > 0 ? totalWorkload / technicians.length : 0;
 
-  const handleSearch = async (query: string) => {
-    setSearchQuery(query);
+  const renderContent = () => {
+    switch (activeNav) {
+      case "dashboard":
+        return (
+          <div className="flex-1 overflow-auto">
+            <div className="p-8">
+              <div className="grid grid-cols-12 gap-6">
+                {/* Main Content - 8 cols */}
+                <div className="col-span-8 space-y-6">
+                  {/* Team Performance */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white rounded-2xl border border-gray-200 p-6"
+                  >
+                    <div className="flex items-center justify-between mb-6">
+                      <div>
+                        <h2 className="text-xl font-bold text-gray-900">
+                          Team Performance
+                        </h2>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Current workforce status
+                        </p>
+                      </div>
+                      <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                        <Users className="w-6 h-6 text-purple-600" />
+                      </div>
+                    </div>
 
-    if (!query.trim()) {
-      setSearchResult(null);
-      return;
-    }
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="p-4 bg-green-50 rounded-xl border border-green-200">
+                        <div className="flex items-center gap-2 mb-2">
+                          <CheckCircle className="w-5 h-5 text-green-600" />
+                          <p className="text-sm font-medium text-green-900">
+                            Working
+                          </p>
+                        </div>
+                        <p className="text-3xl font-bold text-green-600">
+                          {workingCount}
+                        </p>
+                      </div>
 
-    // Check if query looks like email or phone
-    const isEmail = query.includes("@");
-    const isPhone = /^\d+$/.test(query);
+                      <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                        <div className="flex items-center gap-2 mb-2">
+                          <XCircle className="w-5 h-5 text-gray-600" />
+                          <p className="text-sm font-medium text-gray-900">
+                            Day Off
+                          </p>
+                        </div>
+                        <p className="text-3xl font-bold text-gray-600">
+                          {dayOffCount}
+                        </p>
+                      </div>
 
-    if (isEmail || isPhone) {
-      setIsSearching(true);
-      try {
-        const result = await customerService.searchCustomer(
-          isEmail ? { email: query } : { phone: query }
+                      <div className="p-4 bg-yellow-50 rounded-xl border border-yellow-200">
+                        <div className="flex items-center gap-2 mb-2">
+                          <AlertCircle className="w-5 h-5 text-yellow-600" />
+                          <p className="text-sm font-medium text-yellow-900">
+                            On Leave
+                          </p>
+                        </div>
+                        <p className="text-3xl font-bold text-yellow-600">
+                          {onLeaveCount}
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  {/* Technician Stats */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="bg-white rounded-2xl border border-gray-200 p-6"
+                  >
+                    <h3 className="font-semibold text-gray-900 mb-4">
+                      Technician Overview
+                    </h3>
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {technicians.map((tech) => (
+                        <div
+                          key={tech.userId}
+                          className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                              {tech.userId.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">
+                                {tech.userId}
+                              </p>
+                              <p className="text-sm text-gray-500">
+                                {tech.workSchedule?.status
+                                  ?.replace(/_/g, " ")
+                                  .toLowerCase() || "Unknown"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-gray-900">
+                              {tech.activeTaskCount || 0}
+                            </p>
+                            <p className="text-xs text-gray-500">active tasks</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                </div>
+
+                {/* Stats Sidebar - 4 cols */}
+                <div className="col-span-4 space-y-4">
+                  <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="bg-gradient-to-br from-blue-500 to-blue-600 p-6 rounded-2xl text-white"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <Users className="w-8 h-8 opacity-80" />
+                      <span className="text-3xl font-bold">
+                        {technicians.length}
+                      </span>
+                    </div>
+                    <p className="font-medium">Total Team</p>
+                    <p className="text-sm opacity-80 mt-1">All technicians</p>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="bg-gradient-to-br from-purple-500 to-purple-600 p-6 rounded-2xl text-white"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <Activity className="w-8 h-8 opacity-80" />
+                      <span className="text-3xl font-bold">
+                        {avgWorkload.toFixed(1)}
+                      </span>
+                    </div>
+                    <p className="font-medium">Avg Workload</p>
+                    <p className="text-sm opacity-80 mt-1">Tasks per tech</p>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="bg-gradient-to-br from-green-500 to-green-600 p-6 rounded-2xl text-white"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <TrendingUp className="w-8 h-8 opacity-80" />
+                      <span className="text-3xl font-bold">{totalWorkload}</span>
+                    </div>
+                    <p className="font-medium">Active Tasks</p>
+                    <p className="text-sm opacity-80 mt-1">Currently assigned</p>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="bg-white border-2 border-green-200 p-6 rounded-2xl"
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      <CheckCircle className="w-6 h-6 text-green-600" />
+                      <p className="font-semibold text-gray-900">Team Status</p>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      {workingCount} technicians actively working
+                    </p>
+                    <div className="mt-3 flex items-center gap-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      <span className="text-xs text-gray-500">Online</span>
+                    </div>
+                  </motion.div>
+                </div>
+              </div>
+            </div>
+          </div>
         );
-        setSearchResult(result);
-      } catch (error) {
-        console.error("Search error:", error);
-        setSearchResult(null);
-      } finally {
-        setIsSearching(false);
-      }
+
+      case "team":
+        return (
+          <PlaceholderContent
+            icon={Users}
+            title="Team Management"
+            description="Manage your team members, view detailed profiles, track performance metrics, and assign responsibilities."
+            action={{
+              label: "Add Team Member",
+              onClick: () => console.log("Add team member"),
+            }}
+          />
+        );
+
+      case "tasks":
+        return (
+          <PlaceholderContent
+            icon={ClipboardList}
+            title="Task Management"
+            description="Assign tasks, monitor progress, and track completion status across all team members and projects."
+            action={{
+              label: "Create New Task",
+              onClick: () => console.log("Create task"),
+            }}
+          />
+        );
+
+      case "analytics":
+        return (
+          <PlaceholderContent
+            icon={BarChart3}
+            title="Analytics & Insights"
+            description="View team performance metrics, analyze trends, and generate comprehensive reports for better decision making."
+          />
+        );
+
+      case "schedule":
+        return (
+          <PlaceholderContent
+            icon={Calendar}
+            title="Schedule Management"
+            description="Manage team schedules, approve leave requests, and coordinate work shifts for optimal coverage."
+          />
+        );
+
+      case "settings":
+        return (
+          <PlaceholderContent
+            icon={SettingsIcon}
+            title="Manager Settings"
+            description="Configure team preferences, notification settings, and customize your management dashboard."
+          />
+        );
+
+      default:
+        return null;
     }
   };
 
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
-      <motion.div
-        initial={false}
-        animate={{ width: sidebarCollapsed ? 80 : 240 }}
-        className="bg-[#2d2d2d] text-white flex flex-col relative"
-      >
-        {/* Logo/Brand with Toggle */}
-        <motion.div className="p-6 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-              <UserCheck className="w-5 h-5 text-[#2d2d2d]" />
-            </div>
-            <AnimatePresence>
-              {!sidebarCollapsed && (
-                <motion.span
-                  initial={{ opacity: 0, width: 0 }}
-                  animate={{ opacity: 1, width: "auto" }}
-                  exit={{ opacity: 0, width: 0 }}
-                  className="text-lg font-semibold whitespace-nowrap"
-                >
-                  Manager
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </div>
-          <button
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="p-1.5 hover:bg-[#3d3d3d] rounded-lg transition-colors"
-          >
-            {sidebarCollapsed ? (
-              <Menu className="w-5 h-5" />
-            ) : (
-              <X className="w-5 h-5" />
-            )}
-          </button>
-        </motion.div>
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        activeNav={activeNav}
+        onNavChange={setActiveNav}
+        navItems={navItems}
+        brandIcon={FileText}
+        brandName="Manager"
+        brandSubtitle="Team Management"
+        currentUser={currentUser}
+        showAddButton={true}
+        addButtonLabel="Add Task"
+        onAddClick={() => console.log("Add task")}
+      />
 
-        {/* Navigation */}
-        <nav className="flex-1 px-4 space-y-1">
-          {[
-            { id: "dashboard", icon: Home, label: "Dashboard" },
-            { id: "team", icon: Users, label: "Team" },
-            { id: "receipts", icon: CreditCard, label: "Receipts" },
-            { id: "manage", icon: BarChart3, label: "Manage" },
-            { id: "history", icon: Clock, label: "History" },
-          ].map((item) => (
-            <motion.button
-              key={item.id}
-              onClick={() => setActiveNav(item.id)}
-              whileHover={{ x: 5 }}
-              whileTap={{ scale: 0.98 }}
-              className={`w-full flex items-center ${
-                sidebarCollapsed ? "justify-center px-3" : "space-x-3 px-4"
-              } py-3 rounded-lg transition-colors ${
-                activeNav === item.id
-                  ? "bg-[#3d3d3d] text-white"
-                  : "text-gray-400 hover:bg-[#3d3d3d] hover:text-white"
-              }`}
-            >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
-              <AnimatePresence>
-                {!sidebarCollapsed && (
-                  <motion.span
-                    initial={{ opacity: 0, width: 0 }}
-                    animate={{ opacity: 1, width: "auto" }}
-                    exit={{ opacity: 0, width: 0 }}
-                    className="text-sm whitespace-nowrap"
-                  >
-                    {item.label}
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </motion.button>
-          ))}
-        </nav>
-
-        {/* Add Action Button */}
-        <div className="px-4 pb-4">
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className={`w-full flex items-center ${
-              sidebarCollapsed
-                ? "justify-center px-3"
-                : "justify-center space-x-2 px-4"
-            } py-3 bg-white text-[#2d2d2d] rounded-lg hover:bg-gray-100 transition-colors font-medium`}
-          >
-            <Users className="w-5 h-5 flex-shrink-0" />
-            <AnimatePresence>
-              {!sidebarCollapsed && (
-                <motion.span
-                  initial={{ opacity: 0, width: 0 }}
-                  animate={{ opacity: 1, width: "auto" }}
-                  exit={{ opacity: 0, width: 0 }}
-                  className="text-sm whitespace-nowrap"
-                >
-                  Add a section
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </motion.button>
-        </div>
-
-        {/* Divider */}
-        <div className="border-t border-gray-700 mx-4"></div>
-
-        {/* Profile Section */}
-        <div className="p-4">
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className={`flex items-center ${
-              sidebarCollapsed ? "justify-center" : "space-x-3"
-            } p-3 bg-[#3d3d3d] rounded-lg cursor-pointer`}
-          >
-            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
-              {currentUser?.roleName?.charAt(0).toUpperCase() || "M"}
-            </div>
-            <AnimatePresence>
-              {!sidebarCollapsed && (
-                <motion.div
-                  initial={{ opacity: 0, width: 0 }}
-                  animate={{ opacity: 1, width: "auto" }}
-                  exit={{ opacity: 0, width: 0 }}
-                  className="flex-1 min-w-0"
-                >
-                  <div className="text-sm font-medium truncate">
-                    {currentUser?.userId || "Manager"}
-                  </div>
-                  <div className="text-xs text-gray-400 truncate">
-                    {currentUser?.roleName?.replace(/_/g, " ") || "Manager"}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-            {!sidebarCollapsed && (
-              <SettingsIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
-            )}
-          </motion.div>
-        </div>
-      </motion.div>
-
-      {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex-1 max-w-xl">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="text"
-                  placeholder="Search customer by email or phone..."
-                  value={searchQuery}
-                  onChange={(e) => handleSearch(e.target.value)}
-                  className="w-full pl-10 pr-16 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all"
-                />
-                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-400 font-mono">
-                  ⌘ F
-                </span>
-                {isSearching && (
-                  <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-gray-200 p-4">
-                    <p className="text-sm text-gray-500">Searching...</p>
-                  </div>
-                )}
-                {!isSearching && searchResult && searchQuery && (
-                  <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-gray-200 p-4 z-50">
-                    <div className="flex items-start gap-3">
-                      <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
-                        {searchResult.fullName.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900">
-                          {searchResult.fullName}
-                        </h4>
-                        <p className="text-sm text-gray-600">
-                          {searchResult.email}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          {searchResult.phone}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {searchResult.address}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {(!isSearching &&
-                  !searchResult &&
-                  searchQuery &&
-                  searchQuery.includes("@")) ||
-                (searchQuery &&
-                  /^\d+$/.test(searchQuery) &&
-                  searchQuery.length > 5) ? (
-                  <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-gray-200 p-4">
-                    <p className="text-sm text-gray-500">No customer found</p>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-            <div className="flex items-center space-x-2 ml-6">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full"></span>
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <Mail className="w-5 h-5" />
-              </motion.button>
-            </div>
-          </div>
-        </header>
+        <DashboardHeader
+          onSearch={(query) => setSearchQuery(query)}
+          searchPlaceholder="Search team members, tasks, or schedules..."
+          showSearch={activeNav === "dashboard"}
+          showNotifications={true}
+          currentPage={
+            activeNav === "dashboard"
+              ? undefined
+              : navItems.find((item) => item.id === activeNav)?.label
+          }
+          searchValue={searchQuery}
+        />
 
-        {/* Main Dashboard Content */}
-        <main className="flex-1 overflow-auto bg-gray-50 p-8">
-          <div className="grid grid-cols-12 gap-6">
-            {/* Left Section */}
-            <div className="col-span-8 space-y-6">
-              {/* Team Performance Card */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                whileHover={{ y: -2 }}
-                className="bg-white rounded-2xl p-6 border border-gray-200 transition-all"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-900">
-                      Team Performance
-                    </h3>
-                    <p className="text-xs text-gray-500">
-                      Average workload efficiency
-                    </p>
-                  </div>
-                  <select className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900">
-                    <option>USD</option>
-                    <option>EUR</option>
-                    <option>VND</option>
-                  </select>
-                </div>
-
-                <div className="bg-[#2d2d2d] rounded-xl p-6 text-white">
-                  <div className="mb-4">
-                    <p className="text-xs text-gray-400 mb-1">
-                      Average Workload
-                    </p>
-                    <p className="text-4xl font-bold">
-                      {avgWorkload.toFixed(1)}
-                    </p>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-white text-[#2d2d2d] rounded-lg hover:bg-gray-100 transition-colors"
-                    >
-                      <Send className="w-4 h-4" />
-                      <span className="text-sm font-medium">Send</span>
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#3d3d3d] text-white rounded-lg hover:bg-[#4d4d4d] transition-colors"
-                    >
-                      <TrendingUp className="w-4 h-4" />
-                      <span className="text-sm font-medium">Request</span>
-                    </motion.button>
-                  </div>
-                </div>
-              </motion.div>
-
-              {/* Team Members */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                whileHover={{ y: -2 }}
-                className="bg-white rounded-2xl p-6 border border-gray-200 transition-all"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-900">
-                      Recent Contacts
-                    </h3>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Send or Request from your contact list
-                    </p>
-                  </div>
-                  <button className="text-xs text-gray-600 hover:text-gray-900 flex items-center gap-1">
-                    <span>→</span>
-                  </button>
-                </div>
-
-                <div className="flex gap-3 mb-4">
-                  {technicians.slice(0, 5).map((tech) => (
-                    <motion.div
-                      key={tech.userId}
-                      whileHover={{ scale: 1.1, y: -2 }}
-                      className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold text-sm cursor-pointer"
-                      title={tech.userId}
-                    >
-                      {tech.userId.charAt(0).toUpperCase()}
-                    </motion.div>
-                  ))}
-                </div>
-
-                <div className="flex gap-3">
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#2d2d2d] text-white rounded-lg hover:bg-[#3d3d3d] transition-colors"
-                  >
-                    <Users className="w-4 h-4" />
-                    <span className="text-sm font-medium">Add new</span>
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <SettingsIcon className="w-4 h-4" />
-                    <span className="text-sm font-medium">Manage</span>
-                  </motion.button>
-                </div>
-
-                <button className="w-full mt-4 text-xs text-gray-500 hover:text-gray-700">
-                  Add or Manage widgets
-                </button>
-              </motion.div>
-            </div>
-
-            {/* Right Section - Stats */}
-            <div className="col-span-4 space-y-6">
-              {/* Working Now */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                whileHover={{ y: -2 }}
-                className="bg-white rounded-2xl p-6 border border-gray-200 transition-all"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs text-gray-600">Total Expenses</h3>
-                  <button className="p-1 hover:bg-gray-100 rounded">
-                    <BarChart3 className="w-4 h-4 text-gray-400" />
-                  </button>
-                </div>
-                <p className="text-2xl font-bold text-gray-900 mb-1">
-                  ${workingCount * 1000}
-                </p>
-                <p className="text-xs text-red-600 flex items-center gap-1">
-                  <span className="bg-red-50 px-2 py-0.5 rounded">
-                    -{workingCount}% vs prev year
-                  </span>
-                </p>
-
-                <div className="mt-4 flex items-end gap-1 h-16">
-                  {[60, 75, 50, 80, 65, 90, 70].map((height, i) => (
-                    <div
-                      key={i}
-                      className="flex-1 bg-yellow-400 rounded-t"
-                      style={{ height: `${height}%` }}
-                    />
-                  ))}
-                </div>
-              </motion.div>
-
-              {/* Income */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                whileHover={{ y: -2 }}
-                className="bg-white rounded-2xl p-6 border border-gray-200 transition-all"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs text-gray-600">Total Income</h3>
-                  <button className="p-1 hover:bg-gray-100 rounded">
-                    <BarChart3 className="w-4 h-4 text-gray-400" />
-                  </button>
-                </div>
-                <p className="text-2xl font-bold text-gray-900 mb-1">
-                  ${(workingCount + onLeaveCount) * 1500}
-                </p>
-                <p className="text-xs text-green-600 flex items-center gap-1">
-                  <span className="bg-green-50 px-2 py-0.5 rounded">
-                    +{dayOffCount}% vs prev year
-                  </span>
-                </p>
-
-                <div className="mt-4 flex items-end gap-1 h-16">
-                  {[30, 40, 25, 35, 45, 30, 40].map((height, i) => (
-                    <div
-                      key={i}
-                      className="flex-1 bg-gray-300 rounded-t"
-                      style={{ height: `${height}%` }}
-                    />
-                  ))}
-                </div>
-              </motion.div>
-
-              {/* Exchange */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                whileHover={{ y: -2 }}
-                className="bg-white rounded-2xl p-6 border border-gray-200 transition-all"
-              >
-                <h3 className="text-sm font-medium text-gray-900 mb-4">
-                  Exchange
-                </h3>
-                <div className="space-y-3 mb-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-xs">
-                        🇺🇸
-                      </div>
-                      <span className="text-sm text-gray-600">USD</span>
-                    </div>
-                    <span className="text-sm font-medium">
-                      {workingCount}00
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-xs">
-                        🇪🇺
-                      </div>
-                      <span className="text-sm text-gray-600">EUR</span>
-                    </div>
-                    <span className="text-sm font-medium">
-                      {onLeaveCount}6.48
-                    </span>
-                  </div>
-                </div>
-
-                <div className="text-xs text-gray-500 mb-3">
-                  1 USD = {avgWorkload.toFixed(2)} Euro
-                </div>
-
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="w-full py-2.5 bg-[#2d2d2d] text-white rounded-lg hover:bg-[#3d3d3d] transition-colors text-sm font-medium"
-                >
-                  Exchange
-                </motion.button>
-              </motion.div>
-            </div>
-
-            {/* Bottom Section - Transactions Table */}
-            <div className="col-span-12">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-                whileHover={{ y: -2 }}
-                className="bg-white rounded-2xl p-6 border border-gray-200 transition-all"
-              >
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h3 className="text-base font-semibold text-gray-900">
-                      Transactions
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      You can view your transaction history
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      className="p-2 hover:bg-gray-100 rounded-lg"
-                    >
-                      <Search className="w-5 h-5 text-gray-600" />
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      className="p-2 hover:bg-gray-100 rounded-lg"
-                    >
-                      <CreditCard className="w-5 h-5 text-gray-600" />
-                    </motion.button>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left text-xs font-medium text-gray-500 pb-3">
-                          Name
-                        </th>
-                        <th className="text-left text-xs font-medium text-gray-500 pb-3">
-                          Date
-                        </th>
-                        <th className="text-left text-xs font-medium text-gray-500 pb-3">
-                          Status
-                        </th>
-                        <th className="text-right text-xs font-medium text-gray-500 pb-3">
-                          Amount
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {technicians.slice(0, 8).map((tech) => (
-                        <motion.tr
-                          key={tech.userId}
-                          whileHover={{ backgroundColor: "#fafafa" }}
-                          className="border-b border-gray-100 cursor-pointer"
-                        >
-                          <td className="py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold text-sm">
-                                {tech.userId.charAt(0).toUpperCase()}
-                              </div>
-                              <div>
-                                <p className="text-sm font-medium text-gray-900">
-                                  {tech.userId}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  {tech.userId}
-                                </p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-4 text-sm text-gray-600">
-                            {tech.workSchedule?.workDate
-                              ? new Date(
-                                  tech.workSchedule.workDate
-                                ).toLocaleDateString()
-                              : new Date().toLocaleDateString()}
-                          </td>
-                          <td className="py-4">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
-                                tech.workSchedule?.status === "WORKING"
-                                  ? "bg-green-50 text-green-700"
-                                  : tech.workSchedule?.status === "DAY_OFF"
-                                  ? "bg-blue-50 text-blue-700"
-                                  : "bg-orange-50 text-orange-700"
-                              }`}
-                            >
-                              <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
-                              {tech.workSchedule?.status === "WORKING"
-                                ? "Received"
-                                : tech.workSchedule?.status === "DAY_OFF"
-                                ? "Sent"
-                                : "Payment"}
-                            </span>
-                          </td>
-                          <td className="py-4 text-right">
-                            <span
-                              className={`text-sm font-medium ${
-                                tech.workSchedule?.status === "WORKING"
-                                  ? "text-green-600"
-                                  : "text-gray-900"
-                              }`}
-                            >
-                              {tech.workSchedule?.status === "WORKING"
-                                ? "+"
-                                : "-"}
-                              ${(tech.activeTaskCount || 1) * 200}.00
-                            </span>
-                          </td>
-                        </motion.tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                <button className="w-full mt-6 py-2 text-sm text-gray-600 hover:text-gray-900">
-                  View all transactions
-                </button>
-              </motion.div>
-            </div>
-          </div>
-        </main>
+        {renderContent()}
       </div>
     </div>
   );

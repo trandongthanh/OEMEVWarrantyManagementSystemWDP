@@ -99,3 +99,11 @@ export const getClaimDetails = async (
     throw error;
   }
 };
+
+const claimService = {
+  createClaim,
+  assignTechnician,
+  getClaimDetails,
+};
+
+export default claimService;

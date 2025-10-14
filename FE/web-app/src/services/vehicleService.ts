@@ -89,3 +89,11 @@ export const registerVehicleOwner = async (
     throw error;
   }
 };
+
+const vehicleService = {
+  findVehicleByVin,
+  checkVehicleWarranty,
+  registerVehicleOwner,
+};
+
+export default vehicleService;
