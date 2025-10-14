@@ -1,5 +1,4 @@
 import express from "express";
-import cors from "cors";
 import { scopePerRequest } from "awilix-express";
 import container from "./container.js";
 import cors from "cors";
@@ -11,7 +10,11 @@ const app = express();
 // CORS configuration
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://localhost:3001"], // Allow frontend URLs
+    origin: [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "http://localhost:8000",
+    ], // Allow frontend URLs
     credentials: true,
   })
 );
