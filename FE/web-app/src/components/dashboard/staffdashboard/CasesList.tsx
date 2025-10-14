@@ -13,8 +13,11 @@ import {
   AlertCircle,
   CheckCircle,
   Loader2,
+  X,
+  FileText,
 } from "lucide-react";
 import { processingRecordService, ProcessingRecord } from "@/services";
+import { Pagination } from "@/components/ui";
 
 interface CasesListProps {
   onViewDetails?: (record: ProcessingRecord) => void;
@@ -74,6 +77,12 @@ export function CasesList({ onViewDetails }: CasesListProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedRecord, setSelectedRecord] = useState<ProcessingRecord | null>(
+    null
+  );
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+
+  const itemsPerPage = 6;
 
   useEffect(() => {
     fetchRecords();
@@ -83,11 +92,15 @@ export function CasesList({ onViewDetails }: CasesListProps) {
     setLoading(true);
     try {
       const response = await processingRecordService.getAllRecords({
-        page: currentPage,
-        limit: 10,
         ...(statusFilter !== "ALL" && { status: statusFilter }),
       });
-      setRecords(response.data?.records || []);
+      // Backend returns nested structure: { data: { records: { records: Array } } }
+      const recordsData =
+        (response as any)?.data?.records?.records ||
+        response.data?.records ||
+        (response as any)?.records ||
+        [];
+      setRecords(Array.isArray(recordsData) ? recordsData : []);
     } catch (error) {
       console.error("Error fetching records:", error);
       setRecords([]);
@@ -96,14 +109,40 @@ export function CasesList({ onViewDetails }: CasesListProps) {
     }
   };
 
-  const filteredRecords = records.filter((record) => {
-    const searchLower = searchQuery.toLowerCase();
-    return (
-      record.vin.toLowerCase().includes(searchLower) ||
-      record.vehicle.model.toLowerCase().includes(searchLower) ||
-      record.mainTechnician?.name.toLowerCase().includes(searchLower)
-    );
-  });
+  const filteredRecords = Array.isArray(records)
+    ? records.filter((record) => {
+        const searchLower = searchQuery.toLowerCase();
+        const modelName =
+          typeof record.vehicle?.model === "object"
+            ? record.vehicle?.model?.name
+            : record.vehicle?.model;
+        return (
+          record.vin?.toLowerCase().includes(searchLower) ||
+          modelName?.toLowerCase().includes(searchLower) ||
+          record.mainTechnician?.name?.toLowerCase().includes(searchLower)
+        );
+      })
+    : [];
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
+  const paginatedRecords = filteredRecords.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter]);
+
+  const handleViewDetails = (record: ProcessingRecord) => {
+    setSelectedRecord(record);
+    setShowDetailsModal(true);
+    if (onViewDetails) {
+      onViewDetails(record);
+    }
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -209,7 +248,7 @@ export function CasesList({ onViewDetails }: CasesListProps) {
           /* Records List */
           <div className="space-y-4">
             <AnimatePresence mode="popLayout">
-              {filteredRecords.map((record) => {
+              {paginatedRecords.map((record) => {
                 const StatusIcon =
                   statusConfig[record.status]?.icon || AlertCircle;
                 const statusInfo =
@@ -223,7 +262,7 @@ export function CasesList({ onViewDetails }: CasesListProps) {
                     exit={{ opacity: 0, y: -20 }}
                     whileHover={{ scale: 1.01 }}
                     className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-lg transition-all cursor-pointer"
-                    onClick={() => onViewDetails?.(record)}
+                    onClick={() => handleViewDetails(record)}
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex-1">
@@ -231,7 +270,9 @@ export function CasesList({ onViewDetails }: CasesListProps) {
                         <div className="flex items-center gap-3 mb-2">
                           <Car className="w-5 h-5 text-gray-400" />
                           <h3 className="text-lg font-semibold text-gray-900">
-                            {record.vehicle.model}
+                            {typeof record.vehicle?.model === "object"
+                              ? record.vehicle.model.name
+                              : record.vehicle?.model || "Unknown Model"}
                           </h3>
                           <span className="text-sm text-gray-500">
                             ({record.vin})
@@ -240,9 +281,9 @@ export function CasesList({ onViewDetails }: CasesListProps) {
 
                         {/* Guarantee Cases */}
                         <div className="ml-8 space-y-1">
-                          {record.guaranteeCases.map((gCase) => (
+                          {record.guaranteeCases?.map((gCase: any) => (
                             <p
-                              key={gCase.caseId}
+                              key={gCase.guaranteeCaseId || gCase.caseId}
                               className="text-sm text-gray-600"
                             >
                               • {gCase.contentGuarantee}
@@ -305,7 +346,7 @@ export function CasesList({ onViewDetails }: CasesListProps) {
                         <div>
                           <p className="text-xs text-gray-500">Owner</p>
                           <p className="text-sm font-medium text-gray-900">
-                            {record.vehicle.owner.fullName}
+                            {record.vehicle?.owner?.fullName || "No Owner"}
                           </p>
                         </div>
                       </div>
@@ -327,24 +368,190 @@ export function CasesList({ onViewDetails }: CasesListProps) {
 
         {/* Pagination */}
         {!loading && filteredRecords.length > 0 && (
-          <div className="flex justify-center gap-2 mt-8">
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Previous
-            </button>
-            <span className="px-4 py-2 text-gray-700">Page {currentPage}</span>
-            <button
-              onClick={() => setCurrentPage((p) => p + 1)}
-              disabled={filteredRecords.length < 10}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Next
-            </button>
-          </div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredRecords.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+          />
         )}
+
+        {/* Details Modal - Minimalistic Design */}
+        <AnimatePresence>
+          {showDetailsModal && selectedRecord && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
+              onClick={() => setShowDetailsModal(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-gray-200"
+              >
+                {/* Modal Header - Clean & Simple */}
+                <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900">
+                      Case Details
+                    </h2>
+                    <p className="text-sm text-gray-500 mt-0.5">
+                      VIN: {selectedRecord.vin}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowDetailsModal(false)}
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5 text-gray-500" />
+                  </button>
+                </div>
+
+                {/* Modal Content - Minimalistic Sections */}
+                <div className="p-6 space-y-6">
+                  {/* Vehicle Information */}
+                  <div className="border-b border-gray-100 pb-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Car className="w-5 h-5 text-gray-700" />
+                      <h3 className="text-base font-medium text-gray-900">
+                        Vehicle Information
+                      </h3>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                          Model
+                        </p>
+                        <p className="text-sm text-gray-900">
+                          {typeof selectedRecord.vehicle?.model === "object"
+                            ? selectedRecord.vehicle.model.name
+                            : selectedRecord.vehicle?.model || "Unknown"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                          VIN
+                        </p>
+                        <p className="text-sm text-gray-900 font-mono">
+                          {selectedRecord.vin}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                          Owner
+                        </p>
+                        <p className="text-sm text-gray-900">
+                          {selectedRecord.vehicle?.owner?.fullName ||
+                            "No Owner Registered"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                          Odometer
+                        </p>
+                        <p className="text-sm text-gray-900">
+                          {selectedRecord.odometer?.toLocaleString()} km
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Status & Timeline */}
+                  <div className="border-b border-gray-100 pb-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Clock className="w-5 h-5 text-gray-700" />
+                      <h3 className="text-base font-medium text-gray-900">
+                        Status & Timeline
+                      </h3>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                          Status
+                        </p>
+                        <span
+                          className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium ${
+                            statusConfig[selectedRecord.status]?.bgColor ||
+                            "bg-gray-100"
+                          } ${
+                            statusConfig[selectedRecord.status]?.color ||
+                            "text-gray-700"
+                          }`}
+                        >
+                          {statusConfig[selectedRecord.status]?.label ||
+                            selectedRecord.status}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                          Check-in Date
+                        </p>
+                        <p className="text-sm text-gray-900">
+                          {formatDate(selectedRecord.checkInDate)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                          Technician
+                        </p>
+                        <p className="text-sm text-gray-900">
+                          {selectedRecord.mainTechnician?.name ||
+                            "Not Assigned"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                          Created By
+                        </p>
+                        <p className="text-sm text-gray-900">
+                          {selectedRecord.createdByStaff?.name || "N/A"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Warranty Cases */}
+                  {selectedRecord.guaranteeCases &&
+                    selectedRecord.guaranteeCases.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-4">
+                          <FileText className="w-5 h-5 text-gray-700" />
+                          <h3 className="text-base font-medium text-gray-900">
+                            Warranty Cases
+                          </h3>
+                        </div>
+                        <div className="space-y-3">
+                          {selectedRecord.guaranteeCases.map((gCase: any) => (
+                            <div
+                              key={gCase.guaranteeCaseId || gCase.caseId}
+                              className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors"
+                            >
+                              <div className="flex justify-between items-start gap-4 mb-2">
+                                <p className="text-sm text-gray-900 flex-1">
+                                  {gCase.contentGuarantee}
+                                </p>
+                                <span className="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium whitespace-nowrap">
+                                  {gCase.status || gCase.statusForGuaranteeCase}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-500 font-mono">
+                                {gCase.guaranteeCaseId || gCase.caseId}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

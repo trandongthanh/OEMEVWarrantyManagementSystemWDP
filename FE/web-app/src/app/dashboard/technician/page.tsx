@@ -55,10 +55,7 @@ export default function TechnicianDashboard() {
 
   const fetchData = async () => {
     try {
-      const response = await processingRecordService.getAllRecords({
-        page: 1,
-        limit: 50,
-      });
+      const response = await processingRecordService.getAllRecords({});
 
       const records = response.data?.records || [];
 

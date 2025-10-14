@@ -1,34 +1,45 @@
 import apiClient from "@/lib/apiClient";
 
 export interface ProcessingRecord {
-  id: string;
+  id?: string;
   vin: string;
   checkInDate: string;
-  checkOutDate: string | null;
+  checkOutDate?: string | null;
   odometer: number;
   status: string;
-  mainTechnicianId: string | null;
+  mainTechnicianId?: string | null;
   vehicle: {
     vin: string;
-    licensePlate: string;
-    model: string;
-    company: string;
-    owner: {
+    licensePlate?: string;
+    model:
+      | {
+          name: string;
+          vehicleModelId: string;
+        }
+      | string;
+    company?: string;
+    owner?: {
       id: string;
       fullName: string;
       phone: string;
       email: string;
     };
   };
-  mainTechnician: {
+  mainTechnician?: {
     userId: string;
     name: string;
   } | null;
-  guaranteeCases: Array<{
-    caseId: string;
+  createdByStaff?: {
+    userId: string;
+    name: string;
+  };
+  guaranteeCases?: Array<{
+    guaranteeCaseId?: string;
+    caseId?: string;
     contentGuarantee: string;
-    statusForGuaranteeCase: string;
-    caseLines: Array<{
+    status?: string;
+    statusForGuaranteeCase?: string;
+    caseLines?: Array<{
       caseLineId: string;
       diagnosisText: string;
       correctionText: string;
@@ -71,8 +82,8 @@ const getAllRecords = async (params?: {
   try {
     const response = await apiClient.get("/processing-records", {
       params: {
-        page: params?.page || 1,
-        limit: params?.limit || 10,
+        ...(params?.page && { page: params.page }),
+        ...(params?.limit && { limit: params.limit }),
         ...(params?.status && { status: params.status }),
       },
     });

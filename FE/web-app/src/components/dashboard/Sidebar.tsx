@@ -22,9 +22,6 @@ interface SidebarProps {
     userId: string;
     roleName: string;
   } | null;
-  showAddButton?: boolean;
-  addButtonLabel?: string;
-  onAddClick?: () => void;
   onLogout?: () => void;
 }
 
@@ -38,9 +35,6 @@ export default function Sidebar({
   brandName,
   brandSubtitle,
   currentUser,
-  showAddButton = true,
-  addButtonLabel = "Add a section",
-  onAddClick,
   onLogout,
 }: SidebarProps) {
   return (
@@ -134,48 +128,6 @@ export default function Sidebar({
             </motion.button>
           ))}
         </nav>
-
-        {/* Add Action Button */}
-        {showAddButton && (
-          <div className="px-4 pb-4 flex-shrink-0">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={onAddClick}
-              className={`w-full flex items-center py-3 bg-white text-[#2d2d2d] rounded-lg hover:bg-gray-100 transition-colors font-medium overflow-hidden ${
-                collapsed ? "justify-center px-3" : "justify-center gap-2 px-4"
-              }`}
-              title={collapsed ? addButtonLabel : undefined}
-            >
-              <svg
-                className="w-5 h-5 flex-shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-              <AnimatePresence mode="wait">
-                {!collapsed && (
-                  <motion.span
-                    initial={{ opacity: 0, width: 0 }}
-                    animate={{ opacity: 1, width: "auto" }}
-                    exit={{ opacity: 0, width: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="text-sm whitespace-nowrap overflow-hidden"
-                  >
-                    {addButtonLabel}
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </motion.button>
-          </div>
-        )}
 
         {/* Logout Button */}
         {onLogout && (
