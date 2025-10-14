@@ -63,13 +63,18 @@ export interface CompatibleComponent {
  * Get all processing records with pagination
  * GET /processing-records
  */
-const getAllRecords = async (
-  page: number = 1,
-  limit: number = 10
-): Promise<ProcessingRecordListResponse> => {
+const getAllRecords = async (params?: {
+  page?: number;
+  limit?: number;
+  status?: string;
+}): Promise<ProcessingRecordListResponse> => {
   try {
     const response = await apiClient.get("/processing-records", {
-      params: { page, limit },
+      params: {
+        page: params?.page || 1,
+        limit: params?.limit || 10,
+        ...(params?.status && { status: params.status }),
+      },
     });
     return response.data;
   } catch (error) {

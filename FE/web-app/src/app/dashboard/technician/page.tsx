@@ -55,7 +55,12 @@ export default function TechnicianDashboard() {
 
   const fetchData = async () => {
     try {
-      const records = await processingRecordService.getAllRecords();
+      const response = await processingRecordService.getAllRecords({
+        page: 1,
+        limit: 50,
+      });
+
+      const records = response.data?.records || [];
 
       // Mock data for demonstration
       setTaskSummary({
@@ -68,6 +73,10 @@ export default function TechnicianDashboard() {
     } catch (error) {
       console.error("Error fetching data:", error);
     }
+  };
+
+  const handleLogout = () => {
+    authService.logout();
   };
 
   const navItems = [
@@ -182,7 +191,9 @@ export default function TechnicianDashboard() {
                       </span>
                     </div>
                     <p className="font-medium">Active Tasks</p>
-                    <p className="text-sm opacity-80 mt-1">Currently assigned</p>
+                    <p className="text-sm opacity-80 mt-1">
+                      Currently assigned
+                    </p>
                   </motion.div>
 
                   <motion.div
@@ -317,6 +328,7 @@ export default function TechnicianDashboard() {
         showAddButton={true}
         addButtonLabel="New Task"
         onAddClick={() => console.log("New task")}
+        onLogout={handleLogout}
       />
 
       <div className="flex-1 flex flex-col overflow-hidden">

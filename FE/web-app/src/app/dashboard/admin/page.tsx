@@ -59,6 +59,10 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleLogout = () => {
+    authService.logout();
+  };
+
   const navItems = [
     { id: "dashboard", icon: Home, label: "Dashboard" },
     { id: "inventory", icon: Package, label: "Inventory" },
@@ -321,6 +325,7 @@ export default function AdminDashboard() {
         showAddButton={true}
         addButtonLabel="Add Resource"
         onAddClick={() => console.log("Add resource")}
+        onLogout={handleLogout}
       />
 
       <div className="flex-1 flex flex-col overflow-hidden">

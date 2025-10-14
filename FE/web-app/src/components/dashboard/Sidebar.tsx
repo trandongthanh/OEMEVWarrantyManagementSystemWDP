@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { LucideIcon, Settings as SettingsIcon } from "lucide-react";
+import { LucideIcon, Settings as SettingsIcon, LogOut } from "lucide-react";
 
 interface NavItem {
   id: string;
@@ -25,6 +25,7 @@ interface SidebarProps {
   showAddButton?: boolean;
   addButtonLabel?: string;
   onAddClick?: () => void;
+  onLogout?: () => void;
 }
 
 export default function Sidebar({
@@ -40,6 +41,7 @@ export default function Sidebar({
   showAddButton = true,
   addButtonLabel = "Add a section",
   onAddClick,
+  onLogout,
 }: SidebarProps) {
   return (
     <div className="relative">
@@ -47,63 +49,56 @@ export default function Sidebar({
         initial={false}
         animate={{ width: collapsed ? 80 : 240 }}
         transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
-        className="bg-[#2d2d2d] text-white flex flex-col h-screen relative"
+        className="bg-[#2d2d2d] text-white flex flex-col h-screen relative overflow-hidden"
       >
         {/* Logo/Brand Section - Fixed height */}
-        <motion.div
-          className="h-20 flex items-center justify-center px-4 flex-shrink-0"
-          initial={false}
-          animate={{
-            paddingLeft: collapsed ? 16 : 16,
-            paddingRight: collapsed ? 16 : 16,
-          }}
-          transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
-        >
-          {collapsed ? (
-            // Collapsed State - Only icon
-            <motion.div
-              initial={false}
-              animate={{ scale: 1 }}
-              whileHover={{ scale: 1.1, rotate: 5 }}
-              transition={{ duration: 0.2 }}
-              className="w-10 h-10 bg-white rounded-lg flex items-center justify-center"
-            >
-              <BrandIcon className="w-6 h-6 text-[#2d2d2d]" />
-            </motion.div>
-          ) : (
-            // Expanded State - Icon and text
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
-              className="flex items-center gap-3 w-full"
-            >
+        <div className="h-20 flex items-center justify-center px-4 flex-shrink-0 overflow-hidden">
+          <AnimatePresence mode="wait" initial={false}>
+            {collapsed ? (
+              // Collapsed State - Only icon
               <motion.div
-                whileHover={{ scale: 1.05, rotate: 5 }}
+                key="collapsed-logo"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
                 transition={{ duration: 0.2 }}
-                className="w-10 h-10 bg-white rounded-lg flex items-center justify-center flex-shrink-0"
+                whileHover={{ scale: 1.1, rotate: 5 }}
+                className="w-10 h-10 bg-white rounded-lg flex items-center justify-center"
               >
                 <BrandIcon className="w-6 h-6 text-[#2d2d2d]" />
               </motion.div>
+            ) : (
+              // Expanded State - Icon and text
               <motion.div
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: 0.15 }}
-                className="flex-1 min-w-0"
+                key="expanded-logo"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="flex items-center gap-3 w-full overflow-hidden"
               >
-                <div className="text-base font-semibold truncate">
-                  {brandName}
-                </div>
-                <div className="text-xs text-gray-400 truncate">
-                  {brandSubtitle}
+                <motion.div
+                  whileHover={{ scale: 1.05, rotate: 5 }}
+                  transition={{ duration: 0.2 }}
+                  className="w-10 h-10 bg-white rounded-lg flex items-center justify-center flex-shrink-0"
+                >
+                  <BrandIcon className="w-6 h-6 text-[#2d2d2d]" />
+                </motion.div>
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <div className="text-base font-semibold truncate">
+                    {brandName}
+                  </div>
+                  <div className="text-xs text-gray-400 truncate">
+                    {brandSubtitle}
+                  </div>
                 </div>
               </motion.div>
-            </motion.div>
-          )}
-        </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-4 space-y-1 overflow-y-auto py-4">
+        <nav className="flex-1 px-4 space-y-1 overflow-y-auto py-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
           {navItems.map((item, index) => (
             <motion.button
               key={item.id}
@@ -113,7 +108,7 @@ export default function Sidebar({
               transition={{ duration: 0.3, delay: index * 0.05 }}
               whileHover={{ x: collapsed ? 0 : 5, scale: collapsed ? 1.05 : 1 }}
               whileTap={{ scale: 0.95 }}
-              className={`w-full flex items-center py-3 rounded-lg transition-all duration-200 ${
+              className={`w-full flex items-center py-3 rounded-lg transition-all duration-200 overflow-hidden ${
                 collapsed ? "justify-center px-3" : "px-4 gap-3"
               } ${
                 activeNav === item.id
@@ -126,11 +121,11 @@ export default function Sidebar({
               <AnimatePresence mode="wait">
                 {!collapsed && (
                   <motion.span
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -10 }}
+                    initial={{ opacity: 0, width: 0 }}
+                    animate={{ opacity: 1, width: "auto" }}
+                    exit={{ opacity: 0, width: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="text-sm whitespace-nowrap"
+                    className="text-sm whitespace-nowrap overflow-hidden"
                   >
                     {item.label}
                   </motion.span>
@@ -142,12 +137,12 @@ export default function Sidebar({
 
         {/* Add Action Button */}
         {showAddButton && (
-          <div className="px-4 pb-4">
+          <div className="px-4 pb-4 flex-shrink-0">
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={onAddClick}
-              className={`w-full flex items-center py-3 bg-white text-[#2d2d2d] rounded-lg hover:bg-gray-100 transition-colors font-medium ${
+              className={`w-full flex items-center py-3 bg-white text-[#2d2d2d] rounded-lg hover:bg-gray-100 transition-colors font-medium overflow-hidden ${
                 collapsed ? "justify-center px-3" : "justify-center gap-2 px-4"
               }`}
               title={collapsed ? addButtonLabel : undefined}
@@ -165,45 +160,75 @@ export default function Sidebar({
                   d="M12 4v16m8-8H4"
                 />
               </svg>
-              {!collapsed && (
-                <AnimatePresence mode="wait">
+              <AnimatePresence mode="wait">
+                {!collapsed && (
                   <motion.span
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
+                    initial={{ opacity: 0, width: 0 }}
+                    animate={{ opacity: 1, width: "auto" }}
+                    exit={{ opacity: 0, width: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="text-sm whitespace-nowrap"
+                    className="text-sm whitespace-nowrap overflow-hidden"
                   >
                     {addButtonLabel}
                   </motion.span>
-                </AnimatePresence>
-              )}
+                )}
+              </AnimatePresence>
+            </motion.button>
+          </div>
+        )}
+
+        {/* Logout Button */}
+        {onLogout && (
+          <div className="px-4 pb-4 flex-shrink-0">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={onLogout}
+              className={`w-full flex items-center py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium overflow-hidden ${
+                collapsed ? "justify-center px-3" : "gap-3 px-4"
+              }`}
+              title={collapsed ? "Log Out" : undefined}
+            >
+              <LogOut className="w-5 h-5 flex-shrink-0" />
+              <AnimatePresence mode="wait">
+                {!collapsed && (
+                  <motion.span
+                    initial={{ opacity: 0, width: 0 }}
+                    animate={{ opacity: 1, width: "auto" }}
+                    exit={{ opacity: 0, width: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="text-sm whitespace-nowrap overflow-hidden"
+                  >
+                    Log Out
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </motion.button>
           </div>
         )}
 
         {/* Divider */}
-        <div className="border-t border-gray-700 mx-4"></div>
+        <div className="border-t border-gray-700 mx-4 flex-shrink-0"></div>
 
         {/* Profile Section */}
-        <div className="p-4">
+        <div className="p-4 flex-shrink-0">
           <motion.div
             whileHover={{ scale: 1.02 }}
-            className={`flex items-center p-3 bg-[#3d3d3d] rounded-lg cursor-pointer ${
+            className={`flex items-center p-3 bg-[#3d3d3d] rounded-lg cursor-pointer overflow-hidden ${
               collapsed ? "justify-center" : "gap-3"
             }`}
           >
             <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
               {currentUser?.roleName?.charAt(0).toUpperCase() || "U"}
             </div>
-            {!collapsed && (
-              <AnimatePresence mode="wait">
+            <AnimatePresence mode="wait">
+              {!collapsed && (
                 <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: "auto" }}
+                  exit={{ opacity: 0, width: 0 }}
                   transition={{ duration: 0.2 }}
-                  className="flex-1 min-w-0"
+                  className="flex-1 min-w-0 overflow-hidden"
                 >
                   <div className="text-sm font-medium truncate">
                     {currentUser?.userId || "User"}
@@ -212,38 +237,51 @@ export default function Sidebar({
                     {currentUser?.roleName?.replace(/_/g, " ") || "User"}
                   </div>
                 </motion.div>
-              </AnimatePresence>
-            )}
-            {!collapsed && (
-              <SettingsIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
-            )}
+              )}
+            </AnimatePresence>
+            <AnimatePresence mode="wait">
+              {!collapsed && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <SettingsIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         </div>
       </motion.div>
 
-      {/* Floating Toggle Button - Outside sidebar with improved styling */}
+      {/* Floating Toggle Button - Perfectly synced with sidebar */}
       <motion.button
         onClick={onToggleCollapse}
         initial={false}
         animate={{
-          left: collapsed ? 72 : 232,
+          left: collapsed ? 64 : 224,
         }}
-        transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+        transition={{
+          duration: 0.4,
+          ease: [0.4, 0, 0.2, 1],
+          left: { duration: 0.4, ease: [0.4, 0, 0.2, 1] },
+        }}
         whileHover={{
-          scale: 1.15,
-          boxShadow: "0 10px 30px -5px rgba(0, 0, 0, 0.2)",
+          scale: 1.1,
+          boxShadow: "0 10px 30px -5px rgba(0, 0, 0, 0.25)",
         }}
-        whileTap={{ scale: 0.95 }}
-        className="fixed top-6 z-50 w-9 h-9 bg-gradient-to-br from-white to-gray-50 backdrop-blur-md rounded-full shadow-md flex items-center justify-center text-gray-700 border-2 border-gray-200 hover:border-gray-300 transition-all duration-200 cursor-pointer group"
+        whileTap={{ scale: 0.9 }}
+        className="fixed top-6 z-[60] w-10 h-10 bg-gradient-to-br from-white to-gray-50 backdrop-blur-md rounded-full shadow-lg flex items-center justify-center text-gray-700 border-2 border-gray-200 hover:border-gray-400 cursor-pointer group"
         title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         style={{
           boxShadow:
-            "0 4px 12px -2px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05)",
+            "0 6px 16px -4px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.06)",
         }}
       >
         <motion.div
           animate={{ rotate: collapsed ? 0 : 180 }}
-          transition={{ duration: 0.3, ease: "easeInOut" }}
+          transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
         >
           <svg
             className="w-4 h-4 group-hover:text-gray-900 transition-colors"

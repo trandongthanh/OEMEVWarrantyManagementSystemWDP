@@ -14,36 +14,7 @@ import {
   CheckCircle,
   Loader2,
 } from "lucide-react";
-import { processingRecordService } from "@/services";
-
-interface GuaranteeCase {
-  guaranteeCaseId: string;
-  status: string;
-  contentGuarantee: string;
-}
-
-interface ProcessingRecord {
-  vin: string;
-  checkInDate: string;
-  odometer: number;
-  status: string;
-  mainTechnician?: {
-    userId: string;
-    name: string;
-  } | null;
-  vehicle: {
-    vin: string;
-    model: {
-      name: string;
-      vehicleModelId: string;
-    };
-  };
-  guaranteeCases: GuaranteeCase[];
-  createdByStaff: {
-    userId: string;
-    name: string;
-  };
-}
+import { processingRecordService, ProcessingRecord } from "@/services";
 
 interface CasesListProps {
   onViewDetails?: (record: ProcessingRecord) => void;
@@ -111,17 +82,12 @@ export function CasesList({ onViewDetails }: CasesListProps) {
   const fetchRecords = async () => {
     setLoading(true);
     try {
-      const params: any = {
+      const response = await processingRecordService.getAllRecords({
         page: currentPage,
         limit: 10,
-      };
-
-      if (statusFilter !== "ALL") {
-        params.status = statusFilter;
-      }
-
-      const response = await processingRecordService.getAllRecords(params);
-      setRecords(response.records || []);
+        ...(statusFilter !== "ALL" && { status: statusFilter }),
+      });
+      setRecords(response.data?.records || []);
     } catch (error) {
       console.error("Error fetching records:", error);
       setRecords([]);
@@ -134,8 +100,7 @@ export function CasesList({ onViewDetails }: CasesListProps) {
     const searchLower = searchQuery.toLowerCase();
     return (
       record.vin.toLowerCase().includes(searchLower) ||
-      record.vehicle.model.name.toLowerCase().includes(searchLower) ||
-      record.createdByStaff.name.toLowerCase().includes(searchLower) ||
+      record.vehicle.model.toLowerCase().includes(searchLower) ||
       record.mainTechnician?.name.toLowerCase().includes(searchLower)
     );
   });
@@ -266,7 +231,7 @@ export function CasesList({ onViewDetails }: CasesListProps) {
                         <div className="flex items-center gap-3 mb-2">
                           <Car className="w-5 h-5 text-gray-400" />
                           <h3 className="text-lg font-semibold text-gray-900">
-                            {record.vehicle.model.name}
+                            {record.vehicle.model}
                           </h3>
                           <span className="text-sm text-gray-500">
                             ({record.vin})
@@ -277,7 +242,7 @@ export function CasesList({ onViewDetails }: CasesListProps) {
                         <div className="ml-8 space-y-1">
                           {record.guaranteeCases.map((gCase) => (
                             <p
-                              key={gCase.guaranteeCaseId}
+                              key={gCase.caseId}
                               className="text-sm text-gray-600"
                             >
                               • {gCase.contentGuarantee}
@@ -334,13 +299,13 @@ export function CasesList({ onViewDetails }: CasesListProps) {
                         </div>
                       </div>
 
-                      {/* Created By */}
+                      {/* Owner Info */}
                       <div className="flex items-center gap-2">
                         <User className="w-4 h-4 text-gray-400" />
                         <div>
-                          <p className="text-xs text-gray-500">Created by</p>
+                          <p className="text-xs text-gray-500">Owner</p>
                           <p className="text-sm font-medium text-gray-900">
-                            {record.createdByStaff.name}
+                            {record.vehicle.owner.fullName}
                           </p>
                         </div>
                       </div>

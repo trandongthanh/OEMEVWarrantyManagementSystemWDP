@@ -50,6 +50,10 @@ export default function ManagerDashboard() {
     }
   };
 
+  const handleLogout = () => {
+    authService.logout();
+  };
+
   const navItems = [
     { id: "dashboard", icon: Home, label: "Dashboard" },
     { id: "team", icon: Users, label: "Team" },
@@ -181,7 +185,9 @@ export default function ManagerDashboard() {
                             <p className="font-semibold text-gray-900">
                               {tech.activeTaskCount || 0}
                             </p>
-                            <p className="text-xs text-gray-500">active tasks</p>
+                            <p className="text-xs text-gray-500">
+                              active tasks
+                            </p>
                           </div>
                         </div>
                       ))}
@@ -230,10 +236,14 @@ export default function ManagerDashboard() {
                   >
                     <div className="flex items-center justify-between mb-4">
                       <TrendingUp className="w-8 h-8 opacity-80" />
-                      <span className="text-3xl font-bold">{totalWorkload}</span>
+                      <span className="text-3xl font-bold">
+                        {totalWorkload}
+                      </span>
                     </div>
                     <p className="font-medium">Active Tasks</p>
-                    <p className="text-sm opacity-80 mt-1">Currently assigned</p>
+                    <p className="text-sm opacity-80 mt-1">
+                      Currently assigned
+                    </p>
                   </motion.div>
 
                   <motion.div
@@ -333,6 +343,7 @@ export default function ManagerDashboard() {
         showAddButton={true}
         addButtonLabel="Add Task"
         onAddClick={() => console.log("Add task")}
+        onLogout={handleLogout}
       />
 
       <div className="flex-1 flex flex-col overflow-hidden">

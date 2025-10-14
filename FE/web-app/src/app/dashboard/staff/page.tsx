@@ -45,19 +45,31 @@ export default function StaffDashboard() {
   const [showNewClaimModal, setShowNewClaimModal] = useState(false);
   const [showRegisterVehicleModal, setShowRegisterVehicleModal] =
     useState(false);
+  const [registerVehicleVin, setRegisterVehicleVin] = useState<
+    string | undefined
+  >(undefined);
 
   const toggleSidebar = () => setSidebarCollapsed(!sidebarCollapsed);
+
+  const handleLogout = () => {
+    authService.logout();
+  };
 
   useEffect(() => {
     const user = authService.getCurrentUser();
     setCurrentUser(user);
-    fetchData();
+    // Staff role doesn't have permission to fetch technicians
+    // fetchData();
   }, []);
 
   const fetchData = async () => {
     try {
-      const techData = await userService.getTechnicians();
-      setTechnicians(techData);
+      // Only fetch technicians if user has permission (admin, manager roles)
+      const user = authService.getCurrentUser();
+      if (user && (user.roleName === "ADMIN" || user.roleName === "MANAGER")) {
+        const techData = await userService.getTechnicians();
+        setTechnicians(techData);
+      }
     } catch (error) {
       console.error("Error fetching data:", error);
     }
@@ -178,6 +190,7 @@ export default function StaffDashboard() {
           showAddButton={true}
           addButtonLabel="Add a section"
           onAddClick={() => console.log("Add section clicked")}
+          onLogout={handleLogout}
         />
 
         {/* Main Content */}
@@ -210,17 +223,27 @@ export default function StaffDashboard() {
         onSuccess={() => {
           fetchData(); // Refresh data
         }}
+        onRegisterOwner={(vin) => {
+          setRegisterVehicleVin(vin);
+          setShowRegisterVehicleModal(true);
+        }}
       />
 
       {/* Register Vehicle Modal */}
       <RegisterVehicleModal
         isOpen={showRegisterVehicleModal}
-        onClose={() => setShowRegisterVehicleModal(false)}
+        onClose={() => {
+          setShowRegisterVehicleModal(false);
+          setRegisterVehicleVin(undefined);
+        }}
         onSuccess={() => {
           fetchData(); // Refresh data
           // Optionally switch to vehicles tab to show the registered vehicle
           setActiveNav("vehicles");
+          // Reset VIN after successful registration
+          setRegisterVehicleVin(undefined);
         }}
+        initialVin={registerVehicleVin}
       />
     </>
   );

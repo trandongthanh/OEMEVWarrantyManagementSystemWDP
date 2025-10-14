@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -22,12 +22,14 @@ interface RegisterVehicleModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  initialVin?: string;
 }
 
 export function RegisterVehicleModal({
   isOpen,
   onClose,
   onSuccess,
+  initialVin,
 }: RegisterVehicleModalProps) {
   const [step, setStep] = useState<
     "searchVehicle" | "searchCustomer" | "register" | "success"
@@ -72,6 +74,58 @@ export function RegisterVehicleModal({
     resetForm();
     onClose();
   };
+
+  // Auto-fill VIN and search when initialVin is provided
+  useEffect(() => {
+    if (isOpen && initialVin) {
+      setVin(initialVin);
+      setError("");
+      // Auto-search the vehicle after a short delay to ensure modal is open
+      const timer = setTimeout(async () => {
+        if (!initialVin.trim()) return;
+
+        setIsLoading(true);
+        try {
+          const response = await vehicleService.findVehicleByVin(
+            initialVin.trim()
+          );
+          if (response.data?.vehicle) {
+            const vehicle = response.data.vehicle;
+            setVehicleData(vehicle);
+
+            if (vehicle.dateOfManufacture) {
+              setDateOfManufacture(
+                new Date(vehicle.dateOfManufacture).toISOString().split("T")[0]
+              );
+            }
+            if (vehicle.licensePlate) {
+              setLicensePlate(vehicle.licensePlate);
+            }
+            if (vehicle.purchaseDate) {
+              setPurchaseDate(
+                new Date(vehicle.purchaseDate).toISOString().split("T")[0]
+              );
+            }
+
+            // Check if vehicle already has an owner
+            if (vehicle.owner) {
+              setError(
+                "This vehicle already has a registered owner. Cannot register again."
+              );
+            } else {
+              setStep("searchCustomer");
+            }
+          }
+        } catch (err: any) {
+          setError(err.response?.data?.message || "Vehicle not found");
+        } finally {
+          setIsLoading(false);
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, initialVin]);
 
   const handleSearchVehicle = async () => {
     if (!vin.trim()) {
@@ -228,11 +282,11 @@ export function RegisterVehicleModal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={handleClose}
-            className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/50 z-[70] backdrop-blur-sm"
           />
 
           {/* Modal */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -326,32 +380,99 @@ export function RegisterVehicleModal({
                     </div>
 
                     {/* Customer Search */}
-                    <div>
+                    <div className="space-y-4">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Search Customer by Email or Phone *
                       </label>
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                        <input
-                          type="text"
-                          value={customerSearch}
-                          onChange={(e) => setCustomerSearch(e.target.value)}
-                          onKeyPress={(e) =>
-                            e.key === "Enter" && handleSearchCustomer()
-                          }
-                          placeholder="Enter email or phone number"
-                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent focus:bg-white transition-colors"
-                        />
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                          <input
+                            type="text"
+                            value={customerSearch}
+                            onChange={(e) => {
+                              setCustomerSearch(e.target.value);
+                              if (error) setError(""); // Clear error when typing
+                            }}
+                            onKeyPress={(e) =>
+                              e.key === "Enter" && handleSearchCustomer()
+                            }
+                            placeholder="Enter email or phone number"
+                            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent focus:bg-white transition-colors"
+                          />
+                        </div>
+                        <button
+                          onClick={handleSearchCustomer}
+                          disabled={isLoading || !customerSearch.trim()}
+                          className="px-6 py-3 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                          {isLoading ? (
+                            <Loader className="w-5 h-5 animate-spin" />
+                          ) : (
+                            <Search className="w-5 h-5" />
+                          )}
+                        </button>
                       </div>
-                      <p className="text-xs text-gray-500 mt-2">
+                      <p className="text-xs text-gray-500">
                         Search for existing customer or create new one
                       </p>
                     </div>
 
-                    {error && (
-                      <div className="flex items-start gap-2 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                        <p className="text-sm text-yellow-700">{error}</p>
+                    {/* Customer Not Found - Enhanced UI */}
+                    {error && error.includes("not found") && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 rounded-xl p-6 space-y-4"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <User className="w-6 h-6 text-amber-600" />
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                              Customer Not Found
+                              <AlertCircle className="w-4 h-4 text-amber-600" />
+                            </h4>
+                            <p className="text-sm text-gray-700 mb-4">
+                              No customer found with{" "}
+                              <span className="font-medium text-amber-700">
+                                {customerSearch}
+                              </span>
+                              . Would you like to create a new customer record?
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-3">
+                              <button
+                                onClick={() => {
+                                  setStep("register");
+                                  setError("");
+                                }}
+                                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-lg hover:from-amber-700 hover:to-orange-700 transition-all font-medium shadow-md hover:shadow-lg"
+                              >
+                                <User className="w-4 h-4" />
+                                Create New Customer
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setCustomerSearch("");
+                                  setError("");
+                                }}
+                                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium border border-gray-300"
+                              >
+                                <Search className="w-4 h-4" />
+                                Search Again
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* Generic Error */}
+                    {error && !error.includes("not found") && (
+                      <div className="flex items-start gap-2 p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                        <p className="text-sm text-red-700">{error}</p>
                       </div>
                     )}
                   </motion.div>
@@ -595,29 +716,39 @@ export function RegisterVehicleModal({
                     {step === "searchVehicle" ? "Cancel" : "Back"}
                   </button>
 
-                  <button
-                    onClick={
-                      step === "searchVehicle"
-                        ? handleSearchVehicle
-                        : step === "searchCustomer"
-                        ? handleSearchCustomer
-                        : handleRegisterVehicle
-                    }
-                    disabled={isLoading}
-                    className="px-6 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader className="w-4 h-4 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        {step === "register" ? "Register Vehicle" : "Continue"}
-                        <ArrowRight className="w-4 h-4" />
-                      </>
-                    )}
-                  </button>
+                  {/* Hide Continue button when customer not found card is shown */}
+                  {!(
+                    step === "searchCustomer" && error.includes("not found")
+                  ) && (
+                    <button
+                      onClick={
+                        step === "searchVehicle"
+                          ? handleSearchVehicle
+                          : step === "searchCustomer"
+                          ? handleSearchCustomer
+                          : handleRegisterVehicle
+                      }
+                      disabled={
+                        isLoading ||
+                        (step === "searchCustomer" && !customerSearch.trim())
+                      }
+                      className="px-6 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader className="w-4 h-4 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          {step === "register"
+                            ? "Register Vehicle"
+                            : "Continue"}
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               )}
             </motion.div>

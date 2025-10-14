@@ -18,6 +18,8 @@ import {
   FileText,
   Plus,
   Trash2,
+  UserPlus,
+  ArrowRight,
 } from "lucide-react";
 import { vehicleService, claimService, customerService } from "@/services";
 
@@ -25,6 +27,7 @@ interface NewClaimModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  onRegisterOwner?: (vin: string) => void;
 }
 
 interface GuaranteeCase {
@@ -36,6 +39,7 @@ export function NewClaimModal({
   isOpen,
   onClose,
   onSuccess,
+  onRegisterOwner,
 }: NewClaimModalProps) {
   const [step, setStep] = useState<"search" | "verify" | "claim" | "success">(
     "search"
@@ -51,6 +55,7 @@ export function NewClaimModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [warrantyInfo, setWarrantyInfo] = useState<any>(null);
+  const [noOwnerWarning, setNoOwnerWarning] = useState(false);
 
   // Reset form when modal closes
   useEffect(() => {
@@ -64,6 +69,7 @@ export function NewClaimModal({
         setGuaranteeCases([{ id: crypto.randomUUID(), contentGuarantee: "" }]);
         setError("");
         setWarrantyInfo(null);
+        setNoOwnerWarning(false);
       }, 300);
     }
   }, [isOpen]);
@@ -79,20 +85,28 @@ export function NewClaimModal({
 
     try {
       // Search by VIN
-      const vehicle = await vehicleService.findVehicleByVin(vinOrPlate.trim());
+      const response = await vehicleService.findVehicleByVin(vinOrPlate.trim());
 
-      if (vehicle.data) {
-        setVehicleData(vehicle.data);
+      // API returns {status, data: {vehicle: {...}}}
+      if (response.data?.vehicle) {
+        setVehicleData(response.data.vehicle);
 
-        // Fetch customer info if ownerId exists
-        if (vehicle.data.ownerId) {
-          try {
-            const customer = await customerService.searchCustomer({
-              email: vehicle.data.owner?.email || "",
-            });
-            setCustomerData(customer);
-          } catch (err) {
-            console.warn("Customer not found");
+        // Check if vehicle has no owner
+        if (!response.data.vehicle.owner) {
+          setNoOwnerWarning(true);
+        } else {
+          setNoOwnerWarning(false);
+
+          // Fetch customer info if owner email exists
+          if (response.data.vehicle.owner.email) {
+            try {
+              const customer = await customerService.searchCustomer({
+                email: response.data.vehicle.owner.email,
+              });
+              setCustomerData(customer);
+            } catch (error) {
+              console.warn("Customer not found:", error);
+            }
           }
         }
 
@@ -109,6 +123,14 @@ export function NewClaimModal({
   };
 
   const handleVerifyAndNext = async () => {
+    // Check if vehicle has no owner
+    if (noOwnerWarning || !vehicleData.owner) {
+      setError(
+        "Cannot proceed: Vehicle must have a registered owner before creating a warranty claim"
+      );
+      return;
+    }
+
     if (!odometer || parseInt(odometer) < 0) {
       setError("Please enter a valid odometer reading");
       return;
@@ -202,11 +224,11 @@ export function NewClaimModal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/50 z-[70] backdrop-blur-sm"
           />
 
           {/* Modal */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -290,25 +312,29 @@ export function NewClaimModal({
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <p className="text-xs text-gray-500">VIN</p>
-                          <p className="font-medium">{vehicleData.vin}</p>
+                          <p className="font-medium text-gray-900">
+                            {vehicleData.vin}
+                          </p>
                         </div>
                         <div>
                           <p className="text-xs text-gray-500">License Plate</p>
-                          <p className="font-medium">
+                          <p className="font-medium text-gray-900">
                             {vehicleData.licensePlate || "N/A"}
                           </p>
                         </div>
                         <div>
                           <p className="text-xs text-gray-500">Model</p>
-                          <p className="font-medium">
-                            {vehicleData.vehicleModel?.modelName || "N/A"}
+                          <p className="font-medium text-gray-900">
+                            {vehicleData.model ||
+                              vehicleData.vehicleModel?.modelName ||
+                              "N/A"}
                           </p>
                         </div>
                         <div>
                           <p className="text-xs text-gray-500">
                             Manufacture Date
                           </p>
-                          <p className="font-medium">
+                          <p className="font-medium text-gray-900">
                             {vehicleData.dateOfManufacture
                               ? new Date(
                                   vehicleData.dateOfManufacture
@@ -318,6 +344,53 @@ export function NewClaimModal({
                         </div>
                       </div>
                     </div>
+
+                    {/* No Owner Warning */}
+                    {noOwnerWarning && (
+                      <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-6 space-y-4">
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <AlertCircle className="w-5 h-5 text-amber-600" />
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-gray-900 mb-2">
+                              Owner Registration Required
+                            </h3>
+                            <p className="text-sm text-gray-700 mb-4">
+                              This vehicle does not have a registered owner. You
+                              must register an owner before creating a warranty
+                              claim.
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-3">
+                              <button
+                                onClick={() => {
+                                  if (onRegisterOwner && vehicleData?.vin) {
+                                    onRegisterOwner(vehicleData.vin);
+                                    onClose(); // Close the claim modal
+                                  }
+                                }}
+                                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium"
+                              >
+                                <UserPlus className="w-4 h-4" />
+                                Register Owner
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setStep("search");
+                                  setVinOrPlate("");
+                                  setVehicleData(null);
+                                  setNoOwnerWarning(false);
+                                }}
+                                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                              >
+                                <ArrowRight className="w-4 h-4" />
+                                Search Another Vehicle
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Customer Info */}
                     {vehicleData.owner && (
@@ -330,7 +403,7 @@ export function NewClaimModal({
                         <div className="grid grid-cols-2 gap-4">
                           <div className="col-span-2">
                             <p className="text-xs text-gray-500">Full Name</p>
-                            <p className="font-medium">
+                            <p className="font-medium text-gray-900">
                               {vehicleData.owner.fullName}
                             </p>
                           </div>
@@ -338,7 +411,7 @@ export function NewClaimModal({
                             <p className="text-xs text-gray-500 flex items-center gap-1">
                               <Phone className="w-3 h-3" /> Phone
                             </p>
-                            <p className="font-medium">
+                            <p className="font-medium text-gray-900">
                               {vehicleData.owner.phone}
                             </p>
                           </div>
@@ -346,7 +419,7 @@ export function NewClaimModal({
                             <p className="text-xs text-gray-500 flex items-center gap-1">
                               <Mail className="w-3 h-3" /> Email
                             </p>
-                            <p className="font-medium">
+                            <p className="font-medium text-gray-900">
                               {vehicleData.owner.email}
                             </p>
                           </div>
@@ -355,7 +428,7 @@ export function NewClaimModal({
                               <p className="text-xs text-gray-500 flex items-center gap-1">
                                 <MapPin className="w-3 h-3" /> Address
                               </p>
-                              <p className="font-medium">
+                              <p className="font-medium text-gray-900">
                                 {vehicleData.owner.address}
                               </p>
                             </div>
@@ -377,7 +450,7 @@ export function NewClaimModal({
                           onChange={(e) => setOdometer(e.target.value)}
                           placeholder="e.g., 52340"
                           min="0"
-                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent focus:bg-white transition-colors"
+                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-colors"
                         />
                       </div>
                     </div>
@@ -413,13 +486,13 @@ export function NewClaimModal({
                           ) : (
                             <AlertCircle className="w-5 h-5 text-red-600" />
                           )}
-                          <h3 className="font-semibold">
+                          <h3 className="font-semibold text-gray-900">
                             {warrantyInfo.isUnderWarranty
                               ? "Vehicle Under Warranty"
                               : "Warranty Expired"}
                           </h3>
                         </div>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-gray-900">
                           {warrantyInfo.message}
                         </p>
                       </div>
@@ -433,7 +506,7 @@ export function NewClaimModal({
                         </h3>
                         <button
                           onClick={handleAddCase}
-                          className="flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                          className="flex items-center gap-1 px-3 py-1.5 text-sm text-black bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                         >
                           <Plus className="w-4 h-4" />
                           Add Case
@@ -520,14 +593,19 @@ export function NewClaimModal({
                         ? handleVerifyAndNext
                         : handleSubmitClaim
                     }
-                    disabled={isSearching || isSubmitting}
+                    disabled={
+                      isSearching ||
+                      isSubmitting ||
+                      (step === "verify" && noOwnerWarning)
+                    }
                     className="px-6 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     {(isSearching || isSubmitting) && (
                       <Loader className="w-4 h-4 animate-spin" />
                     )}
                     {step === "search" && "Search Vehicle"}
-                    {step === "verify" && "Continue"}
+                    {step === "verify" &&
+                      (noOwnerWarning ? "Owner Required" : "Continue")}
                     {step === "claim" && "Submit Claim"}
                   </button>
                 </div>
