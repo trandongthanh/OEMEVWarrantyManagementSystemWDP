@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Plus, Car, CheckCircle, AlertCircle, Users } from "lucide-react";
+import SearchByVin from "../SearchByVin";
 
 interface VehicleManagementProps {
   onRegisterVehicleClick: () => void;
@@ -14,24 +15,29 @@ export function VehicleManagement({
     <div className="flex-1 overflow-auto">
       <div className="p-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">
-              Vehicle Management
-            </h2>
-            <p className="text-gray-600 mt-1">
-              Register new vehicles and manage existing registrations
-            </p>
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-gray-900">
+            Vehicle Management
+          </h2>
+          <p className="text-gray-600 mt-1">
+            Register new vehicles and manage existing registrations
+          </p>
+             {/* Search */}
+          <div className="mt-6 flex items-center justify-between">
+            <div className="w-[420px]">
+              <SearchByVin />
+            </div>
+            {/* Register Vehicle Button */}
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={onRegisterVehicleClick}
+              className="px-6 py-3 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-colors font-medium flex items-center gap-2"
+            >
+              <Plus className="w-5 h-5" />
+              Register Vehicle
+            </motion.button>
           </div>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={onRegisterVehicleClick}
-            className="px-6 py-3 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-colors font-medium flex items-center gap-2"
-          >
-            <Plus className="w-5 h-5" />
-            Register Vehicle
-          </motion.button>
         </div>
 
         {/* Quick Stats */}
@@ -99,11 +105,6 @@ export function VehicleManagement({
         <div className="bg-white rounded-2xl border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-gray-900">Registered Vehicles</h3>
-            <input
-              type="text"
-              placeholder="Search by VIN, license plate..."
-              className="px-4 py-2 border border-gray-300 rounded-xl bg-gray-50 text-gray-900 placeholder:text-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:bg-white transition-colors"
-            />
           </div>
 
           {/* Empty State */}
