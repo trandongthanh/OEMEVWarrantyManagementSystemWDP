@@ -11,3 +11,6 @@ export {
   CustomerSearchResults,
   CasesList,
 } from "./staffdashboard";
+
+// Manager Dashboard Components
+export { AssignTechnician } from "./managerdashboard";
