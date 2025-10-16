@@ -28,6 +28,7 @@ import {
   CustomerSearchResults,
   CasesList,
 } from "@/components/dashboard";
+import { FloatingChatWidget } from "@/components/chat";
 
 interface User {
   userId: string;
@@ -187,9 +188,6 @@ export default function StaffDashboard() {
           brandName="Staff"
           brandSubtitle="Dashboard"
           currentUser={currentUser}
-          showAddButton={true}
-          addButtonLabel="Add a section"
-          onAddClick={() => console.log("Add section clicked")}
           onLogout={handleLogout}
         />
 
@@ -245,6 +243,9 @@ export default function StaffDashboard() {
         }}
         initialVin={registerVehicleVin}
       />
+
+      {/* Floating Chat Widget */}
+      <FloatingChatWidget customerName="Customer Support" vin="Active Chat" />
     </>
   );
 }
