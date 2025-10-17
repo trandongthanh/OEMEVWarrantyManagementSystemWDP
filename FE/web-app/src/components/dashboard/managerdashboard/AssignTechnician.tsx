@@ -3,21 +3,28 @@
 import { useState } from "react";
 import { Input, Button, Card, CardBody, CardHeader } from "@heroui/react";
 
-export default function AssignTechnician() {
+export default function AssignTechnicianDashboard() {
   const [recordId, setRecordId] = useState("");
   const [technicianId, setTechnicianId] = useState("");
-  const [result, setResult] = useState<string | null>(null);
+  const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const [showAssignCard, setShowAssignCard] = useState(false);
 
-  const handleAssign = async () => {
+  // Handle Create New Record
+  const handleCreate = () => {
     if (!recordId || !technicianId) {
-      setResult("⚠️ Vui lòng nhập đầy đủ Vehicle processing record ID và Technician ID");
+      alert("⚠️ Please fill in both Record ID and Technician ID");
       return;
     }
+    setShowAssignCard(true);
+  };
 
+  // Handle Assign Technician
+  const handleAssign = async () => {
     const token = localStorage.getItem("authToken");
     if (!token) {
-      setResult("⚠️ Token không tồn tại. Vui lòng đăng nhập lại.");
+      setResult("⚠️ Token not found. Please log in again.");
       return;
     }
 
@@ -34,77 +41,176 @@ export default function AssignTechnician() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ technicianId }),
+          body: JSON.stringify({ technicianId, note }),
         }
       );
 
       const data = await response.json();
-      console.log("📦 Swagger-style response:", data);
-
       if (response.ok && data.status === "success") {
         setResult("✅ Technician assigned successfully!");
-      } else if (response.status === 404) {
-        setResult("❌ Record not found hoặc Technician ID không tồn tại.");
-      } else if (response.status === 401) {
-        setResult("⚠️ Unauthorized — token hết hạn hoặc không hợp lệ.");
-      } else if (response.status === 403) {
-        setResult("🚫 Forbidden — bạn không có quyền gán technician.");
-      } else if (response.status === 400) {
-        setResult("⚠️ Bad Request — technician ID không hợp lệ.");
       } else {
-        setResult(`❌ Lỗi không xác định: ${data.message || "Unknown error"}`);
+        setResult(`❌ Error: ${data.message || "Unknown error"}`);
       }
     } catch (error) {
-      console.error("🚨 Fetch error:", error);
-      setResult("⚠️ Không thể kết nối đến server. Kiểm tra lại API hoặc network.");
+      console.error(error);
+      setResult("⚠️ Unable to connect to the server.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex justify-center mt-10">
-      <Card className="w-[450px] border border-gray-200 shadow-lg rounded-2xl">
-        <CardHeader className="text-lg font-semibold text-gray-700">
-          🚗 Assign Technician (Swagger UI Style)
-        </CardHeader>
-        <CardBody className="space-y-4">
-          <Input
-            label="Vehicle processing record ID"
-            placeholder="550e8400-e29b-41d4-a716-446655440000"
-            value={recordId}
-            onChange={(e) => setRecordId(e.target.value)}
-          />
-          <Input
-            label="Technician ID"
-            placeholder="550e8400-e29b-41d4-a716-446655440001"
-            value={technicianId}
-            onChange={(e) => setTechnicianId(e.target.value)}
-          />
-          <Button
-            color="primary"
-            className="w-full"
-            onPress={handleAssign}
-            isLoading={loading}
-          >
-            Execute (PATCH)
-          </Button>
+    <div className="flex justify-center items-start min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 p-8">
+      <div className="w-full max-w-4xl space-y-8">
+        {/* Create New Record Card */}
+        {!showAssignCard && (
+          <Card className="border border-gray-200 shadow-2xl rounded-3xl bg-white overflow-hidden">
+            <CardHeader className="text-3xl font-bold text-gray-800 flex items-center gap-3 bg-blue-50 px-8 py-6 rounded-t-3xl shadow-inner">
+              🆕 Create New Vehicle Record
+            </CardHeader>
+            <CardBody className="space-y-6 px-8 py-8">
+              {/* Page Description */}
+              <p className="text-gray-600 text-sm mb-4">
+                Use this form to create a new vehicle processing record and assign a technician. You can optionally add a note.
+              </p>
 
-          {result && (
-            <p
-              className={`text-center text-sm ${
-                result.includes("✅")
-                  ? "text-green-600"
-                  : result.includes("⚠️")
-                  ? "text-yellow-600"
-                  : "text-red-600"
-              }`}
-            >
-              {result}
-            </p>
-          )}
-        </CardBody>
-      </Card>
+              <Input
+                type="text"
+                label=""
+                placeholder="Vehicle Processing Record ID"
+                value={recordId}
+                onChange={(e) => setRecordId(e.target.value)}
+                radius="lg"
+                classNames={{
+                  inputWrapper:
+                    "bg-gray-50 border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-300 rounded-lg transition-all py-3 px-4",
+                  input: "text-gray-900 placeholder-gray-400 font-medium",
+                  label: "hidden",
+                }}
+              />
+
+              <Input
+                type="text"
+                label=""
+                placeholder="Technician ID"
+                value={technicianId}
+                onChange={(e) => setTechnicianId(e.target.value)}
+                radius="lg"
+                classNames={{
+                  inputWrapper:
+                    "bg-gray-50 border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-300 rounded-lg transition-all py-3 px-4",
+                  input: "text-gray-900 placeholder-gray-400 font-medium",
+                  label: "hidden",
+                }}
+              />
+
+              <Input
+                type="text"
+                label=""
+                placeholder="Note / Comment"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                radius="lg"
+                classNames={{
+                  inputWrapper:
+                    "bg-gray-50 border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-300 rounded-lg transition-all py-3 px-4",
+                  input: "text-gray-900 placeholder-gray-400 font-medium",
+                  label: "hidden",
+                }}
+              />
+
+              <Button
+                className="w-full font-semibold bg-green-600 hover:bg-green-700 text-white transition-colors rounded-xl py-3 shadow-md shadow-green-200 hover:shadow-lg"
+                onPress={handleCreate}
+              >
+                Create Record
+              </Button>
+            </CardBody>
+          </Card>
+        )}
+
+        {/* Assign Technician Card */}
+        {showAssignCard && (
+          <Card className="border border-gray-200 shadow-2xl rounded-3xl bg-white overflow-hidden">
+            <CardHeader className="text-3xl font-bold text-gray-800 flex items-center gap-3 bg-blue-50 px-8 py-6 rounded-t-3xl shadow-inner">
+              🚗 Assign Technician
+            </CardHeader>
+            <CardBody className="space-y-6 px-8 py-8">
+              {/* Page Description */}
+              <p className="text-gray-600 text-sm mb-4">
+                Use this form to assign a technician to the vehicle processing record. You can add optional notes for reference.
+              </p>
+
+              <Input
+                type="text"
+                label=""
+                placeholder="Vehicle Processing Record ID"
+                value={recordId}
+                onChange={(e) => setRecordId(e.target.value)}
+                radius="lg"
+                classNames={{
+                  inputWrapper:
+                    "bg-gray-50 border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-300 rounded-lg transition-all py-3 px-4",
+                  input: "text-gray-900 placeholder-gray-400 font-medium",
+                  label: "hidden",
+                }}
+              />
+
+              <Input
+                type="text"
+                label=""
+                placeholder="Technician ID"
+                value={technicianId}
+                onChange={(e) => setTechnicianId(e.target.value)}
+                radius="lg"
+                classNames={{
+                  inputWrapper:
+                    "bg-gray-50 border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-300 rounded-lg transition-all py-3 px-4",
+                  input: "text-gray-900 placeholder-gray-400 font-medium",
+                  label: "hidden",
+                }}
+              />
+
+              <Input
+                type="text"
+                label=""
+                placeholder="Note / Comment"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                radius="lg"
+                classNames={{
+                  inputWrapper:
+                    "bg-gray-50 border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-300 rounded-lg transition-all py-3 px-4",
+                  input: "text-gray-900 placeholder-gray-400 font-medium",
+                  label: "hidden",
+                }}
+              />
+
+              <Button
+                className="w-full font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors rounded-xl py-3 shadow-md shadow-blue-200 hover:shadow-lg"
+                onPress={handleAssign}
+                isLoading={loading}
+              >
+                Execute Assignment
+              </Button>
+
+              {result && (
+                <p
+                  className={`text-center text-sm font-medium ${
+                    result.includes("✅")
+                      ? "text-green-600"
+                      : result.includes("⚠️")
+                      ? "text-yellow-600"
+                      : "text-red-600"
+                  }`}
+                >
+                  {result}
+                </p>
+              )}
+            </CardBody>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }

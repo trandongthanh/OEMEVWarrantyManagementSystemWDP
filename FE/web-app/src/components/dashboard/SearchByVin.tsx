@@ -89,7 +89,7 @@ export default function SearchByVin() {
           placeOfManufacture: v.placeOfManufacture ?? null,
           licensePlate: v.licensePlate ?? null,
           purchaseDate: v.purchaseDate ?? null,
-          owner: v.customer?.fullName ?? null,
+          owner: v.owner?.fullName ?? null,
           model: v.model ?? null,
           company: v.company ?? null,
         };
@@ -121,21 +121,20 @@ export default function SearchByVin() {
   };
 
   // --- Search input handlers ---
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let newValue = e.target.value.replace(/[^a-zA-Z0-9]/g, "");
-    if (newValue.length > 17) newValue = newValue.slice(0, 17);
-    setValue(newValue);
-  };
+const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  setValue(e.target.value);
+};
 
-  const triggerSearch = () => {
-    if (value.length === 17) {
-      fetchVehicle(value);
-    } else {
-      setError("VIN phải đủ 17 ký tự.");
-      setVehicle(null);
-      onOpen();
-    }
-  };
+const triggerSearch = () => {
+  if (value.trim() === "") {
+    setError("Please enter a VIN before searching.");
+    setVehicle(null);
+    onOpen();
+    return;
+  }
+
+  fetchVehicle(value);
+};
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") triggerSearch();

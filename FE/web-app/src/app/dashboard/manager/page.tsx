@@ -16,11 +16,13 @@ import {
   AlertCircle,
   XCircle,
 } from "lucide-react";
+
 import { authService, userService, Technician } from "@/services";
 import {
   Sidebar,
   DashboardHeader,
   PlaceholderContent,
+  AssignTechnician,
 } from "@/components/dashboard";
 
 interface CurrentUser {
@@ -60,6 +62,7 @@ export default function ManagerDashboard() {
     { id: "tasks", icon: ClipboardList, label: "Tasks" },
     { id: "analytics", icon: BarChart3, label: "Analytics" },
     { id: "schedule", icon: Calendar, label: "Schedule" },
+    { id: "assign", icon: CheckCircle, label: "Assign Technician" }, // ✅ thêm mục mới
     { id: "settings", icon: SettingsIcon, label: "Settings" },
   ];
 
@@ -269,6 +272,9 @@ export default function ManagerDashboard() {
             </div>
           </div>
         );
+
+      case "assign":
+        return <AssignTechnician />; // ✅ render form gán technician
 
       case "team":
         return (
