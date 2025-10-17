@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   Home,
   Users,
@@ -8,8 +9,9 @@ import {
   BarChart3,
   Calendar,
   Settings as SettingsIcon,
-  FileText,
   UserCheck,
+  ListTodo,
+  Briefcase,
 } from "lucide-react";
 import { authService, userService, Technician } from "@/services";
 import {
@@ -18,6 +20,8 @@ import {
   PlaceholderContent,
   ManagerDashboardOverview,
   ManagerCasesList,
+  AssignmentsManagement,
+  TasksView,
 } from "@/components/dashboard";
 
 interface CurrentUser {
@@ -26,17 +30,38 @@ interface CurrentUser {
 }
 
 export default function ManagerDashboard() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [activeNav, setActiveNav] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState("cases"); // For assignments section
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
+  const [selectedRecordVin, setSelectedRecordVin] = useState<
+    string | undefined
+  >(undefined);
 
   useEffect(() => {
     const user = authService.getCurrentUser();
     setCurrentUser(user);
     fetchData();
-  }, []);
+
+    // Handle deep linking
+    const tab = searchParams.get("tab");
+    const recordVin = searchParams.get("record");
+
+    if (tab === "assignments") {
+      setActiveNav("assignments");
+      setActiveTab("assignments");
+      if (recordVin) {
+        setSelectedRecordVin(recordVin);
+      }
+    } else if (tab === "tasks") {
+      setActiveNav("assignments");
+      setActiveTab("tasks");
+    }
+  }, [searchParams]);
 
   const fetchData = async () => {
     try {
@@ -51,11 +76,17 @@ export default function ManagerDashboard() {
     authService.logout();
   };
 
+  const handleNavigateToAssignments = (recordVin: string) => {
+    setSelectedRecordVin(recordVin);
+    setActiveNav("assignments");
+    setActiveTab("assignments");
+    router.push(`/dashboard/manager?tab=assignments&record=${recordVin}`);
+  };
+
   const navItems = [
     { id: "dashboard", icon: Home, label: "Dashboard" },
     { id: "assignments", icon: UserCheck, label: "Assignments" },
     { id: "team", icon: Users, label: "Team" },
-    { id: "tasks", icon: ClipboardList, label: "Tasks" },
     { id: "analytics", icon: BarChart3, label: "Analytics" },
     { id: "schedule", icon: Calendar, label: "Schedule" },
     { id: "settings", icon: SettingsIcon, label: "Settings" },
@@ -68,11 +99,70 @@ export default function ManagerDashboard() {
 
       case "assignments":
         return (
-          <PlaceholderContent
-            icon={ClipboardList}
-            title="Assign Technicians"
-            description="Assign technicians to various tasks and monitor their workload effectively."
-          />
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Tab Navigation */}
+            <div className="bg-white border-b border-gray-200 px-8 pt-6">
+              <div className="flex gap-6">
+                <button
+                  onClick={() => {
+                    setActiveTab("cases");
+                    setSelectedRecordVin(undefined);
+                    router.push("/dashboard/manager");
+                  }}
+                  className={`pb-4 px-2 font-medium transition-colors relative flex items-center gap-2 ${
+                    activeTab === "cases"
+                      ? "text-gray-900 border-b-2 border-gray-900"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  <ClipboardList className="w-5 h-5" />
+                  Cases
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab("assignments");
+                    router.push("/dashboard/manager?tab=assignments");
+                  }}
+                  className={`pb-4 px-2 font-medium transition-colors relative flex items-center gap-2 ${
+                    activeTab === "assignments"
+                      ? "text-gray-900 border-b-2 border-gray-900"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  <UserCheck className="w-5 h-5" />
+                  Assignments
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab("tasks");
+                    setSelectedRecordVin(undefined);
+                    router.push("/dashboard/manager?tab=tasks");
+                  }}
+                  className={`pb-4 px-2 font-medium transition-colors relative flex items-center gap-2 ${
+                    activeTab === "tasks"
+                      ? "text-gray-900 border-b-2 border-gray-900"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  <ListTodo className="w-5 h-5" />
+                  Tasks
+                </button>
+              </div>
+            </div>
+
+            {/* Tab Content */}
+            <div className="flex-1 overflow-auto">
+              {activeTab === "cases" && (
+                <ManagerCasesList
+                  onNavigateToAssignments={handleNavigateToAssignments}
+                />
+              )}
+              {activeTab === "assignments" && (
+                <AssignmentsManagement selectedRecordId={selectedRecordVin} />
+              )}
+              {activeTab === "tasks" && <TasksView />}
+            </div>
+          </div>
         );
 
       case "team":
@@ -87,9 +177,6 @@ export default function ManagerDashboard() {
             }}
           />
         );
-
-      case "tasks":
-        return <ManagerCasesList />;
 
       case "analytics":
         return (
@@ -131,7 +218,7 @@ export default function ManagerDashboard() {
         activeNav={activeNav}
         onNavChange={setActiveNav}
         navItems={navItems}
-        brandIcon={FileText}
+        brandIcon={Briefcase}
         brandName="Manager"
         brandSubtitle="Team Management"
         currentUser={currentUser}

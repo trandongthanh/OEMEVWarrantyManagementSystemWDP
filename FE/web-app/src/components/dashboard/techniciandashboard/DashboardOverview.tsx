@@ -14,7 +14,13 @@ import {
 } from "lucide-react";
 import { processingRecordService, ProcessingRecord } from "@/services";
 
-export function DashboardOverview() {
+interface DashboardOverviewProps {
+  onOpenReportModal?: () => void;
+}
+
+export function DashboardOverview({
+  onOpenReportModal,
+}: DashboardOverviewProps) {
   const [processingRecords, setProcessingRecords] = useState<
     ProcessingRecord[]
   >([]);
@@ -90,13 +96,23 @@ export function DashboardOverview() {
                   <Wrench className="w-6 h-6 text-blue-600" />
                 </div>
               </div>
-              <button
-                onClick={loadProcessingRecords}
-                disabled={isLoading}
-                className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? "Refreshing..." : "Refresh"}
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={loadProcessingRecords}
+                  disabled={isLoading}
+                  className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? "Refreshing..." : "Refresh"}
+                </button>
+                {onOpenReportModal && (
+                  <button
+                    onClick={onOpenReportModal}
+                    className="px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors"
+                  >
+                    Open Report Modal
+                  </button>
+                )}
+              </div>
             </motion.div>
 
             {error && (
@@ -136,7 +152,7 @@ export function DashboardOverview() {
                 <div className="space-y-3">
                   {processingRecords.map((record) => (
                     <div
-                      key={record.id}
+                      key={record.id || record.vin}
                       className="p-4 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors"
                     >
                       <div className="flex items-start justify-between">

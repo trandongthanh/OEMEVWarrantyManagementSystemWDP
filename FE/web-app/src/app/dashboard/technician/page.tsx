@@ -3,12 +3,12 @@
 import { useState, useEffect } from "react";
 import {
   Home,
-  ClipboardList,
   Package,
   Clock,
   CheckCircle,
   Settings as SettingsIcon,
-  FileText,
+  Wrench,
+  ListTodo,
 } from "lucide-react";
 import { authService } from "@/services";
 import {
@@ -16,6 +16,8 @@ import {
   DashboardHeader,
   PlaceholderContent,
   TechnicianDashboardOverview,
+  MyTasks,
+  ReportSubmission,
 } from "@/components/dashboard";
 
 interface CurrentUser {
@@ -23,11 +25,34 @@ interface CurrentUser {
   roleName: string;
 }
 
+// Task type definition (matches MyTasks component)
+interface Task {
+  taskId: string;
+  guaranteeCaseId: string;
+  taskType: "DIAGNOSIS" | "REPAIR";
+  status: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+  technicianId: string | null;
+  assignedAt: string | null;
+  completedAt: string | null;
+  guaranteeCase?: {
+    guaranteeCaseId: string;
+    contentGuarantee: string;
+    status: string;
+    vin: string;
+    vehicle?: {
+      licensePlate: string;
+      model?: string | { name: string };
+    };
+  };
+}
+
 export default function TechnicianDashboard() {
   const [activeNav, setActiveNav] = useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   useEffect(() => {
     const user = authService.getCurrentUser();
@@ -38,9 +63,25 @@ export default function TechnicianDashboard() {
     authService.logout();
   };
 
+  const handleSubmitReport = (task: Task) => {
+    setSelectedTask(task);
+    setShowReportModal(true);
+  };
+
+  const handleOpenReportModal = () => {
+    setSelectedTask(null); // No specific task for UI testing
+    setShowReportModal(true);
+  };
+
+  const handleReportSuccess = () => {
+    setShowReportModal(false);
+    setSelectedTask(null);
+    // Could trigger a refresh of tasks here
+  };
+
   const navItems = [
     { id: "dashboard", icon: Home, label: "Dashboard" },
-    { id: "tasks", icon: ClipboardList, label: "My Tasks" },
+    { id: "tasks", icon: ListTodo, label: "My Tasks" },
     { id: "parts", icon: Package, label: "Parts" },
     { id: "history", icon: Clock, label: "History" },
     { id: "completed", icon: CheckCircle, label: "Completed" },
@@ -50,16 +91,14 @@ export default function TechnicianDashboard() {
   const renderContent = () => {
     switch (activeNav) {
       case "dashboard":
-        return <TechnicianDashboardOverview />;
-
-      case "tasks":
         return (
-          <PlaceholderContent
-            icon={ClipboardList}
-            title="My Tasks"
-            description="View and manage all your assigned tasks. Update progress, add notes, and mark tasks as complete."
+          <TechnicianDashboardOverview
+            onOpenReportModal={handleOpenReportModal}
           />
         );
+
+      case "tasks":
+        return <MyTasks onSubmitReport={handleSubmitReport} />;
 
       case "parts":
         return (
@@ -114,7 +153,7 @@ export default function TechnicianDashboard() {
         activeNav={activeNav}
         onNavChange={setActiveNav}
         navItems={navItems}
-        brandIcon={FileText}
+        brandIcon={Wrench}
         brandName="Technician"
         brandSubtitle="Workspace"
         currentUser={currentUser}
@@ -137,6 +176,18 @@ export default function TechnicianDashboard() {
 
         {renderContent()}
       </div>
+
+      {/* Report Submission Modal */}
+      {showReportModal && (
+        <ReportSubmission
+          task={selectedTask}
+          onClose={() => {
+            setShowReportModal(false);
+            setSelectedTask(null);
+          }}
+          onSuccess={handleReportSuccess}
+        />
+      )}
     </div>
   );
 }
