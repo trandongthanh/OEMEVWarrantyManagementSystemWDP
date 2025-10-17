@@ -66,6 +66,34 @@ export const checkVehicleWarranty = async (
 };
 
 /**
+ * Preview warranty status before purchase
+ * POST /vehicles/{vin}/warranty/preview
+ *
+ * Previews warranty eligibility for a vehicle before it's purchased.
+ * Used to check warranty coverage based on hypothetical purchase date and odometer.
+ *
+ * @param vin - Vehicle Identification Number
+ * @param data - Preview data with odometer and purchase date
+ * @returns Warranty status preview
+ */
+export const previewVehicleWarranty = async (
+  vin: string,
+  data: { odometer: number; purchaseDate: string }
+): Promise<VehicleWarrantyCheckResponse> => {
+  try {
+    const response = await apiClient.post(
+      `/vehicles/${vin}/warranty/preview`,
+      data
+    );
+
+    return response.data;
+  } catch (error: unknown) {
+    console.error("Error previewing vehicle warranty:", error);
+    throw error;
+  }
+};
+
+/**
  * Register owner for vehicle
  * PATCH /vehicles/{vin}
  *
@@ -80,11 +108,18 @@ export const registerVehicleOwner = async (
   vin: string,
   data: RegisterOwnerRequest
 ): Promise<RegisterOwnerResponse> => {
+  // Validate that either customerId or customer is provided
+  if (!data.customerId && !data.customer) {
+    throw new Error(
+      "Client must provide customer or customerId to register for owner for vehicle"
+    );
+  }
+
   try {
     const response = await apiClient.patch(`/vehicles/${vin}`, data);
 
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error registering vehicle owner:", error);
     throw error;
   }
@@ -93,6 +128,7 @@ export const registerVehicleOwner = async (
 const vehicleService = {
   findVehicleByVin,
   checkVehicleWarranty,
+  previewVehicleWarranty,
   registerVehicleOwner,
 };
 

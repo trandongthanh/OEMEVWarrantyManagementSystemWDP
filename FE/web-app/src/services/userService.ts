@@ -33,10 +33,10 @@ export interface Technician {
   userId: string;
   name: string;
   activeTaskCount: number;
-  workSchedule?: {
+  workSchedule: Array<{
     workDate: string;
     status: "WORKING" | "DAY_OFF" | "LEAVE_REQUESTED" | "LEAVE_APPROVED";
-  };
+  }>;
 }
 
 /**

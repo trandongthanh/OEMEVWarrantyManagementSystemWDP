@@ -145,7 +145,26 @@ export function NewClaimModal({
         vehicleData.vin,
         parseInt(odometer)
       );
-      setWarrantyInfo(warranty.data);
+
+      // Transform the response to include warranty status check
+      const warrantyData = warranty.data.vehicle;
+      const isGeneralWarrantyActive =
+        warrantyData.generalWarranty.duration.status === true ||
+        warrantyData.generalWarranty.duration.status === "ACTIVE";
+      const isGeneralMileageValid =
+        warrantyData.generalWarranty.mileage.status === "ACTIVE";
+
+      setWarrantyInfo({
+        ...warrantyData,
+        isUnderWarranty: isGeneralWarrantyActive && isGeneralMileageValid,
+        message:
+          isGeneralWarrantyActive && isGeneralMileageValid
+            ? `Vehicle is covered under warranty. General warranty expires on ${new Date(
+                warrantyData.generalWarranty.duration.endDate
+              ).toLocaleDateString()} with ${warrantyData.generalWarranty.mileage.remainingMileage.toLocaleString()} km remaining.`
+            : "Vehicle is no longer covered under the general warranty policy.",
+      });
+
       setStep("claim");
     } catch (err: any) {
       setError(
@@ -473,29 +492,157 @@ export function NewClaimModal({
                   >
                     {/* Warranty Status */}
                     {warrantyInfo && (
-                      <div
-                        className={`rounded-xl p-6 ${
-                          warrantyInfo.isUnderWarranty
-                            ? "bg-green-50 border border-green-200"
-                            : "bg-red-50 border border-red-200"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 mb-2">
-                          {warrantyInfo.isUnderWarranty ? (
-                            <CheckCircle className="w-5 h-5 text-green-600" />
-                          ) : (
-                            <AlertCircle className="w-5 h-5 text-red-600" />
-                          )}
-                          <h3 className="font-semibold text-gray-900">
-                            {warrantyInfo.isUnderWarranty
-                              ? "Vehicle Under Warranty"
-                              : "Warranty Expired"}
-                          </h3>
+                      <>
+                        <div
+                          className={`rounded-xl p-6 ${
+                            warrantyInfo.isUnderWarranty
+                              ? "bg-green-50 border border-green-200"
+                              : "bg-red-50 border border-red-200"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            {warrantyInfo.isUnderWarranty ? (
+                              <CheckCircle className="w-5 h-5 text-green-600" />
+                            ) : (
+                              <AlertCircle className="w-5 h-5 text-red-600" />
+                            )}
+                            <h3 className="font-semibold text-gray-900">
+                              {warrantyInfo.isUnderWarranty
+                                ? "Vehicle Under Warranty"
+                                : "Warranty Expired"}
+                            </h3>
+                          </div>
+                          <p className="text-sm text-gray-900">
+                            {warrantyInfo.message}
+                          </p>
                         </div>
-                        <p className="text-sm text-gray-900">
-                          {warrantyInfo.message}
-                        </p>
-                      </div>
+
+                        {/* Warranty Details */}
+                        <div className="bg-gray-50 rounded-xl p-6 space-y-4">
+                          <h3 className="font-semibold text-gray-900">
+                            Warranty Coverage Details
+                          </h3>
+
+                          {/* General Warranty */}
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-medium text-gray-700">
+                              General Warranty
+                            </h4>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <p className="text-gray-500">Duration</p>
+                                <p className="font-medium text-gray-900">
+                                  {
+                                    warrantyInfo.generalWarranty.policy
+                                      .durationMonths
+                                  }{" "}
+                                  months
+                                  <span
+                                    className={`ml-2 px-2 py-0.5 rounded text-xs ${
+                                      warrantyInfo.generalWarranty.duration
+                                        .status === "ACTIVE" ||
+                                      warrantyInfo.generalWarranty.duration
+                                        .status === true
+                                        ? "bg-green-100 text-green-700"
+                                        : "bg-red-100 text-red-700"
+                                    }`}
+                                  >
+                                    {
+                                      warrantyInfo.generalWarranty.duration
+                                        .remainingDays
+                                    }{" "}
+                                    days left
+                                  </span>
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-gray-500">Mileage Limit</p>
+                                <p className="font-medium text-gray-900">
+                                  {warrantyInfo.generalWarranty.policy.mileageLimit.toLocaleString()}{" "}
+                                  km
+                                  <span
+                                    className={`ml-2 px-2 py-0.5 rounded text-xs ${
+                                      warrantyInfo.generalWarranty.mileage
+                                        .status === "ACTIVE"
+                                        ? "bg-green-100 text-green-700"
+                                        : "bg-red-100 text-red-700"
+                                    }`}
+                                  >
+                                    {warrantyInfo.generalWarranty.mileage.remainingMileage.toLocaleString()}{" "}
+                                    km left
+                                  </span>
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Component Warranties */}
+                          {warrantyInfo.componentWarranties &&
+                            warrantyInfo.componentWarranties.length > 0 && (
+                              <div className="space-y-3">
+                                <h4 className="text-sm font-medium text-gray-700">
+                                  Component Warranties
+                                </h4>
+                                {warrantyInfo.componentWarranties.map(
+                                  (component: any, index: number) => (
+                                    <div
+                                      key={index}
+                                      className="bg-white rounded-lg p-4 space-y-2"
+                                    >
+                                      <h5 className="font-medium text-gray-900">
+                                        {component.componentName}
+                                      </h5>
+                                      <div className="grid grid-cols-2 gap-4 text-sm">
+                                        <div>
+                                          <p className="text-gray-500">
+                                            Duration
+                                          </p>
+                                          <p className="text-gray-900">
+                                            {component.policy.durationMonths}{" "}
+                                            months
+                                            <span
+                                              className={`ml-2 px-2 py-0.5 rounded text-xs ${
+                                                component.duration.status ===
+                                                  "ACTIVE" ||
+                                                component.duration.status ===
+                                                  true
+                                                  ? "bg-green-100 text-green-700"
+                                                  : "bg-red-100 text-red-700"
+                                              }`}
+                                            >
+                                              {component.duration.remainingDays}{" "}
+                                              days
+                                            </span>
+                                          </p>
+                                        </div>
+                                        <div>
+                                          <p className="text-gray-500">
+                                            Mileage
+                                          </p>
+                                          <p className="text-gray-900">
+                                            {component.policy.mileageLimit.toLocaleString()}{" "}
+                                            km
+                                            <span
+                                              className={`ml-2 px-2 py-0.5 rounded text-xs ${
+                                                component.mileage.status ===
+                                                "ACTIVE"
+                                                  ? "bg-green-100 text-green-700"
+                                                  : "bg-red-100 text-red-700"
+                                              }`}
+                                            >
+                                              {component.mileage.remainingMileage.toLocaleString()}{" "}
+                                              km
+                                            </span>
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            )}
+                        </div>
+                      </>
                     )}
 
                     {/* Guarantee Cases */}

@@ -12,7 +12,7 @@ class CustomerRepository {
         [Op.or]: [phoneCondition, emailCondition],
       },
 
-      attributes: ["fullName", "email", "phone", "address"],
+      attributes: ["id", "fullName", "email", "phone", "address"],
 
       include: [
         {

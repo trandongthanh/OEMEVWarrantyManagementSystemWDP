@@ -233,6 +233,11 @@ export function RegisterVehicleModal({
         setError("Please fill in all required customer information");
         return;
       }
+    } else {
+      if (!customerData) {
+        setError("Please search and select an existing customer");
+        return;
+      }
     }
 
     setIsLoading(true);
@@ -246,6 +251,8 @@ export function RegisterVehicleModal({
       };
 
       if (useExistingCustomer && customerData) {
+        console.log("customerData:", customerData);
+        console.log("customerData.id:", customerData.id);
         payload.customerId = customerData.id;
       } else {
         payload.customer = {
@@ -255,6 +262,14 @@ export function RegisterVehicleModal({
           address: newCustomer.address || undefined,
         };
       }
+
+      console.log("Registering vehicle with payload:", payload);
+      console.log(
+        "useExistingCustomer:",
+        useExistingCustomer,
+        "customerData:",
+        customerData
+      );
 
       await vehicleService.registerVehicleOwner(vin, payload);
       setStep("success");

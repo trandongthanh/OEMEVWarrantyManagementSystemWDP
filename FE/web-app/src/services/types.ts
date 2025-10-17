@@ -90,12 +90,54 @@ export interface VehicleWarrantyCheckRequest {
   odometer: number;
 }
 
+export interface WarrantyPolicy {
+  durationMonths: number;
+  mileageLimit: number;
+}
+
+export interface WarrantyDuration {
+  status: string | boolean;
+  endDate: string;
+  remainingDays: number;
+}
+
+export interface WarrantyMileage {
+  status: string;
+  remainingMileage: number;
+}
+
+export interface GeneralWarranty {
+  policy: WarrantyPolicy;
+  duration: WarrantyDuration;
+  mileage: WarrantyMileage;
+}
+
+export interface ComponentWarranty {
+  componentName: string;
+  policy: WarrantyPolicy;
+  duration: WarrantyDuration;
+  mileage: WarrantyMileage;
+}
+
+export interface VehicleWarrantyData {
+  vin: string;
+  purchaseDate: string;
+  currentOdometer: number;
+  generalWarranty: GeneralWarranty;
+  componentWarranties: ComponentWarranty[];
+}
+
 export interface VehicleWarrantyCheckResponse {
   status: "success";
   data: {
-    result: VehicleWarrantyCheck;
+    vehicle: VehicleWarrantyData;
   };
   message?: string;
+}
+
+export interface WarrantyPreviewRequest {
+  odometer: number;
+  purchaseDate: string;
 }
 
 // ==================== Register Owner Types ====================

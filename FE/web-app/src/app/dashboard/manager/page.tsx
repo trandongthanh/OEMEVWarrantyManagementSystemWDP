@@ -15,6 +15,7 @@ import {
   CheckCircle,
   AlertCircle,
   XCircle,
+  UserCheck,
 } from "lucide-react";
 import { authService, userService, Technician } from "@/services";
 import {
@@ -22,6 +23,7 @@ import {
   DashboardHeader,
   PlaceholderContent,
 } from "@/components/dashboard";
+import { ManagerDashboard as ManagerDashboardContent } from "@/components/managerdashboard";
 
 interface CurrentUser {
   userId: string;
@@ -56,6 +58,7 @@ export default function ManagerDashboard() {
 
   const navItems = [
     { id: "dashboard", icon: Home, label: "Dashboard" },
+    { id: "assignments", icon: UserCheck, label: "Assignments" },
     { id: "team", icon: Users, label: "Team" },
     { id: "tasks", icon: ClipboardList, label: "Tasks" },
     { id: "analytics", icon: BarChart3, label: "Analytics" },
@@ -64,15 +67,15 @@ export default function ManagerDashboard() {
   ];
 
   const workingCount = technicians.filter(
-    (t) => t.workSchedule?.status === "WORKING"
+    (t) => t.workSchedule?.[0]?.status === "WORKING"
   ).length;
   const dayOffCount = technicians.filter(
-    (t) => t.workSchedule?.status === "DAY_OFF"
+    (t) => t.workSchedule?.[0]?.status === "DAY_OFF"
   ).length;
   const onLeaveCount = technicians.filter(
     (t) =>
-      t.workSchedule?.status === "LEAVE_APPROVED" ||
-      t.workSchedule?.status === "LEAVE_REQUESTED"
+      t.workSchedule?.[0]?.status === "LEAVE_APPROVED" ||
+      t.workSchedule?.[0]?.status === "LEAVE_REQUESTED"
   ).length;
 
   const totalWorkload = technicians.reduce(
@@ -168,14 +171,14 @@ export default function ManagerDashboard() {
                         >
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                              {tech.userId.charAt(0).toUpperCase()}
+                              {tech.name.charAt(0).toUpperCase()}
                             </div>
                             <div>
                               <p className="font-medium text-gray-900">
-                                {tech.userId}
+                                {tech.name}
                               </p>
                               <p className="text-sm text-gray-500">
-                                {tech.workSchedule?.status
+                                {tech.workSchedule[0]?.status
                                   ?.replace(/_/g, " ")
                                   .toLowerCase() || "Unknown"}
                               </p>
@@ -270,6 +273,13 @@ export default function ManagerDashboard() {
           </div>
         );
 
+      case "assignments":
+        return (
+          <div className="flex-1 overflow-auto">
+            <ManagerDashboardContent />
+          </div>
+        );
+
       case "team":
         return (
           <PlaceholderContent
@@ -340,9 +350,6 @@ export default function ManagerDashboard() {
         brandName="Manager"
         brandSubtitle="Team Management"
         currentUser={currentUser}
-        showAddButton={true}
-        addButtonLabel="Add Task"
-        onAddClick={() => console.log("Add task")}
         onLogout={handleLogout}
       />
 
