@@ -10,13 +10,7 @@ import {
   FileText,
   Car,
 } from "lucide-react";
-import {
-  authService,
-  userService,
-  customerService,
-  Technician,
-  Customer,
-} from "@/services";
+import { authService, customerService, Customer } from "@/services";
 import {
   Sidebar,
   DashboardHeader,
@@ -39,7 +33,6 @@ export default function StaffDashboard() {
   const [activeNav, setActiveNav] = useState("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchResult, setSearchResult] = useState<Customer | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -59,22 +52,7 @@ export default function StaffDashboard() {
   useEffect(() => {
     const user = authService.getCurrentUser();
     setCurrentUser(user);
-    // Staff role doesn't have permission to fetch technicians
-    // fetchData();
   }, []);
-
-  const fetchData = async () => {
-    try {
-      // Only fetch technicians if user has permission (admin, manager roles)
-      const user = authService.getCurrentUser();
-      if (user && (user.roleName === "ADMIN" || user.roleName === "MANAGER")) {
-        const techData = await userService.getTechnicians();
-        setTechnicians(techData);
-      }
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    }
-  };
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
@@ -126,7 +104,6 @@ export default function StaffDashboard() {
       case "dashboard":
         return (
           <DashboardOverview
-            technicians={technicians}
             onNewClaimClick={() => setShowNewClaimModal(true)}
             onNavigate={setActiveNav}
           />
@@ -219,7 +196,8 @@ export default function StaffDashboard() {
         isOpen={showNewClaimModal}
         onClose={() => setShowNewClaimModal(false)}
         onSuccess={() => {
-          fetchData(); // Refresh data
+          // Refresh data by reloading the dashboard
+          setActiveNav("dashboard");
         }}
         onRegisterOwner={(vin) => {
           setRegisterVehicleVin(vin);
@@ -235,8 +213,7 @@ export default function StaffDashboard() {
           setRegisterVehicleVin(undefined);
         }}
         onSuccess={() => {
-          fetchData(); // Refresh data
-          // Optionally switch to vehicles tab to show the registered vehicle
+          // Switch to vehicles tab to show the registered vehicle
           setActiveNav("vehicles");
           // Reset VIN after successful registration
           setRegisterVehicleVin(undefined);

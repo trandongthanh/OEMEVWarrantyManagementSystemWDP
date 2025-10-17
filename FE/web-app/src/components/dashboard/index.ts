@@ -11,3 +11,13 @@ export {
   CustomerSearchResults,
   CasesList,
 } from "./staffdashboard";
+
+// Manager Dashboard Components
+export {
+  DashboardOverview as ManagerDashboardOverview,
+  ManagerCasesList,
+  AssignmentsPlaceholder,
+} from "./managerdashboard";
+
+// Technician Dashboard Components
+export { DashboardOverview as TechnicianDashboardOverview } from "./techniciandashboard";

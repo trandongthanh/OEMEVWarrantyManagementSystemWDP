@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
 import {
   Home,
   ClipboardList,
@@ -10,29 +9,18 @@ import {
   CheckCircle,
   Settings as SettingsIcon,
   FileText,
-  TrendingUp,
-  Activity,
-  AlertCircle,
-  Wrench,
 } from "lucide-react";
-import { authService, processingRecordService } from "@/services";
+import { authService } from "@/services";
 import {
   Sidebar,
   DashboardHeader,
   PlaceholderContent,
+  TechnicianDashboardOverview,
 } from "@/components/dashboard";
-import { TechnicianDashboard } from "@/components/techniciandashboard";
 
 interface CurrentUser {
   userId: string;
   roleName: string;
-}
-
-interface TaskSummary {
-  activeTasks: number;
-  completedToday: number;
-  partsUsed: number;
-  efficiency: number;
 }
 
 export default function TechnicianDashboard() {
@@ -40,38 +28,11 @@ export default function TechnicianDashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-  const [taskSummary, setTaskSummary] = useState<TaskSummary>({
-    activeTasks: 0,
-    completedToday: 0,
-    partsUsed: 0,
-    efficiency: 0,
-  });
-  const [recentTasks, setRecentTasks] = useState<any[]>([]);
 
   useEffect(() => {
     const user = authService.getCurrentUser();
     setCurrentUser(user);
-    fetchData();
   }, []);
-
-  const fetchData = async () => {
-    try {
-      const response = await processingRecordService.getAllRecords({});
-
-      const records = response.data?.records || [];
-
-      // Mock data for demonstration
-      setTaskSummary({
-        activeTasks: records.length,
-        completedToday: Math.floor(records.length * 0.3),
-        partsUsed: records.length * 2,
-        efficiency: 85,
-      });
-      setRecentTasks(records.slice(0, 10));
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    }
-  };
 
   const handleLogout = () => {
     authService.logout();
@@ -89,7 +50,7 @@ export default function TechnicianDashboard() {
   const renderContent = () => {
     switch (activeNav) {
       case "dashboard":
-        return <TechnicianDashboard />;
+        return <TechnicianDashboardOverview />;
 
       case "tasks":
         return (
@@ -157,9 +118,6 @@ export default function TechnicianDashboard() {
         brandName="Technician"
         brandSubtitle="Workspace"
         currentUser={currentUser}
-        showAddButton={true}
-        addButtonLabel="New Task"
-        onAddClick={() => console.log("New task")}
         onLogout={handleLogout}
       />
 
