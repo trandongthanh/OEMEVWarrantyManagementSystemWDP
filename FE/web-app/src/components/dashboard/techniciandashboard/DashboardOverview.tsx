@@ -136,7 +136,7 @@ export function DashboardOverview() {
                 <div className="space-y-3">
                   {processingRecords.map((record) => (
                     <div
-                      key={record.id}
+                      key={record.id || record.vin}
                       className="p-4 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors"
                     >
                       <div className="flex items-start justify-between">
