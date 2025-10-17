@@ -5,7 +5,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 // 📄 Screens
 import LoginScreen from "../screens/LoginScreen";
 import ManagerDashboard from "../screens/ManagerDashboard";
-import StaffDashboard from "../screens/StaffDashboard";
+import StaffDashboardTabs from "../screens/staff/StaffDashboardTabs"; // ✅ sửa: dùng Tabs thay vì Dashboard
 import TechnicianDashboard from "../screens/TechnicianDashboard";
 
 const Stack = createNativeStackNavigator();
@@ -13,7 +13,14 @@ const Stack = createNativeStackNavigator();
 export default function AppNavigator() {
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="Login">
+      <Stack.Navigator
+        initialRouteName="Login"
+        screenOptions={{
+          headerStyle: { backgroundColor: "#0B3D91" },
+          headerTintColor: "#fff",
+          headerTitleStyle: { fontWeight: "bold" },
+        }}
+      >
         {/* 🔐 Login Screen */}
         <Stack.Screen
           name="Login"
@@ -27,19 +34,15 @@ export default function AppNavigator() {
           component={ManagerDashboard}
           options={{
             title: "Manager Dashboard",
-            headerStyle: { backgroundColor: "#0B3D91" },
-            headerTintColor: "#fff",
           }}
         />
 
-        {/* 🧾 Staff */}
+        {/* 🧾 Staff (Tabs) */}
         <Stack.Screen
-          name="StaffDashboard"
-          component={StaffDashboard}
+          name="StaffDashboardTabs"
+          component={StaffDashboardTabs}
           options={{
-            title: "Staff Dashboard",
-            headerStyle: { backgroundColor: "#0B3D91" },
-            headerTintColor: "#fff",
+            headerShown: false, // ✅ ẩn header để tab bar có không gian riêng
           }}
         />
 
@@ -49,8 +52,6 @@ export default function AppNavigator() {
           component={TechnicianDashboard}
           options={{
             title: "Technician Dashboard",
-            headerStyle: { backgroundColor: "#0B3D91" },
-            headerTintColor: "#fff",
           }}
         />
       </Stack.Navigator>
