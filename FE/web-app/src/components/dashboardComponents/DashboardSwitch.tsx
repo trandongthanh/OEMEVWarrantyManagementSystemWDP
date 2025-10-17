@@ -2,7 +2,15 @@
 
 import { motion } from "framer-motion";
 import Dock from "./Dock";
-import { FileText, Car, Wrench, Megaphone, Settings } from "lucide-react";
+import {
+  FileText,
+  Car,
+  Wrench,
+  Megaphone,
+  Settings,
+  LogOut,
+} from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 type DashboardSwitchProps = {
   tab: "warranty" | "vehicles" | "repairs" | "campaigns";
@@ -10,6 +18,7 @@ type DashboardSwitchProps = {
 };
 
 export default function DashboardSwitch({ tab, setTab }: DashboardSwitchProps) {
+  const { logout } = useAuth();
   const dockItems = [
     {
       icon: (
@@ -133,6 +142,21 @@ export default function DashboardSwitch({ tab, setTab }: DashboardSwitchProps) {
       ),
       label: "Settings",
       onClick: () => alert("Settings clicked!"),
+    },
+    {
+      icon: (
+        <motion.div
+          whileHover={{ scale: 1.1, rotate: -180 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          <LogOut
+            size={22}
+            className="text-red-400 hover:text-red-300 transition-colors duration-200"
+          />
+        </motion.div>
+      ),
+      label: "Logout",
+      onClick: logout,
     },
   ];
 
