@@ -19,7 +19,7 @@ export interface TechnicianProcessingRecord {
   };
   guaranteeCases: Array<{
     guaranteeCaseId: string;
-    vehicleProcessingRecordId?: string; // Backend SHOULD include this but currently doesn't in list endpoint
+    vehicleProcessingRecordId: string; // Backend now includes this!
     status: string;
     contentGuarantee: string;
   }>;

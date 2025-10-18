@@ -185,21 +185,18 @@ export function DashboardOverview() {
                   {processingRecords.map((record) => {
                     // Get the first guarantee case for modal
                     const firstCase = record.guaranteeCases?.[0];
-                    // Get the vehicleProcessingRecordId from the guarantee case (backend always includes this)
+                    // Backend now returns vehicleProcessingRecordId in both record and guarantee case
                     const recordId =
-                      firstCase?.vehicleProcessingRecordId ||
                       record.vehicleProcessingRecordId ||
-                      record.vin;
+                      firstCase?.vehicleProcessingRecordId;
 
                     console.log("🔍 Record Button State:", {
                       vin: record.vin,
-                      recordVehicleProcessingRecordId:
+                      vehicleProcessingRecordId:
                         record.vehicleProcessingRecordId,
-                      caseVehicleProcessingRecordId:
-                        firstCase?.vehicleProcessingRecordId,
-                      finalRecordId: recordId,
+                      recordId,
                       hasFirstCase: !!firstCase,
-                      willBeDisabled: !firstCase || !recordId,
+                      willBeEnabled: !!firstCase && !!recordId,
                     });
 
                     return (

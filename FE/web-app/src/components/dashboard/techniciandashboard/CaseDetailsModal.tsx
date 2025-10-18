@@ -33,22 +33,27 @@ interface CaseLineForm extends CaseLineInput {
   id?: string;
 }
 
+// EV-specific categories matching backend TypeComponent table
 const COMPONENT_CATEGORIES = [
-  { value: "BRAKING", label: "Brake Systems" },
-  { value: "SUSPENSION", label: "Suspension" },
-  { value: "STEERING", label: "Steering" },
-  { value: "POWERTRAIN", label: "Powertrain" },
-  { value: "ELECTRICAL", label: "Electrical" },
-  { value: "BATTERY", label: "Battery" },
-  { value: "MOTOR", label: "Motors" },
-  { value: "COOLING", label: "Cooling Systems" },
-  { value: "HVAC", label: "Climate Control" },
-  { value: "BODY", label: "Body & Trim" },
-  { value: "INTERIOR", label: "Interior" },
-  { value: "LIGHTING", label: "Lighting" },
-  { value: "SAFETY", label: "Safety Systems" },
-  { value: "INFOTAINMENT", label: "Infotainment" },
-  { value: "OTHER", label: "Other" },
+  // EV-Specific Systems
+  { value: "HIGH_VOLTAGE_BATTERY", label: "High Voltage Battery & BMS" },
+  { value: "POWERTRAIN", label: "Powertrain (Motor, Inverter, Transmission)" },
+  { value: "CHARGING_SYSTEM", label: "Charging System & Port" },
+  {
+    value: "THERMAL_MANAGEMENT",
+    label: "Thermal Management (Battery & Motor)",
+  },
+
+  // Standard Systems
+  {
+    value: "LOW_VOLTAGE_SYSTEM",
+    label: "Low Voltage System (12V & Accessories)",
+  },
+  { value: "BRAKING", label: "Braking System (incl. Regenerative)" },
+  { value: "SUSPENSION_STEERING", label: "Suspension & Steering" },
+  { value: "HVAC", label: "HVAC (Climate Control)" },
+  { value: "BODY_CHASSIS", label: "Body & Chassis" },
+  { value: "INFOTAINMENT_ADAS", label: "Infotainment & ADAS" },
 ];
 
 export function CaseDetailsModal({
@@ -68,7 +73,7 @@ export function CaseDetailsModal({
       warrantyStatus: "ELIGIBLE",
     },
   ]);
-  const [searchCategory, setSearchCategory] = useState("BRAKING");
+  const [searchCategory, setSearchCategory] = useState("HIGH_VOLTAGE_BATTERY");
   const [searchQuery, setSearchQuery] = useState("");
   const [components, setComponents] = useState<CompatibleComponent[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -80,21 +85,8 @@ export function CaseDetailsModal({
 
   useEffect(() => {
     if (isOpen && recordId) {
-      // Check if recordId looks like a UUID (contains hyphens) or is a VIN (no hyphens)
-      const isUUID = recordId.includes("-");
-      console.log("🔍 CaseDetailsModal - recordId check:", {
-        recordId,
-        isUUID,
-      });
-
-      if (!isUUID) {
-        setErrorMessage(
-          "⚠️ Backend Configuration Issue: The 'vehicleProcessingRecordId' field is missing from the API response. " +
-            "Component search cannot work with VIN only. Please ensure the backend includes the UUID in guarantee case objects."
-        );
-      } else {
-        searchComponents();
-      }
+      console.log("🔍 CaseDetailsModal opened with recordId:", recordId);
+      searchComponents();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, searchCategory]);
@@ -165,10 +157,17 @@ export function CaseDetailsModal({
 
   const handleSelectComponent = (component: CompatibleComponent) => {
     if (activeLineIndex !== null) {
+      // Set component ID
       handleCaseLineChange(
         activeLineIndex,
         "componentId",
         component.typeComponentId
+      );
+      // Automatically set warranty status based on backend calculation
+      handleCaseLineChange(
+        activeLineIndex,
+        "warrantyStatus",
+        component.isUnderWarranty ? "ELIGIBLE" : "INELIGIBLE"
       );
       setShowComponentSearch(false);
       setActiveLineIndex(null);
@@ -450,7 +449,7 @@ export function CaseDetailsModal({
                         }
                         placeholder="Describe the problem found..."
                         rows={3}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 border text-black border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
 
@@ -470,7 +469,7 @@ export function CaseDetailsModal({
                         }
                         placeholder="Describe the repair action..."
                         rows={3}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 text-black py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                   </div>
@@ -491,13 +490,7 @@ export function CaseDetailsModal({
                         />
                         <button
                           onClick={() => handleOpenComponentSearch(index)}
-                          disabled={!recordId || !recordId.includes("-")}
-                          title={
-                            !recordId || !recordId.includes("-")
-                              ? "Component search requires vehicleProcessingRecordId from backend"
-                              : "Search compatible parts"
-                          }
-                          className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                          className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all"
                         >
                           Search
                         </button>
@@ -519,7 +512,7 @@ export function CaseDetailsModal({
                             parseInt(e.target.value) || 0
                           )
                         }
-                        className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 text-black py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                   </div>
@@ -528,44 +521,37 @@ export function CaseDetailsModal({
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Warranty Status
                     </label>
-                    <div className="flex gap-4">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name={`warranty-${index}`}
-                          checked={caseLine.warrantyStatus === "ELIGIBLE"}
-                          onChange={() =>
-                            handleCaseLineChange(
-                              index,
-                              "warrantyStatus",
-                              "ELIGIBLE"
-                            )
-                          }
-                          className="w-4 h-4 text-green-600"
-                        />
-                        <CheckCircle className="w-4 h-4 text-green-600" />
-                        <span className="text-sm text-gray-700">Eligible</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name={`warranty-${index}`}
-                          checked={caseLine.warrantyStatus === "INELIGIBLE"}
-                          onChange={() =>
-                            handleCaseLineChange(
-                              index,
-                              "warrantyStatus",
-                              "INELIGIBLE"
-                            )
-                          }
-                          className="w-4 h-4 text-red-600"
-                        />
-                        <AlertCircle className="w-4 h-4 text-red-600" />
-                        <span className="text-sm text-gray-700">
-                          Ineligible
-                        </span>
-                      </label>
+                    <div className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-gray-50">
+                      {caseLine.warrantyStatus === "ELIGIBLE" ? (
+                        <>
+                          <CheckCircle className="w-5 h-5 text-green-600" />
+                          <div>
+                            <span className="font-medium text-green-700">
+                              Warranty Eligible
+                            </span>
+                            <p className="text-xs text-gray-600 mt-0.5">
+                              Component is covered under active warranty
+                            </p>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle className="w-5 h-5 text-red-600" />
+                          <div>
+                            <span className="font-medium text-red-700">
+                              Warranty Ineligible
+                            </span>
+                            <p className="text-xs text-gray-600 mt-0.5">
+                              Component is not covered by warranty
+                            </p>
+                          </div>
+                        </>
+                      )}
                     </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      ℹ️ Warranty status is automatically determined by the
+                      system based on component coverage
+                    </p>
                   </div>
                 </div>
               ))}

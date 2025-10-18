@@ -7,7 +7,6 @@ export { RegisterVehicleModal } from "./RegisterVehicleModal";
 // Staff Dashboard Components
 export {
   DashboardOverview,
-  VehicleManagement,
   CustomerSearchResults,
   CasesList,
 } from "./staffdashboard";
