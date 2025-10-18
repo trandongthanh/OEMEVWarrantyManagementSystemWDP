@@ -1,21 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  Home,
-  ClipboardList,
-  Package,
-  Clock,
-  CheckCircle,
-  Settings as SettingsIcon,
-  FileText,
-} from "lucide-react";
+import { Home, ClipboardList, Package, Clock, FileText } from "lucide-react";
 import { authService } from "@/services";
 import {
   Sidebar,
   DashboardHeader,
-  PlaceholderContent,
   TechnicianDashboardOverview,
+  MyTasks,
+  PartsInventory,
+  WorkHistory,
 } from "@/components/dashboard";
 
 interface CurrentUser {
@@ -42,9 +36,7 @@ export default function TechnicianDashboard() {
     { id: "dashboard", icon: Home, label: "Dashboard" },
     { id: "tasks", icon: ClipboardList, label: "My Tasks" },
     { id: "parts", icon: Package, label: "Parts" },
-    { id: "history", icon: Clock, label: "History" },
-    { id: "completed", icon: CheckCircle, label: "Completed" },
-    { id: "settings", icon: SettingsIcon, label: "Settings" },
+    { id: "history", icon: Clock, label: "Work History" },
   ];
 
   const renderContent = () => {
@@ -53,53 +45,13 @@ export default function TechnicianDashboard() {
         return <TechnicianDashboardOverview />;
 
       case "tasks":
-        return (
-          <PlaceholderContent
-            icon={ClipboardList}
-            title="My Tasks"
-            description="View and manage all your assigned tasks. Update progress, add notes, and mark tasks as complete."
-          />
-        );
+        return <MyTasks />;
 
       case "parts":
-        return (
-          <PlaceholderContent
-            icon={Package}
-            title="Parts Inventory"
-            description="Browse available parts, check stock levels, and request components needed for repairs."
-            action={{
-              label: "Request Parts",
-              onClick: () => console.log("Request parts"),
-            }}
-          />
-        );
+        return <PartsInventory />;
 
       case "history":
-        return (
-          <PlaceholderContent
-            icon={Clock}
-            title="Work History"
-            description="Review your complete work history, past repairs, and service records for reference and learning."
-          />
-        );
-
-      case "completed":
-        return (
-          <PlaceholderContent
-            icon={CheckCircle}
-            title="Completed Tasks"
-            description="View all your completed tasks, success metrics, and customer feedback for quality assurance."
-          />
-        );
-
-      case "settings":
-        return (
-          <PlaceholderContent
-            icon={SettingsIcon}
-            title="Technician Settings"
-            description="Manage your profile, notification preferences, and customize your workspace settings."
-          />
-        );
+        return <WorkHistory />;
 
       default:
         return null;

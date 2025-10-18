@@ -18,7 +18,6 @@ import {
   PlaceholderContent,
   RegisterVehicleModal,
   DashboardOverview,
-  VehicleManagement,
   CustomerSearchResults,
   CasesList,
 } from "@/components/dashboard";
@@ -83,7 +82,6 @@ export default function StaffDashboard() {
 
   const staffNavItems = [
     { id: "dashboard", icon: Home, label: "Dashboard" },
-    { id: "vehicles", icon: Car, label: "Vehicle Management" },
     { id: "cases", icon: Users, label: "Cases" },
     { id: "receipts", icon: CreditCard, label: "Receipts" },
     { id: "manage", icon: BarChart3, label: "Manage" },
@@ -106,13 +104,6 @@ export default function StaffDashboard() {
           <DashboardOverview
             onNewClaimClick={() => setShowNewClaimModal(true)}
             onNavigate={setActiveNav}
-          />
-        );
-
-      case "vehicles":
-        return (
-          <VehicleManagement
-            onRegisterVehicleClick={() => setShowRegisterVehicleModal(true)}
           />
         );
 

@@ -16,8 +16,12 @@ export {
 export {
   DashboardOverview as ManagerDashboardOverview,
   ManagerCasesList,
-  AssignmentsPlaceholder,
 } from "./managerdashboard";
 
 // Technician Dashboard Components
-export { DashboardOverview as TechnicianDashboardOverview } from "./techniciandashboard";
+export {
+  DashboardOverview as TechnicianDashboardOverview,
+  MyTasks,
+  PartsInventory,
+  WorkHistory,
+} from "./techniciandashboard";

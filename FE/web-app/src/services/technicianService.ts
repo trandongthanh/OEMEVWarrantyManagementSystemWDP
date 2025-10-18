@@ -1,19 +1,30 @@
 import apiClient from "@/lib/apiClient";
 
 export interface TechnicianProcessingRecord {
-  id: string;
   vin: string;
   checkInDate: string;
   odometer: number;
   status: string;
+  mainTechnician: {
+    userId: string;
+    name: string;
+  } | null;
+  vehicle: {
+    vin: string;
+    model: {
+      name: string;
+      vehicleModelId: string;
+    };
+  };
+  guaranteeCases: Array<{
+    guaranteeCaseId: string;
+    status: string;
+    contentGuarantee: string;
+  }>;
   createdByStaff: {
     userId: string;
     name: string;
   };
-  guaranteeCases: Array<{
-    guaranteeCaseId: string;
-    contentGuarantee: string;
-  }>;
 }
 
 export interface TechnicianRecordsResponse {
@@ -21,12 +32,7 @@ export interface TechnicianRecordsResponse {
   data: {
     records: {
       records: TechnicianProcessingRecord[];
-      pagination: {
-        currentPage: number;
-        totalPages: number;
-        totalRecords: number;
-        limit: number;
-      };
+      recordsCount: number;
     };
   };
 }
@@ -59,16 +65,15 @@ export interface CreateCaseLinesResponse {
 }
 
 export interface CompatibleComponent {
-  componentId: string;
-  componentName: string;
-  partNumber: string;
-  quantityInStock: number;
+  typeComponentId: string;
+  name: string;
+  isUnderWarranty?: boolean;
 }
 
 export interface CompatibleComponentsResponse {
   status: "success";
   data: {
-    components: CompatibleComponent[];
+    result: CompatibleComponent[];
   };
 }
 
@@ -134,10 +139,12 @@ class TechnicianService {
    */
   async searchCompatibleComponents(
     recordId: string,
-    search?: string
+    category: string,
+    searchName?: string
   ): Promise<CompatibleComponentsResponse> {
     try {
-      const params = search ? { search } : {};
+      const params: Record<string, string> = { category };
+      if (searchName) params.searchName = searchName;
       const response = await apiClient.get(
         `/processing-records/${recordId}/compatible-components`,
         { params }
@@ -153,9 +160,24 @@ class TechnicianService {
    * Bulk update stock quantities for guarantee case
    * POST /guarantee-cases/{caseId}
    */
-  async updateStockQuantities(caseId: string): Promise<{ status: string }> {
+  async updateStockQuantities(
+    caseId: string,
+    caselines: Array<{
+      id: string;
+      componentId: string;
+      quantity: number;
+    }>
+  ): Promise<{
+    status: string;
+    data: {
+      updatedStocks: unknown[];
+      newComponentReservations: unknown[];
+    };
+  }> {
     try {
-      const response = await apiClient.post(`/guarantee-cases/${caseId}`);
+      const response = await apiClient.post(`/guarantee-cases/${caseId}`, {
+        caselines,
+      });
       return response.data;
     } catch (error: unknown) {
       console.error("Error updating stock quantities:", error);
