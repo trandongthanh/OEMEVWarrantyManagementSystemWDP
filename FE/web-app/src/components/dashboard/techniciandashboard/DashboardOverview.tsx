@@ -12,14 +12,22 @@ import {
   TrendingUp,
   Activity,
 } from "lucide-react";
-import { processingRecordService, ProcessingRecord } from "@/services";
+import technicianService, {
+  TechnicianProcessingRecord,
+} from "@/services/technicianService";
+import { CaseDetailsModal } from "./CaseDetailsModal";
 
 export function DashboardOverview() {
   const [processingRecords, setProcessingRecords] = useState<
-    ProcessingRecord[]
+    TechnicianProcessingRecord[]
   >([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [selectedCase, setSelectedCase] = useState<{
+    vin: string;
+    recordId: string;
+    caseId: string;
+  } | null>(null);
 
   useEffect(() => {
     loadProcessingRecords();
@@ -29,18 +37,46 @@ export function DashboardOverview() {
     setIsLoading(true);
     setError("");
     try {
-      const response = await processingRecordService.getAllRecords();
-      // Handle nested structure: response.data.records.records
-      const recordsData =
-        response.data?.records?.records || response.data?.records || [];
-      // Filter records assigned to current technician
-      const assignedRecords = (
-        Array.isArray(recordsData) ? recordsData : []
-      ).filter((record: ProcessingRecord) => record.mainTechnician);
-      setProcessingRecords(assignedRecords);
+      const response = await technicianService.getAssignedRecords();
+      console.log("📦 Full API Response:", response);
+
+      const allRecords = response.data?.records?.records || [];
+      console.log(
+        "📋 Records from API (backend-filtered by role):",
+        allRecords
+      );
+      console.log("📊 Total Assigned Records:", allRecords.length);
+
+      // Backend already filters by role - no frontend filtering needed!
+      // - Technicians: Only returns records where mainTechnician.userId === logged-in userId
+      // - Staff: Returns records where createdByStaff.userId === logged-in userId
+
+      // Log first record structure
+      if (allRecords.length > 0) {
+        console.log("🔍 First Record:", {
+          vin: allRecords[0].vin,
+          vehicleProcessingRecordId: allRecords[0].vehicleProcessingRecordId,
+          status: allRecords[0].status,
+          mainTechnician: allRecords[0].mainTechnician,
+          vehicle: allRecords[0].vehicle,
+          guaranteeCases: allRecords[0].guaranteeCases?.length,
+        });
+
+        if (allRecords[0].guaranteeCases?.[0]) {
+          console.log("🔍 First Guarantee Case:", {
+            guaranteeCaseId: allRecords[0].guaranteeCases[0].guaranteeCaseId,
+            vehicleProcessingRecordId:
+              allRecords[0].guaranteeCases[0].vehicleProcessingRecordId,
+            status: allRecords[0].guaranteeCases[0].status,
+            content: allRecords[0].guaranteeCases[0].contentGuarantee,
+          });
+        }
+      }
+
+      setProcessingRecords(allRecords);
     } catch (err: unknown) {
       setError("Failed to load processing records");
-      console.error(err);
+      console.error("❌ Error loading records:", err);
     } finally {
       setIsLoading(false);
     }
@@ -64,6 +100,18 @@ export function DashboardOverview() {
   const completedToday = processingRecords.filter(
     (r) => r.status === "COMPLETED"
   ).length;
+
+  const handleOpenCase = (vin: string, recordId: string, caseId: string) => {
+    setSelectedCase({ vin, recordId, caseId });
+  };
+
+  const handleCloseModal = () => {
+    setSelectedCase(null);
+  };
+
+  const handleSuccess = () => {
+    loadProcessingRecords(); // Refresh the list after successful save
+  };
 
   return (
     <div className="flex-1 overflow-auto">
@@ -134,66 +182,99 @@ export function DashboardOverview() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {processingRecords.map((record) => (
-                    <div
-                      key={record.id || record.vin}
-                      className="p-4 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="font-semibold text-gray-900">
-                              VIN: {record.vin}
-                            </h3>
-                            <span
-                              className={`px-2 py-1 rounded-lg text-xs font-medium ${getStatusColor(
-                                record.status
-                              )}`}
-                            >
-                              {record.status.replace(/_/g, " ")}
-                            </span>
-                          </div>
+                  {processingRecords.map((record) => {
+                    // Get the first guarantee case for modal
+                    const firstCase = record.guaranteeCases?.[0];
+                    // Get the vehicleProcessingRecordId from the guarantee case (backend always includes this)
+                    const recordId =
+                      firstCase?.vehicleProcessingRecordId ||
+                      record.vehicleProcessingRecordId ||
+                      record.vin;
 
-                          <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                            <div className="flex items-center gap-2">
-                              <Clock className="w-4 h-4" />
-                              Check-in:{" "}
-                              {new Date(
-                                record.checkInDate
-                              ).toLocaleDateString()}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">Odometer:</span>
-                              {record.odometer.toLocaleString()} km
-                            </div>
-                          </div>
+                    console.log("🔍 Record Button State:", {
+                      vin: record.vin,
+                      recordVehicleProcessingRecordId:
+                        record.vehicleProcessingRecordId,
+                      caseVehicleProcessingRecordId:
+                        firstCase?.vehicleProcessingRecordId,
+                      finalRecordId: recordId,
+                      hasFirstCase: !!firstCase,
+                      willBeDisabled: !firstCase || !recordId,
+                    });
 
-                          {record.guaranteeCases &&
-                            record.guaranteeCases.length > 0 && (
-                              <div className="mt-3 pt-3 border-t border-gray-200">
-                                <p className="text-xs font-medium text-gray-700 mb-2">
-                                  Guarantee Cases (
-                                  {record.guaranteeCases.length}
-                                  ):
-                                </p>
-                                <div className="space-y-1">
-                                  {record.guaranteeCases.map(
-                                    (guaranteeCase, idx) => (
-                                      <div
-                                        key={idx}
-                                        className="text-xs text-gray-600 bg-white px-2 py-1 rounded"
-                                      >
-                                        {guaranteeCase.contentGuarantee}
-                                      </div>
-                                    )
-                                  )}
-                                </div>
+                    return (
+                      <button
+                        key={record.vin}
+                        onClick={() =>
+                          firstCase &&
+                          recordId &&
+                          handleOpenCase(
+                            record.vin,
+                            recordId,
+                            firstCase.guaranteeCaseId
+                          )
+                        }
+                        disabled={!firstCase || !recordId}
+                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl hover:bg-blue-50 hover:border-blue-300 transition-all text-left disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h3 className="font-semibold text-gray-900">
+                                VIN: {record.vin}
+                              </h3>
+                              <span
+                                className={`px-2 py-1 rounded-lg text-xs font-medium ${getStatusColor(
+                                  record.status
+                                )}`}
+                              >
+                                {record.status.replace(/_/g, " ")}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                              <div className="flex items-center gap-2">
+                                <Clock className="w-4 h-4" />
+                                Check-in:{" "}
+                                {new Date(
+                                  record.checkInDate
+                                ).toLocaleDateString()}
                               </div>
-                            )}
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">Odometer:</span>
+                                {record.odometer.toLocaleString()} km
+                              </div>
+                            </div>
+
+                            {record.guaranteeCases &&
+                              record.guaranteeCases.length > 0 && (
+                                <div className="mt-3 pt-3 border-t border-gray-200">
+                                  <p className="text-xs font-medium text-gray-700 mb-2">
+                                    Guarantee Cases (
+                                    {record.guaranteeCases.length}):
+                                  </p>
+                                  <div className="space-y-1">
+                                    {record.guaranteeCases.map(
+                                      (guaranteeCase, idx) => (
+                                        <div
+                                          key={idx}
+                                          className="text-xs text-gray-600 bg-white px-2 py-1 rounded"
+                                        >
+                                          {guaranteeCase.contentGuarantee}
+                                        </div>
+                                      )
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-blue-600 mt-2 font-medium">
+                                    Click to add diagnosis & repairs →
+                                  </p>
+                                </div>
+                              )}
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </motion.div>
@@ -266,6 +347,18 @@ export function DashboardOverview() {
             </motion.div>
           </div>
         </div>
+
+        {/* Case Details Modal */}
+        {selectedCase && (
+          <CaseDetailsModal
+            isOpen={!!selectedCase}
+            onClose={handleCloseModal}
+            vin={selectedCase.vin}
+            recordId={selectedCase.recordId}
+            caseId={selectedCase.caseId}
+            onSuccess={handleSuccess}
+          />
+        )}
       </div>
     </div>
   );

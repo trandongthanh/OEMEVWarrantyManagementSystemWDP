@@ -12,6 +12,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { authService, userService, Technician } from "@/services";
+import { useRoleProtection } from "@/hooks/useRoleProtection";
 import {
   Sidebar,
   DashboardHeader,
@@ -26,6 +27,9 @@ interface CurrentUser {
 }
 
 export default function ManagerDashboard() {
+  // Protect this route - only allow managers
+  useRoleProtection(["service_center_manager"]);
+
   const [activeNav, setActiveNav] = useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");

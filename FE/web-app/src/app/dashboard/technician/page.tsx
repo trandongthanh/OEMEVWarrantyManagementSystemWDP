@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Home, ClipboardList, Package, Clock, FileText } from "lucide-react";
 import { authService } from "@/services";
+import { useRoleProtection } from "@/hooks/useRoleProtection";
 import {
   Sidebar,
   DashboardHeader,
@@ -14,18 +15,41 @@ import {
 
 interface CurrentUser {
   userId: string;
+  username?: string;
+  name?: string;
   roleName: string;
+  serviceCenterId?: string;
+  companyId?: string;
 }
 
 export default function TechnicianDashboard() {
+  // Protect this route - only allow technicians
+  useRoleProtection(["service_center_technician"]);
+
   const [activeNav, setActiveNav] = useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
   useEffect(() => {
-    const user = authService.getCurrentUser();
-    setCurrentUser(user);
+    // Get user info from localStorage
+    const userInfo = authService.getUserInfo();
+    console.log("📋 User Info from localStorage:", userInfo);
+
+    if (userInfo) {
+      setCurrentUser(userInfo);
+      console.log("✅ Using stored user info:", {
+        name: userInfo.name,
+        username: userInfo.username,
+        role: userInfo.roleName,
+        userId: userInfo.userId,
+      });
+    } else {
+      // Fallback to token-based user if userInfo not available
+      const user = authService.getCurrentUser();
+      console.log("⚠️ No stored user info, using token data:", user);
+      setCurrentUser(user);
+    }
   }, []);
 
   const handleLogout = () => {

@@ -14,9 +14,12 @@ import {
   X,
   Info,
 } from "lucide-react";
-import { CompatibleComponent } from "@/services/technicianService";
+import technicianService, {
+  CompatibleComponent,
+} from "@/services/technicianService";
 
 const COMPONENT_CATEGORIES = [
+  { value: "all", label: "All Categories" },
   { value: "battery", label: "Battery Systems" },
   { value: "motor", label: "Electric Motors" },
   { value: "electronics", label: "Electronics" },
@@ -24,38 +27,104 @@ const COMPONENT_CATEGORIES = [
   { value: "brake", label: "Brake Systems" },
   { value: "body", label: "Body & Interior" },
   { value: "lighting", label: "Lighting System" },
+  { value: "hvac", label: "HVAC Systems" },
+  { value: "powertrain", label: "Powertrain" },
+  { value: "suspension", label: "Suspension" },
+  { value: "steering", label: "Steering" },
+  { value: "electrical", label: "Electrical" },
+  { value: "transmission", label: "Transmission" },
   { value: "other", label: "Other Components" },
 ];
 
 export function PartsInventory() {
-  const [components] = useState<CompatibleComponent[]>([]);
+  const [components, setComponents] = useState<CompatibleComponent[]>([]);
   const [filteredComponents, setFilteredComponents] = useState<
     CompatibleComponent[]
   >([]);
-  const [isLoading] = useState(false);
-  const [error] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [selectedComponent, setSelectedComponent] =
     useState<CompatibleComponent | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [currentRecordId, setCurrentRecordId] = useState<string | null>(null);
 
+  // Auto-fetch first available record on mount
+  useEffect(() => {
+    loadFirstRecord();
+  }, []);
+
+  // Filter components when search/category changes
   useEffect(() => {
     filterComponents();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [components, searchQuery, categoryFilter]);
 
+  const loadFirstRecord = async () => {
+    try {
+      const response = await technicianService.getAssignedRecords();
+      const records = response.data?.records?.records || [];
+
+      if (records.length > 0 && records[0].vehicleProcessingRecordId) {
+        setCurrentRecordId(records[0].vehicleProcessingRecordId);
+        console.log(
+          "📦 Auto-loaded record for parts search:",
+          records[0].vehicleProcessingRecordId
+        );
+        // Optionally load initial parts with first category
+        if (categoryFilter !== "all") {
+          loadComponents(records[0].vehicleProcessingRecordId, categoryFilter);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load record:", err);
+    }
+  };
+
+  const loadComponents = async (recordId: string, category: string) => {
+    if (!recordId || category === "all") {
+      setComponents([]);
+      return;
+    }
+
+    setIsLoading(true);
+    setError("");
+
+    try {
+      const response = await technicianService.searchCompatibleComponents(
+        recordId,
+        category,
+        searchQuery
+      );
+      const results = response.data?.result || [];
+      setComponents(results);
+      console.log(
+        `🔍 Found ${results.length} components for category: ${category}`
+      );
+    } catch (err: unknown) {
+      setError("Failed to load components");
+      console.error(err);
+      setComponents([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Load components when category changes
+  useEffect(() => {
+    if (currentRecordId && categoryFilter !== "all") {
+      loadComponents(currentRecordId, categoryFilter);
+    } else if (categoryFilter === "all") {
+      setComponents([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryFilter]);
+
   const filterComponents = () => {
     let filtered = [...components];
 
-    // Category filter
-    if (categoryFilter !== "all") {
-      filtered = filtered.filter((comp) =>
-        comp.name.toLowerCase().includes(categoryFilter.toLowerCase())
-      );
-    }
-
-    // Search filter
+    // Search filter (no category filter needed, backend already filtered by category)
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -104,9 +173,9 @@ export function PartsInventory() {
                 Component Search Available
               </p>
               <p className="text-sm text-blue-700 mt-1">
-                To search for compatible components, you need to select a
-                specific processing record first. This feature is available when
-                working on a task.
+                {currentRecordId
+                  ? "Select a category below to search for compatible components. Search is ready!"
+                  : "Loading your assigned records to enable component search..."}
               </p>
             </div>
           </div>

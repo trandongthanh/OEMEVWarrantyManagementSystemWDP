@@ -2,6 +2,7 @@ import apiClient from "@/lib/apiClient";
 
 export interface TechnicianProcessingRecord {
   vin: string;
+  vehicleProcessingRecordId?: string; // Added: primary key from backend
   checkInDate: string;
   odometer: number;
   status: string;
@@ -18,6 +19,7 @@ export interface TechnicianProcessingRecord {
   };
   guaranteeCases: Array<{
     guaranteeCaseId: string;
+    vehicleProcessingRecordId?: string; // Backend SHOULD include this but currently doesn't in list endpoint
     status: string;
     contentGuarantee: string;
   }>;

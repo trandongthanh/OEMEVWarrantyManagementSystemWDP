@@ -8,9 +8,9 @@ import {
   BarChart3,
   Clock,
   FileText,
-  Car,
 } from "lucide-react";
 import { authService, customerService, Customer } from "@/services";
+import { useRoleProtection } from "@/hooks/useRoleProtection";
 import {
   Sidebar,
   DashboardHeader,
@@ -29,6 +29,9 @@ interface User {
 }
 
 export default function StaffDashboard() {
+  // Protect this route - only allow staff
+  useRoleProtection(["service_center_staff"]);
+
   const [activeNav, setActiveNav] = useState("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentUser, setCurrentUser] = useState<User | null>(null);
