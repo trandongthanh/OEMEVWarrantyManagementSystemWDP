@@ -82,16 +82,9 @@ class TechnicianService {
    * Get assigned processing records (technician view)
    * GET /processing-records
    */
-  async getAssignedRecords(
-    page: number = 1,
-    limit: number = 10,
-    status?: string
-  ): Promise<TechnicianRecordsResponse> {
+  async getAssignedRecords(): Promise<TechnicianRecordsResponse> {
     try {
-      const params: Record<string, string | number> = { page, limit };
-      if (status) params.status = status;
-
-      const response = await apiClient.get("/processing-records", { params });
+      const response = await apiClient.get("/processing-records");
       return response.data;
     } catch (error: unknown) {
       console.error("Error fetching assigned records:", error);

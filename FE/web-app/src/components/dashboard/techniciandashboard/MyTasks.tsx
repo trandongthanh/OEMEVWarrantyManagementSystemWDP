@@ -122,15 +122,100 @@ export function MyTasks() {
     setFilteredTasks(filtered);
   };
 
+  // Calculate stats
+  const stats = {
+    total: tasks.length,
+    urgent: tasks.filter(
+      (t) => t.status === "IN_REPAIR" || t.status === "WAITING_FOR_PARTS"
+    ).length,
+    today: tasks.filter((t) => {
+      const checkInDate = new Date(t.checkInDate);
+      const today = new Date();
+      return checkInDate.toDateString() === today.toDateString();
+    }).length,
+    pending: tasks.filter((t) => t.status === "CHECKED_IN").length,
+  };
+
   return (
     <div className="flex-1 overflow-auto">
       <div className="p-8">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6">
           <h2 className="text-2xl font-bold text-gray-900">My Tasks</h2>
           <p className="text-gray-600 mt-1">
             Manage your assigned warranty cases and repairs
           </p>
+        </div>
+
+        {/* Stats Overview */}
+        <div className="mb-6">
+          <div className="grid grid-cols-4 gap-4">
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              className="bg-white p-6 rounded-2xl border border-gray-200 hover:shadow-lg transition-all"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <ClipboardList className="w-5 h-5 text-blue-600" />
+                </div>
+                <span className="text-2xl font-bold text-gray-900">
+                  {loading ? "..." : stats.total}
+                </span>
+              </div>
+              <p className="text-sm font-medium text-gray-600">Total Tasks</p>
+              <p className="text-xs text-gray-500 mt-1">All assigned work</p>
+            </motion.div>
+
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              className="bg-white p-6 rounded-2xl border border-gray-200 hover:shadow-lg transition-all"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+                  <AlertCircle className="w-5 h-5 text-red-600" />
+                </div>
+                <span className="text-2xl font-bold text-gray-900">
+                  {loading ? "..." : stats.urgent}
+                </span>
+              </div>
+              <p className="text-sm font-medium text-gray-600">Urgent</p>
+              <p className="text-xs text-gray-500 mt-1">High priority</p>
+            </motion.div>
+
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              className="bg-white p-6 rounded-2xl border border-gray-200 hover:shadow-lg transition-all"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-green-600" />
+                </div>
+                <span className="text-2xl font-bold text-gray-900">
+                  {loading ? "..." : stats.today}
+                </span>
+              </div>
+              <p className="text-sm font-medium text-gray-600">
+                Checked In Today
+              </p>
+              <p className="text-xs text-gray-500 mt-1">Today&apos;s work</p>
+            </motion.div>
+
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              className="bg-white p-6 rounded-2xl border border-gray-200 hover:shadow-lg transition-all"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
+                  <Clock className="w-5 h-5 text-yellow-600" />
+                </div>
+                <span className="text-2xl font-bold text-gray-900">
+                  {loading ? "..." : stats.pending}
+                </span>
+              </div>
+              <p className="text-sm font-medium text-gray-600">Pending</p>
+              <p className="text-xs text-gray-500 mt-1">Awaiting action</p>
+            </motion.div>
+          </div>
         </div>
 
         {/* Filters */}

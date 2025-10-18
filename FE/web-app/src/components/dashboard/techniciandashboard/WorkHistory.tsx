@@ -12,6 +12,8 @@ import {
   Filter,
   Search,
   X,
+  FileText,
+  TrendingUp,
 } from "lucide-react";
 import technicianService, {
   TechnicianProcessingRecord,
@@ -100,15 +102,101 @@ export function WorkHistory() {
     setFilteredHistory(filtered);
   };
 
+  // Calculate stats
+  const stats = {
+    total: history.length,
+    completed: history.filter((r) => r.status === "COMPLETED").length,
+    thisMonth: history.filter((r) => {
+      const completedDate = new Date(r.checkInDate);
+      const now = new Date();
+      return (
+        completedDate.getMonth() === now.getMonth() &&
+        completedDate.getFullYear() === now.getFullYear()
+      );
+    }).length,
+  };
+
+  const successRate =
+    stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
+
   return (
     <div className="flex-1 overflow-auto">
       <div className="p-8">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6">
           <h2 className="text-2xl font-bold text-gray-900">Work History</h2>
           <p className="text-gray-600 mt-1">
             Review your complete work history and past repairs
           </p>
+        </div>
+
+        {/* Stats Overview */}
+        <div className="mb-6">
+          <div className="grid grid-cols-4 gap-4">
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              className="bg-white p-6 rounded-2xl border border-gray-200 hover:shadow-lg transition-all"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-purple-600" />
+                </div>
+                <span className="text-2xl font-bold text-gray-900">
+                  {loading ? "..." : stats.total}
+                </span>
+              </div>
+              <p className="text-sm font-medium text-gray-600">Total History</p>
+              <p className="text-xs text-gray-500 mt-1">All work records</p>
+            </motion.div>
+
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              className="bg-white p-6 rounded-2xl border border-gray-200 hover:shadow-lg transition-all"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                </div>
+                <span className="text-2xl font-bold text-gray-900">
+                  {loading ? "..." : stats.completed}
+                </span>
+              </div>
+              <p className="text-sm font-medium text-gray-600">Completed</p>
+              <p className="text-xs text-gray-500 mt-1">Finished jobs</p>
+            </motion.div>
+
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              className="bg-white p-6 rounded-2xl border border-gray-200 hover:shadow-lg transition-all"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-blue-600" />
+                </div>
+                <span className="text-2xl font-bold text-gray-900">
+                  {loading ? "..." : stats.thisMonth}
+                </span>
+              </div>
+              <p className="text-sm font-medium text-gray-600">This Month</p>
+              <p className="text-xs text-gray-500 mt-1">Recent work</p>
+            </motion.div>
+
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              className="bg-white p-6 rounded-2xl border border-gray-200 hover:shadow-lg transition-all"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+                  <TrendingUp className="w-5 h-5 text-indigo-600" />
+                </div>
+                <span className="text-2xl font-bold text-gray-900">
+                  {loading ? "..." : `${successRate}%`}
+                </span>
+              </div>
+              <p className="text-sm font-medium text-gray-600">Success Rate</p>
+              <p className="text-xs text-gray-500 mt-1">Completion ratio</p>
+            </motion.div>
+          </div>
         </div>
 
         {/* Filters */}

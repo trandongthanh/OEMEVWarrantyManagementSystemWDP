@@ -75,7 +75,7 @@ export function PartsInventory() {
 
   return (
     <div className="flex-1 overflow-auto bg-gray-50">
-      <div className="p-8 max-w-7xl mx-auto">
+      <div className="p-8">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
