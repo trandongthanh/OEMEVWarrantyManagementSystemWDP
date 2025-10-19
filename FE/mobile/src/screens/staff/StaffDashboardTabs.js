@@ -1,8 +1,7 @@
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import StaffVehicleSearch from "./StaffVehicleSearch";
-import StaffWarrantySearch from "./StaffWarrantySearch";
-import StaffInfoScreen from "./StaffInfoScreen"; // 👈 thêm màn mới
+import StaffInfoScreen from "./StaffInfoScreen";
 import { Ionicons } from "@expo/vector-icons";
 
 const Tab = createBottomTabNavigator();
@@ -27,12 +26,11 @@ export default function StaffDashboardTabs() {
           marginBottom: 3,
         },
         tabBarIcon: ({ color, size }) => {
-          let iconName;
-          if (route.name === "VehicleSearch") iconName = "search-outline";
-          else if (route.name === "WarrantySearch") iconName = "car-outline";
-          else if (route.name === "StaffInfo")
-            iconName = "person-circle-outline";
-          return <Ionicons name={iconName} size={size} color={color} />;
+          const icon =
+            route.name === "VehicleSearch"
+              ? "search-outline"
+              : "person-circle-outline";
+          return <Ionicons name={icon} size={size} color={color} />;
         },
       })}
     >
@@ -40,11 +38,6 @@ export default function StaffDashboardTabs() {
         name="VehicleSearch"
         component={StaffVehicleSearch}
         options={{ title: "Search Vehicle" }}
-      />
-      <Tab.Screen
-        name="WarrantySearch"
-        component={StaffWarrantySearch}
-        options={{ title: "Warranty Info" }}
       />
       <Tab.Screen
         name="StaffInfo"

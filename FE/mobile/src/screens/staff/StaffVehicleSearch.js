@@ -13,13 +13,12 @@ import { getVehicleByVin } from "../../services/vehicleService";
 import VehicleInfoModal from "../../components/VehicleInfoModal";
 
 const COLORS = {
-  bg: "#0B0F14", // dark background
-  surface: "#11161C", // card/input background
+  bg: "#0B0F14",
+  surface: "#11161C",
   border: "#1F2833",
   text: "#E6EAF2",
   textMuted: "#9AA7B5",
   accent: "#3B82F6",
-  accentSoft: "#2563EB",
   danger: "#EF4444",
 };
 
@@ -43,9 +42,7 @@ export default function StaffVehicleSearch() {
 
     try {
       const data = await getVehicleByVin(vin);
-      console.log("✅ Vehicle API result:", JSON.stringify(data, null, 2));
-
-      if (data && data.status === "success" && data.data?.vehicle) {
+      if (data?.status === "success" && data.data?.vehicle) {
         setVehicle(data.data.vehicle);
         setModalVisible(true);
       } else {
@@ -64,7 +61,6 @@ export default function StaffVehicleSearch() {
       <View style={styles.container}>
         <Text style={styles.title}>Vehicle Search</Text>
 
-        {/* Search box */}
         <View
           style={[
             styles.searchBox,
@@ -77,7 +73,6 @@ export default function StaffVehicleSearch() {
             color={COLORS.accent}
             style={{ marginRight: 10 }}
           />
-
           <TextInput
             style={styles.input}
             placeholder="Enter VIN number..."
@@ -88,12 +83,10 @@ export default function StaffVehicleSearch() {
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
           />
-
           <TouchableOpacity
             style={styles.iconButton}
             onPress={handleSearch}
             disabled={loading}
-            activeOpacity={0.9}
           >
             {loading ? (
               <ActivityIndicator size="small" color="#fff" />
@@ -103,10 +96,8 @@ export default function StaffVehicleSearch() {
           </TouchableOpacity>
         </View>
 
-        {/* Error */}
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        {/* Modal */}
         <VehicleInfoModal
           visible={modalVisible}
           vehicle={vehicle}
@@ -125,7 +116,6 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     textAlign: "center",
     marginBottom: 28,
-    letterSpacing: 0.4,
   },
   searchBox: {
     flexDirection: "row",
@@ -146,7 +136,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: COLORS.text,
-    paddingVertical: 6,
   },
   iconButton: {
     marginLeft: 10,
@@ -157,17 +146,11 @@ const styles = StyleSheet.create({
     height: 42,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: COLORS.accent,
-    shadowOpacity: 0.35,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
-    elevation: 5,
   },
   error: {
     color: COLORS.danger,
     textAlign: "center",
     marginTop: 14,
     fontSize: 14,
-    fontWeight: "500",
   },
 });
