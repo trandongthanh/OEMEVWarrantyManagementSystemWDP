@@ -12,8 +12,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { getVehicleWarrantyInfo } from "../services/vehicleService";
-import WarrantyInfoModal from "./WarrantyInfoModal";
+import { getVehicleWarrantyInfo } from "../../services/vehicleService";
+import WarrantyInfoModal from "../../components/staff/WarrantyInfoModal";
 
 const COLORS = {
   bg: "#0B0F14",
