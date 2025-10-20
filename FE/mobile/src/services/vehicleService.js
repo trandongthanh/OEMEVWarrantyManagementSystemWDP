@@ -21,11 +21,19 @@ export const getVehicleByVin = async (vin) => {
  * 👤 2. Đăng ký khách hàng làm chủ xe
  * PATCH /vehicles/{vin}
  */
-export const registerVehicleOwner = async (vin, customerId, purchaseDate) => {
+export const registerVehicleOwner = async (
+  vin,
+  customerId,
+  purchaseDate,
+  licensePlate,
+  dateOfManufacture
+) => {
   try {
     const res = await api.patch(`/vehicles/${vin}`, {
-      customer_id: customerId,
-      purchase_date: purchaseDate,
+      customerId,
+      purchaseDate,
+      licensePlate,
+      dateOfManufacture,
     });
     return res.data;
   } catch (error) {

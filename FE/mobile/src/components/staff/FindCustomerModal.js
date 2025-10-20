@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Modal,
   View,
@@ -8,9 +8,10 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { findCustomer } from "../../services/customerService";
+import RegisterVehicleModal from "./RegisterVehicleModal";
+import ConfirmRegisterModal from "./ConfirmRegisterModal";
 
 const COLORS = {
   bg: "#0B0F14",
@@ -22,140 +23,187 @@ const COLORS = {
   danger: "#EF4444",
 };
 
-export default function FindCustomerModal({ visible, vin, onClose }) {
+export default function FindCustomerModal({ visible, vin, vehicle, onClose }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [customer, setCustomer] = useState(null);
-  const [error, setError] = useState("");
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [showConfirmPopup, setShowConfirmPopup] = useState(false);
+  const [prefillInfo, setPrefillInfo] = useState({ email: "", phone: "" });
+
+  useEffect(() => {
+    if (!visible) {
+      setInput("");
+      setCustomer(null);
+      setLoading(false);
+      setShowRegisterModal(false);
+      setShowConfirmPopup(false);
+      setPrefillInfo({ email: "", phone: "" });
+    }
+  }, [visible]);
 
   const handleSearch = async () => {
-    if (!input.trim()) {
-      setError("Please enter phone number or email.");
-      return;
-    }
-
-    setError("");
+    if (!input.trim()) return;
     setCustomer(null);
     setLoading(true);
 
-    // 🧠 Xác định là phone hay email
     const isEmail = /\S+@\S+\.\S+/.test(input);
     const phone = isEmail ? "" : input;
     const email = isEmail ? input : "";
-
-    // ✅ Log giá trị trước khi gọi API
-    console.log("📤 Sending findCustomer request with:", { phone, email });
+    setPrefillInfo({ email, phone });
 
     try {
       const data = await findCustomer(phone, email);
-      console.log("✅ API Response:", JSON.stringify(data, null, 2));
-
-      if (data.status === "success" && data.data?.customer) {
+      if (
+        (data.status === "success" || data.status === "sucess") &&
+        data.data?.customer
+      ) {
         setCustomer(data.data.customer);
       } else {
-        console.warn("⚠️ No customer found in response:", data);
-        setError("Customer not found.");
+        setCustomer(null);
+        setShowConfirmPopup(true);
       }
-    } catch (err) {
-      console.error(
-        "❌ Error calling findCustomer:",
-        err.response?.data || err.message
-      );
-      setError(err.response?.data?.message || "Customer not found.");
+    } catch {
+      setShowConfirmPopup(true);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleClose = () => {
+    setInput("");
+    setCustomer(null);
+    setLoading(false);
+    setShowRegisterModal(false);
+    setShowConfirmPopup(false);
+    setPrefillInfo({ email: "", phone: "" });
+    onClose();
+  };
+
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <View style={styles.overlay}>
-        <View style={styles.modalBox}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Ionicons name="person-outline" size={22} color="#fff" />
-            <Text style={styles.title}>Find Customer</Text>
-          </View>
+    <>
+      <Modal
+        visible={visible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleClose}
+      >
+        <View style={styles.overlay}>
+          <View style={styles.modalBox}>
+            <View style={styles.header}>
+              <Text style={styles.title}>Find Customer</Text>
+            </View>
 
-          <Text style={styles.vinText}>
-            VIN Found: <Text style={{ color: COLORS.accent }}>{vin}</Text>
-          </Text>
+            <Text style={styles.vinText}>
+              VIN Found: <Text style={{ color: COLORS.accent }}>{vin}</Text>
+            </Text>
 
-          {/* Input */}
-          <Text style={styles.label}>Phone number or Email</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. +84123456789 or customer@example.com"
-            placeholderTextColor={COLORS.textMuted}
-            keyboardType="default"
-            autoCapitalize="none"
-            value={input}
-            onChangeText={setInput}
-          />
-
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-
-          {/* Search button */}
-          <TouchableOpacity
-            style={[styles.searchBtn, loading && { opacity: 0.7 }]}
-            onPress={handleSearch}
-            disabled={loading}
-            activeOpacity={0.9}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <LinearGradient
-                colors={["#2563EB", "#3B82F6", "#60A5FA"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.gradientBtn}
-              >
-                <Text style={styles.btnText}>Search Customer</Text>
-              </LinearGradient>
-            )}
-          </TouchableOpacity>
-
-          {/* Show result */}
-          {customer && (
-            <View style={styles.resultBox}>
-              <Text style={styles.resultTitle}>Customer found ✅</Text>
-              <Text style={styles.resultInfo}>
-                Full Name: {customer.fullName}
-              </Text>
-              <Text style={styles.resultInfo}>Phone: {customer.phone}</Text>
-              <Text style={styles.resultInfo}>Email: {customer.email}</Text>
-              <Text style={styles.resultInfo}>Address: {customer.address}</Text>
-
+            <Text style={styles.label}>Phone number or Email</Text>
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. phone or email"
+                placeholderTextColor={COLORS.textMuted}
+                keyboardType="default"
+                autoCapitalize="none"
+                value={input}
+                onChangeText={setInput}
+                returnKeyType="search"
+                onSubmitEditing={handleSearch}
+              />
               <TouchableOpacity
-                onPress={() =>
-                  console.log(
-                    `📄 Ready to register ${customer.fullName} as owner of ${vin}`
-                  )
-                }
-                style={styles.confirmBtn}
+                onPress={handleSearch}
+                disabled={loading}
                 activeOpacity={0.9}
+                style={styles.searchBtn}
               >
-                <Text style={styles.confirmText}>Register This Customer</Text>
+                {loading ? (
+                  <ActivityIndicator size={16} color="#fff" />
+                ) : (
+                  <LinearGradient
+                    colors={["#2563EB", "#3B82F6", "#60A5FA"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.searchGradient}
+                  >
+                    <Text style={styles.searchText}>Search</Text>
+                  </LinearGradient>
+                )}
               </TouchableOpacity>
             </View>
-          )}
 
-          <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-            <Text style={styles.closeText}>Close</Text>
-          </TouchableOpacity>
+            {customer ? (
+              <View style={styles.resultBox}>
+                <Text style={styles.resultTitle}>Customer found</Text>
+                <Text style={styles.resultInfo}>
+                  Full Name: {customer.fullName}
+                </Text>
+                <Text style={styles.resultInfo}>Phone: {customer.phone}</Text>
+                <Text style={styles.resultInfo}>Email: {customer.email}</Text>
+                <Text style={styles.resultInfo}>
+                  Address: {customer.address}
+                </Text>
+
+                <TouchableOpacity
+                  onPress={() => setShowRegisterModal(true)}
+                  style={styles.primaryBtn}
+                  activeOpacity={0.9}
+                >
+                  <Text style={styles.primaryText}>Register This Customer</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              !loading && (
+                <View style={{ marginTop: 16 }}>
+                  <Text
+                    style={{ color: COLORS.textMuted, textAlign: "center" }}
+                  >
+                    Please enter email or phone to search.
+                  </Text>
+                </View>
+              )
+            )}
+
+            <TouchableOpacity
+              style={styles.closeBtn}
+              onPress={handleClose}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={["#2563EB", "#3B82F6", "#60A5FA"]} // 💙 gradient xanh lam
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.closeGradient}
+              >
+                <Text style={styles.closeText}>Close</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+
+      <ConfirmRegisterModal
+        visible={showConfirmPopup}
+        onClose={() => setShowConfirmPopup(false)}
+        onConfirm={() => {
+          setShowConfirmPopup(false);
+          setShowRegisterModal(true);
+        }}
+      />
+
+      <RegisterVehicleModal
+        key={customer?.id || "new"}
+        visible={showRegisterModal}
+        vin={vin}
+        vehicle={vehicle}
+        customer={customer}
+        prefillInfo={prefillInfo}
+        onClose={() => setShowRegisterModal(false)}
+      />
+    </>
   );
 }
 
-// 🎨 Styles (giữ nguyên)
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
@@ -171,15 +219,12 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
     marginBottom: 10,
   },
   title: {
     color: "#fff",
     fontSize: 18,
     fontWeight: "700",
-    marginLeft: 8,
   },
   vinText: {
     color: COLORS.textMuted,
@@ -188,36 +233,39 @@ const styles = StyleSheet.create({
   label: {
     color: COLORS.textMuted,
     fontSize: 14,
-    marginBottom: 4,
+    marginBottom: 6,
+  },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   input: {
+    flex: 1,
     backgroundColor: COLORS.bg,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 8,
     color: COLORS.text,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    marginBottom: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
   },
   searchBtn: {
-    marginTop: 4,
-    borderRadius: 10,
+    borderRadius: 8,
     overflow: "hidden",
   },
-  gradientBtn: {
-    paddingVertical: 12,
-    borderRadius: 10,
+  searchGradient: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    minWidth: 92,
     alignItems: "center",
+    justifyContent: "center",
   },
-  btnText: {
+  searchText: {
     color: "#fff",
     fontWeight: "700",
-  },
-  error: {
-    color: COLORS.danger,
-    textAlign: "center",
-    marginTop: 4,
+    fontSize: 14,
   },
   resultBox: {
     marginTop: 16,
@@ -234,23 +282,33 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     marginBottom: 4,
   },
-  confirmBtn: {
+  primaryBtn: {
     backgroundColor: COLORS.accent,
     paddingVertical: 10,
     borderRadius: 8,
     alignItems: "center",
     marginTop: 10,
   },
-  confirmText: {
+  primaryText: {
     color: "#fff",
     fontWeight: "600",
   },
   closeBtn: {
-    marginTop: 18,
+    marginTop: 20,
     alignItems: "center",
+    justifyContent: "center",
+  },
+  closeGradient: {
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    alignItems: "center",
+    justifyContent: "center",
   },
   closeText: {
-    color: COLORS.textMuted,
+    color: "#fff",
+    fontWeight: "700",
     fontSize: 14,
+    textAlign: "center",
   },
 });

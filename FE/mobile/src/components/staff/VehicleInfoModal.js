@@ -5,17 +5,20 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Pressable,
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  TouchableWithoutFeedback,
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { getVehicleWarrantyInfo } from "../../services/vehicleService";
 import WarrantyInfoModal from "../../components/staff/WarrantyInfoModal";
 import OwnerWarningModal from "../../components/staff/OwnerWarningModal";
-import FindCustomerModal from "../../components/staff/FindCustomerModal"; // ✅ import thêm
+import FindCustomerModal from "../../components/staff/FindCustomerModal";
+
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const COLORS = {
   bg: "#0B0F14",
@@ -35,11 +38,11 @@ export default function VehicleInfoModal({ visible, vehicle, onClose }) {
   const [warranty, setWarranty] = useState(null);
   const [showWarrantyModal, setShowWarrantyModal] = useState(false);
   const [showOwnerWarning, setShowOwnerWarning] = useState(false);
-  const [showFindCustomer, setShowFindCustomer] = useState(false); // ✅ thêm modal tìm customer
+  const [showFindCustomer, setShowFindCustomer] = useState(false);
 
   const handleWarrantyCheck = async () => {
     if (!vehicle.owner) {
-      setShowOwnerWarning(true); // ⚠️ mở cảnh báo nếu chưa có chủ xe
+      setShowOwnerWarning(true);
       return;
     }
 
@@ -70,126 +73,142 @@ export default function VehicleInfoModal({ visible, vehicle, onClose }) {
 
   return (
     <>
-      {/* 🔹 Vehicle Info Modal */}
-      <Modal
-        visible={visible}
-        transparent
-        animationType="fade"
-        onRequestClose={onClose}
-      >
-        <Pressable style={styles.overlay} onPress={onClose}>
-          <Pressable style={styles.modalBox} onPress={() => {}}>
-            <LinearGradient
-              colors={["#0B3D91", "#1E90FF"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.header}
-            >
-              <Ionicons name="car-sport-outline" size={22} color="#fff" />
-              <Text style={styles.title}>Vehicle Information</Text>
-            </LinearGradient>
+      <Modal visible={visible} transparent animationType="fade">
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={styles.overlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalBox}>
+                <LinearGradient
+                  colors={["#0B3D91", "#1E90FF"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.header}
+                >
+                  <Ionicons name="car-sport-outline" size={22} color="#fff" />
+                  <Text style={styles.title}>Vehicle Information</Text>
+                </LinearGradient>
 
-            <ScrollView
-              style={styles.scrollArea}
-              showsVerticalScrollIndicator={false}
-            >
-              {vehicle ? (
-                <>
-                  <Text style={styles.info}>VIN: {vehicle.vin}</Text>
-                  <Text style={styles.info}>
-                    Model: {vehicle.model || "Unknown"}
-                  </Text>
-                  <Text style={styles.info}>
-                    Company: {vehicle.company || "Unknown"}
-                  </Text>
-                  <Text style={styles.info}>
-                    Place of Manufacture: {vehicle.placeOfManufacture || "N/A"}
-                  </Text>
-                  <Text style={styles.info}>
-                    Manufacture Date:{" "}
-                    {vehicle.dateOfManufacture
-                      ? new Date(vehicle.dateOfManufacture).toLocaleDateString()
-                      : "N/A"}
-                  </Text>
-                  <Text style={styles.info}>
-                    License Plate: {vehicle.licensePlate || "Not assigned"}
-                  </Text>
-
-                  {vehicle.owner && (
+                <ScrollView
+                  style={styles.scrollArea}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{ paddingBottom: 20 }}
+                >
+                  {vehicle ? (
                     <>
+                      <Text style={styles.info}>VIN: {vehicle.vin}</Text>
                       <Text style={styles.info}>
-                        Purchase Date:{" "}
-                        {vehicle.purchaseDate
-                          ? new Date(vehicle.purchaseDate).toLocaleDateString()
-                          : "Not registered"}
+                        Model: {vehicle.model || "Unknown"}
                       </Text>
                       <Text style={styles.info}>
-                        Owner: {vehicle.owner.fullName}
+                        Company: {vehicle.company || "Unknown"}
                       </Text>
+                      <Text style={styles.info}>
+                        Place of Manufacture:{" "}
+                        {vehicle.placeOfManufacture || "N/A"}
+                      </Text>
+                      <Text style={styles.info}>
+                        Manufacture Date:{" "}
+                        {vehicle.dateOfManufacture
+                          ? new Date(
+                              vehicle.dateOfManufacture
+                            ).toLocaleDateString()
+                          : "N/A"}
+                      </Text>
+                      <Text style={styles.info}>
+                        License Plate: {vehicle.licensePlate || "Not assigned"}
+                      </Text>
+
+                      {vehicle.owner && (
+                        <>
+                          <Text style={styles.sectionLabel}>
+                            Owner Information
+                          </Text>
+                          <View style={styles.ownerBox}>
+                            <Text style={styles.info}>
+                              Full Name: {vehicle.owner.fullName || "N/A"}
+                            </Text>
+                            <Text style={styles.info}>
+                              Email: {vehicle.owner.email || "Not provided"}
+                            </Text>
+                            <Text style={styles.info}>
+                              Phone: {vehicle.owner.phone || "Not provided"}
+                            </Text>
+                            <Text style={styles.info}>
+                              Address: {vehicle.owner.address || "Not provided"}
+                            </Text>
+                            <Text style={styles.info}>
+                              Purchase Date:{" "}
+                              {vehicle.purchaseDate
+                                ? new Date(
+                                    vehicle.purchaseDate
+                                  ).toLocaleDateString()
+                                : "Not registered"}
+                            </Text>
+                          </View>
+                        </>
+                      )}
+
+                      <Text style={styles.sectionLabel}>
+                        Enter Current Odometer (km)
+                      </Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="e.g. 12000"
+                        placeholderTextColor={COLORS.textMuted}
+                        keyboardType="numeric"
+                        value={odometer}
+                        onChangeText={(text) => {
+                          const numericText = text.replace(/[^0-9]/g, "");
+                          setOdometer(numericText.slice(0, 7));
+                        }}
+                        maxLength={7}
+                      />
+
+                      <TouchableOpacity
+                        style={[styles.checkBtn, loading && { opacity: 0.7 }]}
+                        onPress={handleWarrantyCheck}
+                        disabled={loading}
+                        activeOpacity={0.9}
+                      >
+                        {loading ? (
+                          <ActivityIndicator color="#fff" />
+                        ) : (
+                          <Text style={styles.btnText}>
+                            Check Warranty Info
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+
+                      {error ? <Text style={styles.error}>{error}</Text> : null}
                     </>
+                  ) : (
+                    <Text style={[styles.info, { textAlign: "center" }]}>
+                      No vehicle data available.
+                    </Text>
                   )}
-
-                  {/* Nhập Odometer */}
-                  <Text style={styles.sectionLabel}>
-                    Enter Current Odometer (km)
-                  </Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g. 12000"
-                    placeholderTextColor={COLORS.textMuted}
-                    keyboardType="numeric"
-                    value={odometer}
-                    onChangeText={(text) => {
-                      const numericText = text.replace(/[^0-9]/g, "");
-                      const limitedText = numericText.slice(0, 7);
-                      setOdometer(limitedText);
-                    }}
-                    maxLength={7}
-                  />
-
-                  <TouchableOpacity
-                    style={[styles.checkBtn, loading && { opacity: 0.7 }]}
-                    onPress={handleWarrantyCheck}
-                    disabled={loading}
-                    activeOpacity={0.9}
-                  >
-                    {loading ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <Text style={styles.btnText}>Check Warranty Info</Text>
-                    )}
-                  </TouchableOpacity>
-
-                  {error ? <Text style={styles.error}>{error}</Text> : null}
-                </>
-              ) : (
-                <Text style={[styles.info, { textAlign: "center" }]}>
-                  No vehicle data available.
-                </Text>
-              )}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
+                </ScrollView>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
       </Modal>
 
-      {/* 🔸 Cảnh báo khi chưa có chủ xe */}
       <OwnerWarningModal
         visible={showOwnerWarning}
         onClose={() => setShowOwnerWarning(false)}
         onRegister={() => {
           setShowOwnerWarning(false);
-          setShowFindCustomer(true); // ✅ chuyển hướng sang popup tìm customer
+          setShowFindCustomer(true);
         }}
       />
 
-      {/* 🔸 Popup tìm khách hàng */}
       <FindCustomerModal
         visible={showFindCustomer}
         vin={vehicle?.vin}
+        vehicle={vehicle}
         onClose={() => setShowFindCustomer(false)}
       />
 
-      {/* 🔸 Popup thông tin bảo hành */}
       <WarrantyInfoModal
         visible={showWarrantyModal}
         warranty={warranty}
@@ -199,7 +218,6 @@ export default function VehicleInfoModal({ visible, vehicle, onClose }) {
   );
 }
 
-// Style giữ nguyên
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
@@ -210,6 +228,7 @@ const styles = StyleSheet.create({
   },
   modalBox: {
     width: "95%",
+    maxHeight: SCREEN_HEIGHT * 0.8,
     backgroundColor: COLORS.surface,
     borderRadius: 18,
     overflow: "hidden",
@@ -227,7 +246,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   scrollArea: {
-    maxHeight: 500,
     padding: 16,
   },
   info: {
@@ -240,6 +258,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     marginTop: 18,
+    marginBottom: 4,
+  },
+  ownerBox: {
+    backgroundColor: "rgba(59,130,246,0.1)",
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 10,
   },
   input: {
     backgroundColor: COLORS.bg,
