@@ -20,6 +20,8 @@ interface SidebarProps {
   brandSubtitle: string;
   currentUser: {
     userId: string;
+    username?: string;
+    name?: string;
     roleName: string;
   } | null;
   onLogout?: () => void;
@@ -183,7 +185,7 @@ export default function Sidebar({
                   className="flex-1 min-w-0 overflow-hidden"
                 >
                   <div className="text-sm font-medium truncate">
-                    {currentUser?.userId || "User"}
+                    {currentUser?.name || currentUser?.username || "User"}
                   </div>
                   <div className="text-xs text-gray-400 truncate">
                     {currentUser?.roleName?.replace(/_/g, " ") || "User"}

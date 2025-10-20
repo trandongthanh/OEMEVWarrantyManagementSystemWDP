@@ -1,7 +1,8 @@
 import apiClient from "@/lib/apiClient";
 
 export interface ProcessingRecord {
-  id?: string;
+  id?: string; // vẫn giữ để code cũ không lỗi
+  processingRecordId?: string; // thêm dòng này
   vin: string;
   checkInDate: string;
   checkOutDate?: string | null;
@@ -45,15 +46,18 @@ export interface ProcessingRecord {
       correctionText: string;
       quantity: number;
       warrantyStatus: string;
-    }>;
-  }>;
+    }>;}
+  >;
 }
 
 export interface ProcessingRecordListResponse {
   status: string;
   data: {
-    records: ProcessingRecord[];
-    pagination: {
+    records: {
+      records: ProcessingRecord[];
+      recordsCount: number;
+    };
+    pagination?: {
       total: number;
       page: number;
       limit: number;
@@ -131,10 +135,31 @@ const searchCompatibleComponents = async (
   }
 };
 
+/**
+ * Assign a technician to a processing record
+ * PATCH /processing-records/{id}/assignment
+ */
+const assignTechnician = async (
+  recordId: string,
+  technicianId: string
+): Promise<ProcessingRecord> => {
+  try {
+    const response = await apiClient.patch(
+      `/processing-records/${recordId}/assignment`,
+      { technicianId }
+    );
+    return response.data.data.record;
+  } catch (error) {
+    console.error("Error assigning technician:", error);
+    throw error;
+  }
+};
+
 const processingRecordService = {
   getAllRecords,
   getRecordById,
   searchCompatibleComponents,
+  assignTechnician,
 };
 
 export default processingRecordService;

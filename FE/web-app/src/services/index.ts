@@ -45,3 +45,13 @@ export type {
   ProcessingRecordListResponse,
   CompatibleComponent,
 } from "./processingRecordService";
+
+export { default as managerService } from "./managerService";
+export type {
+  Technician as ManagerTechnician,
+  ProcessingRecord as ManagerProcessingRecord,
+  ProcessingRecordsResponse,
+  TechniciansResponse,
+  AssignTechnicianRequest,
+  AssignTechnicianResponse,
+} from "./managerService";

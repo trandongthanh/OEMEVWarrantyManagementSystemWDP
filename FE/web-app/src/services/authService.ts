@@ -19,11 +19,22 @@ export interface LoginResponse {
 
 export interface DecodedToken {
   userId: string;
+  username?: string;
+  name?: string;
   roleName: string;
   serviceCenterId?: string;
   companyId?: string;
   iat?: number;
   exp?: number;
+}
+
+export interface UserInfo {
+  userId: string;
+  username: string;
+  name: string;
+  roleName: string;
+  serviceCenterId?: string;
+  companyId?: string;
 }
 
 /**
@@ -43,6 +54,27 @@ export const login = async (credentials: LoginCredentials): Promise<string> => {
     // Store token in localStorage
     if (typeof window !== "undefined") {
       localStorage.setItem("authToken", token);
+
+      // Decode and store user info
+      try {
+        const decoded = decodeToken(token);
+        console.log("🔑 Decoded Token:", decoded);
+
+        const userInfo: UserInfo = {
+          userId: decoded.userId,
+          username: credentials.username, // Store from login
+          name: decoded.name || credentials.username,
+          roleName: decoded.roleName,
+          serviceCenterId: decoded.serviceCenterId,
+          companyId: decoded.companyId,
+        };
+
+        console.log("💾 Storing User Info:", userInfo);
+        localStorage.setItem("userInfo", JSON.stringify(userInfo));
+        console.log("✅ User info stored successfully");
+      } catch (err) {
+        console.error("❌ Failed to decode token:", err);
+      }
     }
 
     return token;
@@ -66,6 +98,7 @@ export const login = async (credentials: LoginCredentials): Promise<string> => {
 export const logout = (): void => {
   if (typeof window !== "undefined") {
     localStorage.removeItem("authToken");
+    localStorage.removeItem("userInfo"); // Also clear user info
     // Clear any other auth-related data if needed
     window.location.href = "/login";
   }
@@ -140,6 +173,31 @@ export const getCurrentUser = (): DecodedToken | null => {
 };
 
 /**
+ * Get stored user info from localStorage
+ * @returns User info or null
+ */
+export const getUserInfo = (): UserInfo | null => {
+  if (typeof window === "undefined") return null;
+
+  const userInfoStr = localStorage.getItem("userInfo");
+  console.log("🔍 Getting user info from localStorage:", userInfoStr);
+
+  if (!userInfoStr) {
+    console.log("⚠️ No user info found in localStorage");
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(userInfoStr) as UserInfo;
+    console.log("✅ Parsed user info:", parsed);
+    return parsed;
+  } catch (err) {
+    console.error("❌ Failed to parse user info:", err);
+    return null;
+  }
+};
+
+/**
  * Auth service object
  */
 export const authService = {
@@ -148,6 +206,7 @@ export const authService = {
   isAuthenticated,
   getToken,
   getCurrentUser,
+  getUserInfo,
   decodeToken,
 };
 
