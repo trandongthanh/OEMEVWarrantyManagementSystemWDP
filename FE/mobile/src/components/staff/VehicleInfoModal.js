@@ -9,6 +9,7 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -21,8 +22,8 @@ const COLORS = {
   border: "#1F2833",
   text: "#E6EAF2",
   textMuted: "#9AA7B5",
-  accent: "#3B82F6",
-  accentSoft: "#2563EB",
+  accent: "#3B82F6", // xanh sáng hơn: dùng cho nút
+  accentSoft: "#2563EB", // xanh đậm hơn
   danger: "#EF4444",
 };
 
@@ -70,8 +71,9 @@ export default function VehicleInfoModal({ visible, vehicle, onClose }) {
         onRequestClose={onClose}
       >
         {/* ✅ Nhấn ra ngoài để đóng */}
-        <Pressable style={styles.overlay} onPressOut={onClose}>
-          <View style={styles.modalBox}>
+        <Pressable style={styles.overlay} onPress={onClose}>
+          {/* ⛑️ Chặn sự kiện click bên trong đóng modal */}
+          <Pressable style={styles.modalBox} onPress={() => {}}>
             <LinearGradient
               colors={["#0B3D91", "#1E90FF"]}
               start={{ x: 0, y: 0 }}
@@ -88,6 +90,7 @@ export default function VehicleInfoModal({ visible, vehicle, onClose }) {
             >
               {vehicle ? (
                 <>
+                  {/* 🔹 Thông tin cơ bản luôn hiển thị */}
                   <Text style={styles.info}>VIN: {vehicle.vin}</Text>
                   <Text style={styles.info}>
                     Model: {vehicle.model || "Unknown"}
@@ -99,51 +102,109 @@ export default function VehicleInfoModal({ visible, vehicle, onClose }) {
                     Place of Manufacture: {vehicle.placeOfManufacture || "N/A"}
                   </Text>
                   <Text style={styles.info}>
-                    Manufacture Date:{" "}
+                    Manufacture Date{" "}
                     {vehicle.dateOfManufacture
                       ? new Date(vehicle.dateOfManufacture).toLocaleDateString()
-                      : "N/A"}
+                      : ": N/A"}
                   </Text>
                   <Text style={styles.info}>
                     License Plate: {vehicle.licensePlate || "Not assigned"}
                   </Text>
-                  <Text style={styles.info}>
-                    Purchase Date:{" "}
-                    {vehicle.purchaseDate
-                      ? new Date(vehicle.purchaseDate).toLocaleDateString()
-                      : "Not registered"}
-                  </Text>
-                  <Text style={styles.info}>
-                    Owner: {vehicle.owner?.fullName || "No owner registered"}
-                  </Text>
 
-                  {/* 🔹 Input Odometer */}
-                  <Text style={styles.sectionLabel}>
-                    Enter Current Odometer (km)
-                  </Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g. 12000"
-                    placeholderTextColor={COLORS.textMuted}
-                    keyboardType="numeric"
-                    value={odometer}
-                    onChangeText={setOdometer}
-                  />
+                  {/* 🔹 Nếu xe có chủ */}
+                  {vehicle.owner ? (
+                    <>
+                      <Text style={styles.info}>
+                        Purchase Date{" "}
+                        {vehicle.purchaseDate
+                          ? `: ${new Date(
+                              vehicle.purchaseDate
+                            ).toLocaleDateString()}`
+                          : ": Not registered"}
+                      </Text>
+                      <Text style={styles.info}>
+                        Owner: {vehicle.owner.fullName}
+                      </Text>
 
-                  <TouchableOpacity
-                    style={[styles.checkBtn, loading && { opacity: 0.7 }]}
-                    onPress={handleWarrantyCheck}
-                    disabled={loading}
-                    activeOpacity={0.9}
-                  >
-                    {loading ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <Text style={styles.btnText}>Check Warranty Info</Text>
-                    )}
-                  </TouchableOpacity>
+                      {/* 🔹 Nhập Odometer */}
+                      <Text style={styles.sectionLabel}>
+                        Enter Current Odometer (km)
+                      </Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="e.g. 12000"
+                        placeholderTextColor={COLORS.textMuted}
+                        keyboardType="numeric"
+                        value={odometer}
+                        onChangeText={(text) => {
+                          const numericText = text.replace(/[^0-9]/g, "");
+                          const limitedText = numericText.slice(0, 7);
+                          setOdometer(limitedText);
+                        }}
+                        maxLength={7}
+                      />
 
-                  {error ? <Text style={styles.error}>{error}</Text> : null}
+                      <TouchableOpacity
+                        style={[styles.checkBtn, loading && { opacity: 0.7 }]}
+                        onPress={handleWarrantyCheck}
+                        disabled={loading}
+                        activeOpacity={0.9}
+                      >
+                        {loading ? (
+                          <ActivityIndicator color="#fff" />
+                        ) : (
+                          <Text style={styles.btnText}>
+                            Check Warranty Info
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+
+                      {error ? <Text style={styles.error}>{error}</Text> : null}
+                    </>
+                  ) : (
+                    <>
+                      {/* 🔹 Trường hợp chưa có chủ */}
+                      <View style={{ marginTop: 16, alignItems: "center" }}>
+                        <Ionicons
+                          name="person-add-outline"
+                          size={48}
+                          color={COLORS.accent}
+                          style={{ marginBottom: 8 }}
+                        />
+                        <Text
+                          style={{
+                            color: COLORS.text,
+                            fontSize: 16,
+                            textAlign: "center",
+                            marginBottom: 12,
+                          }}
+                        >
+                          This vehicle does not have an owner yet.
+                        </Text>
+
+                        {/* 🎨 Nút gradient nổi bật */}
+                        <LinearGradient
+                          colors={["#2563EB", "#3B82F6", "#60A5FA"]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.registerBtn}
+                        >
+                          <TouchableOpacity
+                            activeOpacity={0.9}
+                            onPress={() =>
+                              alert("🔔 Redirect to register owner form")
+                            }
+                            style={styles.registerBtnInner}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Text style={styles.registerBtnText}>
+                              Register as Vehicle Owner
+                            </Text>
+                          </TouchableOpacity>
+                        </LinearGradient>
+                      </View>
+                    </>
+                  )}
                 </>
               ) : (
                 <Text style={[styles.info, { textAlign: "center" }]}>
@@ -151,7 +212,7 @@ export default function VehicleInfoModal({ visible, vehicle, onClose }) {
                 </Text>
               )}
             </ScrollView>
-          </View>
+          </Pressable>
         </Pressable>
       </Modal>
 
@@ -222,6 +283,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: "center",
     marginTop: 14,
+    ...Platform.select({
+      android: { elevation: 2 },
+      ios: {
+        shadowColor: "#3B82F6",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.35,
+        shadowRadius: 6,
+      },
+    }),
   },
   btnText: {
     color: "#fff",
@@ -232,5 +302,37 @@ const styles = StyleSheet.create({
     color: COLORS.danger,
     marginTop: 8,
     textAlign: "center",
+  },
+
+  /* 🎨 Nút Register Owner nổi bật */
+  registerBtn: {
+    borderRadius: 12,
+    padding: 2, // viền sáng nhẹ nếu muốn (do gradient)
+    width: "100%",
+    maxWidth: 320,
+    ...Platform.select({
+      android: { elevation: 4 },
+      ios: {
+        shadowColor: "#60A5FA",
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.45,
+        shadowRadius: 8,
+      },
+    }),
+  },
+  registerBtnInner: {
+    backgroundColor: "transparent", // giữ gradient
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  registerBtnText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 16,
+    textAlign: "center",
+    letterSpacing: 0.2,
   },
 });
