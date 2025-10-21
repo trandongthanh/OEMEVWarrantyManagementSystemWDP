@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
-  Search,
   Car,
   AlertCircle,
   CheckCircle,
@@ -13,9 +12,7 @@ import {
   Phone,
   Mail,
   MapPin,
-  Calendar,
   Gauge,
-  FileText,
   Plus,
   Trash2,
   UserPlus,

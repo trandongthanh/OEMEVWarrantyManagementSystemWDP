@@ -16,13 +16,6 @@ export type {
   WarehouseQueryParams,
 } from "./warehouseService";
 
-export { default as taskService } from "./taskService";
-export type {
-  TaskAssignment,
-  CaseLine,
-  CreateCaseLineData,
-} from "./taskService";
-
 export { default as customerService } from "./customerService";
 export type { Customer } from "./customerService";
 
@@ -36,13 +29,3 @@ export type {
   ProcessingRecordListResponse,
   CompatibleComponent,
 } from "./processingRecordService";
-
-export { default as managerService } from "./managerService";
-export type {
-  Technician as ManagerTechnician,
-  ProcessingRecord as ManagerProcessingRecord,
-  ProcessingRecordsResponse,
-  TechniciansResponse,
-  AssignTechnicianRequest,
-  AssignTechnicianResponse,
-} from "./managerService";

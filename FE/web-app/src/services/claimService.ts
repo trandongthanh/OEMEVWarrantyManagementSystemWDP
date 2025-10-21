@@ -1,20 +1,6 @@
 import apiClient from "@/lib/apiClient";
-import type {
-  CreateClaimRequest,
-  CreateClaimResponse,
-  ClaimDetailsResponse,
-  AssignTechnicianRequest,
-  AssignTechnicianResponse,
-} from "./types";
-
-/**
- * Claim Service (Vehicle Processing Record)
- *
- * Handles warranty claim operations:
- * - Creating new claims
- * - Assigning technicians
- * - Retrieving claim details
- */
+import type { CreateClaimRequest, CreateClaimResponse } from "./types";
+import { processingRecordService } from "./index";
 
 /**
  * Create a new warranty claim (Vehicle Processing Record)
@@ -56,54 +42,10 @@ export const createClaim = async (
   }
 };
 
-/**
- * Assign main technician to a claim
- * PATCH /processing-records/{id}/assignment
- *
- * @param vehicleProcessingRecordId - Record ID
- * @param technicianId - Technician user ID
- * @returns Updated record
- */
-export const assignTechnician = async (
-  data: AssignTechnicianRequest
-): Promise<AssignTechnicianResponse> => {
-  try {
-    const response = await apiClient.patch(
-      `/processing-records/${data.vehicleProcessingRecordId}/assignment`,
-      { technicianId: data.technicianId }
-    );
-
-    return response.data;
-  } catch (error: any) {
-    console.error("Error assigning technician:", error);
-    throw error;
-  }
-};
-
-/**
- * Get claim details by ID
- * GET /processing-records/{id}
- *
- * @param id - Vehicle processing record ID
- * @returns Detailed claim information
- */
-export const getClaimDetails = async (
-  id: string
-): Promise<ClaimDetailsResponse> => {
-  try {
-    const response = await apiClient.get(`/processing-records/${id}`);
-
-    return response.data;
-  } catch (error: any) {
-    console.error("Error fetching claim details:", error);
-    throw error;
-  }
-};
-
 const claimService = {
   createClaim,
-  assignTechnician,
-  getClaimDetails,
+  assignTechnician: processingRecordService.assignTechnician,
+  getClaimDetails: processingRecordService.getRecordById,
 };
 
 export default claimService;
