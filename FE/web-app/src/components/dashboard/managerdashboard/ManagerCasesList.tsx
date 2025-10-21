@@ -244,7 +244,7 @@ export function ManagerCasesList({}: ManagerCasesListProps) {
 
                   return (
                     <motion.div
-                      key={record.id || record.vin}
+                      key={record.vehicleProcessingRecordId || record.vin}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.05 }}

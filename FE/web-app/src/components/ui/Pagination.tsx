@@ -80,7 +80,7 @@ export function Pagination({
           whileTap={{ scale: 0.95 }}
           onClick={() => onPageChange(Math.max(1, currentPage - 1))}
           disabled={currentPage === 1}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl border text-black border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           aria-label="Previous page"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -130,7 +130,7 @@ export function Pagination({
           whileTap={{ scale: 0.95 }}
           onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
           disabled={currentPage === totalPages}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-300 text-black bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           aria-label="Next page"
         >
           <span className="hidden sm:inline font-medium text-sm">Next</span>
