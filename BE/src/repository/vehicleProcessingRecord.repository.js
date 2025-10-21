@@ -204,7 +204,12 @@ class VehicleProcessingRecordRepository {
         {
           model: GuaranteeCase,
           as: "guaranteeCases",
-          attributes: ["guaranteeCaseId", "status", "contentGuarantee"],
+          attributes: [
+            "guaranteeCaseId",
+            "vehicleProcessingRecordId",
+            "status",
+            "contentGuarantee",
+          ],
         },
 
         {

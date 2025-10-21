@@ -6,7 +6,7 @@ import { initializeSocket } from "./src/socket/socket.js";
 import { setupContainer } from "./container.js";
 configDotenv();
 
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT || 3000;
 const server = http.createServer(app);
 
 const { io, notificationNamespace, chatNamespace } = initializeSocket(server);

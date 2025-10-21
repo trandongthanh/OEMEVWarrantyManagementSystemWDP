@@ -9,6 +9,7 @@ export {
   DashboardOverview,
   CustomerSearchResults,
   CasesList,
+  VehicleManagement,
 } from "./staffdashboard";
 
 // Manager Dashboard Components

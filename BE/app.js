@@ -1,5 +1,4 @@
 import express from "express";
-import cors from "cors";
 import { scopePerRequest } from "awilix-express";
 import container from "./container.js";
 import cors from "cors";

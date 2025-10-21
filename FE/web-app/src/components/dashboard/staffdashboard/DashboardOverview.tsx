@@ -254,7 +254,7 @@ export function DashboardOverview({
                 ) : recentActivity.length > 0 ? (
                   recentActivity.map((record, index) => (
                     <div
-                      key={record.id || index}
+                      key={record.vehicleProcessingRecordId || index}
                       className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
                     >
                       <div className="flex items-center gap-3">
