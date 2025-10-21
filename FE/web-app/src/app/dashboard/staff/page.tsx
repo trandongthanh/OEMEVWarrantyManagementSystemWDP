@@ -8,9 +8,15 @@ import {
   BarChart3,
   Clock,
   FileText,
+  Car,
 } from "lucide-react";
-import { authService, customerService, Customer } from "@/services";
-import { useRoleProtection } from "@/hooks/useRoleProtection";
+import {
+  authService,
+  userService,
+  customerService,
+  Technician,
+  Customer,
+} from "@/services";
 import {
   Sidebar,
   DashboardHeader,
@@ -18,6 +24,7 @@ import {
   PlaceholderContent,
   RegisterVehicleModal,
   DashboardOverview,
+  VehicleManagement,
   CustomerSearchResults,
   CasesList,
 } from "@/components/dashboard";
@@ -29,12 +36,10 @@ interface User {
 }
 
 export default function StaffDashboard() {
-  // Protect this route - only allow staff
-  useRoleProtection(["service_center_staff"]);
-
   const [activeNav, setActiveNav] = useState("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchResult, setSearchResult] = useState<Customer | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -54,7 +59,22 @@ export default function StaffDashboard() {
   useEffect(() => {
     const user = authService.getCurrentUser();
     setCurrentUser(user);
+    // Staff role doesn't have permission to fetch technicians
+    // fetchData();
   }, []);
+
+  const fetchData = async () => {
+    try {
+      // Only fetch technicians if user has permission (admin, manager roles)
+      const user = authService.getCurrentUser();
+      if (user && (user.roleName === "ADMIN" || user.roleName === "MANAGER")) {
+        const techData = await userService.getTechnicians();
+        setTechnicians(techData);
+      }
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    }
+  };
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
@@ -85,6 +105,7 @@ export default function StaffDashboard() {
 
   const staffNavItems = [
     { id: "dashboard", icon: Home, label: "Dashboard" },
+    { id: "vehicles", icon: Car, label: "Vehicle Management" },
     { id: "cases", icon: Users, label: "Cases" },
     { id: "receipts", icon: CreditCard, label: "Receipts" },
     { id: "manage", icon: BarChart3, label: "Manage" },
@@ -105,8 +126,16 @@ export default function StaffDashboard() {
       case "dashboard":
         return (
           <DashboardOverview
+            technicians={technicians}
             onNewClaimClick={() => setShowNewClaimModal(true)}
             onNavigate={setActiveNav}
+          />
+        );
+
+      case "vehicles":
+        return (
+          <VehicleManagement
+            onRegisterVehicleClick={() => setShowRegisterVehicleModal(true)}
           />
         );
 
@@ -190,8 +219,7 @@ export default function StaffDashboard() {
         isOpen={showNewClaimModal}
         onClose={() => setShowNewClaimModal(false)}
         onSuccess={() => {
-          // Refresh data by reloading the dashboard
-          setActiveNav("dashboard");
+          fetchData(); // Refresh data
         }}
         onRegisterOwner={(vin) => {
           setRegisterVehicleVin(vin);
@@ -207,7 +235,8 @@ export default function StaffDashboard() {
           setRegisterVehicleVin(undefined);
         }}
         onSuccess={() => {
-          // Switch to vehicles tab to show the registered vehicle
+          fetchData(); // Refresh data
+          // Optionally switch to vehicles tab to show the registered vehicle
           setActiveNav("vehicles");
           // Reset VIN after successful registration
           setRegisterVehicleVin(undefined);

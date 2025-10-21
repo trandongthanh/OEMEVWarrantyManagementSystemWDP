@@ -280,7 +280,7 @@ class VehicleProcessingRecordService {
 
     const guaranteeCaseStatus = existingGuaranteeCase?.status;
     guaranteeCaseToCreateStockValidator.validateAsync({
-      guaranteeCaseStatus: guaranteeCaseStatus,
+      status: guaranteeCaseStatus,
     });
 
     const vehicleModelId =
