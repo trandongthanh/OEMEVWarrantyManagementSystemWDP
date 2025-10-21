@@ -1,7 +1,7 @@
 import apiClient from "@/lib/apiClient";
 
 export interface ProcessingRecord {
-  id?: string;
+  vehicleProcessingRecordId?: string; // Primary key from backend
   vin: string;
   checkInDate: string;
   checkOutDate?: string | null;

@@ -135,7 +135,7 @@ export function ManagerCasesList({}: ManagerCasesListProps) {
     setAssigning(true);
     try {
       await processingRecordService.assignTechnician(
-        selectedRecord.id!,
+        selectedRecord.vehicleProcessingRecordId!,
         selectedTechnician
       );
       setShowAssignModal(false);
@@ -244,7 +244,7 @@ export function ManagerCasesList({}: ManagerCasesListProps) {
 
                   return (
                     <motion.div
-                      key={record.id}
+                      key={record.id || record.vin}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.05 }}
