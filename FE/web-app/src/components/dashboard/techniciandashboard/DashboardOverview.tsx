@@ -183,38 +183,15 @@ export function DashboardOverview() {
               ) : (
                 <div className="space-y-3">
                   {processingRecords.map((record) => {
-                    // Get the first guarantee case for modal
-                    const firstCase = record.guaranteeCases?.[0];
                     // Backend now returns vehicleProcessingRecordId in both record and guarantee case
-                    const recordId =
-                      record.vehicleProcessingRecordId ||
-                      firstCase?.vehicleProcessingRecordId;
-
-                    console.log("🔍 Record Button State:", {
-                      vin: record.vin,
-                      vehicleProcessingRecordId:
-                        record.vehicleProcessingRecordId,
-                      recordId,
-                      hasFirstCase: !!firstCase,
-                      willBeEnabled: !!firstCase && !!recordId,
-                    });
+                    const recordId = record.vehicleProcessingRecordId;
 
                     return (
-                      <button
+                      <div
                         key={record.vin}
-                        onClick={() =>
-                          firstCase &&
-                          recordId &&
-                          handleOpenCase(
-                            record.vin,
-                            recordId,
-                            firstCase.guaranteeCaseId
-                          )
-                        }
-                        disabled={!firstCase || !recordId}
-                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl hover:bg-blue-50 hover:border-blue-300 transition-all text-left disabled:cursor-not-allowed disabled:opacity-60"
+                        className="p-4 bg-gray-50 border border-gray-200 rounded-xl"
                       >
-                        <div className="flex items-start justify-between">
+                        <div className="flex items-start justify-between mb-3">
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-2">
                               <h3 className="font-semibold text-gray-900">
@@ -242,34 +219,78 @@ export function DashboardOverview() {
                                 {record.odometer.toLocaleString()} km
                               </div>
                             </div>
-
-                            {record.guaranteeCases &&
-                              record.guaranteeCases.length > 0 && (
-                                <div className="mt-3 pt-3 border-t border-gray-200">
-                                  <p className="text-xs font-medium text-gray-700 mb-2">
-                                    Guarantee Cases (
-                                    {record.guaranteeCases.length}):
-                                  </p>
-                                  <div className="space-y-1">
-                                    {record.guaranteeCases.map(
-                                      (guaranteeCase, idx) => (
-                                        <div
-                                          key={idx}
-                                          className="text-xs text-gray-600 bg-white px-2 py-1 rounded"
-                                        >
-                                          {guaranteeCase.contentGuarantee}
-                                        </div>
-                                      )
-                                    )}
-                                  </div>
-                                  <p className="text-xs text-blue-600 mt-2 font-medium">
-                                    Click to add diagnosis & repairs →
-                                  </p>
-                                </div>
-                              )}
                           </div>
                         </div>
-                      </button>
+
+                        {record.guaranteeCases &&
+                          record.guaranteeCases.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-gray-200">
+                              <p className="text-xs font-medium text-gray-700 mb-2">
+                                Guarantee Cases ({record.guaranteeCases.length}
+                                ):
+                              </p>
+                              <div className="space-y-2">
+                                {record.guaranteeCases.map((guaranteeCase) => {
+                                  const isDiagnosed =
+                                    guaranteeCase.status === "DIAGNOSED";
+                                  return (
+                                    <button
+                                      key={guaranteeCase.guaranteeCaseId}
+                                      onClick={() =>
+                                        recordId &&
+                                        handleOpenCase(
+                                          record.vin,
+                                          recordId,
+                                          guaranteeCase.guaranteeCaseId
+                                        )
+                                      }
+                                      disabled={!recordId}
+                                      className={`w-full p-3 bg-white border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-all text-left disabled:cursor-not-allowed disabled:opacity-60 ${
+                                        isDiagnosed
+                                          ? "hover:bg-green-50 hover:border-green-300"
+                                          : ""
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex-1">
+                                          <p className="text-sm font-medium text-gray-900">
+                                            {guaranteeCase.contentGuarantee}
+                                          </p>
+                                          <p className="text-xs text-gray-500">
+                                            Status:{" "}
+                                            <span
+                                              className={`font-medium ${
+                                                isDiagnosed
+                                                  ? "text-green-600"
+                                                  : "text-orange-600"
+                                              }`}
+                                            >
+                                              {guaranteeCase.status.replace(
+                                                /_/g,
+                                                " "
+                                              )}
+                                            </span>
+                                          </p>
+                                        </div>
+                                        <div
+                                          className={`text-xs font-medium ${
+                                            isDiagnosed
+                                              ? "text-green-600"
+                                              : "text-blue-600"
+                                          }`}
+                                        >
+                                          {isDiagnosed
+                                            ? "Edit diagnosis →"
+                                            : "Add diagnosis →"}
+                                        </div>
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                      </div>
                     );
                   })}
                 </div>

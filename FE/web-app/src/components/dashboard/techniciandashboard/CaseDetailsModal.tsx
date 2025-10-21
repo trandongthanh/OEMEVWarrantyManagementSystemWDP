@@ -31,6 +31,7 @@ interface CaseDetailsModalProps {
 
 interface CaseLineForm extends CaseLineInput {
   id?: string;
+  componentName?: string;
 }
 
 // EV-specific categories matching backend TypeComponent table
@@ -69,6 +70,7 @@ export function CaseDetailsModal({
       diagnosisText: "",
       correctionText: "",
       componentId: null,
+      componentName: "",
       quantity: 0,
       warrantyStatus: "ELIGIBLE",
     },
@@ -133,6 +135,7 @@ export function CaseDetailsModal({
         diagnosisText: "",
         correctionText: "",
         componentId: null,
+        componentName: "",
         quantity: 0,
         warrantyStatus: "ELIGIBLE",
       },
@@ -157,18 +160,14 @@ export function CaseDetailsModal({
 
   const handleSelectComponent = (component: CompatibleComponent) => {
     if (activeLineIndex !== null) {
-      // Set component ID
-      handleCaseLineChange(
-        activeLineIndex,
-        "componentId",
-        component.typeComponentId
-      );
-      // Automatically set warranty status based on backend calculation
-      handleCaseLineChange(
-        activeLineIndex,
-        "warrantyStatus",
-        component.isUnderWarranty ? "ELIGIBLE" : "INELIGIBLE"
-      );
+      const newCaseLines = [...caseLines];
+      newCaseLines[activeLineIndex] = {
+        ...newCaseLines[activeLineIndex],
+        componentId: component.typeComponentId,
+        componentName: component.name,
+        warrantyStatus: component.isUnderWarranty ? "ELIGIBLE" : "INELIGIBLE",
+      };
+      setCaseLines(newCaseLines);
       setShowComponentSearch(false);
       setActiveLineIndex(null);
     }
@@ -189,29 +188,51 @@ export function CaseDetailsModal({
       (line) =>
         !line.diagnosisText.trim() ||
         !line.correctionText.trim() ||
-        (line.componentId && line.quantity < 1)
+        !line.componentId ||
+        line.quantity <= 0
     );
 
     if (hasInvalidLines) {
       setErrorMessage(
-        "Please fill in all required fields (diagnosis and correction are required)"
+        "Please fill in all required fields (diagnosis, correction, component, and quantity > 0 are required)"
       );
       return;
     }
 
     setIsSaving(true);
     try {
+      // Prepare case lines data (exclude componentName which is only for frontend display)
+      const caselinesToSend = caseLines.map(
+        ({
+          diagnosisText,
+          correctionText,
+          componentId,
+          quantity,
+          warrantyStatus,
+        }) => ({
+          diagnosisText,
+          correctionText,
+          componentId,
+          quantity,
+          warrantyStatus,
+        })
+      );
+
       // Create case lines
-      await technicianService.createCaseLines(caseId, { caselines: caseLines });
+      const createResponse = await technicianService.createCaseLines(caseId, {
+        caselines: caselinesToSend,
+      });
+
+      const createdCaseLines = createResponse.data.caseLines;
 
       // If there are components with quantities, update stock
-      const linesWithComponents = caseLines.filter(
+      const linesWithComponents = createdCaseLines.filter(
         (line) => line.componentId && line.quantity > 0
       );
 
       if (linesWithComponents.length > 0) {
-        const stockData = linesWithComponents.map((line, index) => ({
-          id: `temp-${index}`, // Temporary ID
+        const stockData = linesWithComponents.map((line) => ({
+          id: line.caseLineId,
           componentId: line.componentId!,
           quantity: line.quantity,
         }));
@@ -318,7 +339,7 @@ export function CaseDetailsModal({
                       setShowComponentSearch(false);
                       setActiveLineIndex(null);
                     }}
-                    className="text-sm text-gray-600 hover:text-gray-900"
+                    className="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 hover:text-gray-900 rounded-md text-sm font-medium transition-colors"
                   >
                     Cancel
                   </button>
@@ -425,9 +446,9 @@ export function CaseDetailsModal({
                     {caseLines.length > 1 && (
                       <button
                         onClick={() => handleRemoveCaseLine(index)}
-                        className="text-red-600 hover:text-red-700"
+                        className="p-1 bg-red-100 hover:bg-red-200 text-red-600 hover:text-red-700 rounded-md transition-colors"
                       >
-                        <X className="w-5 h-5" />
+                        <X className="w-4 h-4" />
                       </button>
                     )}
                   </div>
@@ -483,7 +504,7 @@ export function CaseDetailsModal({
                       <div className="flex gap-2">
                         <input
                           type="text"
-                          value={caseLine.componentId || ""}
+                          value={caseLine.componentName || ""}
                           readOnly
                           placeholder="No component selected"
                           className="flex-1 px-4 py-2 border border-gray-300 rounded-xl bg-gray-50 text-gray-700"
