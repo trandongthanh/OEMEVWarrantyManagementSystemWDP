@@ -124,10 +124,19 @@ export default function StaffChatDashboard({
   const loadConversations = async () => {
     setLoading(true);
     try {
-      const convs = await getMyConversations(
-        selectedTab === "waiting" ? "waiting" : selectedTab
-      );
-      setConversations(convs);
+      const convs = await getMyConversations(selectedTab);
+      // Filter conversations based on selected tab
+      const filteredConvs = convs.filter((conv) => {
+        if (selectedTab === "waiting") {
+          return conv.status === "waiting" || conv.status === "UNASSIGNED";
+        } else if (selectedTab === "active") {
+          return conv.status === "active" || conv.status === "ACTIVE";
+        } else if (selectedTab === "closed") {
+          return conv.status === "closed" || conv.status === "CLOSED";
+        }
+        return false;
+      });
+      setConversations(filteredConvs);
     } catch (err) {
       console.error("Failed to load conversations:", err);
     } finally {
@@ -246,170 +255,246 @@ export default function StaffChatDashboard({
   };
 
   return (
-    <div className="flex h-full bg-white rounded-2xl overflow-hidden shadow-xl">
+    <div className="flex h-full bg-white rounded-2xl overflow-hidden shadow-lg border border-gray-200">
       {/* Sidebar - Conversations List */}
-      <div className="w-80 border-r border-gray-200 flex flex-col">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 text-white">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">Chat Support</h2>
-            {onClose && (
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-blue-800 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            )}
-          </div>
+      <div className="w-96 bg-gray-50 border-r border-gray-200 flex flex-col">
+        {/* Tabs Header */}
+        <div className="bg-white border-b border-gray-200 p-4">
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 hover:text-gray-700"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
 
           {/* Tabs */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
             <button
               onClick={() => setSelectedTab("waiting")}
-              className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors relative ${
+              className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200 relative ${
                 selectedTab === "waiting"
-                  ? "bg-white text-blue-600"
-                  : "bg-blue-800 text-white hover:bg-blue-900"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
               }`}
             >
               <div className="flex items-center justify-center gap-2">
                 <Clock className="w-4 h-4" />
                 <span>Waiting</span>
-                {getWaitingCount() > 0 && (
-                  <span className="bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                    {getWaitingCount()}
-                  </span>
-                )}
               </div>
+              <AnimatePresence mode="wait">
+                {getWaitingCount() > 0 && (
+                  <motion.span
+                    key={getWaitingCount()}
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 500,
+                      damping: 30,
+                    }}
+                    className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md"
+                  >
+                    {getWaitingCount()}
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </button>
             <button
               onClick={() => setSelectedTab("active")}
-              className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+              className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200 ${
                 selectedTab === "active"
-                  ? "bg-white text-blue-600"
-                  : "bg-blue-800 text-white hover:bg-blue-900"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
               }`}
             >
-              Active
+              <div className="flex items-center justify-center gap-2">
+                <MessageCircle className="w-4 h-4" />
+                <span>Active</span>
+              </div>
             </button>
             <button
               onClick={() => setSelectedTab("closed")}
-              className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+              className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200 ${
                 selectedTab === "closed"
-                  ? "bg-white text-blue-600"
-                  : "bg-blue-800 text-white hover:bg-blue-900"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
               }`}
             >
-              Closed
+              <div className="flex items-center justify-center gap-2">
+                <Check className="w-4 h-4" />
+                <span>Closed</span>
+              </div>
             </button>
           </div>
         </div>
 
         {/* Conversations List */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto bg-gray-50">
           {loading ? (
-            <div className="p-8 text-center text-gray-500">Loading...</div>
-          ) : conversations.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
-              <MessageCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-              <p className="text-sm">No conversations</p>
+              <div className="w-8 h-8 border-3 border-gray-200 border-t-blue-500 rounded-full animate-spin mx-auto mb-3"></div>
+              <p className="text-sm font-medium">Loading conversations...</p>
+            </div>
+          ) : conversations.length === 0 ? (
+            <div className="p-12 text-center">
+              <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
+                <MessageCircle className="w-8 h-8 text-gray-300" />
+              </div>
+              <p className="text-base font-semibold text-gray-700 mb-1">
+                No {selectedTab} conversations
+              </p>
+              <p className="text-sm text-gray-500">
+                {selectedTab === "waiting" && "Waiting for customer inquiries"}
+                {selectedTab === "active" && "No active chats at the moment"}
+                {selectedTab === "closed" && "No closed conversations yet"}
+              </p>
             </div>
           ) : (
-            conversations.map((conversation) => (
-              <div
-                key={conversation.conversationId}
-                onClick={() => setActiveConversation(conversation)}
-                className={`p-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors ${
-                  activeConversation?.conversationId ===
-                  conversation.conversationId
-                    ? "bg-blue-50"
-                    : ""
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
-                    <User className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <h4 className="font-medium text-gray-900 truncate">
-                        {conversation.guest?.name || "Guest User"}
-                      </h4>
-                      <span className="text-xs text-gray-500">
-                        {formatDate(conversation.createdAt)}
-                      </span>
-                    </div>
-                    {conversation.lastMessage && (
-                      <p className="text-sm text-gray-600 truncate">
-                        {conversation.lastMessage.content}
-                      </p>
-                    )}
-                    <div className="flex items-center justify-between mt-2">
-                      <span
-                        className={`text-xs px-2 py-1 rounded-full ${
-                          conversation.status === "waiting"
-                            ? "bg-amber-100 text-amber-700"
-                            : conversation.status === "active"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-gray-100 text-gray-700"
+            <div className="p-3 space-y-2">
+              {conversations.map((conversation) => (
+                <motion.div
+                  key={conversation.conversationId}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  onClick={() => setActiveConversation(conversation)}
+                  className={`p-4 bg-white rounded-xl cursor-pointer transition-all duration-200 border ${
+                    activeConversation?.conversationId ===
+                    conversation.conversationId
+                      ? "border-blue-500 shadow-md ring-2 ring-blue-100"
+                      : "border-gray-200 hover:border-gray-300 hover:shadow-sm"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="relative">
+                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <User className="w-6 h-6 text-white" />
+                      </div>
+                      <div
+                        className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white shadow-sm ${
+                          conversation.status === "waiting" ||
+                          conversation.status === "UNASSIGNED"
+                            ? "bg-amber-400"
+                            : conversation.status === "active" ||
+                              conversation.status === "ACTIVE"
+                            ? "bg-green-500"
+                            : "bg-gray-400"
                         }`}
-                      >
-                        {conversation.status}
-                      </span>
-                      {conversation.unreadCount &&
-                        conversation.unreadCount > 0 && (
-                          <span className="bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                            {conversation.unreadCount}
-                          </span>
-                        )}
+                      ></div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <h4 className="font-semibold text-gray-900 truncate">
+                          {conversation.guest?.name || "Anonymous Guest"}
+                        </h4>
+                        <span className="text-xs text-gray-500 font-medium">
+                          {formatDate(conversation.createdAt)}
+                        </span>
+                      </div>
+                      {conversation.lastMessage && (
+                        <p className="text-sm text-gray-600 truncate mb-2">
+                          {conversation.lastMessage.content}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+                            conversation.status === "waiting" ||
+                            conversation.status === "UNASSIGNED"
+                              ? "bg-amber-50 text-amber-700 border border-amber-200"
+                              : conversation.status === "active" ||
+                                conversation.status === "ACTIVE"
+                              ? "bg-green-50 text-green-700 border border-green-200"
+                              : "bg-gray-100 text-gray-700 border border-gray-200"
+                          }`}
+                        >
+                          {conversation.status === "UNASSIGNED"
+                            ? "waiting"
+                            : conversation.status}
+                        </span>
+                        <AnimatePresence mode="wait">
+                          {conversation.unreadCount &&
+                            conversation.unreadCount > 0 && (
+                              <motion.span
+                                key={conversation.unreadCount}
+                                initial={{ scale: 0, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0, opacity: 0 }}
+                                transition={{
+                                  type: "spring",
+                                  stiffness: 500,
+                                  damping: 30,
+                                }}
+                                className="bg-blue-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center"
+                              >
+                                {conversation.unreadCount}
+                              </motion.span>
+                            )}
+                        </AnimatePresence>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Accept Button for Waiting Chats */}
-                {conversation.status === "waiting" && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAcceptChat(conversation);
-                    }}
-                    className="w-full mt-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center gap-2"
-                  >
-                    <Check className="w-4 h-4" />
-                    <span>Accept Chat</span>
-                  </button>
-                )}
-              </div>
-            ))
+                  {/* Accept Button for Waiting Chats */}
+                  {(conversation.status === "waiting" ||
+                    conversation.status === "UNASSIGNED") && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAcceptChat(conversation);
+                      }}
+                      className="w-full mt-3 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all duration-200 text-sm font-semibold flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>Accept Chat</span>
+                    </button>
+                  )}
+                </motion.div>
+              ))}
+            </div>
           )}
         </div>
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col bg-white">
         {activeConversation ? (
           <>
             {/* Chat Header */}
-            <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+            <div className="bg-white px-6 py-5 border-b border-gray-200 shadow-sm">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
-                    <User className="w-5 h-5 text-white" />
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-sm">
+                    <User className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900">
-                      {activeConversation.guest?.name || "Guest User"}
+                    <h3 className="font-bold text-gray-900 text-lg">
+                      {activeConversation.guest?.name || "Anonymous Guest"}
                     </h3>
-                    <p className="text-sm text-gray-500">
-                      {activeConversation.status}
-                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          activeConversation.status === "active" ||
+                          activeConversation.status === "ACTIVE"
+                            ? "bg-green-500"
+                            : "bg-gray-400"
+                        }`}
+                      ></div>
+                      <p className="text-sm text-gray-600 font-medium capitalize">
+                        {activeConversation.status === "UNASSIGNED"
+                          ? "waiting"
+                          : activeConversation.status}
+                      </p>
+                    </div>
                   </div>
                 </div>
-                {activeConversation.status === "active" && (
+                {(activeConversation.status === "active" ||
+                  activeConversation.status === "ACTIVE") && (
                   <button
                     onClick={handleCloseConversation}
-                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
+                    className="px-5 py-2.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md"
                   >
                     Close Chat
                   </button>
@@ -420,8 +505,10 @@ export default function StaffChatDashboard({
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
               {messages.map((message) => (
-                <div
+                <motion.div
                   key={message.messageId}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
                   className={`flex ${
                     message.senderType === "staff"
                       ? "justify-end"
@@ -430,32 +517,32 @@ export default function StaffChatDashboard({
                 >
                   <div className="max-w-[70%]">
                     {message.senderType === "guest" && (
-                      <p className="text-xs text-gray-500 mb-1 ml-1">
+                      <p className="text-xs text-gray-500 mb-1.5 ml-2 font-medium">
                         {message.senderName}
                       </p>
                     )}
                     <div
-                      className={`rounded-2xl px-4 py-3 ${
+                      className={`rounded-2xl px-4 py-3 shadow-sm ${
                         message.senderType === "staff"
-                          ? "bg-blue-600 text-white"
+                          ? "bg-blue-500 text-white"
                           : "bg-white text-gray-900 border border-gray-200"
                       }`}
                     >
-                      <p className="text-sm whitespace-pre-wrap">
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed">
                         {message.content}
                       </p>
                       <p
-                        className={`text-xs mt-1 ${
+                        className={`text-xs mt-2 ${
                           message.senderType === "staff"
-                            ? "text-blue-200"
-                            : "text-gray-400"
+                            ? "text-blue-100"
+                            : "text-gray-500"
                         }`}
                       >
                         {formatTime(message.sentAt)}
                       </p>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               ))}
 
               {/* Typing Indicator */}
@@ -467,8 +554,8 @@ export default function StaffChatDashboard({
                     exit={{ opacity: 0 }}
                     className="flex justify-start"
                   >
-                    <div className="bg-white border border-gray-200 rounded-2xl px-4 py-3">
-                      <div className="flex gap-1">
+                    <div className="bg-white border border-gray-200 rounded-2xl px-5 py-3 shadow-sm">
+                      <div className="flex gap-1.5">
                         <motion.div
                           animate={{ y: [0, -5, 0] }}
                           transition={{
@@ -506,41 +593,52 @@ export default function StaffChatDashboard({
             </div>
 
             {/* Input Area */}
-            <div className="bg-white border-t border-gray-200 p-4">
-              {activeConversation.status === "active" ? (
-                <div className="flex items-end gap-2">
+            <div className="bg-white border-t border-gray-200 p-5 shadow-sm">
+              {activeConversation.status === "active" ||
+              activeConversation.status === "ACTIVE" ? (
+                <div className="flex items-end gap-3">
                   <textarea
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     onKeyPress={handleKeyPress}
-                    placeholder="Type a message..."
+                    placeholder="Type your message..."
                     rows={1}
-                    className="flex-1 resize-none rounded-xl border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="flex-1 resize-none rounded-xl border-2 border-gray-200 px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                     style={{ minHeight: "48px", maxHeight: "120px" }}
                   />
                   <button
                     onClick={handleSendMessage}
                     disabled={!inputText.trim()}
-                    className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                    className="p-3.5 bg-blue-500 text-white rounded-xl hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
                   >
                     <Send className="w-5 h-5" />
                   </button>
                 </div>
               ) : (
-                <div className="text-center text-gray-500 text-sm">
-                  {activeConversation.status === "waiting"
-                    ? "Accept this chat to start messaging"
-                    : "This conversation is closed"}
+                <div className="text-center py-4">
+                  <div className="inline-block px-6 py-3 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl">
+                    {activeConversation.status === "waiting" ||
+                    activeConversation.status === "UNASSIGNED"
+                      ? "Accept this chat to start messaging"
+                      : "This conversation is closed"}
+                  </div>
                 </div>
               )}
             </div>
           </>
         ) : (
           /* Empty State */
-          <div className="flex-1 flex items-center justify-center text-gray-400">
+          <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 to-white">
             <div className="text-center">
-              <MessageCircle className="w-16 h-16 mx-auto mb-4" />
-              <p>Select a conversation to start chatting</p>
+              <div className="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm">
+                <MessageCircle className="w-10 h-10 text-gray-400" />
+              </div>
+              <p className="text-lg font-semibold text-gray-700 mb-2">
+                No conversation selected
+              </p>
+              <p className="text-sm text-gray-500">
+                Choose a conversation from the list to start chatting
+              </p>
             </div>
           </div>
         )}

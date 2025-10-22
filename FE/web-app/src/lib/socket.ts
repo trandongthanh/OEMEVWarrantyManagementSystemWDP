@@ -20,6 +20,9 @@ export function initializeChatSocket(): Socket {
     reconnection: true,
     reconnectionAttempts: 5,
     reconnectionDelay: 1000,
+    timeout: 20000, // 20 second timeout
+    forceNew: false,
+    upgrade: true,
   });
 
   chatSocket.on("connect", () => {
@@ -32,6 +35,19 @@ export function initializeChatSocket(): Socket {
 
   chatSocket.on("connect_error", (error: Error) => {
     console.error("Chat socket connection error:", error);
+    console.error("Socket URL:", `${SOCKET_URL}/chats`);
+    console.error(
+      "Socket state:",
+      chatSocket?.connected ? "connected" : "disconnected"
+    );
+  });
+
+  chatSocket.on("reconnect", (attemptNumber: number) => {
+    console.log("Chat socket reconnected after", attemptNumber, "attempts");
+  });
+
+  chatSocket.on("reconnect_error", (error: Error) => {
+    console.error("Chat socket reconnection error:", error);
   });
 
   return chatSocket;
@@ -57,12 +73,12 @@ export function disconnectChatSocket(): void {
 /**
  * Join a chat room/conversation
  */
-export function joinChatRoom(conversationId: string): void {
+export function joinChatRoom(conversationId: string, senderId: string, senderType: "guest" | "staff"): void {
   if (!chatSocket) {
     throw new Error("Chat socket not initialized");
   }
 
-  chatSocket.emit("joinRoom", { conversationId });
+  chatSocket.emit("joinRoom", { conversationId, senderId, senderType: senderType.toUpperCase() });
 }
 
 /**
@@ -79,7 +95,13 @@ export function sendSocketMessage(data: {
     throw new Error("Chat socket not initialized");
   }
 
-  chatSocket.emit("sendMessage", data);
+  // Convert senderType to uppercase for backend
+  const backendData = {
+    ...data,
+    senderType: data.senderType.toUpperCase() as "GUEST" | "STAFF",
+  };
+
+  chatSocket.emit("sendMessage", backendData);
 }
 
 /**

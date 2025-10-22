@@ -177,8 +177,17 @@ export async function getMyConversations(
     );
 
     // Map backend statuses to frontend statuses
-    const conversations = response.data.data.conversations.map((conv) => ({
-      ...conv,
+    const conversations = response.data.data.conversations.map((conv: any) => ({
+      conversationId: conv.id,
+      guest: conv.guest,
+      lastMessage: conv.messages?.[0]
+        ? {
+            content: conv.messages[0].content,
+            sentAt: conv.messages[0].createdAt,
+          }
+        : undefined,
+      unreadCount: 0, // TODO: Implement unread count
+      createdAt: conv.createdAt,
       status: (conv.status === "UNASSIGNED"
         ? "waiting"
         : conv.status === "ACTIVE"
