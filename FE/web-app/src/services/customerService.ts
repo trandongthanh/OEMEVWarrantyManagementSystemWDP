@@ -1,7 +1,8 @@
 import axios from "axios";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const API_URL = `${API_BASE_URL}/api/v1`;
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const API_URL = API_BASE_URL;
 
 export interface Customer {
   id: string;
@@ -30,7 +31,7 @@ class CustomerService {
         `${API_URL}/customers?${params.toString()}`
       );
 
-      if (response.data.status === "sucess" && response.data.data.customer) {
+      if (response.data.status === "success" && response.data.data.customer) {
         return response.data.data.customer;
       }
       return null;

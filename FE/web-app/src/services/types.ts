@@ -198,6 +198,12 @@ export interface VehicleProcessingRecord {
 export interface CreateClaimRequest {
   odometer: number;
   guaranteeCases: GuaranteeCaseInput[];
+  visitorInfo: {
+    fullName: string;
+    phone: string;
+    relationship?: string;
+    note?: string;
+  };
 }
 
 export interface CreateClaimResponse {

@@ -19,6 +19,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { vehicleService, claimService, customerService } from "@/services";
+import type { ComponentWarranty } from "@/services/types";
 
 interface NewClaimModalProps {
   isOpen: boolean;
@@ -53,6 +54,12 @@ export function NewClaimModal({
   const [error, setError] = useState("");
   const [warrantyInfo, setWarrantyInfo] = useState<any>(null);
   const [noOwnerWarning, setNoOwnerWarning] = useState(false);
+  const [visitorInfo, setVisitorInfo] = useState({
+    fullName: "",
+    phone: "",
+    relationship: "",
+    note: "",
+  });
 
   // Reset form when modal closes
   useEffect(() => {
@@ -67,6 +74,12 @@ export function NewClaimModal({
         setError("");
         setWarrantyInfo(null);
         setNoOwnerWarning(false);
+        setVisitorInfo({
+          fullName: "",
+          phone: "",
+          relationship: "",
+          note: "",
+        });
       }, 300);
     }
   }, [isOpen]);
@@ -162,6 +175,16 @@ export function NewClaimModal({
             : "Vehicle is no longer covered under the general warranty policy.",
       });
 
+      // Auto-populate visitor info from customer data if available
+      if (customerData && !visitorInfo.fullName && !visitorInfo.phone) {
+        setVisitorInfo({
+          fullName: customerData.fullName || "",
+          phone: customerData.phone || "",
+          relationship: "Owner",
+          note: "",
+        });
+      }
+
       setStep("claim");
     } catch (err: any) {
       setError(
@@ -204,6 +227,12 @@ export function NewClaimModal({
       return;
     }
 
+    // Validate visitor info
+    if (!visitorInfo.fullName.trim() || !visitorInfo.phone.trim()) {
+      setError("Please provide visitor full name and phone number");
+      return;
+    }
+
     setIsSubmitting(true);
     setError("");
 
@@ -213,6 +242,12 @@ export function NewClaimModal({
         guaranteeCases: validCases.map((c) => ({
           contentGuarantee: c.contentGuarantee,
         })),
+        visitorInfo: {
+          fullName: visitorInfo.fullName.trim(),
+          phone: visitorInfo.phone.trim(),
+          relationship: visitorInfo.relationship.trim() || undefined,
+          note: visitorInfo.note.trim() || undefined,
+        },
       });
 
       setStep("success");
@@ -580,67 +615,167 @@ export function NewClaimModal({
                                 <h4 className="text-sm font-medium text-gray-700">
                                   Component Warranties
                                 </h4>
-                                {warrantyInfo.componentWarranties.map(
-                                  (component: any, index: number) => (
-                                    <div
-                                      key={index}
-                                      className="bg-white rounded-lg p-4 space-y-2"
-                                    >
-                                      <h5 className="font-medium text-gray-900">
-                                        {component.componentName}
-                                      </h5>
-                                      <div className="grid grid-cols-2 gap-4 text-sm">
-                                        <div>
-                                          <p className="text-gray-500">
-                                            Duration
-                                          </p>
-                                          <p className="text-gray-900">
-                                            {component.policy.durationMonths}{" "}
-                                            months
-                                            <span
-                                              className={`ml-2 px-2 py-0.5 rounded text-xs ${
-                                                component.duration.status ===
-                                                  "ACTIVE" ||
-                                                component.duration.status ===
-                                                  true
-                                                  ? "bg-green-100 text-green-700"
-                                                  : "bg-red-100 text-red-700"
-                                              }`}
-                                            >
-                                              {component.duration.remainingDays}{" "}
-                                              days
-                                            </span>
-                                          </p>
-                                        </div>
-                                        <div>
-                                          <p className="text-gray-500">
-                                            Mileage
-                                          </p>
-                                          <p className="text-gray-900">
-                                            {component.policy.mileageLimit.toLocaleString()}{" "}
-                                            km
-                                            <span
-                                              className={`ml-2 px-2 py-0.5 rounded text-xs ${
-                                                component.mileage.status ===
-                                                "ACTIVE"
-                                                  ? "bg-green-100 text-green-700"
-                                                  : "bg-red-100 text-red-700"
-                                              }`}
-                                            >
-                                              {component.mileage.remainingMileage.toLocaleString()}{" "}
+                                <div className="max-h-80 overflow-y-auto scrollbar-component-warranties">
+                                  {warrantyInfo.componentWarranties.map(
+                                    (
+                                      component: ComponentWarranty,
+                                      index: number
+                                    ) => (
+                                      <div
+                                        key={index}
+                                        className="bg-white rounded-lg p-4 space-y-2 mb-3 last:mb-0"
+                                      >
+                                        <h5 className="font-medium text-gray-900">
+                                          {component.componentName}
+                                        </h5>
+                                        <div className="grid grid-cols-2 gap-4 text-sm">
+                                          <div>
+                                            <p className="text-gray-500">
+                                              Duration
+                                            </p>
+                                            <p className="text-gray-900">
+                                              {component.policy.durationMonths}{" "}
+                                              months
+                                              <span
+                                                className={`ml-2 px-2 py-0.5 rounded text-xs ${
+                                                  component.duration.status ===
+                                                    "ACTIVE" ||
+                                                  component.duration.status ===
+                                                    true
+                                                    ? "bg-green-100 text-green-700"
+                                                    : "bg-red-100 text-red-700"
+                                                }`}
+                                              >
+                                                {
+                                                  component.duration
+                                                    .remainingDays
+                                                }{" "}
+                                                days
+                                              </span>
+                                            </p>
+                                          </div>
+                                          <div>
+                                            <p className="text-gray-500">
+                                              Mileage
+                                            </p>
+                                            <p className="text-gray-900">
+                                              {component.policy.mileageLimit.toLocaleString()}{" "}
                                               km
-                                            </span>
-                                          </p>
+                                              <span
+                                                className={`ml-2 px-2 py-0.5 rounded text-xs ${
+                                                  component.mileage.status ===
+                                                  "ACTIVE"
+                                                    ? "bg-green-100 text-green-700"
+                                                    : "bg-red-100 text-red-700"
+                                                }`}
+                                              >
+                                                {component.mileage.remainingMileage.toLocaleString()}{" "}
+                                                km
+                                              </span>
+                                            </p>
+                                          </div>
                                         </div>
                                       </div>
-                                    </div>
-                                  )
-                                )}
+                                    )
+                                  )}
+                                </div>
                               </div>
                             )}
                         </div>
                       </>
                     )}
+
+                    {/* Visitor Information */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-gray-900">
+                          Visitor Information
+                        </h3>
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                          Auto-filled from owner
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-gray-700">
+                            Full Name *
+                          </label>
+                          <input
+                            type="text"
+                            value={visitorInfo.fullName}
+                            onChange={(e) =>
+                              setVisitorInfo({
+                                ...visitorInfo,
+                                fullName: e.target.value,
+                              })
+                            }
+                            placeholder="Enter visitor's full name"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-xl bg-gray-50 text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent focus:bg-white resize-none transition-colors"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-gray-700">
+                            Phone Number *{" "}
+                            <span className="text-xs text-gray-500">
+                              (VN format: +84... or 0...)
+                            </span>
+                          </label>
+                          <input
+                            type="tel"
+                            value={visitorInfo.phone}
+                            onChange={(e) =>
+                              setVisitorInfo({
+                                ...visitorInfo,
+                                phone: e.target.value,
+                              })
+                            }
+                            placeholder="Enter vistitor's phone number"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-xl bg-gray-50 text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent focus:bg-white resize-none transition-colors"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-gray-700">
+                            Relationship to Owner
+                          </label>
+                          <select
+                            value={visitorInfo.relationship}
+                            onChange={(e) =>
+                              setVisitorInfo({
+                                ...visitorInfo,
+                                relationship: e.target.value,
+                              })
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-xl bg-gray-50 text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent focus:bg-white resize-none transition-colors"
+                          >
+                            <option value="">Select relationship...</option>
+                            <option value="Owner">Owner</option>
+                            <option value="Family Member">Family Member</option>
+                            <option value="Mechanic">Mechanic</option>
+                            <option value="Friend">Friend</option>
+                            <option value="Other">Other</option>
+                          </select>
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                          <label className="text-sm font-medium text-gray-700">
+                            Additional Notes
+                          </label>
+                          <textarea
+                            value={visitorInfo.note}
+                            onChange={(e) =>
+                              setVisitorInfo({
+                                ...visitorInfo,
+                                note: e.target.value,
+                              })
+                            }
+                            placeholder="Any additional information about the visitor or vehicle drop-off..."
+                            rows={2}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-xl bg-gray-50 text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent focus:bg-white resize-none transition-colors"
+                          />
+                        </div>
+                      </div>
+                    </div>
 
                     {/* Guarantee Cases */}
                     <div className="space-y-4">
@@ -666,7 +801,7 @@ export function NewClaimModal({
                             {guaranteeCases.length > 1 && (
                               <button
                                 onClick={() => handleRemoveCase(gCase.id)}
-                                className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+                                className="p-1 text-red-500 bg-red-50 hover:bg-red-100 rounded transition-colors"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
