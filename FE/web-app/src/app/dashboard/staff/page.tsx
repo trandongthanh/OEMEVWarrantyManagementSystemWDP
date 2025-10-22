@@ -9,6 +9,7 @@ import {
   Clock,
   FileText,
   Car,
+  MessageCircle,
 } from "lucide-react";
 import {
   authService,
@@ -28,7 +29,7 @@ import {
   CustomerSearchResults,
   CasesList,
 } from "@/components/dashboard";
-import { FloatingChatWidget } from "@/components/chat";
+import { StaffChatDashboard } from "@/components/chat";
 
 interface User {
   userId: string;
@@ -107,6 +108,7 @@ export default function StaffDashboard() {
     { id: "dashboard", icon: Home, label: "Dashboard" },
     { id: "vehicles", icon: Car, label: "Vehicle Management" },
     { id: "cases", icon: Users, label: "Cases" },
+    { id: "chat-support", icon: MessageCircle, label: "Chat Support" },
     { id: "receipts", icon: CreditCard, label: "Receipts" },
     { id: "manage", icon: BarChart3, label: "Manage" },
     { id: "history", icon: Clock, label: "History" },
@@ -141,6 +143,13 @@ export default function StaffDashboard() {
 
       case "cases":
         return <CasesList onViewDetails={(record) => console.log(record)} />;
+
+      case "chat-support":
+        return (
+          <div className="flex-1 overflow-hidden p-6">
+            <StaffChatDashboard serviceCenterId="default-service-center" />
+          </div>
+        );
 
       case "receipts":
         return (
@@ -243,9 +252,6 @@ export default function StaffDashboard() {
         }}
         initialVin={registerVehicleVin}
       />
-
-      {/* Floating Chat Widget */}
-      <FloatingChatWidget customerName="Customer Support" vin="Active Chat" />
     </>
   );
 }

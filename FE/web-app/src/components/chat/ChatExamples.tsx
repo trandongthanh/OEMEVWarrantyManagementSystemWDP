@@ -1,9 +1,67 @@
 // Example integration file - Shows how to use chat components
 
 import { useState } from "react";
-import { FloatingChatWidget, ChatPanel } from "@/components/chat";
+import {
+  FloatingChatWidget,
+  ChatPanel,
+  GuestChatWidget,
+  StaffChatDashboard,
+} from "@/components/chat";
 
-// Example 1: Floating chat widget for staff dashboard
+// Example 1: Guest Chat Widget for Homepage (Anonymous Users)
+export function HomepageWithGuestChat() {
+  return (
+    <div>
+      {/* Your homepage content */}
+      <h1>Welcome to Our Service</h1>
+
+      {/* Add guest chat widget - floats on bottom right */}
+      <GuestChatWidget serviceCenterId="your-service-center-id" />
+    </div>
+  );
+}
+
+// Example 2: Staff Chat Dashboard (Full Screen)
+export function StaffChatPage() {
+  return (
+    <div className="h-screen p-6 bg-gray-100">
+      <div className="h-full max-w-7xl mx-auto">
+        <StaffChatDashboard serviceCenterId="your-service-center-id" />
+      </div>
+    </div>
+  );
+}
+
+// Example 3: Staff Chat Dashboard in Modal
+export function DashboardWithChatModal() {
+  const [showChat, setShowChat] = useState(false);
+
+  return (
+    <div>
+      {/* Your dashboard content */}
+      <button
+        onClick={() => setShowChat(true)}
+        className="px-4 py-2 bg-blue-500 text-white rounded-lg"
+      >
+        Open Chat Support
+      </button>
+
+      {/* Chat modal */}
+      {showChat && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="w-full max-w-6xl h-[80vh] bg-white rounded-2xl overflow-hidden">
+            <StaffChatDashboard
+              serviceCenterId="your-service-center-id"
+              onClose={() => setShowChat(false)}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Example 4: Floating chat widget for staff dashboard
 export function StaffDashboardWithChat() {
   return (
     <div>
@@ -19,7 +77,7 @@ export function StaffDashboardWithChat() {
   );
 }
 
-// Example 2: Chat panel in modal (recommended for CasesList)
+// Example 5: Chat panel in modal (recommended for CasesList)
 export function CasesListWithChatModal() {
   const [showChat, setShowChat] = useState(false);
 
@@ -42,7 +100,7 @@ export function CasesListWithChatModal() {
   );
 }
 
-// Example 3: Chat tab in details modal
+// Example 6: Chat tab in details modal
 export function DetailModalWithChatTab() {
   const [activeTab, setActiveTab] = useState<"details" | "chat">("details");
 
