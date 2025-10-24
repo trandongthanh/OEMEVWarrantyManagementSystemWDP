@@ -1,82 +1,53 @@
 import { useState, useEffect } from "react";
-import { StyleSheet, View, SafeAreaView, StatusBar } from "react-native";
+import { StyleSheet, View, SafeAreaView, StatusBar, Text } from "react-native";
+import {
+  Home,
+  ClipboardList,
+  Clock,
+  FileText,
+  Package, // ✅ Thêm Package
+} from "lucide-react-native";
 
-// ✅ SỬA ĐỔI: Dùng icon phiên bản mobile
-import { Home, ClipboardList, Clock, FileText } from "lucide-react-native";
-
-// ✅ Giữ nguyên: Các service và hook này không thay đổi
-import { authService } from "../../services";
+// ✅ SỬA ĐỔI: Dùng các hook đã chuẩn hóa
+import { useAuth } from "../../hooks/useAuth";
 import { useRoleProtection } from "../../hooks/useRoleProtection";
 
-// ⚠️ CẢNH BÁO: Các component này BẮT BUỘC phải được tạo lại cho mobile
-// Nếu chưa tạo, ứng dụng sẽ báo lỗi.
-// Tôi sẽ tạm comment chúng ra để code có thể chạy được.
-/*
-import {
-  DashboardOverview,
-  MyTasks,
-  PartsInventory,
-  WorkHistory,
-} from "../../components/dashboard/techniciandashboard";
-*/
+// ✅ SỬA ĐỔI: Import các màn hình con thực tế
+import DashboardOverview from "./DashboardOverview";
+import MyTasks from "./MyTasks";
+import WorkHistory from "./WorkHistory";
+import PartsInventory from "./PartsInventory";
 
-// ✅ SỬA ĐỔI: Dùng các component mobile bạn đã tạo
+// ✅ SỬA ĐỔI: Import các component chung
 import Sidebar from "../../components/dashboard/Sidebar";
 import DashboardHeader from "../../components/dashboard/DashboardHeader";
 
-// Component tạm thời để thay thế, tránh lỗi
-const PlaceholderComponent = ({ name }) => (
-  <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-    <Text style={{ fontSize: 18, color: "#666" }}>{name} Content</Text>
-  </View>
-);
-const DashboardOverview = () => <PlaceholderComponent name="Dashboard Overview" />;
-const MyTasks = () => <PlaceholderComponent name="My Tasks" />;
-const PartsInventory = () => <PlaceholderComponent name="Parts Inventory" />;
-const WorkHistory = () => <PlaceholderComponent name="Work History" />;
-
-
 export default function TechnicianDashboard({ navigation }) {
-  // ✅ Giữ nguyên: Logic hook bảo vệ route
+  // ✅ SỬA ĐỔI: Dùng hook
   useRoleProtection(["service_center_technician"]);
+  const { user, logout } = useAuth();
 
-  // ✅ Giữ nguyên: Toàn bộ logic state
   const [activeNav, setActiveNav] = useState("dashboard");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true); // Mặc định thu gọn trên mobile
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentUser, setCurrentUser] = useState(null);
 
-  useEffect(() => {
-    // ⚠️ QUAN TRỌNG: authService phải được sửa để dùng AsyncStorage
-    // thay vì localStorage.
-    const userInfo = authService.getUserInfo();
-    console.log("📋 User Info from storage:", userInfo);
-
-    if (userInfo) {
-      setCurrentUser(userInfo);
-    } else {
-      const user = authService.getCurrentUser();
-      console.log("⚠️ No stored user info, using token data:", user);
-      setCurrentUser(user);
-    }
-  }, []);
-
-  const handleLogout = () => {
-    // Sau khi logout, reset về màn hình Login
-    authService.logout();
+  const handleLogout = async () => {
+    await logout(); // Gọi hàm logout từ useAuth
     navigation.reset({
-        index: 0,
-        routes: [{ name: 'Login' }],
+      index: 0,
+      routes: [{ name: "Login" }],
     });
   };
 
+  // ✅ SỬA ĐỔI: Thêm "Parts Inventory"
   const navItems = [
     { id: "dashboard", icon: Home, label: "Dashboard" },
     { id: "tasks", icon: ClipboardList, label: "My Tasks" },
+    { id: "parts", icon: Package, label: "Parts Inventory" },
     { id: "history", icon: Clock, label: "Work History" },
   ];
 
-  // ✅ Giữ nguyên: Logic render nội dung chính
+  // ✅ SỬA ĐỔI: Render các màn hình con thực tế
   const renderContent = () => {
     switch (activeNav) {
       case "dashboard":
@@ -92,15 +63,10 @@ export default function TechnicianDashboard({ navigation }) {
     }
   };
 
-  // ✅ SỬA ĐỔI HOÀN TOÀN: Cấu trúc JSX dùng component của React Native
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
       <View style={styles.container}>
-        {/*
-          Sidebar trên mobile thường là một Drawer.
-          Phiên bản này mô phỏng lại giao diện web.
-        */}
         <Sidebar
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -110,7 +76,7 @@ export default function TechnicianDashboard({ navigation }) {
           brandIcon={FileText}
           brandName="Technician"
           brandSubtitle="Workspace"
-          currentUser={currentUser}
+          currentUser={user} // ✅ SỬL: Dùng user từ useAuth
           onLogout={handleLogout}
         />
 
@@ -126,16 +92,13 @@ export default function TechnicianDashboard({ navigation }) {
             searchValue={searchQuery}
           />
 
-          <View style={styles.contentArea}>
-            {renderContent()}
-          </View>
+          <View style={styles.contentArea}>{renderContent()}</View>
         </View>
       </View>
     </SafeAreaView>
   );
 }
 
-// ✅ SỬA ĐỔI: Dùng StyleSheet để tạo kiểu
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -151,6 +114,6 @@ const styles = StyleSheet.create({
   },
   contentArea: {
     flex: 1,
-    padding: 16,
   },
 });
+
