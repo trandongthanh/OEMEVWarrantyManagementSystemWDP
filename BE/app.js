@@ -2,7 +2,6 @@ import express from "express";
 import cors from "cors";
 import { scopePerRequest } from "awilix-express";
 import container from "./container.js";
-import cors from "cors";
 import { hanldeError } from "./src/api/middleware/index.js";
 import { specs, swaggerUi } from "./src/config/swagger.js";
 
