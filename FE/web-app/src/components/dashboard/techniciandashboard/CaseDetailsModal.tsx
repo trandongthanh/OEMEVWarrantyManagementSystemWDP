@@ -37,6 +37,7 @@ interface CaseLineForm extends CaseLineInput {
   componentId?: string | null; // Frontend uses componentId for display
   componentName?: string;
   isUnderWarranty?: boolean; // Track if component is under warranty
+  rejectionReason?: string; // Reason for warranty ineligibility
 }
 
 // EV-specific categories matching backend TypeComponent table
@@ -147,6 +148,7 @@ export function CaseDetailsModal({
               quantity: caseLineData.quantity || 0,
               warrantyStatus: caseLineData.warrantyStatus || "ELIGIBLE",
               isUnderWarranty: caseLineData.warrantyStatus === "ELIGIBLE",
+              rejectionReason: caseLineData.rejectionReason || "",
             },
           ]);
         } else if (caseId) {
@@ -188,6 +190,7 @@ export function CaseDetailsModal({
                 quantity: cl.quantity || 0,
                 warrantyStatus: cl.warrantyStatus || "ELIGIBLE",
                 isUnderWarranty: cl.warrantyStatus === "ELIGIBLE",
+                rejectionReason: cl.rejectionReason || "",
               }));
 
               console.log("💾 Setting case lines to state:", existingCaseLines);
@@ -328,12 +331,13 @@ export function CaseDetailsModal({
         !line.diagnosisText.trim() ||
         !line.correctionText.trim() ||
         !line.componentId ||
-        line.quantity <= 0
+        line.quantity <= 0 ||
+        (line.warrantyStatus === "INELIGIBLE" && !line.rejectionReason?.trim())
     );
 
     if (hasInvalidLines) {
       setErrorMessage(
-        "Please fill in all required fields (diagnosis, correction, component, and quantity > 0 are required)"
+        "Please fill in all required fields (diagnosis, correction, component, quantity > 0, and rejection reason for ineligible warranties are required)"
       );
       return;
     }
@@ -357,6 +361,7 @@ export function CaseDetailsModal({
               typeComponentId: caseLine.typeComponentId || null,
               quantity: caseLine.quantity,
               warrantyStatus: caseLine.warrantyStatus,
+              rejectionReason: caseLine.rejectionReason || null,
             })
           );
 
@@ -375,12 +380,14 @@ export function CaseDetailsModal({
             typeComponentId,
             quantity,
             warrantyStatus,
+            rejectionReason,
           }) => ({
             diagnosisText,
             correctionText,
             typeComponentId: typeComponentId || null,
             quantity,
             warrantyStatus,
+            rejectionReason: rejectionReason || null,
           })
         );
 
@@ -780,6 +787,38 @@ export function CaseDetailsModal({
                       </div>
                     )}
                   </div>
+
+                  {/* Rejection Reason - shown when warranty status is INELIGIBLE */}
+                  {caseLine.warrantyStatus === "INELIGIBLE" && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <AlertCircle className="w-4 h-4 inline mr-1 text-red-600" />
+                        Rejection Reason *
+                      </label>
+                      <textarea
+                        value={caseLine.rejectionReason || ""}
+                        onChange={(e) =>
+                          handleCaseLineChange(
+                            index,
+                            "rejectionReason",
+                            e.target.value
+                          )
+                        }
+                        placeholder="Please explain why this warranty claim is being rejected..."
+                        rows={3}
+                        className="w-full px-4 py-2 border text-black border-red-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 bg-red-50"
+                        required
+                      />
+                      <p className="text-xs text-gray-600 mt-1">
+                        Required when marking warranty as ineligible
+                      </p>
+                    </motion.div>
+                  )}
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">

@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ClipboardList,
   CheckCircle,
-  XCircle,
   Package,
   UserPlus,
   AlertCircle,
@@ -114,7 +113,6 @@ export function CaseLineManagement() {
   const [records, setRecords] = useState<any[]>([]);
   const [selectedRecord, setSelectedRecord] = useState<any>(null);
   const [guaranteeCases, setGuaranteeCases] = useState<any[]>([]);
-  const [selectedCaseLines, setSelectedCaseLines] = useState<string[]>([]);
   const [technicians, setTechnicians] = useState<any[]>([]);
   const [showTechnicianModal, setShowTechnicianModal] = useState(false);
   const [selectedCaseLineForAssignment, setSelectedCaseLineForAssignment] =
@@ -160,81 +158,6 @@ export function CaseLineManagement() {
   const handleSelectRecord = async (record: any) => {
     setSelectedRecord(record);
     setGuaranteeCases(record.guaranteeCases || []);
-    setSelectedCaseLines([]);
-  };
-
-  const toggleCaseLineSelection = (caseLineId: string) => {
-    setSelectedCaseLines((prev) =>
-      prev.includes(caseLineId)
-        ? prev.filter((id) => id !== caseLineId)
-        : [...prev, caseLineId]
-    );
-  };
-
-  const handleApproveCaseLines = async () => {
-    if (selectedCaseLines.length === 0) {
-      setErrorMessage("Please select case lines to approve");
-      return;
-    }
-
-    setErrorMessage("");
-    setSuccessMessage("");
-
-    try {
-      await caseLineService.approveCaseLines({
-        approvedCaseLineIds: selectedCaseLines,
-      });
-      setSuccessMessage(
-        `${selectedCaseLines.length} case line(s) approved successfully!`
-      );
-      setSelectedCaseLines([]);
-
-      if (selectedRecord) {
-        const response = await processingRecordService.getRecordById(
-          selectedRecord.vehicleProcessingRecordId
-        );
-        setSelectedRecord(response);
-        setGuaranteeCases(response.guaranteeCases || []);
-      }
-    } catch (error: any) {
-      console.error("Error approving case lines:", error);
-      setErrorMessage(
-        error?.response?.data?.message || "Failed to approve case lines"
-      );
-    }
-  };
-
-  const handleRejectCaseLines = async () => {
-    if (selectedCaseLines.length === 0) {
-      setErrorMessage("Please select case lines to reject");
-      return;
-    }
-
-    setErrorMessage("");
-    setSuccessMessage("");
-
-    try {
-      await caseLineService.approveCaseLines({
-        rejectedCaseLineIds: selectedCaseLines,
-      });
-      setSuccessMessage(
-        `${selectedCaseLines.length} case line(s) rejected successfully!`
-      );
-      setSelectedCaseLines([]);
-
-      if (selectedRecord) {
-        const response = await processingRecordService.getRecordById(
-          selectedRecord.vehicleProcessingRecordId
-        );
-        setSelectedRecord(response);
-        setGuaranteeCases(response.guaranteeCases || []);
-      }
-    } catch (error: any) {
-      console.error("Error rejecting case lines:", error);
-      setErrorMessage(
-        error?.response?.data?.message || "Failed to reject case lines"
-      );
-    }
   };
 
   const handleAllocateStock = async (caseLineId: string) => {
@@ -384,11 +307,12 @@ export function CaseLineManagement() {
             Case Line Management
           </h2>
           <p className="text-gray-600 mt-1">
-            Approve, allocate stock, and assign technicians to case lines
+            Allocate stock and assign technicians to approved case lines
           </p>
           <div className="mt-2 text-sm text-gray-500 bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <strong>Workflow:</strong> Case lines must be approved first → then
-            stock can be allocated → finally technicians can be assigned
+            <strong>Workflow:</strong> Case lines must be approved by staff
+            first → then stock can be allocated → finally technicians can be
+            assigned
           </div>
         </div>
 
@@ -554,27 +478,8 @@ export function CaseLineManagement() {
                           Case Lines - {selectedRecord.vehicle.vin}
                         </h3>
                         <p className="text-sm text-gray-500 mt-1">
-                          {selectedCaseLines.length} selected •{" "}
-                          {filteredCaseLines.length} total
+                          {filteredCaseLines.length} total case lines
                         </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleApproveCaseLines}
-                          disabled={selectedCaseLines.length === 0}
-                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-medium transition-colors"
-                        >
-                          <CheckCircle className="w-4 h-4" />
-                          Approve
-                        </button>
-                        <button
-                          onClick={handleRejectCaseLines}
-                          disabled={selectedCaseLines.length === 0}
-                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-medium transition-colors"
-                        >
-                          <XCircle className="w-4 h-4" />
-                          Reject
-                        </button>
                       </div>
                     </div>
 
@@ -616,117 +521,101 @@ export function CaseLineManagement() {
                             key={caseLine.id}
                             className="border border-gray-200 rounded-xl p-4 hover:border-gray-300 transition-colors"
                           >
-                            <div className="flex items-start gap-3">
-                              <input
-                                type="checkbox"
-                                checked={selectedCaseLines.includes(
-                                  caseLine.id
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span
+                                  className={`text-xs font-medium px-2 py-1 rounded-md ${
+                                    caseLineStatusConfig[caseLine.status]
+                                      ?.bgColor || "bg-gray-100"
+                                  } ${
+                                    caseLineStatusConfig[caseLine.status]
+                                      ?.color || "text-gray-700"
+                                  }`}
+                                >
+                                  {caseLineStatusConfig[caseLine.status]
+                                    ?.label || caseLine.status}
+                                </span>
+                                <span
+                                  className={`text-xs font-medium px-2 py-1 rounded-md ${
+                                    caseLine.warrantyStatus === "ELIGIBLE"
+                                      ? "bg-green-100 text-green-700"
+                                      : "bg-red-100 text-red-700"
+                                  }`}
+                                >
+                                  {caseLine.warrantyStatus}
+                                </span>
+                                {caseLine.typeComponent && (
+                                  <span className="text-xs font-medium px-2 py-1 rounded-md bg-blue-100 text-blue-700">
+                                    {caseLine.typeComponent.name}
+                                  </span>
                                 )}
-                                onChange={() =>
-                                  toggleCaseLineSelection(caseLine.id)
-                                }
-                                className="w-5 h-5 mt-1 text-gray-900 rounded border-gray-300 focus:ring-gray-900"
-                              />
-                              <div className="flex-1">
-                                <div className="flex items-center justify-between mb-3">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span
-                                      className={`text-xs font-medium px-2 py-1 rounded-md ${
-                                        caseLineStatusConfig[caseLine.status]
-                                          ?.bgColor || "bg-gray-100"
-                                      } ${
-                                        caseLineStatusConfig[caseLine.status]
-                                          ?.color || "text-gray-700"
-                                      }`}
-                                    >
-                                      {caseLineStatusConfig[caseLine.status]
-                                        ?.label || caseLine.status}
-                                    </span>
-                                    <span
-                                      className={`text-xs font-medium px-2 py-1 rounded-md ${
-                                        caseLine.warrantyStatus === "ELIGIBLE"
-                                          ? "bg-green-100 text-green-700"
-                                          : "bg-red-100 text-red-700"
-                                      }`}
-                                    >
-                                      {caseLine.warrantyStatus}
-                                    </span>
-                                    {caseLine.typeComponent && (
-                                      <span className="text-xs font-medium px-2 py-1 rounded-md bg-blue-100 text-blue-700">
-                                        {caseLine.typeComponent.name}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
+                              </div>
+                            </div>
 
-                                <div className="space-y-2 mb-3">
-                                  <div className="flex items-start gap-2">
-                                    <FileText className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                                    <div className="flex-1">
-                                      <p className="text-xs text-gray-500">
-                                        Diagnosis:
-                                      </p>
-                                      <p className="text-sm text-gray-900">
-                                        {caseLine.diagnosisText}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-start gap-2">
-                                    <Wrench className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                                    <div className="flex-1">
-                                      <p className="text-xs text-gray-500">
-                                        Correction:
-                                      </p>
-                                      <p className="text-sm text-gray-900">
-                                        {caseLine.correctionText}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Package className="w-4 h-4 text-gray-400" />
-                                    <p className="text-sm text-gray-600">
-                                      Qty: {caseLine.quantity}
-                                    </p>
-                                  </div>
-                                </div>
-
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={() =>
-                                      handleAllocateStock(caseLine.id)
-                                    }
-                                    disabled={
-                                      caseLine.status !== "CUSTOMER_APPROVED"
-                                    }
-                                    className="px-3 py-1.5 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                    title={
-                                      caseLine.status !== "CUSTOMER_APPROVED"
-                                        ? "Case line must be approved first"
-                                        : "Allocate stock for this case line"
-                                    }
-                                  >
-                                    <ShoppingCart className="w-4 h-4" />
-                                    Allocate Stock
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      handleOpenTechnicianModal(caseLine.id)
-                                    }
-                                    disabled={
-                                      caseLine.status !== "READY_FOR_REPAIR"
-                                    }
-                                    className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                    title={
-                                      caseLine.status !== "READY_FOR_REPAIR"
-                                        ? "Stock must be allocated first"
-                                        : "Assign a technician to repair"
-                                    }
-                                  >
-                                    <UserPlus className="w-4 h-4" />
-                                    Assign Technician
-                                  </button>
+                            <div className="space-y-2 mb-3">
+                              <div className="flex items-start gap-2">
+                                <FileText className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                                <div className="flex-1">
+                                  <p className="text-xs text-gray-500">
+                                    Diagnosis:
+                                  </p>
+                                  <p className="text-sm text-gray-900">
+                                    {caseLine.diagnosisText}
+                                  </p>
                                 </div>
                               </div>
+                              <div className="flex items-start gap-2">
+                                <Wrench className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                                <div className="flex-1">
+                                  <p className="text-xs text-gray-500">
+                                    Correction:
+                                  </p>
+                                  <p className="text-sm text-gray-900">
+                                    {caseLine.correctionText}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Package className="w-4 h-4 text-gray-400" />
+                                <p className="text-sm text-gray-600">
+                                  Qty: {caseLine.quantity}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleAllocateStock(caseLine.id)}
+                                disabled={
+                                  caseLine.status !== "CUSTOMER_APPROVED"
+                                }
+                                className="px-3 py-1.5 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                title={
+                                  caseLine.status !== "CUSTOMER_APPROVED"
+                                    ? "Case line must be approved first"
+                                    : "Allocate stock for this case line"
+                                }
+                              >
+                                <ShoppingCart className="w-4 h-4" />
+                                Allocate Stock
+                              </button>
+                              <button
+                                onClick={() =>
+                                  handleOpenTechnicianModal(caseLine.id)
+                                }
+                                disabled={
+                                  caseLine.status !== "READY_FOR_REPAIR"
+                                }
+                                className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                title={
+                                  caseLine.status !== "READY_FOR_REPAIR"
+                                    ? "Stock must be allocated first"
+                                    : "Assign a technician to repair"
+                                }
+                              >
+                                <UserPlus className="w-4 h-4" />
+                                Assign Technician
+                              </button>
                             </div>
                           </div>
                         ))}
