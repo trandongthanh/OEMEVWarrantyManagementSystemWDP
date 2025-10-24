@@ -22,6 +22,22 @@ export interface TechnicianProcessingRecord {
     vehicleProcessingRecordId: string; // Backend now includes this!
     status: string;
     contentGuarantee: string;
+    caseLines?: Array<{
+      id: string;
+      diagnosisText: string;
+      correctionText: string;
+      warrantyStatus: "ELIGIBLE" | "INELIGIBLE";
+      status: string;
+      rejectionReason?: string | null;
+      typeComponentId?: string | null;
+      quantity?: number;
+      typeComponent?: {
+        name: string;
+        typeComponentId: string;
+        sku?: string;
+        price?: number;
+      };
+    }>;
   }>;
   createdByStaff: {
     userId: string;
@@ -39,12 +55,20 @@ export interface TechnicianRecordsResponse {
   };
 }
 
+export interface TechnicianRecordDetailResponse {
+  status: "success";
+  data: {
+    record: TechnicianProcessingRecord;
+  };
+}
+
 export interface CaseLineInput {
   diagnosisText: string;
   correctionText: string;
-  componentId: string | null;
+  typeComponentId: string | null; // Backend expects typeComponentId, not componentId
   quantity: number;
   warrantyStatus: "ELIGIBLE" | "INELIGIBLE";
+  rejectionReason?: string | null; // Optional rejection reason
 }
 
 export interface CreateCaseLinesRequest {
@@ -98,7 +122,9 @@ class TechnicianService {
    * Get processing record details
    * GET /processing-records/{id}
    */
-  async getRecordDetails(recordId: string): Promise<TechnicianRecordsResponse> {
+  async getRecordDetails(
+    recordId: string
+  ): Promise<TechnicianRecordDetailResponse> {
     try {
       const response = await apiClient.get(`/processing-records/${recordId}`);
       return response.data;

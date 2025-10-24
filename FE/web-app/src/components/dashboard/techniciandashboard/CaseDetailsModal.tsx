@@ -19,6 +19,7 @@ import technicianService, {
   CaseLineInput,
   CompatibleComponent,
 } from "@/services/technicianService";
+import caseLineService from "@/services/caseLineService";
 
 interface CaseDetailsModalProps {
   isOpen: boolean;
@@ -26,12 +27,16 @@ interface CaseDetailsModalProps {
   vin: string;
   recordId: string; // Processing record ID for API calls
   caseId: string;
+  caseLineId?: string; // If provided, modal will be in edit mode
   onSuccess?: () => void;
 }
 
 interface CaseLineForm extends CaseLineInput {
   id?: string;
+  caseLineId?: string; // For edit mode
+  componentId?: string | null; // Frontend uses componentId for display
   componentName?: string;
+  isUnderWarranty?: boolean; // Track if component is under warranty
 }
 
 // EV-specific categories matching backend TypeComponent table
@@ -63,16 +68,21 @@ export function CaseDetailsModal({
   vin,
   recordId,
   caseId,
+  caseLineId, // Edit mode if provided
   onSuccess,
 }: CaseDetailsModalProps) {
+  const isEditMode = !!caseLineId;
+
   const [caseLines, setCaseLines] = useState<CaseLineForm[]>([
     {
       diagnosisText: "",
       correctionText: "",
+      typeComponentId: null,
       componentId: null,
       componentName: "",
       quantity: 0,
       warrantyStatus: "ELIGIBLE",
+      isUnderWarranty: true, // Default to true, will be updated when component is selected
     },
   ]);
   const [searchCategory, setSearchCategory] = useState("HIGH_VOLTAGE_BATTERY");
@@ -80,10 +90,131 @@ export function CaseDetailsModal({
   const [components, setComponents] = useState<CompatibleComponent[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [showComponentSearch, setShowComponentSearch] = useState(false);
   const [activeLineIndex, setActiveLineIndex] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+
+  // Load case line data - either specific case line or all case lines for the guarantee case
+  useEffect(() => {
+    const loadCaseLineData = async () => {
+      console.log("🚀 loadCaseLineData called with:", {
+        isOpen,
+        caseLineId,
+        caseId,
+        recordId,
+        isEditMode,
+      });
+
+      if (!isOpen) {
+        console.log("❌ Modal not open, skipping load");
+        return;
+      }
+
+      // Reset to default empty form first
+      setCaseLines([
+        {
+          diagnosisText: "",
+          correctionText: "",
+          typeComponentId: null,
+          componentId: null,
+          componentName: "",
+          quantity: 0,
+          warrantyStatus: "ELIGIBLE",
+          isUnderWarranty: true,
+        },
+      ]);
+
+      setIsLoading(true);
+      try {
+        if (isEditMode && caseLineId) {
+          // Edit mode: Load specific case line
+          console.log("📝 Edit mode: Loading case line ID:", caseLineId);
+          const response = await caseLineService.getCaseLineById(caseLineId);
+          const caseLineData = response.data.caseLine;
+
+          console.log("📋 Loaded specific case line data:", caseLineData);
+
+          setCaseLines([
+            {
+              caseLineId: caseLineData.id,
+              diagnosisText: caseLineData.diagnosisText || "",
+              correctionText: caseLineData.correctionText || "",
+              typeComponentId: caseLineData.typeComponentId || null,
+              componentId: caseLineData.typeComponentId || null,
+              componentName: caseLineData.typeComponent?.name || "",
+              quantity: caseLineData.quantity || 0,
+              warrantyStatus: caseLineData.warrantyStatus || "ELIGIBLE",
+              isUnderWarranty: caseLineData.warrantyStatus === "ELIGIBLE",
+            },
+          ]);
+        } else if (caseId) {
+          // Check if guarantee case has existing case lines
+          try {
+            console.log("🔍 Fetching record details for recordId:", recordId);
+            const recordResponse = await technicianService.getRecordDetails(
+              recordId
+            );
+            console.log("📦 Full record response:", recordResponse);
+
+            // Backend returns data.record (singular), not data.records.records
+            const fullRecord = recordResponse.data?.record;
+            console.log("📋 Full record:", fullRecord);
+
+            const guaranteeCase = fullRecord?.guaranteeCases?.find(
+              (gc) => gc.guaranteeCaseId === caseId
+            );
+            console.log("🎯 Found guarantee case:", guaranteeCase);
+
+            if (
+              guaranteeCase &&
+              guaranteeCase.caseLines &&
+              guaranteeCase.caseLines.length > 0
+            ) {
+              console.log(
+                "✅ Found existing case lines for guarantee case:",
+                guaranteeCase.caseLines
+              );
+
+              // Load existing case lines
+              const existingCaseLines = guaranteeCase.caseLines.map((cl) => ({
+                caseLineId: cl.id,
+                diagnosisText: cl.diagnosisText || "",
+                correctionText: cl.correctionText || "",
+                typeComponentId: cl.typeComponentId || null,
+                componentId: cl.typeComponentId || null,
+                componentName: cl.typeComponent?.name || "",
+                quantity: cl.quantity || 0,
+                warrantyStatus: cl.warrantyStatus || "ELIGIBLE",
+                isUnderWarranty: cl.warrantyStatus === "ELIGIBLE",
+              }));
+
+              console.log("💾 Setting case lines to state:", existingCaseLines);
+              setCaseLines(existingCaseLines);
+            } else {
+              console.log(
+                "📋 No existing case lines found, starting with empty form"
+              );
+            }
+          } catch (error) {
+            console.log(
+              "📋 Could not load existing case lines, starting fresh:",
+              error
+            );
+            // If we can't load, just use the default empty form
+          }
+        }
+      } catch (error) {
+        console.error("Error loading case line data:", error);
+        setErrorMessage("Failed to load case line data");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadCaseLineData();
+  }, [isEditMode, caseLineId, caseId, recordId, isOpen]);
 
   useEffect(() => {
     if (isOpen && recordId) {
@@ -134,10 +265,12 @@ export function CaseDetailsModal({
       {
         diagnosisText: "",
         correctionText: "",
+        typeComponentId: null,
         componentId: null,
         componentName: "",
         quantity: 0,
         warrantyStatus: "ELIGIBLE",
+        isUnderWarranty: true, // Default to true, will be updated when component is selected
       },
     ]);
   };
@@ -161,11 +294,17 @@ export function CaseDetailsModal({
   const handleSelectComponent = (component: CompatibleComponent) => {
     if (activeLineIndex !== null) {
       const newCaseLines = [...caseLines];
+      const isUnderWarranty = component.isUnderWarranty ?? false;
       newCaseLines[activeLineIndex] = {
         ...newCaseLines[activeLineIndex],
+        typeComponentId: component.typeComponentId,
         componentId: component.typeComponentId,
         componentName: component.name,
-        warrantyStatus: component.isUnderWarranty ? "ELIGIBLE" : "INELIGIBLE",
+        isUnderWarranty: isUnderWarranty,
+        // If not under warranty, force INELIGIBLE, otherwise keep current selection or default to ELIGIBLE
+        warrantyStatus: !isUnderWarranty
+          ? "INELIGIBLE"
+          : newCaseLines[activeLineIndex].warrantyStatus || "ELIGIBLE",
       };
       setCaseLines(newCaseLines);
       setShowComponentSearch(false);
@@ -201,46 +340,74 @@ export function CaseDetailsModal({
 
     setIsSaving(true);
     try {
-      // Prepare case lines data (exclude componentName which is only for frontend display)
-      const caselinesToSend = caseLines.map(
-        ({
-          diagnosisText,
-          correctionText,
-          componentId,
-          quantity,
-          warrantyStatus,
-        }) => ({
-          diagnosisText,
-          correctionText,
-          componentId,
-          quantity,
-          warrantyStatus,
-        })
-      );
+      // Check if we're editing existing case lines (have caseLineId)
+      const hasExistingCaseLines = caseLines.some((line) => line.caseLineId);
 
-      // Create case lines
-      const createResponse = await technicianService.createCaseLines(caseId, {
-        caselines: caselinesToSend,
-      });
+      if (hasExistingCaseLines) {
+        // Edit mode - update existing case lines
+        console.log("📝 Updating existing case lines...");
 
-      const createdCaseLines = createResponse.data.caseLines;
+        // Update each case line that has an ID
+        const updatePromises = caseLines
+          .filter((line) => line.caseLineId)
+          .map((caseLine) =>
+            caseLineService.updateCaseLine(caseLine.caseLineId!, {
+              diagnosisText: caseLine.diagnosisText,
+              correctionText: caseLine.correctionText,
+              typeComponentId: caseLine.typeComponentId || null,
+              quantity: caseLine.quantity,
+              warrantyStatus: caseLine.warrantyStatus,
+            })
+          );
 
-      // If there are components with quantities, update stock
-      const linesWithComponents = createdCaseLines.filter(
-        (line) => line.componentId && line.quantity > 0
-      );
+        await Promise.all(updatePromises);
+        setSuccessMessage(
+          `${updatePromises.length} case line(s) updated successfully!`
+        );
+      } else {
+        // Create mode - create new case lines
+        console.log("✨ Creating new case lines...");
 
-      if (linesWithComponents.length > 0) {
-        const stockData = linesWithComponents.map((line) => ({
-          id: line.caseLineId,
-          componentId: line.componentId!,
-          quantity: line.quantity,
-        }));
+        const caselinesToSend = caseLines.map(
+          ({
+            diagnosisText,
+            correctionText,
+            typeComponentId,
+            quantity,
+            warrantyStatus,
+          }) => ({
+            diagnosisText,
+            correctionText,
+            typeComponentId: typeComponentId || null,
+            quantity,
+            warrantyStatus,
+          })
+        );
 
-        await technicianService.updateStockQuantities(caseId, stockData);
+        const createResponse = await technicianService.createCaseLines(caseId, {
+          caselines: caselinesToSend,
+        });
+
+        const createdCaseLines = createResponse.data.caseLines;
+
+        // If there are components with quantities, update stock
+        const linesWithComponents = createdCaseLines.filter(
+          (line) => line.componentId && line.quantity > 0
+        );
+
+        if (linesWithComponents.length > 0) {
+          const stockData = linesWithComponents.map((line) => ({
+            id: line.caseLineId,
+            componentId: line.componentId!,
+            quantity: line.quantity,
+          }));
+
+          await technicianService.updateStockQuantities(caseId, stockData);
+        }
+
+        setSuccessMessage("Case lines created successfully!");
       }
 
-      setSuccessMessage("Case lines saved successfully!");
       setTimeout(() => {
         onSuccess?.();
         onClose();
@@ -276,9 +443,15 @@ export function CaseDetailsModal({
           {/* Header */}
           <div className="p-6 border-b border-gray-200 flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Case Details</h2>
+              <h2 className="text-2xl font-bold text-gray-900">
+                {caseLines.some((line) => line.caseLineId)
+                  ? "Edit Diagnosis"
+                  : "Add Diagnosis"}
+              </h2>
               <p className="text-sm text-gray-600 mt-1">
                 VIN: {vin} | Case ID: {caseId}
+                {caseLines.some((line) => line.caseLineId) &&
+                  ` | Editing ${caseLines.length} case line(s)`}
               </p>
             </div>
             <button
@@ -423,15 +596,17 @@ export function CaseDetailsModal({
             <div className="space-y-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-gray-900">
-                  Diagnosis & Repair Actions
+                  {isEditMode ? "Edit Case Line" : "Diagnosis & Repair Actions"}
                 </h3>
-                <button
-                  onClick={handleAddCaseLine}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-900 rounded-xl hover:bg-gray-200 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Line
-                </button>
+                {!isEditMode && (
+                  <button
+                    onClick={handleAddCaseLine}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-900 rounded-xl hover:bg-gray-200 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Line
+                  </button>
+                )}
               </div>
 
               {caseLines.map((caseLine, index) => (
@@ -441,9 +616,9 @@ export function CaseDetailsModal({
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-gray-900">
-                      Line {index + 1}
+                      {isEditMode ? "Case Line Details" : `Line ${index + 1}`}
                     </span>
-                    {caseLines.length > 1 && (
+                    {caseLines.length > 1 && !isEditMode && (
                       <button
                         onClick={() => handleRemoveCaseLine(index)}
                         className="p-1 bg-red-100 hover:bg-red-200 text-red-600 hover:text-red-700 rounded-md transition-colors"
@@ -542,37 +717,103 @@ export function CaseDetailsModal({
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Warranty Status
                     </label>
-                    <div className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-gray-50">
-                      {caseLine.warrantyStatus === "ELIGIBLE" ? (
-                        <>
-                          <CheckCircle className="w-5 h-5 text-green-600" />
-                          <div>
-                            <span className="font-medium text-green-700">
-                              Warranty Eligible
-                            </span>
-                            <p className="text-xs text-gray-600 mt-0.5">
-                              Component is covered under active warranty
-                            </p>
-                          </div>
-                        </>
-                      ) : (
-                        <>
+
+                    {/* Manual warranty status selector - only enabled when isUnderWarranty is true */}
+                    {caseLine.isUnderWarranty ? (
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name={`warranty-${index}`}
+                            checked={caseLine.warrantyStatus === "ELIGIBLE"}
+                            onChange={() =>
+                              handleCaseLineChange(
+                                index,
+                                "warrantyStatus",
+                                "ELIGIBLE"
+                              )
+                            }
+                            className="w-4 h-4 text-green-600"
+                          />
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                          <span className="text-sm text-gray-700">
+                            Eligible
+                          </span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name={`warranty-${index}`}
+                            checked={caseLine.warrantyStatus === "INELIGIBLE"}
+                            onChange={() =>
+                              handleCaseLineChange(
+                                index,
+                                "warrantyStatus",
+                                "INELIGIBLE"
+                              )
+                            }
+                            className="w-4 h-4 text-red-600"
+                          />
+                          <AlertCircle className="w-4 h-4 text-red-600" />
+                          <span className="text-sm text-gray-700">
+                            Ineligible
+                          </span>
+                        </label>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-gray-50">
                           <AlertCircle className="w-5 h-5 text-red-600" />
                           <div>
                             <span className="font-medium text-red-700">
-                              Warranty Ineligible
+                              Warranty Ineligible (Locked)
                             </span>
                             <p className="text-xs text-gray-600 mt-0.5">
                               Component is not covered by warranty
                             </p>
                           </div>
+                        </div>
+                        <p className="text-xs text-red-500 mt-2">
+                          🔒 This component is not under warranty and cannot be
+                          set to eligible.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Component Warranty Coverage
+                    </label>
+                    <div
+                      className={`flex items-center gap-2 p-3 rounded-lg border-2 ${
+                        caseLine.isUnderWarranty
+                          ? "border-green-200 bg-green-50"
+                          : "border-red-200 bg-red-50"
+                      }`}
+                    >
+                      {caseLine.isUnderWarranty ? (
+                        <>
+                          <Shield className="w-5 h-5 text-green-600" />
+                          <span className="text-sm font-medium text-green-700">
+                            Under Warranty
+                          </span>
+                          <p className="text-xs text-gray-600 mt-0.5 ml-2">
+                            This component is covered by warranty
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <ShieldOff className="w-5 h-5 text-red-600" />
+                          <span className="text-sm font-medium text-red-700">
+                            Not Under Warranty
+                          </span>
+                          <p className="text-xs text-gray-600 mt-0.5 ml-2">
+                            This component is not covered by warranty
+                          </p>
                         </>
                       )}
                     </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                      ℹ️ Warranty status is automatically determined by the
-                      system based on component coverage
-                    </p>
                   </div>
                 </div>
               ))}
@@ -589,15 +830,15 @@ export function CaseDetailsModal({
             </button>
             <button
               onClick={handleSubmit}
-              disabled={isSaving}
+              disabled={isSaving || isLoading}
               className="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
             >
               {isSaving ? (
-                <>Saving...</>
+                <>{isEditMode ? "Updating..." : "Saving..."}</>
               ) : (
                 <>
                   <Save className="w-4 h-4" />
-                  Save Case Lines
+                  {isEditMode ? "Update Case Line" : "Save Case Lines"}
                 </>
               )}
             </button>

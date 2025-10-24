@@ -16,6 +16,8 @@ export {
 export {
   DashboardOverview as ManagerDashboardOverview,
   ManagerCasesList,
+  CustomerManagement,
+  CaseLineManagement,
 } from "./managerdashboard";
 
 // Technician Dashboard Components

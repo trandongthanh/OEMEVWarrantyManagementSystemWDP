@@ -3,22 +3,20 @@
 import { useState, useEffect } from "react";
 import {
   Home,
-  Users,
   ClipboardList,
-  BarChart3,
-  Calendar,
-  Settings as SettingsIcon,
   FileText,
-  UserCheck,
+  UserCog,
+  CheckSquare,
 } from "lucide-react";
 import { authService, userService, Technician } from "@/services";
 import { useRoleProtection } from "@/hooks/useRoleProtection";
 import {
   Sidebar,
   DashboardHeader,
-  PlaceholderContent,
   ManagerDashboardOverview,
   ManagerCasesList,
+  CustomerManagement,
+  CaseLineManagement,
 } from "@/components/dashboard";
 
 interface CurrentUser {
@@ -57,12 +55,9 @@ export default function ManagerDashboard() {
 
   const navItems = [
     { id: "dashboard", icon: Home, label: "Dashboard" },
-    { id: "assignments", icon: UserCheck, label: "Assignments" },
-    { id: "team", icon: Users, label: "Team" },
-    { id: "tasks", icon: ClipboardList, label: "Tasks" },
-    { id: "analytics", icon: BarChart3, label: "Analytics" },
-    { id: "schedule", icon: Calendar, label: "Schedule" },
-    { id: "settings", icon: SettingsIcon, label: "Settings" },
+    { id: "customers", icon: UserCog, label: "Customers" },
+    { id: "caselines", icon: CheckSquare, label: "Case Lines" },
+    { id: "tasks", icon: ClipboardList, label: "Task Assignment" },
   ];
 
   const renderContent = () => {
@@ -70,57 +65,14 @@ export default function ManagerDashboard() {
       case "dashboard":
         return <ManagerDashboardOverview technicians={technicians} />;
 
-      case "assignments":
-        return (
-          <PlaceholderContent
-            icon={ClipboardList}
-            title="Assign Technicians"
-            description="Assign technicians to various tasks and monitor their workload effectively."
-          />
-        );
+      case "customers":
+        return <CustomerManagement />;
 
-      case "team":
-        return (
-          <PlaceholderContent
-            icon={Users}
-            title="Team Management"
-            description="Manage your team members, view detailed profiles, track performance metrics, and assign responsibilities."
-            action={{
-              label: "Add Team Member",
-              onClick: () => console.log("Add team member"),
-            }}
-          />
-        );
+      case "caselines":
+        return <CaseLineManagement />;
 
       case "tasks":
         return <ManagerCasesList />;
-
-      case "analytics":
-        return (
-          <PlaceholderContent
-            icon={BarChart3}
-            title="Analytics & Insights"
-            description="View team performance metrics, analyze trends, and generate comprehensive reports for better decision making."
-          />
-        );
-
-      case "schedule":
-        return (
-          <PlaceholderContent
-            icon={Calendar}
-            title="Schedule Management"
-            description="Manage team schedules, approve leave requests, and coordinate work shifts for optimal coverage."
-          />
-        );
-
-      case "settings":
-        return (
-          <PlaceholderContent
-            icon={SettingsIcon}
-            title="Manager Settings"
-            description="Configure team preferences, notification settings, and customize your management dashboard."
-          />
-        );
 
       default:
         return null;
@@ -145,8 +97,20 @@ export default function ManagerDashboard() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <DashboardHeader
           onSearch={(query) => setSearchQuery(query)}
-          searchPlaceholder="Search team members, tasks, or schedules..."
-          showSearch={activeNav === "dashboard"}
+          searchPlaceholder={
+            activeNav === "dashboard"
+              ? "Search team members, tasks, or schedules..."
+              : activeNav === "customers"
+              ? "Search customers by name, email, or phone..."
+              : activeNav === "caselines"
+              ? "Search case lines by case number or status..."
+              : "Search..."
+          }
+          showSearch={
+            activeNav === "dashboard" ||
+            activeNav === "customers" ||
+            activeNav === "caselines"
+          }
           showNotifications={true}
           currentPage={
             activeNav === "dashboard"

@@ -1,3 +1,4 @@
+import apiClient from "@/lib/apiClient";
 import axios from "axios";
 
 const API_BASE_URL =
@@ -12,6 +13,27 @@ export interface Customer {
   address: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface UpdateCustomerData {
+  fullName?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+}
+
+export interface GetAllCustomersResponse {
+  status: "success";
+  data: {
+    customers: Customer[];
+  };
+}
+
+export interface UpdateCustomerResponse {
+  status: "success";
+  data: {
+    customer: Customer;
+  };
 }
 
 class CustomerService {
@@ -40,6 +62,37 @@ class CustomerService {
         return null;
       }
       console.error("Error searching customer:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all customers (Manager only)
+   * GET /customers/all
+   */
+  async getAllCustomers(): Promise<GetAllCustomersResponse> {
+    try {
+      const response = await apiClient.get("/customers/all");
+      return response.data;
+    } catch (error: unknown) {
+      console.error("Error fetching all customers:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update customer information (Staff/Manager)
+   * PATCH /customers/{id}
+   */
+  async updateCustomer(
+    customerId: string,
+    data: UpdateCustomerData
+  ): Promise<UpdateCustomerResponse> {
+    try {
+      const response = await apiClient.patch(`/customers/${customerId}`, data);
+      return response.data;
+    } catch (error: unknown) {
+      console.error("Error updating customer:", error);
       throw error;
     }
   }
