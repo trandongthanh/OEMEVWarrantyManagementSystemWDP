@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigation } from '@react-navigation/native';
-import { useAuth } from './useAuth'; // Sử dụng hook auth đã cập nhật
+import { useAuth } from './useAuth';
 
 /**
  * Hook để bảo vệ màn hình (route) dựa trên vai trò người dùng.
@@ -9,17 +9,15 @@ import { useAuth } from './useAuth'; // Sử dụng hook auth đã cập nhật
  */
 export const useRoleProtection = (allowedRoles = []) => {
   const navigation = useNavigation();
-  const { user, isLoading, logout } = useAuth(); // Lấy trạng thái user và loading
+  const { user, isLoading, logout } = useAuth();
 
   useEffect(() => {
-    // Bỏ qua kiểm tra nếu auth context đang trong trạng thái loading
     if (isLoading) {
       return;
     }
 
     const hasAccess = user && allowedRoles.includes(user.roleName);
 
-    // Nếu kiểm tra xong mà không có user, hoặc role không được phép
     if (!hasAccess) {
       console.warn(
         `[Role Protection] Access Denied. User role: "${user?.roleName}". Required: "${allowedRoles.join(
@@ -27,13 +25,12 @@ export const useRoleProtection = (allowedRoles = []) => {
         )}". Redirecting to Login.`
       );
       
-      // Đảm bảo logout sạch sẽ trước khi điều hướng
       logout();
       navigation.reset({
         index: 0,
         routes: [{ name: 'Login' }],
       });
     }
-  }, [user, isLoading, navigation]); // Effect sẽ chạy lại khi user hoặc isLoading thay đổi
+  }, [user, isLoading, navigation]);
 };
 

@@ -13,8 +13,6 @@ import { useNavigation } from "@react-navigation/native";
 import Toast from "react-native-toast-message";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-
-// ✅ SỬA ĐỔI: Import hook useAuth
 import { useAuth } from "../hooks/useAuth";
 
 const COLORS = {
@@ -30,13 +28,10 @@ const COLORS = {
 
 export default function LoginScreen() {
   const navigation = useNavigation();
-  // ✅ SỬA ĐỔI: Lấy hàm login và trạng thái từ hook useAuth
   const { login, isLoading, error } = useAuth();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  // ❌ BỎ ĐI: Không cần state loading và error riêng nữa
-  // const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
     if (!username || !password) {
@@ -50,11 +45,8 @@ export default function LoginScreen() {
     }
 
     try {
-      // ✅ SỬA ĐỔI: Gọi hàm login từ hook
       const userInfo = await login(username, password);
 
-      // Nếu đăng nhập thành công, hook đã tự động cập nhật state toàn cục.
-      // Bây giờ chỉ cần điều hướng.
       if (userInfo && userInfo.roleName) {
         Toast.show({
           type: "success",
@@ -64,7 +56,6 @@ export default function LoginScreen() {
           visibilityTime: 1800,
         });
 
-        // Dùng navigation.reset để người dùng không thể quay lại màn hình Login
         let routeName = '';
         switch (userInfo.roleName) {
             case "service_center_manager":
@@ -82,7 +73,7 @@ export default function LoginScreen() {
                 text1: "Unknown Role",
                 text2: `Your role "${userInfo.roleName}" is not recognized.`,
               });
-              return; // Không điều hướng nếu không biết vai trò
+              return;
         }
         
         navigation.reset({
@@ -92,7 +83,6 @@ export default function LoginScreen() {
 
       }
     } catch (err) {
-      // Hook sẽ tự ném lỗi ra, ở đây chỉ cần bắt và hiển thị
       console.error("❌ Login error:", err.message);
       Toast.show({
         type: "error",
@@ -118,7 +108,6 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.form}>
-          {/* Input fields không thay đổi */}
           <View style={styles.inputContainer}>
             <Ionicons
               name="person-outline"
@@ -153,7 +142,6 @@ export default function LoginScreen() {
             />
           </View>
 
-          {/* ✅ SỬA ĐỔI: Dùng isLoading từ hook */}
           <TouchableOpacity
             style={[styles.button, isLoading && { opacity: 0.8 }]}
             onPress={handleLogin}
