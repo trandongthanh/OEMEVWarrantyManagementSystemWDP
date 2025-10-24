@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 // 📄 Screens
 import LoginScreen from "../screens/LoginScreen";
-import ManagerDashboard from "../screens/ManagerDashboard";
+import ManagerDashboard from "../screens/manager/ManagerDashboard";
 import StaffDashboardTabs from "../screens/staff/StaffDashboardTabs";
 import TechnicianDashboard from "../screens/technician/TechnicianDashboard";
 
@@ -26,7 +26,10 @@ export default function AppNavigator() {
           name="ManagerDashboard"
           component={ManagerDashboard}
           // ✅ Đã sửa: Ẩn header mặc định
-          options={{ headerShown: false }}
+          options={{ 
+            headerShown: false,
+            title: "Manager Dashboard"
+           }}
         />
 
         {/* 🧾 Màn hình Staff (sử dụng Tabs) */}
@@ -42,7 +45,9 @@ export default function AppNavigator() {
           name="TechnicianDashboard"
           component={TechnicianDashboard}
           // ✅ Đã sửa: Ẩn header mặc định
-          options={{ headerShown: false }}
+          options={{ 
+            headerShown: false,
+            title: "Technician Dashboard"}}
         />
       </Stack.Navigator>
     </NavigationContainer>
