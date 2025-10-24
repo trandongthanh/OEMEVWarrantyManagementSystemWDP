@@ -10,12 +10,12 @@ import {
   Platform,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { jwtDecode } from "jwt-decode";
 import Toast from "react-native-toast-message";
-import { login } from "../services/authService";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+
+// ✅ SỬA ĐỔI: Import hook useAuth
+import { useAuth } from "../hooks/useAuth";
 
 const COLORS = {
   bg: "#0B0F14",
@@ -30,9 +30,13 @@ const COLORS = {
 
 export default function LoginScreen() {
   const navigation = useNavigation();
+  // ✅ SỬA ĐỔI: Lấy hàm login và trạng thái từ hook useAuth
+  const { login, isLoading, error } = useAuth();
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  // ❌ BỎ ĐI: Không cần state loading và error riêng nữa
+  // const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
     if (!username || !password) {
@@ -46,66 +50,56 @@ export default function LoginScreen() {
     }
 
     try {
-      setLoading(true);
-      const res = await login(username, password);
-      if (res.status === "success" && res.data?.token) {
-        const token = res.data.token;
-        const decoded = jwtDecode(token);
-        const role = decoded.roleName;
-        const userId = decoded.userId;
+      // ✅ SỬA ĐỔI: Gọi hàm login từ hook
+      const userInfo = await login(username, password);
 
-        await AsyncStorage.multiSet([
-          ["authToken", token],
-          ["userRole", role],
-          ["userId", userId],
-          ["staffName", username],
-        ]);
-
+      // Nếu đăng nhập thành công, hook đã tự động cập nhật state toàn cục.
+      // Bây giờ chỉ cần điều hướng.
+      if (userInfo && userInfo.roleName) {
         Toast.show({
           type: "success",
           text1: "Welcome back 🚗",
-          text2: `${username}`,
+          text2: `${userInfo.name || userInfo.username}`,
           position: "top",
           visibilityTime: 1800,
         });
 
-        setTimeout(() => {
-          switch (role) {
+        // Dùng navigation.reset để người dùng không thể quay lại màn hình Login
+        let routeName = '';
+        switch (userInfo.roleName) {
             case "service_center_manager":
-              navigation.replace("ManagerDashboard");
+              routeName = "ManagerDashboard";
               break;
             case "service_center_staff":
-              navigation.replace("StaffDashboardTabs");
+              routeName = "StaffDashboardTabs";
               break;
             case "service_center_technician":
-              navigation.replace("TechnicianDashboard");
+              routeName = "TechnicianDashboard";
               break;
             default:
               Toast.show({
                 type: "info",
                 text1: "Unknown Role",
-                text2: `Your role "${role}" is not recognized.`,
+                text2: `Your role "${userInfo.roleName}" is not recognized.`,
               });
-          }
-        }, 800);
-      } else {
-        Toast.show({
-          type: "error",
-          text1: "Login Failed",
-          text2: "Invalid username or password.",
-          position: "top",
+              return; // Không điều hướng nếu không biết vai trò
+        }
+        
+        navigation.reset({
+            index: 0,
+            routes: [{ name: routeName }],
         });
+
       }
-    } catch (error) {
-      console.error("❌ Login error:", error);
+    } catch (err) {
+      // Hook sẽ tự ném lỗi ra, ở đây chỉ cần bắt và hiển thị
+      console.error("❌ Login error:", err.message);
       Toast.show({
         type: "error",
-        text1: "Server Error",
-        text2: "Unable to connect to the server.",
+        text1: "Login Failed",
+        text2: err.message || "Invalid username or password.",
         position: "top",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -124,6 +118,7 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.form}>
+          {/* Input fields không thay đổi */}
           <View style={styles.inputContainer}>
             <Ionicons
               name="person-outline"
@@ -158,13 +153,14 @@ export default function LoginScreen() {
             />
           </View>
 
+          {/* ✅ SỬA ĐỔI: Dùng isLoading từ hook */}
           <TouchableOpacity
-            style={[styles.button, loading && { opacity: 0.8 }]}
+            style={[styles.button, isLoading && { opacity: 0.8 }]}
             onPress={handleLogin}
-            disabled={loading}
+            disabled={isLoading}
             activeOpacity={0.9}
           >
-            {loading ? (
+            {isLoading ? (
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.buttonText}>LOGIN</Text>

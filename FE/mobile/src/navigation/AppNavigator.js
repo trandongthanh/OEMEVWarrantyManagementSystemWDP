@@ -5,56 +5,47 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 // 📄 Screens
 import LoginScreen from "../screens/LoginScreen";
 import ManagerDashboard from "../screens/ManagerDashboard";
-import StaffDashboardTabs from "../screens/staff/StaffDashboardTabs"; // ✅ sửa: dùng Tabs thay vì Dashboard
-import TechnicianDashboard from "../screens/TechnicianDashboard";
+import StaffDashboardTabs from "../screens/staff/StaffDashboardTabs";
+import TechnicianDashboard from "../screens/technician/TechnicianDashboard";
 
 const Stack = createNativeStackNavigator();
 
 export default function AppNavigator() {
   return (
     <NavigationContainer>
-      <Stack.Navigator
-        initialRouteName="Login"
-        screenOptions={{
-          headerStyle: { backgroundColor: "#0B3D91" },
-          headerTintColor: "#fff",
-          headerTitleStyle: { fontWeight: "bold" },
-        }}
-      >
-        {/* 🔐 Login Screen */}
+      <Stack.Navigator initialRouteName="Login">
+        {/* 🔐 Màn hình Login */}
         <Stack.Screen
           name="Login"
           component={LoginScreen}
           options={{ headerShown: false }}
         />
 
-        {/* 👨‍💼 Manager */}
+        {/* 👨‍💼 Màn hình Manager */}
         <Stack.Screen
           name="ManagerDashboard"
           component={ManagerDashboard}
-          options={{
-            title: "Manager Dashboard",
-          }}
+          // ✅ Đã sửa: Ẩn header mặc định
+          options={{ headerShown: false }}
         />
 
-        {/* 🧾 Staff (Tabs) */}
+        {/* 🧾 Màn hình Staff (sử dụng Tabs) */}
         <Stack.Screen
           name="StaffDashboardTabs"
           component={StaffDashboardTabs}
-          options={{
-            headerShown: false, // ✅ ẩn header để tab bar có không gian riêng
-          }}
+          // ✅ Giữ nguyên: Đã ẩn header
+          options={{ headerShown: false }}
         />
 
-        {/* 🔧 Technician */}
+        {/* 🔧 Màn hình Technician */}
         <Stack.Screen
           name="TechnicianDashboard"
           component={TechnicianDashboard}
-          options={{
-            title: "Technician Dashboard",
-          }}
+          // ✅ Đã sửa: Ẩn header mặc định
+          options={{ headerShown: false }}
         />
       </Stack.Navigator>
     </NavigationContainer>
   );
 }
+
