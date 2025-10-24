@@ -15,9 +15,13 @@ import {
   Loader2,
   X,
   FileText,
+  Eye,
+  List,
 } from "lucide-react";
 import { processingRecordService, ProcessingRecord } from "@/services";
 import { Pagination } from "@/components/ui";
+import { CaseLineDetailModal } from "./CaseLineDetailModal";
+import { ApproveCaseLinesModal } from "./ApproveCaseLinesModal";
 
 interface CasesListProps {
   onViewDetails?: (record: ProcessingRecord) => void;
@@ -81,6 +85,12 @@ export function CasesList({ onViewDetails }: CasesListProps) {
     null
   );
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showCaseLineModal, setShowCaseLineModal] = useState(false);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [approvalAction, setApprovalAction] = useState<"approve" | "reject">(
+    "approve"
+  );
+  const [selectedCaseLineIds, setSelectedCaseLineIds] = useState<string[]>([]);
 
   const itemsPerPage = 6;
 
@@ -290,6 +300,34 @@ export function CasesList({ onViewDetails }: CasesListProps) {
                             </p>
                           ))}
                         </div>
+
+                        {/* Case Lines Preview */}
+                        {(() => {
+                          const caseLines =
+                            record.guaranteeCases?.flatMap(
+                              (gc) => gc.caseLines || []
+                            ) || [];
+                          const totalLines = caseLines.length;
+                          if (totalLines > 0) {
+                            return (
+                              <div className="ml-8 mt-4 pt-4 border-t border-gray-100">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedRecord(record);
+                                    setShowCaseLineModal(true);
+                                  }}
+                                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 active:bg-gray-950 transition-all text-sm font-semibold shadow-sm hover:shadow-md"
+                                >
+                                  <List className="w-4 h-4" />
+                                  View {totalLines} Case Line
+                                  {totalLines !== 1 ? "s" : ""}
+                                </button>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
 
                       {/* Status Badge */}
@@ -519,14 +557,40 @@ export function CasesList({ onViewDetails }: CasesListProps) {
                   {selectedRecord.guaranteeCases &&
                     selectedRecord.guaranteeCases.length > 0 && (
                       <div>
-                        <div className="flex items-center gap-2 mb-4">
-                          <FileText className="w-5 h-5 text-gray-700" />
-                          <h3 className="text-base font-medium text-gray-900">
-                            Warranty Cases
-                          </h3>
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-5 h-5 text-gray-700" />
+                            <h3 className="text-base font-medium text-gray-900">
+                              Warranty Cases
+                            </h3>
+                          </div>
+                          {/* View Case Lines Button */}
+                          {(() => {
+                            const caseLines =
+                              selectedRecord.guaranteeCases?.flatMap(
+                                (gc) => gc.caseLines || []
+                              ) || [];
+                            const totalLines = caseLines.length;
+                            if (totalLines > 0) {
+                              return (
+                                <button
+                                  onClick={() => {
+                                    setShowDetailsModal(false);
+                                    setShowCaseLineModal(true);
+                                  }}
+                                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 active:bg-gray-950 transition-all text-sm font-semibold shadow-sm hover:shadow-md"
+                                >
+                                  <List className="w-4 h-4" />
+                                  View {totalLines} Case Line
+                                  {totalLines !== 1 ? "s" : ""}
+                                </button>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                         <div className="space-y-3">
-                          {selectedRecord.guaranteeCases.map((gCase: any) => (
+                          {selectedRecord.guaranteeCases.map((gCase) => (
                             <div
                               key={gCase.guaranteeCaseId || gCase.caseId}
                               className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors"
@@ -552,6 +616,44 @@ export function CasesList({ onViewDetails }: CasesListProps) {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Case Line Detail Modal */}
+        <CaseLineDetailModal
+          isOpen={showCaseLineModal}
+          onClose={() => {
+            setShowCaseLineModal(false);
+            setSelectedRecord(null);
+          }}
+          record={selectedRecord}
+          onApproveCaseLines={(ids) => {
+            setSelectedCaseLineIds(ids);
+            setApprovalAction("approve");
+            setShowApprovalModal(true);
+            setShowCaseLineModal(false);
+          }}
+          onRejectCaseLines={(ids) => {
+            setSelectedCaseLineIds(ids);
+            setApprovalAction("reject");
+            setShowApprovalModal(true);
+            setShowCaseLineModal(false);
+          }}
+        />
+
+        {/* Approval Modal */}
+        <ApproveCaseLinesModal
+          isOpen={showApprovalModal}
+          onClose={() => {
+            setShowApprovalModal(false);
+            setSelectedCaseLineIds([]);
+          }}
+          caseLineIds={selectedCaseLineIds}
+          action={approvalAction}
+          onSuccess={() => {
+            setShowApprovalModal(false);
+            setSelectedCaseLineIds([]);
+            fetchRecords(); // Refresh the list
+          }}
+        />
       </div>
     </div>
   );

@@ -606,7 +606,7 @@ export function CaseLineManagement() {
                                 disabled={
                                   caseLine.status !== "READY_FOR_REPAIR"
                                 }
-                                className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 title={
                                   caseLine.status !== "READY_FOR_REPAIR"
                                     ? "Stock must be allocated first"
