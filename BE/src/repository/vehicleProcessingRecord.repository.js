@@ -1,8 +1,15 @@
 import { Op } from "sequelize";
 import db from "../models/index.cjs";
 
-const { VehicleProcessingRecord, User, VehicleModel, Vehicle, GuaranteeCase } =
-  db;
+const {
+  VehicleProcessingRecord,
+  User,
+  VehicleModel,
+  Vehicle,
+  GuaranteeCase,
+  CaseLine,
+  TypeComponent,
+} = db;
 
 class VehicleProcessingRecordRepository {
   createRecord = async (
@@ -116,6 +123,21 @@ class VehicleProcessingRecordRepository {
           model: GuaranteeCase,
           as: "guaranteeCases",
           attributes: ["guaranteeCaseId", "status", "contentGuarantee"],
+
+          include: [
+            {
+              model: CaseLine,
+              as: "caseLines",
+              attributes: [
+                "id",
+                "diagnosisText",
+                "correctionText",
+                "warrantyStatus",
+                "status",
+                "rejectionReason",
+              ],
+            },
+          ],
         },
 
         {
@@ -144,16 +166,14 @@ class VehicleProcessingRecordRepository {
     userId,
     roleName,
   }) => {
+    let whereCondition = {};
     let staffCondition = { serviceCenterId: serviceCenterId };
     let technicianCondition = {};
-    let whereCondition = {};
+    let mainTechnicianCondition = {};
+    let repairTechnicianCondition = {};
 
     if (status) {
       whereCondition.status = status;
-    }
-
-    if (roleName === "service_center_technician") {
-      technicianCondition = { userId: userId };
     }
 
     if (roleName === "service_center_staff") {
@@ -205,15 +225,38 @@ class VehicleProcessingRecordRepository {
           model: GuaranteeCase,
           as: "guaranteeCases",
           attributes: ["guaranteeCaseId", "status", "contentGuarantee"],
+
+          include: [
+            {
+              model: CaseLine,
+              as: "caseLines",
+              attributes: [
+                "id",
+                "diagnosisText",
+                "correctionText",
+                "warrantyStatus",
+                "status",
+                "rejectionReason",
+                "repairTechId",
+                "quantity",
+              ],
+
+              include: [
+                {
+                  model: TypeComponent,
+                  as: "typeComponent",
+                  attributes: ["typeComponentId", "name", "category"],
+                },
+              ],
+            },
+          ],
         },
 
         {
           model: User,
           as: "createdByStaff",
           attributes: ["userId", "name"],
-
           where: staffCondition,
-
           required: true,
         },
       ],

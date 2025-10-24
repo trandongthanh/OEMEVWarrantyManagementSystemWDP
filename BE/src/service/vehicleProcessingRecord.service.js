@@ -284,27 +284,25 @@ class VehicleProcessingRecordService {
     return formatUpdatedRecord;
   };
 
-  findById = async ({ id, userId, serviceCenterId }) => {
+  findDetailById = async ({ id, userId, serviceCenterId }) => {
     if (!id) {
       throw new BadRequestError("RecordId is required");
     }
 
     const record = await this.#vehicleProcessingRecordRepository.findDetailById(
-      {
-        id: id,
-      }
+      { id }
     );
 
     if (!record) {
-      return null;
+      throw new NotFoundError("Record not found");
     }
 
-    const isOwner = record.createdByStaff?.userId === userId;
-    const isMainTechnician = record.mainTechnician?.userId === userId;
-    const isManager =
+    const hasPermission =
+      record.createdByStaff?.userId === userId ||
+      record.mainTechnician?.userId === userId ||
       record.createdByStaff?.serviceCenterId === serviceCenterId;
 
-    if (!isOwner && !isMainTechnician && !isManager) {
+    if (!hasPermission) {
       throw new ForbiddenError(
         "You do not have permission to view this record"
       );
