@@ -1,7 +1,7 @@
 import { createContainer, asClass, Lifetime, asValue } from "awilix";
 
 import AuthController from "./src/api/controller/auth.controller.js";
-import VehicleController from "./src/api/controller/vehicle.controller.js";
+import VehicleController from ".//src/api/controller/vehicle.controller.js";
 import CustomerController from "./src/api/controller/customer.controller.js";
 import VehicleProcessingRecordController from "./src/api/controller/vehicleProcessingRecord.controller.js";
 import CaseLineController from "./src/api/controller/caseLine.controller.js";
