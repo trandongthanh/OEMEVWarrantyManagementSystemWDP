@@ -6,6 +6,7 @@ import { FeaturesSection } from "../components/FeaturesSection";
 import { WarrantyTypesSection } from "../components/WarrantyTypesSection";
 import { TestimonialsSection } from "../components/TestimonialsSection";
 import { Footer } from "../components/Footer";
+import { GuestChatWidget } from "../components/chat";
 
 export default function Home() {
   return (
@@ -60,6 +61,9 @@ export default function Home() {
         <TestimonialsSection />
       </main>
       <Footer />
+
+      {/* Guest Chat Widget - Floating chat for anonymous visitors */}
+      <GuestChatWidget serviceCenterId="default-service-center" />
     </div>
   );
 }
