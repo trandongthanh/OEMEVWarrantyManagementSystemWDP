@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Search, Bell, Mail } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Search, Bell, Mail, X } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface DashboardHeaderProps {
@@ -26,11 +26,32 @@ export function DashboardHeader({
   searchResults,
 }: DashboardHeaderProps) {
   const [localSearchQuery, setLocalSearchQuery] = useState(searchValue);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
 
-  const handleSearchChange = (value: string) => {
-    setLocalSearchQuery(value);
-    onSearch?.(value);
-  };
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setLocalSearchQuery(value);
+      onSearch?.(value);
+    },
+    [onSearch]
+  );
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(event.target as Node) &&
+        (searchValue || localSearchQuery)
+      ) {
+        handleSearchChange("");
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [searchValue, localSearchQuery, handleSearchChange]);
 
   return (
     <header className="bg-white border-b border-gray-200 px-8 py-4 sticky top-0 z-40">
@@ -38,7 +59,7 @@ export function DashboardHeader({
         {/* Page Title / Search */}
         <div className="flex-1 max-w-2xl">
           {showSearch ? (
-            <div className="relative">
+            <div className="relative" ref={searchContainerRef}>
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
@@ -47,6 +68,14 @@ export function DashboardHeader({
                 onChange={(e) => handleSearchChange(e.target.value)}
                 className="w-full pl-10 pr-16 py-2.5 border border-gray-300 rounded-xl bg-gray-50 text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent focus:bg-white transition-all"
               />
+              {(searchValue || localSearchQuery) && (
+                <button
+                  onClick={() => handleSearchChange("")}
+                  className="absolute right-12 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
               <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-400 font-mono">
                 ⌘ F
               </span>

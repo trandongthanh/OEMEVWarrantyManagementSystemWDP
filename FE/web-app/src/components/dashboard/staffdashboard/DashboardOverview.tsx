@@ -5,13 +5,12 @@ import { motion } from "framer-motion";
 import {
   Plus,
   Car,
-  CreditCard,
   CheckCircle,
   Clock,
   AlertCircle,
   TrendingUp,
   FileText,
-  Users,
+  MessageCircle,
   Package,
 } from "lucide-react";
 import { processingRecordService, ProcessingRecord } from "@/services";
@@ -19,11 +18,13 @@ import { processingRecordService, ProcessingRecord } from "@/services";
 interface DashboardOverviewProps {
   onNewClaimClick: () => void;
   onNavigate: (nav: string) => void;
+  onRegisterVehicleClick: () => void;
 }
 
 export function DashboardOverview({
   onNewClaimClick,
   onNavigate,
+  onRegisterVehicleClick,
 }: DashboardOverviewProps) {
   const [stats, setStats] = useState({
     totalCases: 0,
@@ -129,7 +130,7 @@ export function DashboardOverview({
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => onNavigate("vehicles")}
+              onClick={onRegisterVehicleClick}
               className="p-6 bg-white border-2 border-gray-200 rounded-2xl hover:border-gray-300 hover:shadow-lg transition-all text-left"
             >
               <div className="flex items-center gap-4">
@@ -137,8 +138,12 @@ export function DashboardOverview({
                   <Car className="w-6 h-6 text-purple-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900">Vehicles</h3>
-                  <p className="text-sm text-gray-600">Manage vehicles</p>
+                  <h3 className="font-semibold text-gray-900">
+                    Register Vehicle
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Register vehicle ownership
+                  </p>
                 </div>
               </div>
             </motion.button>
@@ -146,16 +151,16 @@ export function DashboardOverview({
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => onNavigate("customers")}
+              onClick={() => onNavigate("chat-support")}
               className="p-6 bg-white border-2 border-gray-200 rounded-2xl hover:border-gray-300 hover:shadow-lg transition-all text-left"
             >
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                  <Users className="w-6 h-6 text-green-600" />
+                  <MessageCircle className="w-6 h-6 text-green-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900">Customers</h3>
-                  <p className="text-sm text-gray-600">View customers</p>
+                  <h3 className="font-semibold text-gray-900">Chat Support</h3>
+                  <p className="text-sm text-gray-600">Customer assistance</p>
                 </div>
               </div>
             </motion.button>

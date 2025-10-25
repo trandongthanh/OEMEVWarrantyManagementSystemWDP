@@ -2,7 +2,16 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageCircle, X, Send, Check, Clock, User } from "lucide-react";
+import Image from "next/image";
+import {
+  MessageCircle,
+  X,
+  Send,
+  Check,
+  Clock,
+  User,
+  Paperclip,
+} from "lucide-react";
 import {
   getMyConversations,
   acceptConversation,
@@ -17,7 +26,9 @@ import {
   sendSocketMessage,
   getChatSocket,
   initializeNotificationSocket,
+  sendTypingIndicator,
 } from "@/lib/socket";
+import { uploadToCloudinary, getFileType } from "@/lib/cloudinary";
 
 interface StaffChatDashboardProps {
   serviceCenterId?: string; // Can be used for filtering in the future
@@ -37,6 +48,8 @@ export default function StaffChatDashboard({
   const [selectedTab, setSelectedTab] = useState<
     "waiting" | "active" | "closed"
   >("waiting");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
@@ -52,8 +65,13 @@ export default function StaffChatDashboard({
       loadConversations();
     }
 
+    // Cleanup on unmount
     return () => {
-      // Cleanup on unmount
+      const socket = getChatSocket();
+      if (socket) {
+        socket.off("newMessage");
+        socket.off("userTyping");
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authToken]);
@@ -68,6 +86,15 @@ export default function StaffChatDashboard({
       loadMessages(activeConversation.conversationId);
       setupChatListeners();
     }
+
+    // Cleanup function to remove listeners when conversation changes
+    return () => {
+      const socket = getChatSocket();
+      if (socket) {
+        socket.off("newMessage");
+        socket.off("userTyping");
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeConversation]);
 
@@ -98,26 +125,49 @@ export default function StaffChatDashboard({
 
   const setupChatListeners = () => {
     const socket = getChatSocket();
-    if (!socket || !activeConversation) return;
+    if (!socket || !activeConversation || !currentUserId) return;
+
+    // Ensure socket is connected before setting up listeners
+    if (!socket.connected) {
+      console.log("Socket not connected, initializing...");
+      initializeChatSocket();
+      // Retry after a short delay
+      setTimeout(() => setupChatListeners(), 1000);
+      return;
+    }
+
+    // Clean up previous listeners to avoid duplicates
+    socket.off("newMessage");
+    socket.off("userTyping");
 
     // Join the conversation room
-    joinChatRoom(activeConversation.conversationId);
+    joinChatRoom(activeConversation.conversationId, currentUserId, "staff");
 
     // Listen for new messages
     socket.on("newMessage", (data: { newMessage: Message }) => {
-      setMessages((prev) => [...prev, data.newMessage]);
+      // Normalize senderType to lowercase for frontend consistency
+      const normalizedMessage = {
+        ...data.newMessage,
+        senderType: data.newMessage.senderType.toLowerCase() as
+          | "guest"
+          | "staff",
+      };
+      setMessages((prev) => [...prev, normalizedMessage]);
       setIsTyping(false);
     });
 
     // Listen for typing indicator
-    socket.on("userTyping", () => {
-      setIsTyping(true);
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
+    socket.on("userTyping", (data: { conversationId: string }) => {
+      // Only process typing for the current active conversation
+      if (data.conversationId === activeConversation.conversationId) {
+        setIsTyping(true);
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+        }
+        typingTimeoutRef.current = setTimeout(() => {
+          setIsTyping(false);
+        }, 3000);
       }
-      typingTimeoutRef.current = setTimeout(() => {
-        setIsTyping(false);
-      }, 3000);
     });
   };
 
@@ -147,7 +197,12 @@ export default function StaffChatDashboard({
   const loadMessages = async (conversationId: string) => {
     try {
       const msgs = await getConversationMessages(conversationId);
-      setMessages(msgs);
+      // Normalize senderType to lowercase for frontend consistency
+      const normalizedMsgs = msgs.map((msg) => ({
+        ...msg,
+        senderType: msg.senderType.toLowerCase() as "guest" | "staff",
+      }));
+      setMessages(normalizedMsgs);
     } catch (err) {
       console.error("Failed to load messages:", err);
     }
@@ -164,34 +219,59 @@ export default function StaffChatDashboard({
     }
   };
 
-  const handleSendMessage = () => {
-    if (!inputText.trim() || !activeConversation || !currentUserId) return;
+  const handleSendMessage = async () => {
+    if (
+      (!inputText.trim() && !selectedFile) ||
+      !activeConversation ||
+      !currentUserId
+    )
+      return;
 
-    const messageData = {
-      conversationId: activeConversation.conversationId,
-      senderId: currentUserId,
-      senderType: "staff" as const,
-      content: inputText.trim(),
-      timestamp: new Date().toISOString(),
-    };
+    setIsUploading(true);
+    let fileUrl: string | undefined;
+    let fileType: "image" | "file" | undefined;
 
     try {
+      // Upload file to Cloudinary if selected
+      if (selectedFile) {
+        fileUrl = await uploadToCloudinary(selectedFile);
+        fileType = getFileType(fileUrl);
+      }
+
+      const messageData = {
+        conversationId: activeConversation.conversationId,
+        senderId: currentUserId,
+        senderType: "staff" as const,
+        content:
+          inputText.trim() || (selectedFile ? `📎 ${selectedFile.name}` : ""),
+        timestamp: new Date().toISOString(),
+        fileUrl,
+        fileType,
+      };
+
+      // Send through socket
       sendSocketMessage(messageData);
 
       const newMessage: Message = {
         messageId: `temp-${Date.now()}`,
-        content: inputText.trim(),
+        content:
+          inputText.trim() || (selectedFile ? `📎 ${selectedFile.name}` : ""),
         senderId: currentUserId,
         senderType: "staff",
         senderName: "You",
         sentAt: new Date().toISOString(),
         isRead: false,
+        fileUrl,
+        fileType,
       };
 
       setMessages((prev) => [...prev, newMessage]);
       setInputText("");
+      setSelectedFile(null);
     } catch (err) {
       console.error("Failed to send message:", err);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -213,6 +293,22 @@ export default function StaffChatDashboard({
       e.preventDefault();
       handleSendMessage();
     }
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Check file size (limit to 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        alert("File size must be less than 10MB");
+        return;
+      }
+      setSelectedFile(file);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
   };
 
   const scrollToBottom = () => {
@@ -531,6 +627,52 @@ export default function StaffChatDashboard({
                       <p className="text-sm whitespace-pre-wrap leading-relaxed">
                         {message.content}
                       </p>
+
+                      {/* File/Image Display */}
+                      {message.fileUrl && (
+                        <div className="mt-3">
+                          {message.fileType === "image" ? (
+                            <div className="relative">
+                              <Image
+                                src={message.fileUrl!}
+                                alt="Shared image"
+                                width={300}
+                                height={200}
+                                className="max-w-full max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity object-cover"
+                                onClick={() =>
+                                  window.open(message.fileUrl, "_blank")
+                                }
+                              />
+                              <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+                                📷 Image
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-3 p-3 bg-black/20 rounded-lg">
+                              <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                                <span className="text-blue-300">📎</span>
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-sm text-white font-medium">
+                                  {message.fileUrl.split("/").pop()}
+                                </p>
+                                <p className="text-xs text-gray-400">
+                                  File attachment
+                                </p>
+                              </div>
+                              <button
+                                onClick={() =>
+                                  window.open(message.fileUrl, "_blank")
+                                }
+                                className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
+                              >
+                                Download
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       <p
                         className={`text-xs mt-2 ${
                           message.senderType === "staff"
@@ -596,24 +738,77 @@ export default function StaffChatDashboard({
             <div className="bg-white border-t border-gray-200 p-5 shadow-sm">
               {activeConversation.status === "active" ||
               activeConversation.status === "ACTIVE" ? (
-                <div className="flex items-end gap-3">
-                  <textarea
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Type your message..."
-                    rows={1}
-                    className="flex-1 resize-none rounded-xl border-2 border-gray-200 px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                    style={{ minHeight: "48px", maxHeight: "120px" }}
-                  />
-                  <button
-                    onClick={handleSendMessage}
-                    disabled={!inputText.trim()}
-                    className="p-3.5 bg-blue-500 text-white rounded-xl hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
-                  >
-                    <Send className="w-5 h-5" />
-                  </button>
-                </div>
+                <>
+                  {/* File Preview */}
+                  {selectedFile && (
+                    <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                            <span className="text-blue-600 text-sm">📎</span>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-900 font-medium truncate max-w-[200px]">
+                              {selectedFile.name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleRemoveFile}
+                          className="p-1 hover:bg-gray-200 rounded-lg transition-colors"
+                        >
+                          <X className="w-4 h-4 text-gray-500 hover:text-gray-700" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-end gap-3">
+                    {/* File Input */}
+                    <label className="p-3 bg-gray-100 border border-gray-200 rounded-xl hover:bg-gray-200 transition-all duration-200 cursor-pointer group">
+                      <input
+                        type="file"
+                        onChange={handleFileSelect}
+                        accept="image/*,.pdf,.doc,.docx,.txt"
+                        className="hidden"
+                      />
+                      <Paperclip className="w-5 h-5 text-gray-500 group-hover:text-gray-700 transition-colors" />
+                    </label>
+
+                    <textarea
+                      value={inputText}
+                      onChange={(e) => {
+                        setInputText(e.target.value);
+                        if (activeConversation && e.target.value.trim()) {
+                          sendTypingIndicator(
+                            activeConversation.conversationId
+                          );
+                        }
+                      }}
+                      onKeyPress={handleKeyPress}
+                      placeholder="Type your message..."
+                      rows={1}
+                      className="flex-1 resize-none rounded-xl border-2 border-gray-200 px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      style={{ minHeight: "48px", maxHeight: "120px" }}
+                    />
+                    <button
+                      onClick={handleSendMessage}
+                      disabled={
+                        (!inputText.trim() && !selectedFile) || isUploading
+                      }
+                      className="p-3.5 bg-blue-500 text-white rounded-xl hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
+                    >
+                      {isUploading ? (
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Send className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
+                </>
               ) : (
                 <div className="text-center py-4">
                   <div className="inline-block px-6 py-3 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl">

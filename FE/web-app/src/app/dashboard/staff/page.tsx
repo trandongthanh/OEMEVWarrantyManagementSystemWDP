@@ -8,16 +8,9 @@ import {
   BarChart3,
   Clock,
   FileText,
-  Car,
   MessageCircle,
 } from "lucide-react";
-import {
-  authService,
-  userService,
-  customerService,
-  Technician,
-  Customer,
-} from "@/services";
+import { authService, customerService, Customer } from "@/services";
 import {
   Sidebar,
   DashboardHeader,
@@ -25,7 +18,6 @@ import {
   PlaceholderContent,
   RegisterVehicleModal,
   DashboardOverview,
-  VehicleManagement,
   CustomerSearchResults,
   CasesList,
 } from "@/components/dashboard";
@@ -40,7 +32,6 @@ export default function StaffDashboard() {
   const [activeNav, setActiveNav] = useState("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchResult, setSearchResult] = useState<Customer | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -60,53 +51,50 @@ export default function StaffDashboard() {
   useEffect(() => {
     const user = authService.getCurrentUser();
     setCurrentUser(user);
-    // Staff role doesn't have permission to fetch technicians
-    // fetchData();
+    // Staff role doesn't need additional data fetching
   }, []);
-
-  const fetchData = async () => {
-    try {
-      // Only fetch technicians if user has permission (admin, manager roles)
-      const user = authService.getCurrentUser();
-      if (user && (user.roleName === "ADMIN" || user.roleName === "MANAGER")) {
-        const techData = await userService.getTechnicians();
-        setTechnicians(techData);
-      }
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    }
-  };
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
 
     if (!query.trim()) {
       setSearchResult(null);
+      setIsSearching(false);
       return;
     }
 
+    // Basic validation - must be email or phone-like
     const isEmail = query.includes("@");
-    const isPhone = /^\d+$/.test(query);
+    const isPhone = /^\d+$/.test(query.replace(/[\s\-\+\(\)]/g, "")); // Allow spaces, dashes, plus, parentheses
 
-    if (isEmail || isPhone) {
-      setIsSearching(true);
-      try {
-        const result = await customerService.searchCustomer(
-          isEmail ? { email: query } : { phone: query }
-        );
-        setSearchResult(result);
-      } catch (error) {
-        console.error("Search error:", error);
-        setSearchResult(null);
-      } finally {
-        setIsSearching(false);
-      }
+    if (!isEmail && !isPhone) {
+      setSearchResult(null);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      console.log(
+        "🔍 Searching for customer:",
+        isEmail ? { email: query } : { phone: query }
+      );
+      const result = await customerService.searchCustomer(
+        isEmail ? { email: query } : { phone: query }
+      );
+      console.log("✅ Search result:", result);
+      setSearchResult(result);
+    } catch (error: unknown) {
+      console.error("❌ Search error:", error);
+      setSearchResult(null);
+      // You could show a toast notification here for API errors
+    } finally {
+      setIsSearching(false);
     }
   };
 
   const staffNavItems = [
     { id: "dashboard", icon: Home, label: "Dashboard" },
-    { id: "vehicles", icon: Car, label: "Vehicle Management" },
     { id: "cases", icon: Users, label: "Cases" },
     { id: "chat-support", icon: MessageCircle, label: "Chat Support" },
     { id: "receipts", icon: CreditCard, label: "Receipts" },
@@ -128,15 +116,8 @@ export default function StaffDashboard() {
       case "dashboard":
         return (
           <DashboardOverview
-            technicians={technicians}
             onNewClaimClick={() => setShowNewClaimModal(true)}
             onNavigate={setActiveNav}
-          />
-        );
-
-      case "vehicles":
-        return (
-          <VehicleManagement
             onRegisterVehicleClick={() => setShowRegisterVehicleModal(true)}
           />
         );
@@ -228,7 +209,7 @@ export default function StaffDashboard() {
         isOpen={showNewClaimModal}
         onClose={() => setShowNewClaimModal(false)}
         onSuccess={() => {
-          fetchData(); // Refresh data
+          // Data refresh not needed for staff dashboard
         }}
         onRegisterOwner={(vin) => {
           setRegisterVehicleVin(vin);
@@ -244,9 +225,7 @@ export default function StaffDashboard() {
           setRegisterVehicleVin(undefined);
         }}
         onSuccess={() => {
-          fetchData(); // Refresh data
-          // Optionally switch to vehicles tab to show the registered vehicle
-          setActiveNav("vehicles");
+          // Data refresh not needed for staff dashboard
           // Reset VIN after successful registration
           setRegisterVehicleVin(undefined);
         }}

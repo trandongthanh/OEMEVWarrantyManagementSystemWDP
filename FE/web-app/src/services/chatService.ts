@@ -22,6 +22,8 @@ export interface Message {
   senderName: string;
   sentAt: string;
   isRead: boolean;
+  fileUrl?: string; // Cloudinary URL for uploaded files/images
+  fileType?: "image" | "file"; // Type of file attachment
 }
 
 export interface Conversation {

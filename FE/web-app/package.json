@@ -21,6 +21,7 @@
     "@types/three": "^0.180.0",
     "antd": "^5.27.5",
     "axios": "^1.12.2",
+    "cloudinary": "^2.8.0",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.22",
     "gsap": "^3.13.0",

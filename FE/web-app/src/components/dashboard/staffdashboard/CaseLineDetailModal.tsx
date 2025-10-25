@@ -52,7 +52,7 @@ export function CaseLineDetailModal({
   record.guaranteeCases?.forEach((gc) => {
     gc.caseLines?.forEach((cl) => {
       allCaseLines.push({
-        id: cl.caseLineId || cl.id,
+        id: cl.caseLineId || (cl as { id?: string }).id || "",
         caseLineId: cl.caseLineId,
         diagnosisText: cl.diagnosisText || "",
         correctionText: cl.correctionText || "",

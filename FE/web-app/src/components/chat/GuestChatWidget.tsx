@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import {
   MessageCircle,
   X,
@@ -10,6 +11,7 @@ import {
   Loader2,
   CheckCircle,
   AlertCircle,
+  Paperclip,
 } from "lucide-react";
 import {
   startAnonymousChat,
@@ -25,7 +27,9 @@ import {
   sendSocketMessage,
   getChatSocket,
   disconnectChatSocket,
+  sendTypingIndicator,
 } from "@/lib/socket";
+import { uploadToCloudinary, getFileType } from "@/lib/cloudinary";
 
 interface GuestChatWidgetProps {
   serviceCenterId?: string; // Default service center to connect to
@@ -47,6 +51,8 @@ export default function GuestChatWidget({
     "idle" | "waiting" | "active" | "closed"
   >("idle");
   const [error, setError] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
@@ -59,7 +65,7 @@ export default function GuestChatWidget({
 
   useEffect(() => {
     if (isOpen && !isConnected) {
-      initializeSocket();
+      // Socket initialization moved to handleStartChat
     }
 
     return () => {
@@ -101,7 +107,14 @@ export default function GuestChatWidget({
 
     // Listen for new messages
     socket.on("newMessage", (data: { newMessage: Message }) => {
-      setMessages((prev) => [...prev, data.newMessage]);
+      // Normalize senderType to lowercase for frontend consistency
+      const normalizedMessage = {
+        ...data.newMessage,
+        senderType: data.newMessage.senderType.toLowerCase() as
+          | "guest"
+          | "staff",
+      };
+      setMessages((prev) => [...prev, normalizedMessage]);
       setIsTyping(false);
     });
 
@@ -166,7 +179,12 @@ export default function GuestChatWidget({
 
     try {
       const msgs = await getConversationMessages(conversationId);
-      setMessages(msgs);
+      // Normalize senderType to lowercase for frontend consistency
+      const normalizedMsgs = msgs.map((msg) => ({
+        ...msg,
+        senderType: msg.senderType.toLowerCase() as "guest" | "staff",
+      }));
+      setMessages(normalizedMsgs);
     } catch (err) {
       console.error("Failed to load messages:", err);
     }
@@ -199,8 +217,11 @@ export default function GuestChatWidget({
       saveGuestConversationId(session.conversationId);
       setConnectionStatus("waiting");
 
+      // Initialize socket connection only after chat is started
+      initializeSocket();
+
       // Join the chat room
-      joinChatRoom(session.conversationId);
+      joinChatRoom(session.conversationId, freshGuestId, "guest");
 
       // Add welcome message
       setMessages([
@@ -223,37 +244,56 @@ export default function GuestChatWidget({
     }
   };
 
-  const handleSendMessage = () => {
-    if (!inputText.trim() || !conversationId) return;
+  const handleSendMessage = async () => {
+    if ((!inputText.trim() && !selectedFile) || !conversationId) return;
 
-    const messageData = {
-      conversationId,
-      senderId: guestId,
-      senderType: "guest" as const,
-      content: inputText.trim(),
-      timestamp: new Date().toISOString(),
-    };
+    setIsUploading(true);
+    let fileUrl: string | undefined;
+    let fileType: "image" | "file" | undefined;
 
     try {
+      // Upload file to Cloudinary if selected
+      if (selectedFile) {
+        fileUrl = await uploadToCloudinary(selectedFile);
+        fileType = getFileType(fileUrl);
+      }
+
+      const messageData = {
+        conversationId,
+        senderId: guestId,
+        senderType: "guest" as const,
+        content:
+          inputText.trim() || (selectedFile ? `📎 ${selectedFile.name}` : ""),
+        timestamp: new Date().toISOString(),
+        fileUrl,
+        fileType,
+      };
+
       // Send through socket
       sendSocketMessage(messageData);
 
       // Add to local state immediately
       const newMessage: Message = {
         messageId: `temp-${Date.now()}`,
-        content: inputText.trim(),
+        content:
+          inputText.trim() || (selectedFile ? `📎 ${selectedFile.name}` : ""),
         senderId: guestId,
         senderType: "guest",
         senderName: guestName || "You",
         sentAt: new Date().toISOString(),
         isRead: false,
+        fileUrl,
+        fileType,
       };
 
       setMessages((prev) => [...prev, newMessage]);
       setInputText("");
+      setSelectedFile(null);
     } catch (err) {
       console.error("Failed to send message:", err);
       setError("Failed to send message. Please try again.");
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -280,6 +320,23 @@ export default function GuestChatWidget({
     setGuestName("");
     setInputText("");
     setError(null);
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Check file size (limit to 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        setError("File size must be less than 10MB");
+        return;
+      }
+      setSelectedFile(file);
+      setError(null);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
   };
 
   const scrollToBottom = () => {
@@ -525,6 +582,54 @@ export default function GuestChatWidget({
                               <p className="text-sm whitespace-pre-wrap leading-relaxed">
                                 {message.content}
                               </p>
+
+                              {/* File/Image Display */}
+                              {message.fileUrl && (
+                                <div className="mt-3">
+                                  {message.fileType === "image" ? (
+                                    <div className="relative">
+                                      <Image
+                                        src={message.fileUrl!}
+                                        alt="Shared image"
+                                        width={300}
+                                        height={200}
+                                        className="max-w-full max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity object-cover"
+                                        onClick={() =>
+                                          window.open(message.fileUrl, "_blank")
+                                        }
+                                      />
+                                      <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+                                        📷 Image
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-3 p-3 bg-black/20 rounded-lg">
+                                      <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                                        <span className="text-blue-300">
+                                          📎
+                                        </span>
+                                      </div>
+                                      <div className="flex-1">
+                                        <p className="text-sm text-white font-medium">
+                                          {message.fileUrl.split("/").pop()}
+                                        </p>
+                                        <p className="text-xs text-gray-400">
+                                          File attachment
+                                        </p>
+                                      </div>
+                                      <button
+                                        onClick={() =>
+                                          window.open(message.fileUrl, "_blank")
+                                        }
+                                        className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
+                                      >
+                                        Download
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
                               <p
                                 className={`text-xs mt-2 ${
                                   message.senderType === "guest"
@@ -603,34 +708,88 @@ export default function GuestChatWidget({
                       </button>
                     </div>
                   ) : (
-                    <div className="flex items-end gap-3">
-                      <textarea
-                        value={inputText}
-                        onChange={(e) => setInputText(e.target.value)}
-                        onKeyPress={handleKeyPress}
-                        placeholder={
-                          connectionStatus === "waiting"
-                            ? "Waiting for staff to join..."
-                            : "Type your message..."
-                        }
-                        disabled={connectionStatus === "waiting"}
-                        rows={1}
-                        className="flex-1 resize-none rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 backdrop-blur-sm"
-                        style={{ minHeight: "48px", maxHeight: "120px" }}
-                      />
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={handleSendMessage}
-                        disabled={
-                          !inputText.trim() || connectionStatus === "waiting"
-                        }
-                        className="p-3.5 bg-gradient-to-br from-blue-500 to-emerald-500 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 relative overflow-hidden group"
-                      >
-                        <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
-                        <Send className="w-5 h-5 relative z-10" />
-                      </motion.button>
-                    </div>
+                    <>
+                      {/* File Preview */}
+                      {selectedFile && (
+                        <div className="mb-3 p-3 bg-white/5 border border-white/10 rounded-xl backdrop-blur-sm">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                                <span className="text-blue-300 text-sm">
+                                  📎
+                                </span>
+                              </div>
+                              <div>
+                                <p className="text-white text-sm font-medium truncate max-w-[200px]">
+                                  {selectedFile.name}
+                                </p>
+                                <p className="text-gray-400 text-xs">
+                                  {(selectedFile.size / 1024 / 1024).toFixed(2)}{" "}
+                                  MB
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={handleRemoveFile}
+                              className="p-1 hover:bg-white/10 rounded-lg transition-colors"
+                            >
+                              <X className="w-4 h-4 text-gray-400 hover:text-white" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-end gap-3">
+                        {/* File Input */}
+                        <label className="p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-all duration-200 cursor-pointer group">
+                          <input
+                            type="file"
+                            onChange={handleFileSelect}
+                            accept="image/*,.pdf,.doc,.docx,.txt"
+                            className="hidden"
+                          />
+                          <Paperclip className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" />
+                        </label>
+
+                        <textarea
+                          value={inputText}
+                          onChange={(e) => {
+                            setInputText(e.target.value);
+                            if (conversationId && e.target.value.trim()) {
+                              sendTypingIndicator(conversationId);
+                            }
+                          }}
+                          onKeyPress={handleKeyPress}
+                          placeholder={
+                            connectionStatus === "waiting"
+                              ? "Waiting for staff to join..."
+                              : "Type your message..."
+                          }
+                          disabled={connectionStatus === "waiting"}
+                          rows={1}
+                          className="flex-1 resize-none rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 backdrop-blur-sm"
+                          style={{ minHeight: "48px", maxHeight: "120px" }}
+                        />
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={handleSendMessage}
+                          disabled={
+                            (!inputText.trim() && !selectedFile) ||
+                            connectionStatus === "waiting" ||
+                            isUploading
+                          }
+                          className="p-3.5 bg-gradient-to-br from-blue-500 to-emerald-500 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 relative overflow-hidden group"
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+                          {isUploading ? (
+                            <Loader2 className="w-5 h-5 animate-spin relative z-10" />
+                          ) : (
+                            <Send className="w-5 h-5 relative z-10" />
+                          )}
+                        </motion.button>
+                      </div>
+                    </>
                   )}
                 </div>
               </>
