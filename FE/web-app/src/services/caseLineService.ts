@@ -126,7 +126,51 @@ export interface AssignTechnicianResponse {
   };
 }
 
+export interface GetCaseLinesListParams {
+  page?: number;
+  limit?: number;
+  status?: string;
+  guaranteeCaseId?: string;
+  warrantyStatus?: "ELIGIBLE" | "INELIGIBLE";
+  vehicleProcessingRecordId?: string;
+  diagnosticTechId?: string;
+  repairTechId?: string;
+  sortBy?: "createdAt" | "updatedAt" | "status" | "warrantyStatus";
+  sortOrder?: "ASC" | "DESC";
+}
+
+export interface GetCaseLinesListResponse {
+  status: "success";
+  data: {
+    caseLines: CaseLine[];
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  };
+}
+
 class CaseLineService {
+  /**
+   * Get list of case lines with filters
+   * GET /case-lines
+   *
+   * @role All authenticated users (filtered by service center)
+   */
+  async getCaseLinesList(
+    params?: GetCaseLinesListParams
+  ): Promise<GetCaseLinesListResponse> {
+    try {
+      const response = await apiClient.get("/case-lines", { params });
+      return response.data;
+    } catch (error: unknown) {
+      console.error("Error fetching case lines list:", error);
+      throw error;
+    }
+  }
+
   /**
    * Get case line details by ID
    * GET /case-lines/{caselineId}
@@ -209,6 +253,29 @@ class CaseLineService {
       return response.data;
     } catch (error: unknown) {
       console.error("Error assigning technician to case line:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Mark repair as complete (Technician only)
+   * PATCH /case-lines/{caselineId}/mark-repair-complete
+   *
+   * Transitions CaseLine from IN_REPAIR → COMPLETED
+   *
+   * @role service_center_technician
+   */
+  async markRepairComplete(caselineId: string): Promise<{
+    status: "success";
+    data: { caseline: CaseLine };
+  }> {
+    try {
+      const response = await apiClient.patch(
+        `/case-lines/${caselineId}/mark-repair-complete`
+      );
+      return response.data;
+    } catch (error: unknown) {
+      console.error("Error marking repair as complete:", error);
       throw error;
     }
   }

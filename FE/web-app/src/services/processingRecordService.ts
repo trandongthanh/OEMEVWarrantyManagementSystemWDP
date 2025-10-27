@@ -154,11 +154,67 @@ const assignTechnician = async (
   }
 };
 
+/**
+ * Complete diagnosis for a processing record
+ * PATCH /processing-records/{id}/complete-diagnosis
+ *
+ * Transitions:
+ * - CaseLine: DRAFT → PENDING_APPROVAL
+ * - GuaranteeCase: IN_DIAGNOSIS → DIAGNOSED
+ * - VehicleProcessingRecord: IN_DIAGNOSIS → WAITING_CUSTOMER_APPROVAL
+ *
+ * @role service_center_technician
+ */
+const completeDiagnosis = async (
+  recordId: string
+): Promise<{
+  status: "success";
+  data: { record: ProcessingRecord };
+}> => {
+  try {
+    const response = await apiClient.patch(
+      `/processing-records/${recordId}/complete-diagnosis`
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error completing diagnosis:", error);
+    throw error;
+  }
+};
+
+/**
+ * Mark a processing record as completed
+ * PATCH /processing-records/{id}/completed
+ *
+ * Final step: Sets checkOutDate and status to COMPLETED.
+ * All case lines must be completed before calling this.
+ *
+ * @role service_center_staff
+ */
+const completeRecord = async (
+  recordId: string
+): Promise<{
+  status: "success";
+  data: { record: ProcessingRecord };
+}> => {
+  try {
+    const response = await apiClient.patch(
+      `/processing-records/${recordId}/completed`
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error completing record:", error);
+    throw error;
+  }
+};
+
 const processingRecordService = {
   getAllRecords,
   getRecordById,
   searchCompatibleComponents,
   assignTechnician,
+  completeDiagnosis,
+  completeRecord,
 };
 
 export default processingRecordService;
