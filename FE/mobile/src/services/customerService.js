@@ -1,17 +1,17 @@
 // src/services/customerService.js
-import api from "./api"; // ✅ axios instance (đã có baseURL và token)
+import api from "./api"; // ✅ axios instance đã có baseURL & token
 
-export const findCustomer = async (phone, email) => {
+export const getCustomerByPhoneOrEmail = async (query) => {
   try {
-    // 🧠 Tạo params object động
     const params = {};
-    if (phone) params.phone = phone.trim();
-    if (email) params.email = email.trim();
+    if (query) {
+      if (/^\d+$/.test(query)) params.phone = query.trim();
+      else params.email = query.trim();
+    }
 
-    // 🧩 Gọi API theo đúng chuẩn query params
+    // ✅ Gọi API đúng endpoint
     const res = await api.get("/customers", { params });
-
-    return res.data;
+    return res.data; // { status, data: { customer } }
   } catch (error) {
     console.error(
       "❌ Error finding customer:",

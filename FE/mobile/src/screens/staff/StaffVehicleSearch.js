@@ -1,156 +1,165 @@
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-} from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
-import { getVehicleByVin } from "../../services/vehicleService";
-import VehicleInfoModal from "../../components/staff/VehicleInfoModal";
+import Toast from "react-native-toast-message";
 
-const COLORS = {
-  bg: "#0B0F14",
-  surface: "#11161C",
-  border: "#1F2833",
-  text: "#E6EAF2",
-  textMuted: "#9AA7B5",
-  accent: "#3B82F6",
-  danger: "#EF4444",
-};
+import NewClaimModal from "../../components/staff/NewClaimModal";
+import CustomerSearchBar from "../../components/customer/CustomerSearchBar";
+import CustomerInfoCard from "../../components/customer/CustomerInfoCard";
+import { getCustomerByPhoneOrEmail } from "../../services/customerService";
 
-export default function StaffVehicleSearch() {
-  const [vin, setVin] = useState("");
-  const [vehicle, setVehicle] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+export default function StaffHome() {
   const [modalVisible, setModalVisible] = useState(false);
-  const [focused, setFocused] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [customer, setCustomer] = useState(null);
+  const [notFound, setNotFound] = useState(false);
 
-  const handleSearch = async () => {
-    if (!vin.trim()) {
-      setError("Please enter a VIN number.");
+  const handleSearchCustomer = async () => {
+    if (!searchValue.trim()) {
+      Toast.show({
+        type: "error",
+        text1: "Please enter phone or email to search.",
+        visibilityTime: 2000,
+        position: "bottom",
+        bottomOffset: 80,
+      });
       return;
     }
 
     setLoading(true);
-    setError("");
-    setVehicle(null);
+    setCustomer(null);
+    setNotFound(false);
 
     try {
-      const data = await getVehicleByVin(vin);
-      if (data?.status === "success" && data.data?.vehicle) {
-        setVehicle(data.data.vehicle);
-        setModalVisible(true);
+      const res = await getCustomerByPhoneOrEmail(searchValue);
+
+      if (res?.status === "success" && res.data?.customer) {
+        setCustomer(res.data.customer);
+        setNotFound(false);
       } else {
-        setError("Vehicle not found or invalid response format.");
+        setCustomer(null);
+        setNotFound(true);
       }
     } catch (err) {
-      console.error("❌ API error:", err);
-      setError("Unable to find vehicle. Please check VIN or network.");
+      if (err?.response?.status === 404) {
+        setCustomer(null);
+        setNotFound(true);
+      } else {
+        Toast.show({
+          type: "error",
+          text1: "Network or server error.",
+          visibilityTime: 2000,
+          position: "bottom",
+          bottomOffset: 80,
+        });
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.bg }}>
+    <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <Text style={styles.title}>Vehicle Search</Text>
+        <Text style={styles.title}>Warranty Claims</Text>
 
-        <View
-          style={[
-            styles.searchBox,
-            focused && { borderColor: COLORS.accent, shadowOpacity: 0.2 },
-          ]}
-        >
-          <Ionicons
-            name="car-outline"
-            size={22}
-            color={COLORS.accent}
-            style={{ marginRight: 10 }}
+        {/* 🔍 Search + New Button Row */}
+        <View style={styles.topRow}>
+          <CustomerSearchBar
+            value={searchValue}
+            onChangeText={setSearchValue}
+            onSearch={handleSearchCustomer}
+            loading={loading}
           />
-          <TextInput
-            style={styles.input}
-            placeholder="Enter VIN number..."
-            placeholderTextColor={COLORS.textMuted}
-            value={vin}
-            onChangeText={setVin}
-            autoCapitalize="characters"
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-          />
+
           <TouchableOpacity
-            style={styles.iconButton}
-            onPress={handleSearch}
-            disabled={loading}
+            activeOpacity={0.85}
+            style={styles.newBtn}
+            onPress={() => setModalVisible(true)}
           >
-            {loading ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Ionicons name="search" size={20} color="#fff" />
-            )}
+            <Text style={styles.newBtnText}>＋ New</Text>
           </TouchableOpacity>
         </View>
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {/* ⚠️ Dòng thông báo khi không tìm thấy */}
+        {notFound && !customer && (
+          <Text style={styles.notFoundText}>Customer not found.</Text>
+        )}
 
-        <VehicleInfoModal
+        {/* ✅ Hiển thị thông tin khách hàng */}
+        <CustomerInfoCard
+          customer={customer}
+          onCreateClaim={() => setModalVisible(true)}
+        />
+
+        <NewClaimModal
           visible={modalVisible}
-          vehicle={vehicle}
           onClose={() => setModalVisible(false)}
         />
       </View>
+
+      <Toast />
     </SafeAreaView>
   );
 }
 
+const COLORS = {
+  bg: "#0B0F14",
+  surface: "#11161C",
+  text: "#E6EAF2",
+  textMuted: "#9AA7B5",
+  accent: "#3B82F6",
+  danger: "#EF4444",
+};
+
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 20, paddingTop: 30 },
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.bg,
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+  },
   title: {
+    color: COLORS.text,
     fontSize: 22,
     fontWeight: "700",
-    color: COLORS.text,
     textAlign: "center",
-    marginBottom: 28,
+    marginBottom: 20,
   },
-  searchBox: {
+  topRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.12,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 6,
-    elevation: 3,
+    gap: 10,
+    marginBottom: 16,
   },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    color: COLORS.text,
-  },
-  iconButton: {
-    marginLeft: 10,
+  newBtn: {
     backgroundColor: COLORS.accent,
-    borderRadius: 28,
-    padding: 10,
-    width: 42,
-    height: 42,
-    alignItems: "center",
+    borderRadius: 12,
+    height: 48,
+    minWidth: 80,
     justifyContent: "center",
+    alignItems: "center",
+    shadowColor: COLORS.accent,
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 5,
+    elevation: 4,
   },
-  error: {
-    color: COLORS.danger,
+  newBtnText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  /** 🩶 Dòng "Customer not found" */
+  notFoundText: {
+    color: COLORS.textMuted,
     textAlign: "center",
-    marginTop: 14,
-    fontSize: 14,
+    fontSize: 15,
+    marginTop: 40,
   },
 });

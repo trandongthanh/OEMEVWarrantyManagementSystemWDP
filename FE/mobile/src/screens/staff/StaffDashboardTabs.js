@@ -2,6 +2,7 @@ import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import StaffVehicleSearch from "./StaffVehicleSearch";
 import StaffInfoScreen from "./StaffInfoScreen";
+import StaffMessageListScreen from "./StaffMessageListScreen";
 import { Ionicons } from "@expo/vector-icons";
 
 const Tab = createBottomTabNavigator();
@@ -26,19 +27,41 @@ export default function StaffDashboardTabs() {
           marginBottom: 3,
         },
         tabBarIcon: ({ color, size }) => {
-          const icon =
-            route.name === "VehicleSearch"
-              ? "search-outline"
-              : "person-circle-outline";
-          return <Ionicons name={icon} size={size} color={color} />;
+          let iconName;
+
+          switch (route.name) {
+            case "Home":
+              iconName = "home-outline";
+              break;
+            case "Messages":
+              iconName = "chatbubbles-outline";
+              break;
+            case "StaffInfo":
+              iconName = "person-circle-outline";
+              break;
+            default:
+              iconName = "ellipse-outline";
+          }
+
+          return <Ionicons name={iconName} size={size} color={color} />;
         },
       })}
     >
+      {/* 🏠 Home Tab (Search Vehicle) */}
       <Tab.Screen
-        name="VehicleSearch"
+        name="Home"
         component={StaffVehicleSearch}
-        options={{ title: "Search Vehicle" }}
+        options={{ title: "Home" }}
       />
+
+      {/* 💬 Messages Tab */}
+      <Tab.Screen
+        name="Messages"
+        component={StaffMessageListScreen}
+        options={{ title: "Messages" }}
+      />
+
+      {/* 👤 My Info Tab */}
       <Tab.Screen
         name="StaffInfo"
         component={StaffInfoScreen}

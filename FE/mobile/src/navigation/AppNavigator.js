@@ -5,8 +5,9 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 // 📄 Screens
 import LoginScreen from "../screens/LoginScreen";
 import ManagerDashboard from "../screens/ManagerDashboard";
-import StaffDashboardTabs from "../screens/staff/StaffDashboardTabs"; // ✅ sửa: dùng Tabs thay vì Dashboard
+import StaffDashboardTabs from "../screens/staff/StaffDashboardTabs";
 import TechnicianDashboard from "../screens/TechnicianDashboard";
+import StaffChatScreen from "../screens/staff/StaffChatScreen"; // 👈 thêm vào đây
 
 const Stack = createNativeStackNavigator();
 
@@ -32,9 +33,7 @@ export default function AppNavigator() {
         <Stack.Screen
           name="ManagerDashboard"
           component={ManagerDashboard}
-          options={{
-            title: "Manager Dashboard",
-          }}
+          options={{ title: "Manager Dashboard" }}
         />
 
         {/* 🧾 Staff (Tabs) */}
@@ -42,7 +41,16 @@ export default function AppNavigator() {
           name="StaffDashboardTabs"
           component={StaffDashboardTabs}
           options={{
-            headerShown: false, // ✅ ẩn header để tab bar có không gian riêng
+            headerShown: false,
+          }}
+        />
+
+        {/* 💬 Chat chi tiết */}
+        <Stack.Screen
+          name="StaffChatScreen"
+          component={StaffChatScreen}
+          options={{
+            headerShown: false, // ✅ full màn hình chat
           }}
         />
 
