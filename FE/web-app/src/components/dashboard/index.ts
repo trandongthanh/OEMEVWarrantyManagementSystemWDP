@@ -9,7 +9,6 @@ export {
   DashboardOverview,
   CustomerSearchResults,
   CasesList,
-  VehicleManagement,
 } from "./staffdashboard";
 
 // Manager Dashboard Components
@@ -27,3 +26,10 @@ export {
   PartsInventory,
   WorkHistory,
 } from "./techniciandashboard";
+
+// Parts Coordinator Dashboard Components
+export {
+  DashboardOverview as PartsCoordinatorDashboardOverview,
+  ComponentPickupList,
+  ComponentReturnForm,
+} from "./partscoordinator";
