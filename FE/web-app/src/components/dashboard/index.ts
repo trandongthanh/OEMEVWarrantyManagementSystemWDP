@@ -31,4 +31,5 @@ export {
 export {
   DashboardOverview as PartsCoordinatorDashboardOverview,
   ComponentPickupList,
+  ComponentStatusManager,
 } from "./partscoordinatordashboard";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Home, Package, RotateCcw, Clock } from "lucide-react";
+import { Home, Package, RotateCcw, Clock, Settings } from "lucide-react";
 import { authService } from "@/services";
 import { useRoleProtection } from "@/hooks/useRoleProtection";
 import {
@@ -9,6 +9,7 @@ import {
   DashboardHeader,
   PartsCoordinatorDashboardOverview,
   ComponentPickupList,
+  ComponentStatusManager,
 } from "@/components/dashboard";
 
 interface CurrentUser {
@@ -49,6 +50,7 @@ export default function PartsCoordinatorDashboard() {
   const navItems = [
     { id: "dashboard", icon: Home, label: "Dashboard" },
     { id: "pickups", icon: Package, label: "Component Pickups" },
+    { id: "status", icon: Settings, label: "Component Status" },
     { id: "returns", icon: RotateCcw, label: "Returns" },
     { id: "history", icon: Clock, label: "History" },
   ];
@@ -78,6 +80,8 @@ export default function PartsCoordinatorDashboard() {
             </div>
           </div>
         );
+      case "status":
+        return <ComponentStatusManager />;
       case "returns":
       case "history":
         return (
