@@ -12,6 +12,8 @@ import {
   Activity,
 } from "lucide-react";
 import { ComponentPickupList } from "./ComponentPickupList";
+import { ComponentPickupModal } from "./ComponentPickupModal";
+import { ComponentReturnModal } from "./ComponentReturnModal";
 
 interface DashboardOverviewProps {
   onNavigate?: (nav: string) => void;
@@ -25,6 +27,8 @@ export function DashboardOverview({}: DashboardOverviewProps) {
     returnedToday: 0,
   });
   const [loading, setLoading] = useState(false);
+  const [showPickupModal, setShowPickupModal] = useState(false);
+  const [showReturnModal, setShowReturnModal] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
@@ -33,8 +37,11 @@ export function DashboardOverview({}: DashboardOverviewProps) {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      // TODO: Fetch real stats from API when available
-      // For now, using placeholder data
+      // Note: Parts coordinator role currently doesn't have permission to access case lines API
+      // Backend returns 403 Forbidden
+      // TODO: Backend needs to add parts_coordinator_service_center to case lines GET endpoint
+      // For now, keep stats at 0 until backend permissions are updated
+
       setStats({
         pendingPickups: 0,
         inTransit: 0,
@@ -43,6 +50,7 @@ export function DashboardOverview({}: DashboardOverviewProps) {
       });
     } catch (error) {
       console.error("Error loading dashboard data:", error);
+      // Keep stats at 0 on error
     } finally {
       setLoading(false);
     }
@@ -104,8 +112,21 @@ export function DashboardOverview({}: DashboardOverviewProps) {
                     Manage component pickups, installations, and returns
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <Package className="w-6 h-6 text-blue-600" />
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setShowPickupModal(true)}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
+                  >
+                    <Package className="w-4 h-4" />
+                    <span className="font-medium">Pickup</span>
+                  </button>
+                  <button
+                    onClick={() => setShowReturnModal(true)}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors shadow-sm"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span className="font-medium">Return</span>
+                  </button>
                 </div>
               </div>
             </motion.div>
@@ -225,8 +246,8 @@ export function DashboardOverview({}: DashboardOverviewProps) {
                   <div>
                     <p className="text-sm font-medium text-blue-900">Pickup</p>
                     <p className="text-xs text-blue-700 mt-1">
-                      Click &ldquo;Pickup&rdquo; on reserved components to mark
-                      them as picked up from warehouse
+                      Click &ldquo;Pickup&rdquo; button in header to mark
+                      components as picked up from warehouse
                     </p>
                   </div>
                 </div>
@@ -248,8 +269,8 @@ export function DashboardOverview({}: DashboardOverviewProps) {
                   <div>
                     <p className="text-sm font-medium text-blue-900">Return</p>
                     <p className="text-xs text-blue-700 mt-1">
-                      Open the component detail to return old/defective parts
-                      with serial number
+                      Click &ldquo;Return&rdquo; button in header to return
+                      components with serial number
                     </p>
                   </div>
                 </div>
@@ -258,6 +279,22 @@ export function DashboardOverview({}: DashboardOverviewProps) {
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+      <ComponentPickupModal
+        isOpen={showPickupModal}
+        onClose={() => setShowPickupModal(false)}
+        onSuccess={() => {
+          loadDashboardData();
+        }}
+      />
+      <ComponentReturnModal
+        isOpen={showReturnModal}
+        onClose={() => setShowReturnModal(false)}
+        onSuccess={() => {
+          loadDashboardData();
+        }}
+      />
     </div>
   );
 }

@@ -16,6 +16,8 @@ import technicianService, {
   TechnicianProcessingRecord,
 } from "@/services/technicianService";
 import { CaseDetailsModal } from "./CaseDetailsModal";
+import { ComponentsToInstall } from "./ComponentsToInstall";
+import { RepairsToComplete } from "./RepairsToComplete";
 
 export function DashboardOverview() {
   const [processingRecords, setProcessingRecords] = useState<
@@ -364,6 +366,15 @@ export function DashboardOverview() {
               </div>
             </motion.div>
           </div>
+        </div>
+
+        {/* Action Items Section - Full Width Below */}
+        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Components to Install */}
+          <ComponentsToInstall />
+
+          {/* Repairs to Complete */}
+          <RepairsToComplete />
         </div>
 
         {/* Case Details Modal */}

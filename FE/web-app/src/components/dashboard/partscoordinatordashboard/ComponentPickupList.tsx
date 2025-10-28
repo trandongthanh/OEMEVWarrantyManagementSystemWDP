@@ -3,20 +3,21 @@
 import { motion } from "framer-motion";
 import { Package, CheckCircle } from "lucide-react";
 import { useState, useEffect } from "react";
-import componentReservationService from "@/services/componentReservationService";
+import { toast } from "sonner";
 
 interface ComponentPickupListProps {
   serviceCenterId?: string;
 }
 
 interface ReservationItem {
-  reservationId: string;
-  componentId: string;
+  caseLineId: string;
   componentName: string;
   quantity: number;
-  caseLineId: string;
   status: string;
   createdAt: string;
+  vehicleInfo?: string;
+  caseNumber?: string;
+  typeComponentId?: string;
 }
 
 export function ComponentPickupList({
@@ -29,11 +30,16 @@ export function ComponentPickupList({
   const fetchReservations = async () => {
     try {
       setLoading(true);
-      // Mock data - replace with actual API call when backend ready
-      // const response = await componentReservationService.getReservations();
+
+      // Note: Parts coordinator role currently doesn't have permission to access case lines API
+      // Backend returns 403 Forbidden - only technicians, staff, and managers can access
+      // TODO: Backend needs to add parts_coordinator_service_center to case lines GET endpoint authorization
+      // For now, show empty list until backend permissions are updated
+
       setReservations([]);
     } catch (error) {
       console.error("Failed to fetch reservations:", error);
+      toast.error("Unable to load component pickups - permission required");
     } finally {
       setLoading(false);
     }
@@ -43,14 +49,23 @@ export function ComponentPickupList({
     fetchReservations();
   }, [serviceCenterId]);
 
-  const handlePickup = async (reservationId: string) => {
+  const handlePickup = async (caseLineId: string) => {
     try {
-      setPickingUp(reservationId);
-      await componentReservationService.pickupComponent(reservationId);
-      await fetchReservations();
+      setPickingUp(caseLineId);
+
+      // Note: Pickup functionality requires backend permissions to be updated
+      // Parts coordinator role needs access to case lines API to fetch reservation data
+      toast.error(
+        "Pickup feature unavailable - waiting for backend permissions update"
+      );
+
+      // TODO: When backend adds parts_coordinator_service_center to case lines endpoint:
+      // 1. Fetch case line to get component reservation ID
+      // 2. Call componentReservationService.pickupComponent(reservationId)
+      // 3. Refresh the list
     } catch (error) {
       console.error("Failed to pickup component:", error);
-      alert("Failed to pickup component");
+      toast.error("Failed to pickup component");
     } finally {
       setPickingUp(null);
     }
@@ -84,7 +99,7 @@ export function ComponentPickupList({
         <div className="space-y-3">
           {reservations.map((reservation) => (
             <motion.div
-              key={reservation.reservationId}
+              key={reservation.caseLineId}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
@@ -101,16 +116,22 @@ export function ComponentPickupList({
                   <div className="space-y-1 text-sm text-gray-600">
                     <p>
                       <span className="font-medium">Component ID:</span>{" "}
-                      {reservation.componentId}
+                      {reservation.typeComponentId}
                     </p>
                     <p>
                       <span className="font-medium">Quantity:</span>{" "}
                       {reservation.quantity}
                     </p>
                     <p>
-                      <span className="font-medium">Case Line:</span>{" "}
-                      {reservation.caseLineId}
+                      <span className="font-medium">Case:</span>{" "}
+                      {reservation.caseNumber || reservation.caseLineId}
                     </p>
+                    {reservation.vehicleInfo && (
+                      <p>
+                        <span className="font-medium">Vehicle:</span>{" "}
+                        {reservation.vehicleInfo}
+                      </p>
+                    )}
                     <p className="text-gray-500">
                       Reserved:{" "}
                       {new Date(reservation.createdAt).toLocaleString()}
@@ -119,8 +140,8 @@ export function ComponentPickupList({
                 </div>
 
                 <button
-                  onClick={() => handlePickup(reservation.reservationId)}
-                  disabled={pickingUp === reservation.reservationId}
+                  onClick={() => handlePickup(reservation.caseLineId)}
+                  disabled={pickingUp === reservation.caseLineId}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                 >
                   <CheckCircle className="w-4 h-4" />

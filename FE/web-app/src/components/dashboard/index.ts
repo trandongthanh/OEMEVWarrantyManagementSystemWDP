@@ -31,5 +31,4 @@ export {
 export {
   DashboardOverview as PartsCoordinatorDashboardOverview,
   ComponentPickupList,
-  ComponentReturnForm,
-} from "./partscoordinator";
+} from "./partscoordinatordashboard";

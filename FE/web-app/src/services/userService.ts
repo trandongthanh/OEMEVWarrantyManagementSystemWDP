@@ -79,11 +79,51 @@ export const getTechnicians = async (
 };
 
 /**
+ * Get all users with filters (Manager only)
+ * @param params - Filter parameters
+ * @returns List of users
+ */
+export const getUsers = async (params?: {
+  roleId?: string;
+  active?: boolean;
+  page?: number;
+  limit?: number;
+}): Promise<{
+  users: User[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}> => {
+  try {
+    const response = await apiClient.get<{
+      status: string;
+      data: {
+        users: User[];
+        pagination: {
+          total: number;
+          page: number;
+          limit: number;
+          totalPages: number;
+        };
+      };
+    }>("/users", { params });
+    return response.data.data;
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    throw error;
+  }
+};
+
+/**
  * User service object
  */
 export const userService = {
   createUser,
   getTechnicians,
+  getUsers,
 };
 
 export default userService;
