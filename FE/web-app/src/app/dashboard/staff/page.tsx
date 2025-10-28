@@ -9,6 +9,8 @@ import {
   Clock,
   FileText,
   MessageCircle,
+  Package,
+  History as HistoryIcon,
 } from "lucide-react";
 import { authService, customerService, Customer } from "@/services";
 import {
@@ -20,6 +22,8 @@ import {
   DashboardOverview,
   CustomerSearchResults,
   CasesList,
+  VehicleComponents,
+  VehicleHistory,
 } from "@/components/dashboard";
 import { StaffChatDashboard } from "@/components/chat";
 
@@ -97,6 +101,8 @@ export default function StaffDashboard() {
     { id: "dashboard", icon: Home, label: "Dashboard" },
     { id: "cases", icon: Users, label: "Cases" },
     { id: "chat-support", icon: MessageCircle, label: "Chat Support" },
+    { id: "vehicle-components", icon: Package, label: "Vehicle Components" },
+    { id: "vehicle-history", icon: HistoryIcon, label: "Vehicle History" },
     { id: "receipts", icon: CreditCard, label: "Receipts" },
     { id: "manage", icon: BarChart3, label: "Manage" },
     { id: "history", icon: Clock, label: "History" },
@@ -131,6 +137,12 @@ export default function StaffDashboard() {
             <StaffChatDashboard serviceCenterId="default-service-center" />
           </div>
         );
+
+      case "vehicle-components":
+        return <VehicleComponents />;
+
+      case "vehicle-history":
+        return <VehicleHistory />;
 
       case "receipts":
         return (

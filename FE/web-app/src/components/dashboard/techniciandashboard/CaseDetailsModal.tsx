@@ -20,13 +20,14 @@ import technicianService, {
   CompatibleComponent,
 } from "@/services/technicianService";
 import caseLineService from "@/services/caseLineService";
+import { CompleteDiagnosisButton } from "./CompleteDiagnosisButton";
 
 interface CaseDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   vin: string;
   recordId: string; // Processing record ID for API calls
-  caseId: string;
+  caseId?: string; // Optional - may not exist for new diagnoses
   caseLineId?: string; // If provided, modal will be in edit mode
   onSuccess?: () => void;
 }
@@ -96,6 +97,8 @@ export function CaseDetailsModal({
   const [activeLineIndex, setActiveLineIndex] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [showCompleteDiagnosisButton, setShowCompleteDiagnosisButton] =
+    useState(false);
 
   // Load case line data - either specific case line or all case lines for the guarantee case
   useEffect(() => {
@@ -351,11 +354,16 @@ export function CaseDetailsModal({
         // Edit mode - update existing case lines
         console.log("📝 Updating existing case lines...");
 
+        if (!caseId) {
+          setErrorMessage("Case ID is required to update case lines");
+          return;
+        }
+
         // Update each case line that has an ID
         const updatePromises = caseLines
           .filter((line) => line.caseLineId)
           .map((caseLine) =>
-            caseLineService.updateCaseLine(caseLine.caseLineId!, {
+            caseLineService.updateCaseLine(caseId, caseLine.caseLineId!, {
               diagnosisText: caseLine.diagnosisText,
               correctionText: caseLine.correctionText,
               typeComponentId: caseLine.typeComponentId || null,
@@ -369,9 +377,15 @@ export function CaseDetailsModal({
         setSuccessMessage(
           `${updatePromises.length} case line(s) updated successfully!`
         );
+        setShowCompleteDiagnosisButton(true); // Show complete diagnosis button after update
       } else {
         // Create mode - create new case lines
         console.log("✨ Creating new case lines...");
+
+        if (!caseId) {
+          setErrorMessage("Case ID is required to create case lines");
+          return;
+        }
 
         const caselinesToSend = caseLines.map(
           ({
@@ -402,7 +416,7 @@ export function CaseDetailsModal({
           (line) => line.componentId && line.quantity > 0
         );
 
-        if (linesWithComponents.length > 0) {
+        if (linesWithComponents.length > 0 && caseId && caseId.trim()) {
           const stockData = linesWithComponents.map((line) => ({
             id: line.caseLineId,
             componentId: line.componentId!,
@@ -410,9 +424,15 @@ export function CaseDetailsModal({
           }));
 
           await technicianService.updateStockQuantities(caseId, stockData);
+        } else if (
+          linesWithComponents.length > 0 &&
+          (!caseId || !caseId.trim())
+        ) {
+          console.warn("Skipping stock update: caseId is not provided");
         }
 
         setSuccessMessage("Case lines created successfully!");
+        setShowCompleteDiagnosisButton(true); // Show complete diagnosis button after creation
       }
 
       setTimeout(() => {
@@ -860,27 +880,43 @@ export function CaseDetailsModal({
           </div>
 
           {/* Footer */}
-          <div className="p-6 border-t border-gray-200 flex items-center justify-end gap-3">
-            <button
-              onClick={onClose}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={isSaving || isLoading}
-              className="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
-            >
-              {isSaving ? (
-                <>{isEditMode ? "Updating..." : "Saving..."}</>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  {isEditMode ? "Update Case Line" : "Save Case Lines"}
-                </>
+          <div className="p-6 border-t border-gray-200 flex items-center justify-between gap-3">
+            {/* Left side - Complete Diagnosis Button (shown after successful save) */}
+            <div>
+              {showCompleteDiagnosisButton && recordId && (
+                <CompleteDiagnosisButton
+                  recordId={recordId}
+                  onSuccess={() => {
+                    onSuccess?.();
+                    onClose();
+                  }}
+                />
               )}
-            </button>
+            </div>
+
+            {/* Right side - Cancel and Save buttons */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={onClose}
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={isSaving || isLoading}
+                className="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                {isSaving ? (
+                  <>{isEditMode ? "Updating..." : "Saving..."}</>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    {isEditMode ? "Update Case Line" : "Save Case Lines"}
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </motion.div>
       </div>

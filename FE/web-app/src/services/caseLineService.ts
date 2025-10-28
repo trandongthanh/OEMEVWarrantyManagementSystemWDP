@@ -187,14 +187,18 @@ class CaseLineService {
 
   /**
    * Update case line information
-   * PATCH /case-lines/{caselineId}
+   * PATCH /guarantee-cases/{caseId}/case-lines/{caselineId}
    */
   async updateCaseLine(
+    caseId: string,
     caselineId: string,
     data: UpdateCaseLineData
   ): Promise<UpdateCaseLineResponse> {
     try {
-      const response = await apiClient.patch(`/case-lines/${caselineId}`, data);
+      const response = await apiClient.patch(
+        `/guarantee-cases/${caseId}/case-lines/${caselineId}`,
+        data
+      );
       return response.data;
     } catch (error: unknown) {
       console.error("Error updating case line:", error);
