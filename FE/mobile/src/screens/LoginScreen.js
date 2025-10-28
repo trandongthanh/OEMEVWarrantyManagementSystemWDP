@@ -72,7 +72,7 @@ export default function LoginScreen() {
         setTimeout(() => {
           switch (role) {
             case "service_center_manager":
-              navigation.replace("ManagerDashboard");
+              navigation.replace("ManagerDashboardTabs");
               break;
             case "service_center_staff":
               navigation.replace("StaffDashboardTabs");

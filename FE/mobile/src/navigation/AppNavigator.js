@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 // 📄 Screens
 import LoginScreen from "../screens/LoginScreen";
-import ManagerDashboard from "../screens/ManagerDashboard";
+import ManagerDashboardTabs from "../screens/manager/ManagerDashboardTabs";
 import StaffDashboardTabs from "../screens/staff/StaffDashboardTabs";
 import TechnicianDashboard from "../screens/TechnicianDashboard";
 import StaffChatScreen from "../screens/staff/StaffChatScreen"; // 👈 thêm vào đây
@@ -31,9 +31,9 @@ export default function AppNavigator() {
 
         {/* 👨‍💼 Manager */}
         <Stack.Screen
-          name="ManagerDashboard"
-          component={ManagerDashboard}
-          options={{ title: "Manager Dashboard" }}
+          name="ManagerDashboardTabs"
+          component={ManagerDashboardTabs}
+          options={{ title: "Manager Dashboard", headerShown: false }}
         />
 
         {/* 🧾 Staff (Tabs) */}

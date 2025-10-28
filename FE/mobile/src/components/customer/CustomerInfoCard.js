@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 const COLORS = {
@@ -10,7 +10,7 @@ const COLORS = {
   accent: "#3B82F6",
 };
 
-export default function CustomerInfoCard({ customer, onCreateClaim }) {
+export default function CustomerInfoCard({ customer }) {
   if (!customer) return null;
 
   return (
@@ -49,17 +49,6 @@ export default function CustomerInfoCard({ customer, onCreateClaim }) {
           hour12: false,
         })}
       </Text>
-
-      {/* Button */}
-      <TouchableOpacity style={styles.claimBtn} onPress={onCreateClaim}>
-        <Ionicons
-          name="document-text-outline"
-          size={18}
-          color="#fff"
-          style={{ marginRight: 6 }}
-        />
-        <Text style={styles.claimText}>Create Warranty Claim</Text>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -122,19 +111,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.textMuted,
     textAlign: "right",
-  },
-  claimBtn: {
-    marginTop: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: COLORS.accent,
-    borderRadius: 8,
-    paddingVertical: 10,
-  },
-  claimText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 15,
   },
 });

@@ -9,7 +9,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native"; // ✅ thêm dòng này
+import { useNavigation } from "@react-navigation/native";
 
 const COLORS = {
   bg: "#0B0F14",
@@ -20,26 +20,36 @@ const COLORS = {
   accent: "#3B82F6",
 };
 
-export default function StaffInfoScreen() {
+export default function ManagerInfoScreen() {
   const [info, setInfo] = useState(null);
   const [loading, setLoading] = useState(true);
-  const navigation = useNavigation(); // ✅ khởi tạo navigation
+  const navigation = useNavigation();
 
   useEffect(() => {
     const loadInfo = async () => {
       try {
-        const staffName = await AsyncStorage.getItem("staffName");
+        const managerName = await AsyncStorage.getItem("managerName");
         const userRole = await AsyncStorage.getItem("userRole");
         const userId = await AsyncStorage.getItem("userId");
-        setInfo({ staffName, userRole, userId });
+        setInfo({ managerName, userRole, userId });
       } catch (err) {
-        console.error("Failed to load staff info:", err);
+        console.error("Failed to load manager info:", err);
       } finally {
         setLoading(false);
       }
     };
     loadInfo();
   }, []);
+
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.clear();
+      alert("Logged out successfully!");
+      navigation.replace("Login");
+    } catch (err) {
+      console.error("Logout failed:", err);
+    }
+  };
 
   if (loading) {
     return (
@@ -51,26 +61,28 @@ export default function StaffInfoScreen() {
 
   return (
     <LinearGradient colors={["#0B0F14", "#11161C"]} style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
         <Ionicons
           name="person-circle-outline"
           size={70}
           color={COLORS.accent}
         />
-        <Text style={styles.name}>{info?.staffName || "Unknown Staff"}</Text>
+        <Text style={styles.name}>{info?.managerName || "Manager"}</Text>
         <Text style={styles.role}>
           {info?.userRole?.replace("service_center_", "").toUpperCase() ||
-            "NO ROLE"}
+            "MANAGER"}
         </Text>
       </View>
 
+      {/* Info box */}
       <View style={styles.infoBox}>
-        <Text style={styles.label}>👤 Staff ID</Text>
+        <Text style={styles.label}>🆔 Manager ID</Text>
         <Text style={styles.value}>{info?.userId || "N/A"}</Text>
 
         <Text style={styles.label}>🏢 Role</Text>
         <Text style={styles.value}>
-          {info?.userRole || "service_center_staff"}
+          {info?.userRole || "service_center_manager"}
         </Text>
 
         <Text style={styles.label}>🕒 Logged In</Text>
@@ -79,18 +91,8 @@ export default function StaffInfoScreen() {
         </Text>
       </View>
 
-      <TouchableOpacity
-        style={styles.logoutBtn}
-        onPress={async () => {
-          try {
-            await AsyncStorage.clear();
-            alert("Logged out successfully!");
-            navigation.replace("Login"); // ✅ quay về màn login
-          } catch (err) {
-            console.error("Logout failed:", err);
-          }
-        }}
-      >
+      {/* Logout button */}
+      <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
         <Ionicons name="log-out-outline" size={20} color="#fff" />
         <Text style={styles.logoutText}>Logout</Text>
       </TouchableOpacity>

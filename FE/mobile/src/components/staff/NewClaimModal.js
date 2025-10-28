@@ -71,12 +71,9 @@ export default function NewClaimModal({ visible, onClose }) {
       <Modal visible={visible} animationType="fade" transparent>
         <View style={styles.overlay}>
           <View style={styles.modal}>
-            {/* Header */}
+            {/* Header (no close icon) */}
             <View style={styles.header}>
               <Text style={styles.title}>New Warranty Claim</Text>
-              <TouchableOpacity onPress={onClose}>
-                <Ionicons name="close" size={22} color={COLORS.text} />
-              </TouchableOpacity>
             </View>
 
             <Text style={styles.label}>
@@ -154,8 +151,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "center",
     alignItems: "center",
     marginBottom: 10,
   },

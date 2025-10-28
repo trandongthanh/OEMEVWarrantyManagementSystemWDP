@@ -1,8 +1,9 @@
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import StaffVehicleSearch from "./StaffVehicleSearch";
-import StaffInfoScreen from "./StaffInfoScreen";
+import StaffCaseListScreen from "./StaffCaseListScreen"; // ✅ Thêm mới
 import StaffMessageListScreen from "./StaffMessageListScreen";
+import StaffInfoScreen from "./StaffInfoScreen";
 import { Ionicons } from "@expo/vector-icons";
 
 const Tab = createBottomTabNavigator();
@@ -33,6 +34,9 @@ export default function StaffDashboardTabs() {
             case "Home":
               iconName = "home-outline";
               break;
+            case "Cases":
+              iconName = "briefcase-outline"; // ✅ biểu tượng cho case
+              break;
             case "Messages":
               iconName = "chatbubbles-outline";
               break;
@@ -52,6 +56,13 @@ export default function StaffDashboardTabs() {
         name="Home"
         component={StaffVehicleSearch}
         options={{ title: "Home" }}
+      />
+
+      {/* 📂 Cases Tab */}
+      <Tab.Screen
+        name="Cases"
+        component={StaffCaseListScreen}
+        options={{ title: "Cases" }}
       />
 
       {/* 💬 Messages Tab */}

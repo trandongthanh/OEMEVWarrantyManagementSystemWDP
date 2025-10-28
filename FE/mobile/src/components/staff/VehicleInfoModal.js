@@ -59,6 +59,7 @@ export default function VehicleInfoModal({ visible, vehicle, onClose }) {
       const data = await getVehicleWarrantyInfo(vehicle.vin, odometer);
       if (data.status === "success" && data.data?.vehicle) {
         setWarranty(data.data.vehicle);
+        // ✅ truyền odometer & vin sang modal sau
         setShowWarrantyModal(true);
       } else {
         setError("No warranty information found.");
@@ -155,13 +156,12 @@ export default function VehicleInfoModal({ visible, vehicle, onClose }) {
                         style={styles.input}
                         placeholder="e.g. 12000"
                         placeholderTextColor={COLORS.textMuted}
-                        keyboardType="numeric"
+                        keyboardType="number-pad"
                         value={odometer}
                         onChangeText={(text) => {
                           const numericText = text.replace(/[^0-9]/g, "");
-                          setOdometer(numericText.slice(0, 7));
+                          setOdometer(numericText);
                         }}
-                        maxLength={7}
                       />
 
                       <TouchableOpacity
@@ -193,6 +193,7 @@ export default function VehicleInfoModal({ visible, vehicle, onClose }) {
         </TouchableWithoutFeedback>
       </Modal>
 
+      {/* ⚠️ Owner chưa đăng ký */}
       <OwnerWarningModal
         visible={showOwnerWarning}
         onClose={() => setShowOwnerWarning(false)}
@@ -202,6 +203,7 @@ export default function VehicleInfoModal({ visible, vehicle, onClose }) {
         }}
       />
 
+      {/* 🧭 Modal tìm chủ xe */}
       <FindCustomerModal
         visible={showFindCustomer}
         vin={vehicle?.vin}
@@ -209,9 +211,12 @@ export default function VehicleInfoModal({ visible, vehicle, onClose }) {
         onClose={() => setShowFindCustomer(false)}
       />
 
+      {/* ✅ Truyền VIN + ODO sang WarrantyInfoModal */}
       <WarrantyInfoModal
         visible={showWarrantyModal}
         warranty={warranty}
+        vehicle={vehicle}
+        odometer={odometer} // ✅ truyền odo qua
         onClose={() => setShowWarrantyModal(false)}
       />
     </>
