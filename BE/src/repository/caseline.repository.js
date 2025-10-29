@@ -398,6 +398,32 @@ class CaseLineRepository {
 
     return caseLines.map((cl) => cl.toJSON());
   };
+
+  findPendingApprovalIdsByVehicleProcessingRecordId = async (
+    { vehicleProcessingRecordId },
+    transaction = null,
+    lock = null
+  ) => {
+    const caseLines = await CaseLine.findAll({
+      attributes: ["id"],
+      where: {
+        status: "PENDING_APPROVAL",
+      },
+      include: [
+        {
+          model: GuaranteeCase,
+          as: "guaranteeCase",
+          attributes: [],
+          where: { vehicleProcessingRecordId },
+          required: true,
+        },
+      ],
+      transaction,
+      lock,
+    });
+
+    return caseLines.map((cl) => cl.id ?? cl.toJSON().id);
+  };
 }
 
 export default CaseLineRepository;
