@@ -333,11 +333,13 @@ class StockTransferRequestService {
         if (!acc[reservation.typeComponentId]) {
           acc[reservation.typeComponentId] = [];
         }
+
         acc[reservation.typeComponentId].push(reservation);
         return acc;
       }, {});
 
       const stockIds = reservations.map((r) => r.stockId);
+
       const stocks = await this.#warehouseRepository.findStocksByIds(
         { stockIds },
         transaction,
@@ -367,6 +369,7 @@ class StockTransferRequestService {
       const allComponentIds = componentCollections.flatMap(
         (c) => c.componentIds
       );
+
       await this.#componentRepository.bulkUpdateStatus(
         {
           componentIds: allComponentIds,
@@ -386,11 +389,11 @@ class StockTransferRequestService {
       }
 
       await this.#warehouseRepository.bulkUpdateStockQuantities(
-        { reservations: stockUpdates },
+        { stockUpdates: stockUpdates },
         transaction
       );
 
-      const reservationIds = reservations.map((r) => r.id);
+      const reservationIds = reservations.map((r) => r.stockId);
       await this.#stockReservationRepository.bulkUpdateStatus(
         { reservationIds, status: "SHIPPED" },
         transaction
@@ -413,7 +416,12 @@ class StockTransferRequestService {
       };
     });
 
-    return rawResult;
+    const { updatedRequest, componentCollections } = rawResult;
+
+    return {
+      updatedRequest,
+      componentCollections,
+    };
   };
 
   receiveStockTransferRequest = async ({
@@ -425,7 +433,7 @@ class StockTransferRequestService {
     const rawResult = await db.sequelize.transaction(async (transaction) => {
       const existingRequest =
         await this.#stockTransferRequestRepository.getStockTransferRequestById(
-          { requestId },
+          { id: requestId },
           transaction,
           Transaction.LOCK.UPDATE
         );
@@ -471,19 +479,22 @@ class StockTransferRequestService {
 
       const componentsByType = componentsInTransit.reduce((acc, component) => {
         const typeId = component.typeComponentId;
+
         if (!acc[typeId]) {
           acc[typeId] = [];
         }
+
         acc[typeId].push(component);
         return acc;
       }, {});
 
       const allComponentIds = componentsInTransit.map((c) => c.componentId);
-      await this.#componentRepository.bulkUpdateStatusAndWarehouse(
+
+      await this.#componentRepository.bulkUpdateStatus(
         {
           componentIds: allComponentIds,
           status: "IN_WAREHOUSE",
-          warehouseId: warehouseId,
+          requestId: existingRequest.id,
         },
         transaction
       );
@@ -493,10 +504,10 @@ class StockTransferRequestService {
         componentsByType
       )) {
         const existingStock =
-          await this.#warehouseRepository.findStockByWarehouseAndType(
+          await this.#warehouseRepository.findStockByWarehouseAndTypeComponent(
             {
               warehouseId: warehouseId,
-              typeComponentId: parseInt(typeComponentId),
+              typeComponentId: typeComponentId,
             },
             transaction,
             Transaction.LOCK.UPDATE
@@ -523,7 +534,7 @@ class StockTransferRequestService {
 
       if (stockUpdates.length > 0) {
         await this.#warehouseRepository.bulkUpdateStockQuantities(
-          { reservations: stockUpdates },
+          { stockUpdates: stockUpdates },
           transaction
         );
       }
@@ -538,37 +549,28 @@ class StockTransferRequestService {
           transaction
         );
 
-      const requestItems =
-        await this.#stockTransferRequestItemRepository.getStockTransferRequestItemsByRequestId(
-          { requestId },
-          transaction
-        );
-
-      const caselineIds = requestItems
-        .map((item) => item.caselineId)
-        .filter((id) => id);
-
-      if (caselineIds.length > 0) {
-        await this.#caselineRepository.bulkUpdateStatusByIds(
-          {
-            caselineIds,
-            status: "READY_FOR_REPAIR",
-          },
-          transaction
-        );
-      }
-
       const requestWithDetails =
         await this.#stockTransferRequestRepository.getStockTransferRequestById(
-          { requestId },
+          { id: requestId },
           transaction
         );
 
-      const roomName = `service_center_staff_${serviceCenterId}`;
+      const roomName_service_center_staff = `service_center_staff_${serviceCenterId}`;
+      const roomName_service_center_manager = `service_center_manager_${serviceCenterId}`;
       const eventName = "stock_transfer_request_received";
       const data = { requestWithDetails };
 
-      this.#notificationService.sendToRoom(roomName, eventName, data);
+      this.#notificationService.sendToRoom(
+        roomName_service_center_staff,
+        eventName,
+        data
+      );
+
+      this.#notificationService.sendToRoom(
+        roomName_service_center_manager,
+        eventName,
+        data
+      );
 
       return {
         updatedRequest,
