@@ -170,11 +170,11 @@ export function CaseLineManagement() {
     setSuccessMessage("");
 
     try {
-      // Find the guarantee case that contains this case line
+      // Find the guarantee case ID for this case line
       let guaranteeCaseId = "";
       for (const gCase of guaranteeCases) {
         const foundCaseLine = gCase.caseLines?.find(
-          (cl: any) => cl.caseLineId === caseLineId
+          (cl: any) => cl.caseLineId === caseLineId || cl.id === caseLineId
         );
         if (foundCaseLine) {
           guaranteeCaseId = gCase.guaranteeCaseId || gCase.caseId;
@@ -183,6 +183,10 @@ export function CaseLineManagement() {
       }
 
       if (!guaranteeCaseId) {
+        console.error("Case line not found in any guarantee case", {
+          caseLineId,
+          guaranteeCases,
+        });
         setErrorMessage("Could not find the associated guarantee case");
         return;
       }
@@ -287,8 +291,10 @@ export function CaseLineManagement() {
       // Find the first guarantee case ID from selected case lines
       let guaranteeCaseId = "";
       for (const gCase of guaranteeCases) {
-        const foundCaseLine = gCase.caseLines?.find((cl: any) =>
-          selectedCaseLineIds.has(cl.id)
+        const foundCaseLine = gCase.caseLines?.find(
+          (cl: any) =>
+            selectedCaseLineIds.has(cl.id) ||
+            selectedCaseLineIds.has(cl.caseLineId)
         );
         if (foundCaseLine) {
           guaranteeCaseId = gCase.guaranteeCaseId || gCase.caseId;
@@ -297,6 +303,10 @@ export function CaseLineManagement() {
       }
 
       if (!guaranteeCaseId) {
+        console.error("No guarantee case found for selected case lines", {
+          selectedCaseLineIds: Array.from(selectedCaseLineIds),
+          guaranteeCases,
+        });
         setErrorMessage("Could not find the associated guarantee case");
         return;
       }
@@ -706,6 +716,9 @@ export function CaseLineManagement() {
                                 <div className="flex-1">
                                   <div className="flex items-center justify-between mb-3">
                                     <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-xs font-medium px-2 py-1 rounded-md bg-gray-100 text-gray-700">
+                                        ID: {caseLine.id || caseLine.caseLineId}
+                                      </span>
                                       <span
                                         className={`text-xs font-medium px-2 py-1 rounded-md ${
                                           caseLineStatusConfig[caseLine.status]

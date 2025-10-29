@@ -127,6 +127,7 @@ export interface AssignTechnicianResponse {
 }
 
 export interface BulkUpdateStockQuantitiesData {
+  caseId: string;
   caseLines: Array<{
     caseLineId: string;
     quantityReserved: number;
@@ -311,10 +312,13 @@ class CaseLineService {
    */
   async bulkUpdateStockQuantities(
     caseId: string,
-    data: BulkUpdateStockQuantitiesData
+    data: Omit<BulkUpdateStockQuantitiesData, "caseId">
   ): Promise<BulkUpdateStockQuantitiesResponse> {
     try {
-      const response = await apiClient.post(`/guarantee-cases/${caseId}`, data);
+      const response = await apiClient.post(`/guarantee-cases/${caseId}`, {
+        caseId,
+        ...data,
+      });
       return response.data;
     } catch (error: unknown) {
       console.error("Error bulk updating stock quantities:", error);
