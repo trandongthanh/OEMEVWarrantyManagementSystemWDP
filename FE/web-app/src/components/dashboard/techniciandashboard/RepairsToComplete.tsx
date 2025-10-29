@@ -8,7 +8,7 @@ import { toast } from "sonner";
 
 export function RepairsToComplete() {
   const [caseLines, setCaseLines] = useState<CaseLine[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [completingId, setCompletingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -57,16 +57,11 @@ export function RepairsToComplete() {
 
   if (loading) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-2xl border border-gray-200 p-6"
-      >
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
-          <span className="ml-2 text-gray-600">Loading repairs...</span>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
         </div>
-      </motion.div>
+      </div>
     );
   }
 
@@ -75,7 +70,7 @@ export function RepairsToComplete() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.25 }}
-      className="bg-white rounded-2xl border border-gray-200 p-6"
+      className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6"
     >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -97,7 +92,7 @@ export function RepairsToComplete() {
       </div>
 
       {caseLines.length === 0 ? (
-        <div className="text-center py-8">
+        <div className="text-center py-8 bg-gray-50 rounded-lg">
           <CheckCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500 text-sm">No repairs pending completion</p>
           <p className="text-gray-400 text-xs mt-1">

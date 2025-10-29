@@ -51,6 +51,7 @@ export interface CaseLineDetailResponse {
 }
 
 export interface UpdateCaseLineData {
+  caseId?: string;
   diagnosisText?: string;
   correctionText?: string;
   typeComponentId?: string | null;
@@ -67,8 +68,8 @@ export interface UpdateCaseLineResponse {
 }
 
 export interface ApproveCaseLinesData {
-  approvedCaseLineIds?: string[];
-  rejectedCaseLineIds?: string[];
+  approvedCaseLineIds?: { id: string }[];
+  rejectedCaseLineIds?: { id: string }[];
 }
 
 export interface ApproveCaseLinesResponse {
@@ -214,14 +215,23 @@ class CaseLineService {
 
   /**
    * Update case line information
-   * PATCH /case-lines/{caselineId}
+   * PATCH /guarantee-cases/{caseId}/case-lines/{caselineId}
+   * Note: Backend validator requires both caseId and caselineId in URL params
    */
   async updateCaseLine(
     caselineId: string,
     data: UpdateCaseLineData
   ): Promise<UpdateCaseLineResponse> {
     try {
-      const response = await apiClient.patch(`/case-lines/${caselineId}`, data);
+      // Backend validator requires caseId in URL path, extract from data
+      const { caseId, ...bodyData } = data;
+      if (!caseId) {
+        throw new Error("caseId is required to update case line");
+      }
+      const response = await apiClient.patch(
+        `/guarantee-cases/${caseId}/case-lines/${caselineId}`,
+        bodyData
+      );
       return response.data;
     } catch (error: unknown) {
       console.error("Error updating case line:", error);

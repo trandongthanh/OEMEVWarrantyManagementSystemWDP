@@ -40,8 +40,10 @@ export function ApproveCaseLinesModal({
       setError(null);
 
       const payload = {
-        approvedCaseLineIds: action === "approve" ? caseLineIds : undefined,
-        rejectedCaseLineIds: action === "reject" ? caseLineIds : undefined,
+        approvedCaseLineIds:
+          action === "approve" ? caseLineIds.map((id) => ({ id })) : [],
+        rejectedCaseLineIds:
+          action === "reject" ? caseLineIds.map((id) => ({ id })) : [],
       };
 
       await caseLineService.approveCaseLines(payload);

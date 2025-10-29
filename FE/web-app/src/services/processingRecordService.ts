@@ -40,11 +40,22 @@ export interface ProcessingRecord {
     status?: string;
     statusForGuaranteeCase?: string;
     caseLines?: Array<{
-      caseLineId: string;
+      id?: string;
+      caseLineId?: string;
       diagnosisText: string;
       correctionText: string;
       quantity: number;
       warrantyStatus: string;
+      status?: string;
+      rejectionReason?: string | null;
+      repairTechId?: string | null;
+      diagnosticTechId?: string | null;
+      typeComponentId?: string;
+      typeComponent?: {
+        typeComponentId: string;
+        name: string;
+        category: string;
+      };
     }>;
   }>;
 }

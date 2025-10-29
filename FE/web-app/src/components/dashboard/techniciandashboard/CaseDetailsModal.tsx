@@ -39,6 +39,7 @@ interface CaseLineForm extends CaseLineInput {
   componentName?: string;
   isUnderWarranty?: boolean; // Track if component is under warranty
   rejectionReason?: string; // Reason for warranty ineligibility
+  status?: string; // Case line status (DRAFT, PENDING_APPROVAL, etc.)
 }
 
 // EV-specific categories matching backend TypeComponent table
@@ -99,6 +100,8 @@ export function CaseDetailsModal({
   const [successMessage, setSuccessMessage] = useState("");
   const [showCompleteDiagnosisButton, setShowCompleteDiagnosisButton] =
     useState(false);
+  const [actualCaseId, setActualCaseId] = useState<string | undefined>(caseId);
+  const [isReadOnly, setIsReadOnly] = useState(false); // True if case lines are not in DRAFT status
 
   // Load case line data - either specific case line or all case lines for the guarantee case
   useEffect(() => {
@@ -139,6 +142,38 @@ export function CaseDetailsModal({
           const caseLineData = response.data.caseLine;
 
           console.log("📋 Loaded specific case line data:", caseLineData);
+
+          // Capture the guaranteeCaseId from the loaded case line
+          if (caseLineData.guaranteeCaseId) {
+            setActualCaseId(caseLineData.guaranteeCaseId);
+          }
+
+          // Check if case line is in DRAFT status - only DRAFT can be edited
+          const isDraft =
+            caseLineData.status === "DRAFT" || !caseLineData.status;
+          setIsReadOnly(!isDraft);
+
+          console.log(
+            "🔍 Case line status:",
+            caseLineData.status,
+            "isDraft:",
+            isDraft,
+            "recordId:",
+            recordId
+          );
+
+          // Show Complete Diagnosis button if in DRAFT status (edit mode)
+          if (isDraft && recordId) {
+            console.log("✅ Setting showCompleteDiagnosisButton to true");
+            setShowCompleteDiagnosisButton(true);
+          } else {
+            console.log(
+              "❌ NOT showing Complete Diagnosis button - isDraft:",
+              isDraft,
+              "recordId:",
+              recordId
+            );
+          }
 
           setCaseLines([
             {
@@ -194,10 +229,31 @@ export function CaseDetailsModal({
                 warrantyStatus: cl.warrantyStatus || "ELIGIBLE",
                 isUnderWarranty: cl.warrantyStatus === "ELIGIBLE",
                 rejectionReason: cl.rejectionReason || "",
+                status: cl.status || "DRAFT", // Include status from backend
               }));
 
               console.log("💾 Setting case lines to state:", existingCaseLines);
               setCaseLines(existingCaseLines);
+
+              // Check if all case lines are DRAFT - if so, show Complete Diagnosis button
+              const allDraft = guaranteeCase.caseLines.every(
+                (cl) => cl.status === "DRAFT" || !cl.status
+              );
+              console.log(
+                "🔍 All case lines DRAFT?",
+                allDraft,
+                "recordId:",
+                recordId
+              );
+
+              if (allDraft && recordId) {
+                console.log("✅ Showing Complete Diagnosis button");
+                setShowCompleteDiagnosisButton(true);
+                setIsReadOnly(false); // Allow editing
+              } else {
+                console.log("❌ Case lines not all DRAFT, read-only mode");
+                setIsReadOnly(true); // Read-only if not all DRAFT
+              }
             } else {
               console.log(
                 "📋 No existing case lines found, starting with empty form"
@@ -354,7 +410,7 @@ export function CaseDetailsModal({
         // Edit mode - update existing case lines
         console.log("📝 Updating existing case lines...");
 
-        if (!caseId) {
+        if (!actualCaseId) {
           setErrorMessage("Case ID is required to update case lines");
           return;
         }
@@ -364,6 +420,7 @@ export function CaseDetailsModal({
           .filter((line) => line.caseLineId)
           .map((caseLine) =>
             caseLineService.updateCaseLine(caseLine.caseLineId!, {
+              caseId: actualCaseId,
               diagnosisText: caseLine.diagnosisText,
               correctionText: caseLine.correctionText,
               typeComponentId: caseLine.typeComponentId || null,
@@ -382,7 +439,7 @@ export function CaseDetailsModal({
         // Create mode - create new case lines
         console.log("✨ Creating new case lines...");
 
-        if (!caseId) {
+        if (!actualCaseId) {
           setErrorMessage("Case ID is required to create case lines");
           return;
         }
@@ -405,9 +462,12 @@ export function CaseDetailsModal({
           })
         );
 
-        const createResponse = await technicianService.createCaseLines(caseId, {
-          caselines: caselinesToSend,
-        });
+        const createResponse = await technicianService.createCaseLines(
+          actualCaseId,
+          {
+            caselines: caselinesToSend,
+          }
+        );
 
         const createdCaseLines = createResponse.data.caseLines;
 
@@ -416,29 +476,37 @@ export function CaseDetailsModal({
           (line) => line.componentId && line.quantity > 0
         );
 
-        if (linesWithComponents.length > 0 && caseId && caseId.trim()) {
+        if (
+          linesWithComponents.length > 0 &&
+          actualCaseId &&
+          actualCaseId.trim()
+        ) {
           const stockData = linesWithComponents.map((line) => ({
             id: line.caseLineId,
             componentId: line.componentId!,
             quantity: line.quantity,
           }));
 
-          await technicianService.updateStockQuantities(caseId, stockData);
+          await technicianService.updateStockQuantities(
+            actualCaseId,
+            stockData
+          );
         } else if (
           linesWithComponents.length > 0 &&
-          (!caseId || !caseId.trim())
+          (!actualCaseId || !actualCaseId.trim())
         ) {
-          console.warn("Skipping stock update: caseId is not provided");
+          console.warn("Skipping stock update: actualCaseId is not provided");
         }
 
         setSuccessMessage("Case lines created successfully!");
         setShowCompleteDiagnosisButton(true); // Show complete diagnosis button after creation
       }
 
-      setTimeout(() => {
-        onSuccess?.();
-        onClose();
-      }, 1500); // Show success message briefly before closing
+      // Don't close modal automatically - let user click Complete Diagnosis button
+      // setTimeout(() => {
+      //   onSuccess?.();
+      //   onClose();
+      // }, 1500);
     } catch (error: unknown) {
       console.error("Error saving case lines:", error);
       const errMsg =
@@ -458,6 +526,15 @@ export function CaseDetailsModal({
 
   if (!isOpen) return null;
 
+  // Determine modal state for styling
+  const modalTitle = isLoading
+    ? "Loading..."
+    : isReadOnly
+    ? "View Diagnosis"
+    : caseLines.some((line) => line.caseLineId)
+    ? "Edit Diagnosis"
+    : "Add Diagnosis";
+
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
@@ -470,15 +547,14 @@ export function CaseDetailsModal({
           {/* Header */}
           <div className="p-6 border-b border-gray-200 flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">
-                {caseLines.some((line) => line.caseLineId)
-                  ? "Edit Diagnosis"
-                  : "Add Diagnosis"}
-              </h2>
+              <h2 className="text-2xl font-bold text-gray-900">{modalTitle}</h2>
               <p className="text-sm text-gray-600 mt-1">
                 VIN: {vin} | Case ID: {caseId}
-                {caseLines.some((line) => line.caseLineId) &&
-                  ` | Editing ${caseLines.length} case line(s)`}
+                {!isLoading &&
+                  caseLines.some((line) => line.caseLineId) &&
+                  ` | ${isReadOnly ? "Viewing" : "Editing"} ${
+                    caseLines.length
+                  } case line(s)`}
               </p>
             </div>
             <button
@@ -526,357 +602,423 @@ export function CaseDetailsModal({
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-6">
-            {/* Component Search Section */}
-            {showComponentSearch && (
-              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                    <Package className="w-5 h-5 text-blue-600" />
-                    Search Compatible Components
-                  </h3>
-                  <button
-                    onClick={() => {
-                      setShowComponentSearch(false);
-                      setActiveLineIndex(null);
-                    }}
-                    className="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 hover:text-gray-900 rounded-md text-sm font-medium transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-
-                <div className="flex gap-3 mb-4">
-                  <select
-                    value={searchCategory}
-                    onChange={(e) => setSearchCategory(e.target.value)}
-                    className="px-4 py-2 border border-gray-300 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {COMPONENT_CATEGORIES.map((cat) => (
-                      <option key={cat.value} value={cat.value}>
-                        {cat.label}
-                      </option>
-                    ))}
-                  </select>
-
-                  <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Search by name..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <button
-                    onClick={searchComponents}
-                    disabled={isSearching}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
-                  >
-                    {isSearching ? (
-                      <>Searching...</>
-                    ) : (
-                      <>
-                        <Search className="w-4 h-4" />
-                        Search
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 max-h-64 overflow-y-auto">
-                  {components.length === 0 ? (
-                    <div className="col-span-2 text-center py-8 text-gray-500">
-                      No components found
-                    </div>
-                  ) : (
-                    components.map((component) => (
-                      <button
-                        key={component.typeComponentId}
-                        onClick={() => handleSelectComponent(component)}
-                        className="p-4 border border-gray-200 rounded-xl hover:bg-blue-50 hover:border-blue-300 transition-all text-left"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <p className="font-medium text-gray-900">
-                              {component.name}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              {component.typeComponentId}
-                            </p>
-                          </div>
-                          {component.isUnderWarranty ? (
-                            <Shield className="w-5 h-5 text-green-600" />
-                          ) : (
-                            <ShieldOff className="w-5 h-5 text-gray-400" />
-                          )}
-                        </div>
-                      </button>
-                    ))
-                  )}
-                </div>
+            {/* Loading State */}
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+                <p className="text-sm text-gray-600">
+                  Loading case line data...
+                </p>
               </div>
-            )}
-
-            {/* Case Lines */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-900">
-                  {isEditMode ? "Edit Case Line" : "Diagnosis & Repair Actions"}
-                </h3>
-                {!isEditMode && (
-                  <button
-                    onClick={handleAddCaseLine}
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-900 rounded-xl hover:bg-gray-200 transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Line
-                  </button>
-                )}
-              </div>
-
-              {caseLines.map((caseLine, index) => (
-                <div
-                  key={index}
-                  className="p-4 border border-gray-200 rounded-xl space-y-4"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-gray-900">
-                      {isEditMode ? "Case Line Details" : `Line ${index + 1}`}
-                    </span>
-                    {caseLines.length > 1 && !isEditMode && (
+            ) : (
+              <>
+                {/* Component Search Section */}
+                {showComponentSearch && (
+                  <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                        <Package className="w-5 h-5 text-blue-600" />
+                        Search Compatible Components
+                      </h3>
                       <button
-                        onClick={() => handleRemoveCaseLine(index)}
-                        className="p-1 bg-red-100 hover:bg-red-200 text-red-600 hover:text-red-700 rounded-md transition-colors"
+                        onClick={() => {
+                          setShowComponentSearch(false);
+                          setActiveLineIndex(null);
+                        }}
+                        className="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 hover:text-gray-900 rounded-md text-sm font-medium transition-colors"
                       >
-                        <X className="w-4 h-4" />
+                        Cancel
                       </button>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        <FileText className="w-4 h-4 inline mr-1" />
-                        Diagnosis *
-                      </label>
-                      <textarea
-                        value={caseLine.diagnosisText}
-                        onChange={(e) =>
-                          handleCaseLineChange(
-                            index,
-                            "diagnosisText",
-                            e.target.value
-                          )
-                        }
-                        placeholder="Describe the problem found..."
-                        rows={3}
-                        className="w-full px-4 py-2 border text-black border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        <Wrench className="w-4 h-4 inline mr-1" />
-                        Correction *
-                      </label>
-                      <textarea
-                        value={caseLine.correctionText}
-                        onChange={(e) =>
-                          handleCaseLineChange(
-                            index,
-                            "correctionText",
-                            e.target.value
-                          )
-                        }
-                        placeholder="Describe the repair action..."
-                        rows={3}
-                        className="w-full px-4 text-black py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
+                    <div className="flex gap-3 mb-4">
+                      <select
+                        value={searchCategory}
+                        onChange={(e) => setSearchCategory(e.target.value)}
+                        className="px-4 py-2 border border-gray-300 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        {COMPONENT_CATEGORIES.map((cat) => (
+                          <option key={cat.value} value={cat.value}>
+                            {cat.label}
+                          </option>
+                        ))}
+                      </select>
 
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        <Package className="w-4 h-4 inline mr-1" />
-                        Component
-                      </label>
-                      <div className="flex gap-2">
+                      <div className="flex-1 relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                         <input
                           type="text"
-                          value={caseLine.componentName || ""}
-                          readOnly
-                          placeholder="No component selected"
-                          className="flex-1 px-4 py-2 border border-gray-300 rounded-xl bg-gray-50 text-gray-700"
+                          placeholder="Search by name..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
-                        <button
-                          onClick={() => handleOpenComponentSearch(index)}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all"
-                        >
-                          Search
-                        </button>
                       </div>
+
+                      <button
+                        onClick={searchComponents}
+                        disabled={isSearching}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {isSearching ? (
+                          <>Searching...</>
+                        ) : (
+                          <>
+                            <Search className="w-4 h-4" />
+                            Search
+                          </>
+                        )}
+                      </button>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Quantity
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={caseLine.quantity}
-                        onChange={(e) =>
-                          handleCaseLineChange(
-                            index,
-                            "quantity",
-                            parseInt(e.target.value) || 0
-                          )
-                        }
-                        className="w-full px-4 text-black py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Warranty Status
-                    </label>
-
-                    {/* Manual warranty status selector - only enabled when isUnderWarranty is true */}
-                    {caseLine.isUnderWarranty ? (
-                      <div className="flex gap-4">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name={`warranty-${index}`}
-                            checked={caseLine.warrantyStatus === "ELIGIBLE"}
-                            onChange={() =>
-                              handleCaseLineChange(
-                                index,
-                                "warrantyStatus",
-                                "ELIGIBLE"
-                              )
-                            }
-                            className="w-4 h-4 text-green-600"
-                          />
-                          <CheckCircle className="w-4 h-4 text-green-600" />
-                          <span className="text-sm text-gray-700">
-                            Eligible
-                          </span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name={`warranty-${index}`}
-                            checked={caseLine.warrantyStatus === "INELIGIBLE"}
-                            onChange={() =>
-                              handleCaseLineChange(
-                                index,
-                                "warrantyStatus",
-                                "INELIGIBLE"
-                              )
-                            }
-                            className="w-4 h-4 text-red-600"
-                          />
-                          <AlertCircle className="w-4 h-4 text-red-600" />
-                          <span className="text-sm text-gray-700">
-                            Ineligible
-                          </span>
-                        </label>
-                      </div>
-                    ) : (
-                      <div>
-                        <div className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-gray-50">
-                          <AlertCircle className="w-5 h-5 text-red-600" />
-                          <div>
-                            <span className="font-medium text-red-700">
-                              Warranty Ineligible (Locked)
-                            </span>
-                            <p className="text-xs text-gray-600 mt-0.5">
-                              Component is not covered by warranty
-                            </p>
-                          </div>
+                    <div className="grid grid-cols-2 gap-3 max-h-64 overflow-y-auto">
+                      {components.length === 0 ? (
+                        <div className="col-span-2 text-center py-8 text-gray-500">
+                          No components found
                         </div>
-                        <p className="text-xs text-red-500 mt-2">
-                          🔒 This component is not under warranty and cannot be
-                          set to eligible.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Rejection Reason - shown when warranty status is INELIGIBLE */}
-                  {caseLine.warrantyStatus === "INELIGIBLE" && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        <AlertCircle className="w-4 h-4 inline mr-1 text-red-600" />
-                        Rejection Reason *
-                      </label>
-                      <textarea
-                        value={caseLine.rejectionReason || ""}
-                        onChange={(e) =>
-                          handleCaseLineChange(
-                            index,
-                            "rejectionReason",
-                            e.target.value
-                          )
-                        }
-                        placeholder="Please explain why this warranty claim is being rejected..."
-                        rows={3}
-                        className="w-full px-4 py-2 border text-black border-red-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 bg-red-50"
-                        required
-                      />
-                      <p className="text-xs text-gray-600 mt-1">
-                        Required when marking warranty as ineligible
-                      </p>
-                    </motion.div>
-                  )}
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Component Warranty Coverage
-                    </label>
-                    <div
-                      className={`flex items-center gap-2 p-3 rounded-lg border-2 ${
-                        caseLine.isUnderWarranty
-                          ? "border-green-200 bg-green-50"
-                          : "border-red-200 bg-red-50"
-                      }`}
-                    >
-                      {caseLine.isUnderWarranty ? (
-                        <>
-                          <Shield className="w-5 h-5 text-green-600" />
-                          <span className="text-sm font-medium text-green-700">
-                            Under Warranty
-                          </span>
-                          <p className="text-xs text-gray-600 mt-0.5 ml-2">
-                            This component is covered by warranty
-                          </p>
-                        </>
                       ) : (
-                        <>
-                          <ShieldOff className="w-5 h-5 text-red-600" />
-                          <span className="text-sm font-medium text-red-700">
-                            Not Under Warranty
-                          </span>
-                          <p className="text-xs text-gray-600 mt-0.5 ml-2">
-                            This component is not covered by warranty
-                          </p>
-                        </>
+                        components.map((component) => (
+                          <button
+                            key={component.typeComponentId}
+                            onClick={() => handleSelectComponent(component)}
+                            className="p-4 border border-gray-200 rounded-xl hover:bg-blue-50 hover:border-blue-300 transition-all text-left"
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <p className="font-medium text-gray-900">
+                                  {component.name}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {component.typeComponentId}
+                                </p>
+                              </div>
+                              {component.isUnderWarranty ? (
+                                <Shield className="w-5 h-5 text-green-600" />
+                              ) : (
+                                <ShieldOff className="w-5 h-5 text-gray-400" />
+                              )}
+                            </div>
+                          </button>
+                        ))
                       )}
                     </div>
                   </div>
+                )}
+
+                {/* Read-only notice */}
+                {isReadOnly && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-3 mb-6">
+                    <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-yellow-900">
+                        Diagnosis Completed
+                      </p>
+                      <p className="text-xs text-yellow-700 mt-1">
+                        This case line has been submitted and is awaiting
+                        approval. No further edits can be made.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Case Lines */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-gray-900">
+                      {isEditMode
+                        ? "Edit Case Line"
+                        : "Diagnosis & Repair Actions"}
+                    </h3>
+                    {!isEditMode && !isReadOnly && (
+                      <button
+                        onClick={handleAddCaseLine}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-900 rounded-xl hover:bg-gray-200 transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Line
+                      </button>
+                    )}
+                  </div>
+
+                  {caseLines.map((caseLine, index) => (
+                    <div
+                      key={index}
+                      className="p-4 border border-gray-200 rounded-xl space-y-4"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-gray-900">
+                          {isEditMode
+                            ? "Case Line Details"
+                            : `Line ${index + 1}`}
+                        </span>
+                        {caseLines.length > 1 && !isEditMode && (
+                          <button
+                            onClick={() => handleRemoveCaseLine(index)}
+                            className="p-1 bg-red-100 hover:bg-red-200 text-red-600 hover:text-red-700 rounded-md transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <FileText className="w-4 h-4 inline mr-1" />
+                            Diagnosis *
+                          </label>
+                          <textarea
+                            value={caseLine.diagnosisText}
+                            onChange={(e) =>
+                              handleCaseLineChange(
+                                index,
+                                "diagnosisText",
+                                e.target.value
+                              )
+                            }
+                            placeholder="Describe the problem found..."
+                            rows={3}
+                            readOnly={isReadOnly}
+                            disabled={isReadOnly}
+                            className={`w-full px-4 py-2 border text-black border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                              isReadOnly ? "bg-gray-100 cursor-not-allowed" : ""
+                            }`}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <Wrench className="w-4 h-4 inline mr-1" />
+                            Correction *
+                          </label>
+                          <textarea
+                            value={caseLine.correctionText}
+                            onChange={(e) =>
+                              handleCaseLineChange(
+                                index,
+                                "correctionText",
+                                e.target.value
+                              )
+                            }
+                            placeholder="Describe the repair action..."
+                            rows={3}
+                            readOnly={isReadOnly}
+                            disabled={isReadOnly}
+                            className={`w-full px-4 text-black py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                              isReadOnly ? "bg-gray-100 cursor-not-allowed" : ""
+                            }`}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="col-span-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <Package className="w-4 h-4 inline mr-1" />
+                            Component
+                          </label>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={caseLine.componentName || ""}
+                              readOnly
+                              placeholder="No component selected"
+                              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl bg-gray-50 text-gray-700"
+                            />
+                            {!isReadOnly && (
+                              <button
+                                onClick={() => handleOpenComponentSearch(index)}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all"
+                              >
+                                Search
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Quantity
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={caseLine.quantity}
+                            onChange={(e) =>
+                              handleCaseLineChange(
+                                index,
+                                "quantity",
+                                parseInt(e.target.value) || 0
+                              )
+                            }
+                            readOnly={isReadOnly}
+                            disabled={isReadOnly}
+                            className={`w-full px-4 text-black py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                              isReadOnly ? "bg-gray-100 cursor-not-allowed" : ""
+                            }`}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Warranty Status
+                        </label>
+
+                        {/* Manual warranty status selector - only enabled when isUnderWarranty is true */}
+                        {caseLine.isUnderWarranty ? (
+                          <div className="flex gap-4">
+                            <label
+                              className={`flex items-center gap-2 ${
+                                isReadOnly
+                                  ? "cursor-not-allowed opacity-60"
+                                  : "cursor-pointer"
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name={`warranty-${index}`}
+                                checked={caseLine.warrantyStatus === "ELIGIBLE"}
+                                onChange={() =>
+                                  handleCaseLineChange(
+                                    index,
+                                    "warrantyStatus",
+                                    "ELIGIBLE"
+                                  )
+                                }
+                                disabled={isReadOnly}
+                                className="w-4 h-4 text-green-600"
+                              />
+                              <CheckCircle className="w-4 h-4 text-green-600" />
+                              <span className="text-sm text-gray-700">
+                                Eligible
+                              </span>
+                            </label>
+                            <label
+                              className={`flex items-center gap-2 ${
+                                isReadOnly
+                                  ? "cursor-not-allowed opacity-60"
+                                  : "cursor-pointer"
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name={`warranty-${index}`}
+                                checked={
+                                  caseLine.warrantyStatus === "INELIGIBLE"
+                                }
+                                onChange={() =>
+                                  handleCaseLineChange(
+                                    index,
+                                    "warrantyStatus",
+                                    "INELIGIBLE"
+                                  )
+                                }
+                                disabled={isReadOnly}
+                                className="w-4 h-4 text-red-600"
+                              />
+                              <AlertCircle className="w-4 h-4 text-red-600" />
+                              <span className="text-sm text-gray-700">
+                                Ineligible
+                              </span>
+                            </label>
+                          </div>
+                        ) : (
+                          <div>
+                            <div className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-gray-50">
+                              <AlertCircle className="w-5 h-5 text-red-600" />
+                              <div>
+                                <span className="font-medium text-red-700">
+                                  Warranty Ineligible (Locked)
+                                </span>
+                                <p className="text-xs text-gray-600 mt-0.5">
+                                  Component is not covered by warranty
+                                </p>
+                              </div>
+                            </div>
+                            <p className="text-xs text-red-500 mt-2">
+                              🔒 This component is not under warranty and cannot
+                              be set to eligible.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Rejection Reason - shown when warranty status is INELIGIBLE */}
+                      {caseLine.warrantyStatus === "INELIGIBLE" && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <AlertCircle className="w-4 h-4 inline mr-1 text-red-600" />
+                            Rejection Reason *
+                          </label>
+                          <textarea
+                            value={caseLine.rejectionReason || ""}
+                            onChange={(e) =>
+                              handleCaseLineChange(
+                                index,
+                                "rejectionReason",
+                                e.target.value
+                              )
+                            }
+                            placeholder="Please explain why this warranty claim is being rejected..."
+                            rows={3}
+                            readOnly={isReadOnly}
+                            disabled={isReadOnly}
+                            className={`w-full px-4 py-2 border text-black border-red-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 bg-red-50 ${
+                              isReadOnly ? "cursor-not-allowed opacity-60" : ""
+                            }`}
+                            required
+                          />
+                          <p className="text-xs text-gray-600 mt-1">
+                            Required when marking warranty as ineligible
+                          </p>
+                        </motion.div>
+                      )}
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Component Warranty Coverage
+                        </label>
+                        <div
+                          className={`flex items-center gap-2 p-3 rounded-lg border-2 ${
+                            caseLine.isUnderWarranty
+                              ? "border-green-200 bg-green-50"
+                              : "border-red-200 bg-red-50"
+                          }`}
+                        >
+                          {caseLine.isUnderWarranty ? (
+                            <>
+                              <Shield className="w-5 h-5 text-green-600" />
+                              <span className="text-sm font-medium text-green-700">
+                                Under Warranty
+                              </span>
+                              <p className="text-xs text-gray-600 mt-0.5 ml-2">
+                                This component is covered by warranty
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <ShieldOff className="w-5 h-5 text-red-600" />
+                              <span className="text-sm font-medium text-red-700">
+                                Not Under Warranty
+                              </span>
+                              <p className="text-xs text-gray-600 mt-0.5 ml-2">
+                                This component is not covered by warranty
+                              </p>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
           </div>
 
           {/* Footer */}
@@ -900,22 +1042,24 @@ export function CaseDetailsModal({
                 onClick={onClose}
                 className="px-6 py-2 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
               >
-                Cancel
+                {isReadOnly ? "Close" : "Cancel"}
               </button>
-              <button
-                onClick={handleSubmit}
-                disabled={isSaving || isLoading}
-                className="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
-              >
-                {isSaving ? (
-                  <>{isEditMode ? "Updating..." : "Saving..."}</>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4" />
-                    {isEditMode ? "Update Case Line" : "Save Case Lines"}
-                  </>
-                )}
-              </button>
+              {!isReadOnly && (
+                <button
+                  onClick={handleSubmit}
+                  disabled={isSaving || isLoading}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isSaving ? (
+                    <>{isEditMode ? "Updating..." : "Saving..."}</>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      {isEditMode ? "Update Case Line" : "Save Case Lines"}
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </motion.div>

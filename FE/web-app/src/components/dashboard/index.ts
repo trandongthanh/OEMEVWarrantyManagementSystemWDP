@@ -3,6 +3,7 @@ export { DashboardHeader } from "./DashboardHeader";
 export { NewClaimModal } from "./NewClaimModal";
 export { PlaceholderContent } from "./PlaceholderContent";
 export { RegisterVehicleModal } from "./RegisterVehicleModal";
+export { NotificationPanel } from "./NotificationPanel";
 
 // Staff Dashboard Components
 export {
