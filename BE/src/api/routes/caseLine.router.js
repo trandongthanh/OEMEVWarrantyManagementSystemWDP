@@ -951,7 +951,7 @@ router.patch(
   async (req, res, next) => {
     const caseLineController = req.container.resolve("caseLineController");
 
-    await caseLineController.updateCaseline(req, res, next);
+    await caseLineController.updateCaseLine(req, res, next);
   }
 );
 

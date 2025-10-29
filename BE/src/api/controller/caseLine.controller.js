@@ -131,7 +131,7 @@ class CaseLineController {
       rejectionReason,
     } = req.body;
 
-    const { serviceCenterId } = req.user;
+    const { serviceCenterId, userId } = req.user;
     const { companyId } = req;
 
     const updatedCaseLine = await this.#caseLineService.updateCaseLine({
