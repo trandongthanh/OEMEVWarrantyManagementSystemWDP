@@ -7,6 +7,10 @@ import {
   FileText,
   UserCog,
   CheckSquare,
+  Calendar,
+  Package,
+  Layers,
+  Warehouse,
 } from "lucide-react";
 import { authService, userService, Technician } from "@/services";
 import { useRoleProtection } from "@/hooks/useRoleProtection";
@@ -17,6 +21,10 @@ import {
   ManagerCasesList,
   CustomerManagement,
   CaseLineManagement,
+  ScheduleManagement,
+  StockTransferRequestList,
+  AllCaseLinesList,
+  WarehouseOverview,
 } from "@/components/dashboard";
 
 interface CurrentUser {
@@ -57,7 +65,11 @@ export default function ManagerDashboard() {
     { id: "dashboard", icon: Home, label: "Dashboard" },
     { id: "customers", icon: UserCog, label: "Customers" },
     { id: "caselines", icon: CheckSquare, label: "Case Lines" },
+    { id: "all-caselines", icon: Layers, label: "All Case Lines" },
     { id: "tasks", icon: ClipboardList, label: "Task Assignment" },
+    { id: "schedules", icon: Calendar, label: "Schedules" },
+    { id: "warehouse", icon: Warehouse, label: "Warehouse Stock" },
+    { id: "transfers", icon: Package, label: "Stock Transfers" },
   ];
 
   const renderContent = () => {
@@ -71,8 +83,27 @@ export default function ManagerDashboard() {
       case "caselines":
         return <CaseLineManagement />;
 
+      case "all-caselines":
+        return <AllCaseLinesList />;
+
       case "tasks":
         return <ManagerCasesList />;
+
+      case "schedules":
+        return <ScheduleManagement />;
+
+      case "warehouse":
+        return <WarehouseOverview />;
+
+      case "transfers":
+        return (
+          <StockTransferRequestList
+            userRole="service_center_manager"
+            onRequestCreated={() => {
+              // Refresh transfers list
+            }}
+          />
+        );
 
       default:
         return null;
@@ -98,19 +129,11 @@ export default function ManagerDashboard() {
         <DashboardHeader
           onSearch={(query) => setSearchQuery(query)}
           searchPlaceholder={
-            activeNav === "dashboard"
-              ? "Search team members, tasks, or schedules..."
-              : activeNav === "customers"
+            activeNav === "customers"
               ? "Search customers by name, email, or phone..."
-              : activeNav === "caselines"
-              ? "Search case lines by case number or status..."
               : "Search..."
           }
-          showSearch={
-            activeNav === "dashboard" ||
-            activeNav === "customers" ||
-            activeNav === "caselines"
-          }
+          showSearch={activeNav === "customers"}
           showNotifications={true}
           currentPage={
             activeNav === "dashboard"

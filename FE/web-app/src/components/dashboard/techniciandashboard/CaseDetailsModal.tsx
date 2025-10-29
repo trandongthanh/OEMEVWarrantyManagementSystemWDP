@@ -363,7 +363,7 @@ export function CaseDetailsModal({
         const updatePromises = caseLines
           .filter((line) => line.caseLineId)
           .map((caseLine) =>
-            caseLineService.updateCaseLine(caseId, caseLine.caseLineId!, {
+            caseLineService.updateCaseLine(caseLine.caseLineId!, {
               diagnosisText: caseLine.diagnosisText,
               correctionText: caseLine.correctionText,
               typeComponentId: caseLine.typeComponentId || null,

@@ -12,7 +12,13 @@ import type {
 export interface VehicleComponent {
   componentId: string;
   serialNumber: string;
-  status: "IN_STOCK" | "RESERVED" | "INSTALLED" | "RETURNED" | "DEFECTIVE";
+  status:
+    | "IN_WAREHOUSE"
+    | "RESERVED"
+    | "IN_TRANSIT"
+    | "WITH_TECHNICIAN"
+    | "INSTALLED"
+    | "RETURNED";
   vehicleVin: string;
   installedAt: string;
   currentHolderId?: string;
@@ -205,7 +211,7 @@ export const getVehicleComponents = async (
 
 /**
  * Get vehicle service and warranty history
- * GET /vehicles/{vin}/history
+ * GET /vehicles/{vin}/service-history
  *
  * Returns the complete service history for a vehicle, including:
  * - All processing records (check-ins)
@@ -220,7 +226,7 @@ export const getVehicleHistory = async (
   vin: string
 ): Promise<VehicleHistoryResponse> => {
   try {
-    const response = await apiClient.get(`/vehicles/${vin}/history`);
+    const response = await apiClient.get(`/vehicles/${vin}/service-history`);
 
     return response.data;
   } catch (error: unknown) {

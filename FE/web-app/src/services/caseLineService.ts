@@ -126,6 +126,25 @@ export interface AssignTechnicianResponse {
   };
 }
 
+export interface BulkUpdateStockQuantitiesData {
+  caseLines: Array<{
+    caseLineId: string;
+    quantityReserved: number;
+  }>;
+}
+
+export interface BulkUpdateStockQuantitiesResponse {
+  status: "success";
+  message: string;
+  data: {
+    updatedCaseLines: Array<{
+      caseLineId: string;
+      quantityReserved: number;
+      previousQuantity: number;
+    }>;
+  };
+}
+
 export interface GetCaseLinesListParams {
   page?: number;
   limit?: number;
@@ -187,18 +206,14 @@ class CaseLineService {
 
   /**
    * Update case line information
-   * PATCH /guarantee-cases/{caseId}/case-lines/{caselineId}
+   * PATCH /case-lines/{caselineId}
    */
   async updateCaseLine(
-    caseId: string,
     caselineId: string,
     data: UpdateCaseLineData
   ): Promise<UpdateCaseLineResponse> {
     try {
-      const response = await apiClient.patch(
-        `/guarantee-cases/${caseId}/case-lines/${caselineId}`,
-        data
-      );
+      const response = await apiClient.patch(`/case-lines/${caselineId}`, data);
       return response.data;
     } catch (error: unknown) {
       console.error("Error updating case line:", error);
@@ -224,15 +239,12 @@ class CaseLineService {
 
   /**
    * Allocate stock for a case line (Manager only)
-   * POST /guarantee-cases/{caseId}/case-lines/{caselineId}/allocate-stock
+   * POST /case-lines/{caselineId}/allocate-stock
    */
-  async allocateStock(
-    caselineId: string,
-    caseId: string
-  ): Promise<AllocateStockResponse> {
+  async allocateStock(caselineId: string): Promise<AllocateStockResponse> {
     try {
       const response = await apiClient.post(
-        `/guarantee-cases/${caseId}/case-lines/${caselineId}/allocate-stock`
+        `/case-lines/${caselineId}/allocate-stock`
       );
       return response.data;
     } catch (error: unknown) {
@@ -280,6 +292,32 @@ class CaseLineService {
       return response.data;
     } catch (error: unknown) {
       console.error("Error marking repair as complete:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Bulk update stock quantities for case lines (Manager, Staff, Technician)
+   * POST /guarantee-cases/{caseId}
+   *
+   * Updates stock quantities for multiple case lines in a guarantee case.
+   * Processes component reservations and stock allocations.
+   *
+   * @param caseId - Guarantee case ID
+   * @param data - Array of case lines with quantity updates
+   * @returns Updated case lines with previous and new quantities
+   *
+   * @role service_center_manager, service_center_staff, service_center_technician
+   */
+  async bulkUpdateStockQuantities(
+    caseId: string,
+    data: BulkUpdateStockQuantitiesData
+  ): Promise<BulkUpdateStockQuantitiesResponse> {
+    try {
+      const response = await apiClient.post(`/guarantee-cases/${caseId}`, data);
+      return response.data;
+    } catch (error: unknown) {
+      console.error("Error bulk updating stock quantities:", error);
       throw error;
     }
   }

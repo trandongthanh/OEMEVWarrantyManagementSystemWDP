@@ -40,6 +40,8 @@ export type {
   AssignTechnicianData,
   GetCaseLinesListParams,
   GetCaseLinesListResponse,
+  BulkUpdateStockQuantitiesData,
+  BulkUpdateStockQuantitiesResponse,
 } from "./caseLineService";
 
 export { default as stockTransferService } from "./stockTransferService";

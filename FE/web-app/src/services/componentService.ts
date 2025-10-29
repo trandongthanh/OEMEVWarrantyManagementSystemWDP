@@ -3,7 +3,13 @@ import apiClient from "@/lib/apiClient";
 export interface Component {
   componentId: string;
   serialNumber: string;
-  status: "IN_STOCK" | "RESERVED" | "INSTALLED" | "RETURNED" | "DEFECTIVE";
+  status:
+    | "IN_WAREHOUSE"
+    | "RESERVED"
+    | "IN_TRANSIT"
+    | "WITH_TECHNICIAN"
+    | "INSTALLED"
+    | "RETURNED";
   typeComponentId: string;
   warehouseId: string;
   createdAt: string;
@@ -22,7 +28,13 @@ export interface Component {
 }
 
 export interface UpdateComponentStatusRequest {
-  status: "IN_STOCK" | "RESERVED" | "INSTALLED" | "RETURNED" | "DEFECTIVE";
+  status:
+    | "IN_WAREHOUSE"
+    | "RESERVED"
+    | "IN_TRANSIT"
+    | "WITH_TECHNICIAN"
+    | "INSTALLED"
+    | "RETURNED";
   notes?: string;
 }
 
