@@ -2,7 +2,9 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Search, Bell, Mail, X } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { useNotifications } from "@/contexts/NotificationContext";
+import { NotificationPanel } from "./NotificationPanel";
 
 interface DashboardHeaderProps {
   onSearch?: (query: string) => void;
@@ -26,7 +28,9 @@ export function DashboardHeader({
   searchResults,
 }: DashboardHeaderProps) {
   const [localSearchQuery, setLocalSearchQuery] = useState(searchValue);
+  const [showNotificationPanel, setShowNotificationPanel] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const { unreadCount } = useNotifications();
 
   const handleSearchChange = useCallback(
     (value: string) => {
@@ -123,14 +127,32 @@ export function DashboardHeader({
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
+              onClick={() => setShowNotificationPanel(true)}
               className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <Bell className="w-5 h-5 text-gray-600" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              {unreadCount > 0 && (
+                <AnimatePresence>
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0 }}
+                    className="absolute top-1 right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1"
+                  >
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </motion.span>
+                </AnimatePresence>
+              )}
             </motion.button>
           </div>
         )}
       </div>
+
+      {/* Notification Panel */}
+      <NotificationPanel
+        isOpen={showNotificationPanel}
+        onClose={() => setShowNotificationPanel(false)}
+      />
     </header>
   );
 }

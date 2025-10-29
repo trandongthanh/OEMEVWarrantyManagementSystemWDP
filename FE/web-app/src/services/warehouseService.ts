@@ -6,19 +6,26 @@ import apiClient from "@/lib/apiClient";
  */
 
 export interface Stock {
+  stockId: string;
   typeComponentId: string;
-  quantity: number;
-  component: {
+  quantityInStock: number;
+  quantityReserved: number;
+  quantityAvailable: number;
+  typeComponent: {
+    typeComponentId: string;
     name: string;
     price: number;
+    category: string;
   };
 }
 
 export interface Warehouse {
   warehouseId: string;
   name: string;
-  location: string;
+  address: string;
   vehicleCompanyId: string;
+  serviceCenterId: string;
+  priority: number;
   stock: Stock[];
 }
 
@@ -40,7 +47,7 @@ export const getWarehouseInfo = async (
     const response = await apiClient.get<{
       status: string;
       data: { warehouses: Warehouse[] };
-    }>("/warehouse", { params });
+    }>("/warehouses", { params });
     return response.data.data;
   } catch (error) {
     console.error("Error fetching warehouse info:", error);

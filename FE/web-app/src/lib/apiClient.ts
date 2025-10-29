@@ -57,8 +57,13 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Handle 401 Unauthorized
+    // Handle 401 Unauthorized - but don't redirect for login endpoint
     if (error.response?.status === 401 && !originalRequest._retry) {
+      // Don't redirect for login endpoint failures (wrong credentials)
+      if (originalRequest.url?.includes("/auth/login")) {
+        return Promise.reject(error);
+      }
+
       originalRequest._retry = true;
 
       // Clear invalid token
@@ -66,7 +71,7 @@ apiClient.interceptors.response.use(
         localStorage.removeItem("authToken");
       }
 
-      // Redirect to login page
+      // Redirect to login page for expired tokens
       if (typeof window !== "undefined") {
         window.location.href = "/login";
       }
