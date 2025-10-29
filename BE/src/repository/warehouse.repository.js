@@ -294,6 +294,36 @@ class WareHouseRepository {
       where: {
         serviceCenterId: serviceCenterId,
       },
+      include: [
+        {
+          model: Stock,
+          as: "stock",
+          attributes: [
+            "stockId",
+            "typeComponentId",
+            "quantityInStock",
+            "quantityReserved",
+            "quantityAvailable",
+          ],
+          required: false,
+          include: [
+            {
+              model: TypeComponent,
+              as: "typeComponent",
+              attributes: ["typeComponentId", "name", "price", "category"],
+              required: false,
+            },
+          ],
+        },
+      ],
+      attributes: [
+        "warehouseId",
+        "name",
+        "address",
+        "vehicleCompanyId",
+        "serviceCenterId",
+        "priority",
+      ],
     });
 
     return warehouses.map((warehouse) => warehouse.toJSON());
