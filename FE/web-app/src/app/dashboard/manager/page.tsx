@@ -20,7 +20,7 @@ import {
   ManagerDashboardOverview,
   ManagerCasesList,
   CustomerManagement,
-  CaseLineManagement,
+  CaseLineOperations,
   ScheduleManagement,
   StockTransferRequestList,
   AllCaseLinesList,
@@ -81,7 +81,7 @@ export default function ManagerDashboard() {
         return <CustomerManagement />;
 
       case "caselines":
-        return <CaseLineManagement />;
+        return <CaseLineOperations />;
 
       case "all-caselines":
         return <AllCaseLinesList />;

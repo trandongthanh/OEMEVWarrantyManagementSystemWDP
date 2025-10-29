@@ -1,7 +1,7 @@
 export { DashboardOverview } from "./DashboardOverview";
 export { ManagerCasesList } from "./ManagerCasesList";
 export { CustomerManagement } from "./CustomerManagement";
-export { CaseLineManagement } from "./CaseLineManagement";
+export { CaseLineOperations } from "./CaseLineOperations";
 export { ScheduleManagement } from "./ScheduleManagement";
 export { StockTransferRequestList } from "./StockTransferRequestList";
 export { CreateStockTransferRequestModal } from "./CreateStockTransferRequestModal";

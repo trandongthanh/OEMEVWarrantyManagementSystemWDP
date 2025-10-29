@@ -18,7 +18,7 @@ export {
   DashboardOverview as ManagerDashboardOverview,
   ManagerCasesList,
   CustomerManagement,
-  CaseLineManagement,
+  CaseLineOperations,
   ScheduleManagement,
   StockTransferRequestList,
   CreateStockTransferRequestModal,

@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   Loader2,
   MapPin,
+  Search,
 } from "lucide-react";
 import warehouseService, { Warehouse } from "@/services/warehouseService";
 
@@ -18,6 +19,7 @@ export function WarehouseOverview() {
   const [minStockFilter, setMinStockFilter] = useState<number | undefined>(
     undefined
   );
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchWarehouses = async () => {
     setLoading(true);
@@ -69,8 +71,44 @@ export function WarehouseOverview() {
     return lowStockItems;
   };
 
+  // Filter warehouses based on search query
+  const getFilteredWarehouses = () => {
+    if (!searchQuery.trim()) {
+      return warehouses;
+    }
+
+    const query = searchQuery.toLowerCase();
+    return warehouses
+      .map((warehouse) => {
+        // Filter stock items that match the search
+        const matchingStock = warehouse.stock.filter((stock) => {
+          const componentName = stock.typeComponent?.name?.toLowerCase() || "";
+          const componentCategory =
+            stock.typeComponent?.category?.toLowerCase() || "";
+          const warehouseName = warehouse.name.toLowerCase();
+
+          return (
+            componentName.includes(query) ||
+            componentCategory.includes(query) ||
+            warehouseName.includes(query)
+          );
+        });
+
+        // Only include warehouse if it has matching stock
+        if (matchingStock.length > 0) {
+          return {
+            ...warehouse,
+            stock: matchingStock,
+          };
+        }
+        return null;
+      })
+      .filter((w) => w !== null) as Warehouse[];
+  };
+
   const totalStock = getTotalStockAcrossWarehouses();
   const lowStockItems = getLowStockItems();
+  const filteredWarehouses = getFilteredWarehouses();
 
   return (
     <div className="flex-1 overflow-auto">
@@ -144,22 +182,37 @@ export function WarehouseOverview() {
                 <WarehouseIcon className="w-5 h-5 text-gray-600" />
                 Warehouses & Stock
               </h3>
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-600">
-                  Min Stock Filter:
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  placeholder="Min"
-                  value={minStockFilter || ""}
-                  onChange={(e) =>
-                    setMinStockFilter(
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="w-20 px-2 py-1 border border-gray-200 rounded-xl bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-colors"
-                />
+              <div className="flex items-center gap-4">
+                {/* Search Bar */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search components..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 pr-4 py-2 w-64 border text-black border-gray-200 rounded-xl bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-colors"
+                  />
+                </div>
+
+                {/* Min Stock Filter */}
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-gray-600">
+                    Min Stock Filter:
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Min"
+                    value={minStockFilter || ""}
+                    onChange={(e) =>
+                      setMinStockFilter(
+                        e.target.value ? Number(e.target.value) : undefined
+                      )
+                    }
+                    className="w-20 px-2 py-1 border text-black border-gray-200 rounded-xl bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-colors"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -169,14 +222,18 @@ export function WarehouseOverview() {
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
               </div>
-            ) : warehouses.length === 0 ? (
+            ) : filteredWarehouses.length === 0 ? (
               <div className="text-center py-12">
                 <WarehouseIcon className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                <p className="text-gray-500 text-sm">No warehouses found</p>
+                <p className="text-gray-500 text-sm">
+                  {searchQuery
+                    ? `No warehouses found matching "${searchQuery}"`
+                    : "No warehouses found"}
+                </p>
               </div>
             ) : (
               <div className="space-y-6 max-h-[600px] overflow-y-auto">
-                {warehouses.map((warehouse) => (
+                {filteredWarehouses.map((warehouse) => (
                   <motion.div
                     key={warehouse.warehouseId}
                     initial={{ opacity: 0, y: 10 }}

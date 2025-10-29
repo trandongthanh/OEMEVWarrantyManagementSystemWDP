@@ -36,6 +36,11 @@ export interface CaseLine {
     userId: string;
     name: string;
   };
+  reservations?: Array<{
+    reservationId: string;
+    quantity: number;
+    status: string;
+  }>;
 }
 
 export interface CaseLineDetailResponse {
@@ -127,12 +132,14 @@ export interface AssignTechnicianResponse {
 }
 
 export interface BulkUpdateStockQuantitiesData {
-  caseId: string;
   caseLines: Array<{
     caseLineId: string;
     quantityReserved: number;
   }>;
 }
+
+// NOTE: Bulk update endpoint doesn't exist in backend yet
+// Using single allocation endpoint in a loop instead
 
 export interface BulkUpdateStockQuantitiesResponse {
   status: "success";
@@ -240,12 +247,15 @@ class CaseLineService {
 
   /**
    * Allocate stock for a case line (Manager only)
-   * POST /case-lines/{caselineId}/allocate-stock
+   * POST /guarantee-cases/{caseId}/case-lines/{caselineId}/allocate-stock
    */
-  async allocateStock(caselineId: string): Promise<AllocateStockResponse> {
+  async allocateStock(
+    caseId: string,
+    caselineId: string
+  ): Promise<AllocateStockResponse> {
     try {
       const response = await apiClient.post(
-        `/case-lines/${caselineId}/allocate-stock`
+        `/guarantee-cases/${caseId}/case-lines/${caselineId}/allocate-stock`
       );
       return response.data;
     } catch (error: unknown) {
@@ -256,15 +266,16 @@ class CaseLineService {
 
   /**
    * Assign technician to repair a case line (Manager only)
-   * PATCH /case-lines/{caselineId}/assign-technician
+   * PATCH /guarantee-cases/{caseId}/case-lines/{caselineId}/assign-technician
    */
   async assignTechnicianToRepair(
+    caseId: string,
     caselineId: string,
     data: AssignTechnicianData
   ): Promise<AssignTechnicianResponse> {
     try {
       const response = await apiClient.patch(
-        `/case-lines/${caselineId}/assign-technician`,
+        `/guarantee-cases/${caseId}/case-lines/${caselineId}/assign-technician`,
         data
       );
       return response.data;
@@ -315,10 +326,15 @@ class CaseLineService {
     data: Omit<BulkUpdateStockQuantitiesData, "caseId">
   ): Promise<BulkUpdateStockQuantitiesResponse> {
     try {
-      const response = await apiClient.post(`/guarantee-cases/${caseId}`, {
+      const payload = {
         caseId,
         ...data,
-      });
+      };
+      console.log("Bulk update payload:", JSON.stringify(payload, null, 2));
+      const response = await apiClient.post(
+        `/guarantee-cases/${caseId}`,
+        payload
+      );
       return response.data;
     } catch (error: unknown) {
       console.error("Error bulk updating stock quantities:", error);
