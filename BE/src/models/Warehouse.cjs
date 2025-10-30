@@ -44,11 +44,6 @@ module.exports = (sequelize, DataTypes) => {
   );
 
   Warehouse.associate = function (models) {
-    Warehouse.hasMany(models.Stock, {
-      foreignKey: "warehouse_id",
-      as: "stock",
-    });
-
     Warehouse.belongsToMany(models.TypeComponent, {
       through: models.Stock,
       foreignKey: "warehouse_id",
