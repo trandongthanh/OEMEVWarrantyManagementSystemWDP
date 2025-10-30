@@ -13,7 +13,7 @@ import { getMyConversations } from "../../services/chatService";
 import ConversationCard from "./components/ConversationCard";
 import ConversationFilterTabs from "./components/ConversationFilterTabs";
 
-const SOCKET_URL = "http://10.0.2.2:3000";
+const SOCKET_URL = "http://10.0.2.2:3000"; // ⚙️ Backend local server
 
 const COLORS = {
   bg: "#0B0F14",
@@ -24,14 +24,26 @@ const COLORS = {
 
 export default function StaffMessageListScreen({ route }) {
   const navigation = useNavigation();
-  const token = route?.params?.token;
+  const tokenParam = route?.params?.token;
+  // 🔍 Đảm bảo token là chuỗi JWT thật, không phải object
+  const token =
+    typeof tokenParam === "object" && tokenParam?.token
+      ? tokenParam.token
+      : tokenParam;
+
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState([]);
   const [filter, setFilter] = useState("waiting");
   const [counts, setCounts] = useState({ waiting: 0, active: 0, closed: 0 });
   const socketRef = useRef(null);
 
-  /** 🧩 Load danh sách hội thoại và đếm số lượng theo trạng thái */
+  /** 🧠 Debug token */
+  useEffect(() => {
+    console.log("🧾 Token in StaffMessageListScreen:", token);
+    console.log("📄 Token type:", typeof token);
+  }, [token]);
+
+  /** 🧩 Load danh sách hội thoại + đếm theo trạng thái */
   const loadMessages = async (status = "waiting") => {
     setLoading(true);
     try {
@@ -66,18 +78,35 @@ export default function StaffMessageListScreen({ route }) {
     }
   };
 
-  /** 🧩 Kết nối socket & load ban đầu */
+  /** 🧩 Kết nối socket + load ban đầu */
   useEffect(() => {
-    if (!token) return;
+    if (!token || typeof token !== "string") {
+      console.warn("⚠️ Token invalid, cannot connect socket:", token);
+      return;
+    }
 
+    // 🔹 Lần đầu load dữ liệu
     loadMessages(filter);
 
-    socketRef.current = io(SOCKET_URL, {
+    // 🔹 Khởi tạo socket
+    const socket = io(SOCKET_URL, {
       transports: ["websocket"],
       auth: { token },
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+    });
+    socketRef.current = socket;
+
+    socket.on("connect", () => {
+      console.log("🟢 Socket connected:", socket.id);
     });
 
-    socketRef.current.on("newMessage", (msg) => {
+    socket.on("connect_error", (err) => {
+      console.log("⚠️ Socket connect error:", err.message);
+    });
+
+    socket.on("newMessage", (msg) => {
       console.log("💬 New message:", msg);
       setMessages((prev) => {
         const updated = [...prev];
@@ -93,16 +122,22 @@ export default function StaffMessageListScreen({ route }) {
       });
     });
 
-    return () => socketRef.current?.disconnect();
+    socket.on("disconnect", () => console.log("🔴 Socket disconnected"));
+
+    return () => {
+      console.log("🧹 Closing socket connection...");
+      socket.disconnect();
+      socketRef.current = null;
+    };
   }, [token]);
 
-  /** 🧩 Render */
+  /** 🧩 Render giao diện */
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <Text style={styles.header}>Messages</Text>
 
-        {/* Bộ lọc trạng thái */}
+        {/* Tabs lọc hội thoại */}
         <ConversationFilterTabs
           filter={filter}
           counts={counts}
@@ -125,8 +160,9 @@ export default function StaffMessageListScreen({ route }) {
                 onPress={() =>
                   navigation.navigate("StaffChatScreen", {
                     conversationId: item.conversationId || item._id || item.id,
-                    token,
-                    status: item.status, // ✅ truyền status sang màn chat
+                    token, // ✅ token luôn là chuỗi hợp lệ
+                    status: item.status,
+                    guest: item.guest || item.customer || null,
                   })
                 }
               />
@@ -143,6 +179,7 @@ export default function StaffMessageListScreen({ route }) {
   );
 }
 
+/* 🎨 Styles */
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.bg },
   container: { flex: 1, paddingHorizontal: 16, paddingTop: 10 },

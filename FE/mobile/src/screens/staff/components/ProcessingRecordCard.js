@@ -26,6 +26,12 @@ export default function ProcessingRecordCard({ record, onPress }) {
       ? COLORS.danger
       : COLORS.accent;
 
+  // ✅ Tính tổng số case line
+  const totalCaseLines = record?.guaranteeCases?.reduce(
+    (sum, c) => sum + (c.caseLines?.length || 0),
+    0
+  );
+
   return (
     <TouchableOpacity
       style={styles.card}
@@ -76,6 +82,18 @@ export default function ProcessingRecordCard({ record, onPress }) {
         <Ionicons name="calendar-outline" size={14} color={COLORS.textMuted} />{" "}
         {new Date(record.checkInDate).toLocaleDateString("vi-VN")}
       </Text>
+
+      {/* ✅ Total Case Lines */}
+      <View style={styles.caseLineRow}>
+        <Ionicons name="hammer-outline" size={14} color={COLORS.accent} />
+        <Text style={styles.caseLineText}>
+          {totalCaseLines > 0
+            ? `Total: ${totalCaseLines} case ${
+                totalCaseLines > 1 ? "lines" : "line"
+              }`
+            : "No case lines"}
+        </Text>
+      </View>
     </TouchableOpacity>
   );
 }
@@ -114,5 +132,17 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 13,
     textTransform: "capitalize",
+  },
+  // ✅ Dòng hiển thị tổng số case line
+  caseLineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+    gap: 6,
+  },
+  caseLineText: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: "600",
   },
 });

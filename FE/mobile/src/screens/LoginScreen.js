@@ -48,11 +48,17 @@ export default function LoginScreen() {
     try {
       setLoading(true);
       const res = await login(username, password);
+
       if (res.status === "success" && res.data?.token) {
         const token = res.data.token;
+        console.log("🧾 Token received from API:", token);
+
         const decoded = jwtDecode(token);
+        console.log("📄 Decoded token payload:", decoded);
+
         const role = decoded.roleName;
         const userId = decoded.userId;
+        console.log("👤 Role:", role, "🆔 userId:", userId);
 
         await AsyncStorage.multiSet([
           ["authToken", token],
@@ -72,13 +78,16 @@ export default function LoginScreen() {
         setTimeout(() => {
           switch (role) {
             case "service_center_manager":
-              navigation.replace("ManagerDashboardTabs");
+              console.log("➡️ Navigating to ManagerDashboardTabs with token");
+              navigation.replace("ManagerDashboardTabs", { token });
               break;
             case "service_center_staff":
-              navigation.replace("StaffDashboardTabs");
+              console.log("➡️ Navigating to StaffDashboardTabs with token");
+              navigation.replace("StaffDashboardTabs", { token }); // ✅ token truyền đúng chỗ
               break;
             case "service_center_technician":
-              navigation.replace("TechnicianDashboard");
+              console.log("➡️ Navigating to TechnicianDashboard with token");
+              navigation.replace("TechnicianDashboard", { token });
               break;
             default:
               Toast.show({
