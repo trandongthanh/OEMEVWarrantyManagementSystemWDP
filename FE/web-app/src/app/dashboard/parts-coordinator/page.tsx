@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Home, Package, RotateCcw, Clock, Settings } from "lucide-react";
+import {
+  Home,
+  Package,
+  RotateCcw,
+  Clock,
+  Settings,
+  Boxes,
+} from "lucide-react";
 import { authService } from "@/services";
 import { useRoleProtection } from "@/hooks/useRoleProtection";
 import {
@@ -11,6 +18,7 @@ import {
   ComponentPickupList,
   ComponentStatusManager,
 } from "@/components/dashboard";
+import Inventory from "@/components/dashboard/partscoordinatordashboard/Inventory";
 
 interface CurrentUser {
   userId: string;
@@ -22,7 +30,7 @@ interface CurrentUser {
 }
 
 export default function PartsCoordinatorDashboard() {
-  // Protect this route - only allow parts coordinators
+  // ✅ Bảo vệ route — chỉ cho phép parts coordinator truy cập
   useRoleProtection([
     "parts_coordinator_service_center",
     "parts_coordinator_company",
@@ -47,18 +55,42 @@ export default function PartsCoordinatorDashboard() {
     authService.logout();
   };
 
+  // ✅ Thêm mục "Inventory" mới trong sidebar
   const navItems = [
     { id: "dashboard", icon: Home, label: "Dashboard" },
+    { id: "inventory", icon: Boxes, label: "Inventory" }, // 👈 mới thêm
     { id: "pickups", icon: Package, label: "Component Pickups" },
     { id: "status", icon: Settings, label: "Component Status" },
     { id: "returns", icon: RotateCcw, label: "Returns" },
     { id: "history", icon: Clock, label: "History" },
   ];
 
+  // ✅ Xử lý hiển thị nội dung theo mục sidebar đang chọn
   const renderContent = () => {
     switch (activeNav) {
       case "dashboard":
         return <PartsCoordinatorDashboardOverview />;
+
+      case "inventory":
+        return (
+          <div className="flex-1 overflow-auto">
+            <div className="p-8">
+              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+                <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                  <Boxes className="w-5 h-5 text-blue-600" />
+                  Inventory Management
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  View and manage stock levels and warehouse components.
+                </p>
+                <div className="mt-6">
+                  <Inventory /> {/* 👈 Component Inventory bạn đã tạo */}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
       case "pickups":
         return (
           <div className="flex-1 overflow-auto">
@@ -80,8 +112,10 @@ export default function PartsCoordinatorDashboard() {
             </div>
           </div>
         );
+
       case "status":
         return <ComponentStatusManager />;
+
       case "returns":
       case "history":
         return (
@@ -96,6 +130,7 @@ export default function PartsCoordinatorDashboard() {
             </div>
           </div>
         );
+
       default:
         return <PartsCoordinatorDashboardOverview />;
     }
@@ -115,6 +150,7 @@ export default function PartsCoordinatorDashboard() {
         currentUser={currentUser}
         onLogout={handleLogout}
       />
+
       <div className="flex-1 flex flex-col overflow-hidden">
         <DashboardHeader
           onSearch={setSearchQuery}
