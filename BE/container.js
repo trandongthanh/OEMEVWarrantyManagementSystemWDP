@@ -41,7 +41,7 @@ import UserController from "./src/api/controller/user.controller.js";
 import UserService from "./src/service/user.service.js";
 import redisClient from "./src/util/redisClient.js";
 import MailMessage from "nodemailer/lib/mailer/mail-message.js";
-import transporter from "./src/util/emailTranporter.js";
+import transporter from "./src/util/emailTransporter.js";
 import NotificationService from "./src/service/notification.service.js";
 import ChatController from "./src/api/controller/chat.controller.js";
 import ChatService from "./src/service/chat.service.js";
