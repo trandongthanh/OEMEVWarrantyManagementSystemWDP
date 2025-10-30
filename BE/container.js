@@ -7,6 +7,8 @@ import VehicleProcessingRecordController from "./src/api/controller/vehicleProce
 import CaseLineController from "./src/api/controller/caseLine.controller.js";
 import WorkScheduleController from "./src/api/controller/workSchedule.controller.js";
 import StockTransferRequestController from "./src/api/controller/stockTransferRequest.controller.js";
+import MailController from "./src/api/controller/mail.controller.js";
+import InventoryController from "./src/api/controller/inventory.controller.js";
 
 import AuthService from "./src/service/auth.service.js";
 import HashService from "./src/service/hash.service.js";
@@ -19,6 +21,8 @@ import WarehouseService from "./src/service/warehouse.service.js";
 import CaseLineService from "./src/service/caseLine.service.js";
 import WorkScheduleService from "./src/service/workSchedule.service.js";
 import StockTransferRequestService from "./src/service/stockTransferRequest.service.js";
+import MailService from "./src/service/mail.service.js";
+import InventoryService from "./src/service/inventory.service.js";
 
 import UserRepository from "./src/repository/user.repository.js";
 import VehicleRepository from "./src/repository/vehicle.repository.js";
@@ -35,12 +39,12 @@ import WorkScheduleRepository from "./src/repository/workSchedule.repository.js"
 import StockTransferRequestRepository from "./src/repository/stockTransferRequest.repository.js";
 import StockTransferRequestItemRepository from "./src/repository/stockTransferRequestItem.repository.js";
 import StockReservationRepository from "./src/repository/stockReservation.repository.js";
+import InventoryRepository from "./src/repository/inventory.repository.js";
 
 import TaskAssignmentRepository from "./src/repository/taskAssignment.repository.js";
 import UserController from "./src/api/controller/user.controller.js";
 import UserService from "./src/service/user.service.js";
 import redisClient from "./src/util/redisClient.js";
-import MailMessage from "nodemailer/lib/mailer/mail-message.js";
 import transporter from "./src/util/emailTransporter.js";
 import NotificationService from "./src/service/notification.service.js";
 import ChatController from "./src/api/controller/chat.controller.js";
@@ -65,7 +69,7 @@ export function setupContainer({ io, notificationNamespace, chatNamespace }) {
     chats: asValue(chatNamespace, {
       lifetime: Lifetime.SINGLETON,
     }),
-    redisClient: asValue(redisClient, { lifetime: Lifetime.SCOPED }),
+    redis: asValue(redisClient, { lifetime: Lifetime.SCOPED }),
     transporter: asValue(transporter, { lifetime: Lifetime.SINGLETON }),
 
     // Controllers
@@ -85,6 +89,7 @@ export function setupContainer({ io, notificationNamespace, chatNamespace }) {
     }),
     userController: asClass(UserController, { lifetime: Lifetime.SCOPED }),
     chatController: asClass(ChatController, { lifetime: Lifetime.SCOPED }),
+    mailController: asClass(MailController, { lifetime: Lifetime.SCOPED }),
 
     componentReservationsController: asClass(ComponentReservationsController, {
       lifetime: Lifetime.SCOPED,
@@ -96,6 +101,9 @@ export function setupContainer({ io, notificationNamespace, chatNamespace }) {
       lifetime: Lifetime.SCOPED,
     }),
     stockTransferRequestController: asClass(StockTransferRequestController, {
+      lifetime: Lifetime.SCOPED,
+    }),
+    inventoryController: asClass(InventoryController, {
       lifetime: Lifetime.SCOPED,
     }),
 
@@ -114,7 +122,7 @@ export function setupContainer({ io, notificationNamespace, chatNamespace }) {
     warehouseService: asClass(WarehouseService, { lifetime: Lifetime.SCOPED }),
     caseLineService: asClass(CaseLineService, { lifetime: Lifetime.SCOPED }),
     userService: asClass(UserService, { lifetime: Lifetime.SCOPED }),
-    mailService: asClass(MailMessage, { lifetime: Lifetime.SCOPED }),
+    mailService: asClass(MailService, { lifetime: Lifetime.SCOPED }),
     notificationService: asClass(NotificationService, {
       lifetime: Lifetime.SCOPED,
     }),
@@ -128,6 +136,7 @@ export function setupContainer({ io, notificationNamespace, chatNamespace }) {
     stockTransferRequestService: asClass(StockTransferRequestService, {
       lifetime: Lifetime.SCOPED,
     }),
+    inventoryService: asClass(InventoryService, { lifetime: Lifetime.SCOPED }),
 
     // Repositories
     userRepository: asClass(UserRepository, { lifetime: Lifetime.SCOPED }),
@@ -184,6 +193,9 @@ export function setupContainer({ io, notificationNamespace, chatNamespace }) {
       }
     ),
     stockReservationRepository: asClass(StockReservationRepository, {
+      lifetime: Lifetime.SCOPED,
+    }),
+    inventoryRepository: asClass(InventoryRepository, {
       lifetime: Lifetime.SCOPED,
     }),
     workScheduleRepository: asClass(WorkScheduleRepository, {
