@@ -1,199 +1,55 @@
-import { createContainer, asClass, Lifetime, asValue } from "awilix";
+import express from "express";
+import { scopePerRequest } from "awilix-express";
+import container from "./container.js";
+import cors from "cors";
+import { handleError } from "./src/api/middleware/index.js";
+import { specs, swaggerUi } from "./src/config/swagger.js";
 
-import AuthController from "./src/api/controller/auth.controller.js";
-import VehicleController from ".//src/api/controller/vehicle.controller.js";
-import CustomerController from "./src/api/controller/customer.controller.js";
-import VehicleProcessingRecordController from "./src/api/controller/vehicleProcessingRecord.controller.js";
-import CaseLineController from "./src/api/controller/caseLine.controller.js";
-import WorkScheduleController from "./src/api/controller/workSchedule.controller.js";
-import StockTransferRequestController from "./src/api/controller/stockTransferRequest.controller.js";
-import MailController from "./src/api/controller/mail.controller.js";
+const app = express();
 
-import AuthService from "./src/service/auth.service.js";
-import HashService from "./src/service/hash.service.js";
-import TokenService from "./src/service/token.service.js";
-import VehicleService from "./src/service/vehicle.service.js";
-import ServiceCenterService from "./src/service/serviceCenter.service.js";
-import CustomerService from "./src/service/customer.service.js";
-import VehicleProcessingRecordService from "./src/service/vehicleProcessingRecord.service.js";
-import WarehouseService from "./src/service/warehouse.service.js";
-import CaseLineService from "./src/service/caseLine.service.js";
-import WorkScheduleService from "./src/service/workSchedule.service.js";
-import StockTransferRequestService from "./src/service/stockTransferRequest.service.js";
-import MailService from "./src/service/mail.service.js";
+app.use(express.json());
+app.use(cors());
+app.use(scopePerRequest(container));
 
-import UserRepository from "./src/repository/user.repository.js";
-import VehicleRepository from "./src/repository/vehicle.repository.js";
-import ServiceCenterRepository from "./src/repository/serviceCenter.repository.js";
-import CustomerRepository from "./src/repository/customer.repository.js";
-import VehicleProcessingRecordRepository from "./src/repository/vehicleProcessingRecord.repository.js";
-import GuaranteeCaseRepository from "./src/repository/guaranteeCase.repository.js";
-import WareHouseRepository from "./src/repository/warehouse.repository.js";
-import ComponentReservationRepository from "./src/repository/componentReservation.repository.js";
-import CaseLineRepository from "./src/repository/caseline.repository.js";
-import ComponentRepository from "./src/repository/component.repository.js";
-import WorkScheduleRepository from "./src/repository/workSchedule.repository.js";
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));
 
-import StockTransferRequestRepository from "./src/repository/stockTransferRequest.repository.js";
-import StockTransferRequestItemRepository from "./src/repository/stockTransferRequestItem.repository.js";
-import StockReservationRepository from "./src/repository/stockReservation.repository.js";
+import authRouter from "./src/api/routes/auth.router.js";
+import userRouter from "./src/api/routes/user.router.js";
+import vehicleRouter from "./src/api/routes/vehicle.router.js";
+import customerRouter from "./src/api/routes/customer.router.js";
+import vehicleProcessingRecordRouter from "./src/api/routes/vehicleProcessingRecord.router.js";
+import guaranteeCaseRouter from "./src/api/routes/guaranteeCase.router.js";
+import chatRouter from "./src/api/routes/chat.router.js";
+import caseLineRouter from "./src/api/routes/caseLine.router.js";
+import componentReservationsRouter from "./src/api/routes/componentReservations.router.js";
+import componentRouter from "./src/api/routes/component.router.js";
+import warehouseRouter from "./src/api/routes/warehouse.router.js";
+import stockTransferRequestRouter from "./src/api/routes/stockTransferRequest.router.js";
+import workScheduleRouter from "./src/api/routes/workSchedule.router.js";
+import mailRouter from "./src/api/routes/mail.router.js";
 
-import TaskAssignmentRepository from "./src/repository/taskAssignment.repository.js";
-import UserController from "./src/api/controller/user.controller.js";
-import UserService from "./src/service/user.service.js";
-import redisClient from "./src/util/redisClient.js";
-import transporter from "./src/util/emailTransporter.js";
-import NotificationService from "./src/service/notification.service.js";
-import ChatController from "./src/api/controller/chat.controller.js";
-import ChatService from "./src/service/chat.service.js";
-import GuestRepository from "./src/repository/guest.repository.js";
-import ConversationRepository from "./src/repository/conversation.repository.js";
-import MessageRepository from "./src/repository/message.repository.js";
-import ComponentReservationsController from "./src/api/controller/componentReservations.controller.js";
-import ComponentReservationService from "./src/service/componentReservation.service.js";
-import WarehouseController from "./src/api/controller/warehouse.controller.js";
-import TypeComponentRepository from "./src/repository/typeComponent.repository.js";
+app.get("/", async (req, res) => {
+  res.send("Hello world");
+});
 
-const container = createContainer();
+const url = "/api/v1";
 
-export function setupContainer({ io, notificationNamespace, chatNamespace }) {
-  container.register({
-    //asValue
-    io: asValue(io),
-    notifications: asValue(notificationNamespace, {
-      lifetime: Lifetime.SINGLETON,
-    }),
-    chats: asValue(chatNamespace, {
-      lifetime: Lifetime.SINGLETON,
-    }),
-    redis: asValue(redisClient, { lifetime: Lifetime.SCOPED }),
-    transporter: asValue(transporter, { lifetime: Lifetime.SINGLETON }),
+app.use(`${url}/auth`, authRouter);
+app.use(`${url}/vehicles`, vehicleRouter);
+app.use(`${url}/customers`, customerRouter);
+app.use(`${url}/processing-records`, vehicleProcessingRecordRouter);
+app.use(`${url}/users`, userRouter);
+app.use(`${url}/guarantee-cases`, guaranteeCaseRouter);
+app.use(`${url}/chats`, chatRouter);
+app.use(`${url}/case-lines`, caseLineRouter);
+app.use(`${url}/reservations`, componentReservationsRouter);
+app.use(`${url}/warehouses`, warehouseRouter);
+app.use(`${url}/components`, componentRouter);
+app.use(`${url}/mail`, mailRouter);
 
-    // Controllers
-    authController: asClass(AuthController, { lifetime: Lifetime.SCOPED }),
-    vehicleController: asClass(VehicleController, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    customerController: asClass(CustomerController, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    vehicleProcessingRecordController: asClass(
-      VehicleProcessingRecordController,
-      { lifetime: Lifetime.SCOPED }
-    ),
-    caseLineController: asClass(CaseLineController, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    userController: asClass(UserController, { lifetime: Lifetime.SCOPED }),
-    chatController: asClass(ChatController, { lifetime: Lifetime.SCOPED }),
-    mailController: asClass(MailController, { lifetime: Lifetime.SCOPED }),
+app.use(`${url}/stock-transfer-requests`, stockTransferRequestRouter);
+app.use(`${url}/work-schedules`, workScheduleRouter);
 
-    componentReservationsController: asClass(ComponentReservationsController, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    warehouseController: asClass(WarehouseController, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    workScheduleController: asClass(WorkScheduleController, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    stockTransferRequestController: asClass(StockTransferRequestController, {
-      lifetime: Lifetime.SCOPED,
-    }),
+app.use(handleError);
 
-    // Services
-    authService: asClass(AuthService, { lifetime: Lifetime.SCOPED }),
-    hashService: asClass(HashService, { lifetime: Lifetime.SCOPED }),
-    tokenService: asClass(TokenService, { lifetime: Lifetime.SCOPED }),
-    vehicleService: asClass(VehicleService, { lifetime: Lifetime.SCOPED }),
-    serviceCenterService: asClass(ServiceCenterService, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    customerService: asClass(CustomerService, { lifetime: Lifetime.SCOPED }),
-    vehicleProcessingRecordService: asClass(VehicleProcessingRecordService, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    warehouseService: asClass(WarehouseService, { lifetime: Lifetime.SCOPED }),
-    caseLineService: asClass(CaseLineService, { lifetime: Lifetime.SCOPED }),
-    userService: asClass(UserService, { lifetime: Lifetime.SCOPED }),
-    mailService: asClass(MailService, { lifetime: Lifetime.SCOPED }),
-    notificationService: asClass(NotificationService, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    chatService: asClass(ChatService, { lifetime: Lifetime.SCOPED }),
-    componentReservationsService: asClass(ComponentReservationService, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    workScheduleService: asClass(WorkScheduleService, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    stockTransferRequestService: asClass(StockTransferRequestService, {
-      lifetime: Lifetime.SCOPED,
-    }),
-
-    // Repositories
-    userRepository: asClass(UserRepository, { lifetime: Lifetime.SCOPED }),
-    vehicleRepository: asClass(VehicleRepository, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    serviceCenterRepository: asClass(ServiceCenterRepository, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    customerRepository: asClass(CustomerRepository, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    vehicleProcessingRecordRepository: asClass(
-      VehicleProcessingRecordRepository,
-      { lifetime: Lifetime.SCOPED }
-    ),
-    guaranteeCaseRepository: asClass(GuaranteeCaseRepository, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    warehouseRepository: asClass(WareHouseRepository, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    componentReservationRepository: asClass(ComponentReservationRepository, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    caselineRepository: asClass(CaseLineRepository, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    taskAssignmentRepository: asClass(TaskAssignmentRepository, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    conversationRepository: asClass(ConversationRepository, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    guestRepository: asClass(GuestRepository, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    messageRepository: asClass(MessageRepository, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    componentRepository: asClass(ComponentRepository, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    typeComponentRepository: asClass(TypeComponentRepository, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    stockTransferRequestRepository: asClass(StockTransferRequestRepository, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    stockTransferRequestItemRepository: asClass(
-      StockTransferRequestItemRepository,
-      {
-        lifetime: Lifetime.SCOPED,
-      }
-    ),
-    stockReservationRepository: asClass(StockReservationRepository, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    workScheduleRepository: asClass(WorkScheduleRepository, {
-      lifetime: Lifetime.SCOPED,
-    }),
-  });
-
-  return container;
-}
-
-export default container;
+export default app;
