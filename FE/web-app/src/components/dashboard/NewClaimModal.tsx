@@ -42,7 +42,7 @@ export function NewClaimModal({
   onRegisterOwner,
 }: NewClaimModalProps) {
   const [step, setStep] = useState<
-    "search" | "verify" | "claim" | "otp" | "success"
+    "search" | "preview" | "verify" | "claim" | "otp" | "success"
   >("search");
   const [vinOrPlate, setVinOrPlate] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -56,6 +56,7 @@ export function NewClaimModal({
   const [error, setError] = useState("");
   const [warrantyInfo, setWarrantyInfo] = useState<any>(null);
   const [noOwnerWarning, setNoOwnerWarning] = useState(false);
+  const [previewPurchaseDate, setPreviewPurchaseDate] = useState("");
   const [visitorInfo, setVisitorInfo] = useState({
     fullName: "",
     phone: "",
@@ -222,6 +223,60 @@ export function NewClaimModal({
     }
   };
 
+  const handlePreviewWarranty = async () => {
+    if (!odometer || parseInt(odometer) < 0) {
+      setError("Please enter a valid odometer reading");
+      return;
+    }
+
+    if (!previewPurchaseDate) {
+      setError("Please enter a purchase date for preview");
+      return;
+    }
+
+    setIsSearching(true);
+    setError("");
+
+    try {
+      // Preview warranty status without registered owner
+      const warranty = await vehicleService.previewVehicleWarranty(
+        vehicleData.vin,
+        {
+          odometer: parseInt(odometer),
+          purchaseDate: previewPurchaseDate,
+        }
+      );
+
+      // Transform the response to include warranty status check
+      const warrantyData = warranty.data.vehicle;
+      const isGeneralWarrantyActive =
+        warrantyData.generalWarranty.duration.status === true ||
+        warrantyData.generalWarranty.duration.status === "ACTIVE";
+      const isGeneralMileageValid =
+        warrantyData.generalWarranty.mileage.status === "ACTIVE";
+
+      setWarrantyInfo({
+        ...warrantyData,
+        isUnderWarranty: isGeneralWarrantyActive && isGeneralMileageValid,
+        message:
+          isGeneralWarrantyActive && isGeneralMileageValid
+            ? `Vehicle would be covered under warranty with this purchase date. General warranty would expire on ${new Date(
+                warrantyData.generalWarranty.duration.endDate
+              ).toLocaleDateString()} with ${warrantyData.generalWarranty.mileage.remainingMileage.toLocaleString()} km remaining.`
+            : "Vehicle would not be covered under the general warranty policy with this purchase date.",
+        isPreview: true,
+      });
+
+      setStep("preview");
+    } catch (err: any) {
+      setError(
+        err.response?.data?.message || "Failed to preview warranty status"
+      );
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   const handleAddCase = () => {
     setGuaranteeCases([
       ...guaranteeCases,
@@ -365,6 +420,7 @@ export function NewClaimModal({
                   </h2>
                   <p className="text-sm text-gray-500 mt-1">
                     {step === "search" && "Step 1: Find Vehicle"}
+                    {step === "preview" && "Step 2: Preview Warranty"}
                     {step === "verify" && "Step 2: Verify Information"}
                     {step === "claim" && "Step 3: Claim Details"}
                     {step === "otp" && "Step 4: Email Verification"}
@@ -481,8 +537,8 @@ export function NewClaimModal({
                             </h3>
                             <p className="text-sm text-gray-700 mb-4">
                               This vehicle does not have a registered owner. You
-                              must register an owner before creating a warranty
-                              claim.
+                              can preview the warranty eligibility or register
+                              an owner to create a claim.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-3">
                               <button
@@ -510,6 +566,25 @@ export function NewClaimModal({
                                 Search Another Vehicle
                               </button>
                             </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Preview Warranty Info Section - Show when no owner */}
+                    {noOwnerWarning && !vehicleData.owner && (
+                      <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+                        <div className="flex items-start gap-3">
+                          <Shield className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <h4 className="font-medium text-gray-900 mb-1">
+                              Preview Warranty Eligibility
+                            </h4>
+                            <p className="text-sm text-gray-700">
+                              Enter the odometer reading and hypothetical
+                              purchase date below to preview warranty coverage
+                              for this vehicle.
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -570,7 +645,10 @@ export function NewClaimModal({
                         <input
                           type="number"
                           value={odometer}
-                          onChange={(e) => setOdometer(e.target.value)}
+                          onChange={(e) => {
+                            setOdometer(e.target.value);
+                            if (error) setError("");
+                          }}
                           placeholder="e.g., 52340"
                           min="0"
                           className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-colors"
@@ -578,12 +656,186 @@ export function NewClaimModal({
                       </div>
                     </div>
 
+                    {/* Purchase Date Input - Show only when previewing warranty for unregistered vehicle */}
+                    {noOwnerWarning && !vehicleData.owner && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Purchase Date (for preview) *
+                        </label>
+                        <input
+                          type="date"
+                          value={previewPurchaseDate}
+                          onChange={(e) => {
+                            setPreviewPurchaseDate(e.target.value);
+                            if (error) setError("");
+                          }}
+                          max={new Date().toISOString().split("T")[0]}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-colors"
+                        />
+                      </div>
+                    )}
+
                     {error && (
                       <div className="flex items-start gap-2 p-4 bg-red-50 border border-red-200 rounded-lg">
                         <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                         <p className="text-sm text-red-700">{error}</p>
                       </div>
                     )}
+                  </motion.div>
+                )}
+
+                {/* Step 2.5: Warranty Preview (for unregistered vehicles) */}
+                {step === "preview" && warrantyInfo && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="space-y-6"
+                  >
+                    {/* Preview Notice */}
+                    <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
+                      <div className="flex items-start gap-3">
+                        <Shield className="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <h3 className="font-semibold text-gray-900 mb-2">
+                            Warranty Preview
+                          </h3>
+                          <p className="text-sm text-gray-700 mb-2">
+                            This is a preview of the warranty coverage based on
+                            the purchase date you provided. The vehicle is not
+                            yet registered with an owner.
+                          </p>
+                          <p className="text-sm text-blue-700 font-medium">
+                            To create a warranty claim, you must first register
+                            an owner for this vehicle.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Warranty Status */}
+                    <div
+                      className={`rounded-xl p-6 ${
+                        warrantyInfo.isUnderWarranty
+                          ? "bg-green-50 border border-green-200"
+                          : "bg-red-50 border border-red-200"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        {warrantyInfo.isUnderWarranty ? (
+                          <CheckCircle className="w-5 h-5 text-green-600" />
+                        ) : (
+                          <AlertCircle className="w-5 h-5 text-red-600" />
+                        )}
+                        <h3 className="font-semibold text-gray-900">
+                          {warrantyInfo.isUnderWarranty
+                            ? "Would Be Covered Under Warranty"
+                            : "Would Not Be Covered"}
+                        </h3>
+                      </div>
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        {warrantyInfo.message}
+                      </p>
+                    </div>
+
+                    {/* Vehicle Preview Info */}
+                    <div className="bg-gray-50 rounded-xl p-6 space-y-4">
+                      <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                        <Car className="w-5 h-5" />
+                        Preview Details
+                      </h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs text-gray-500">VIN</p>
+                          <p className="font-medium text-gray-900 font-mono">
+                            {vehicleData.vin}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">
+                            Preview Purchase Date
+                          </p>
+                          <p className="font-medium text-gray-900">
+                            {new Date(previewPurchaseDate).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">
+                            Current Odometer
+                          </p>
+                          <p className="font-medium text-gray-900">
+                            {parseInt(odometer).toLocaleString()} km
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Model</p>
+                          <p className="font-medium text-gray-900">
+                            {vehicleData.model ||
+                              vehicleData.vehicleModel?.modelName ||
+                              "N/A"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Component Warranties Preview */}
+                    {warrantyInfo.componentWarranties &&
+                      warrantyInfo.componentWarranties.length > 0 && (
+                        <div className="bg-gray-50 rounded-xl p-6">
+                          <h4 className="font-semibold text-gray-900 mb-4">
+                            Component Warranty Coverage
+                          </h4>
+                          <div className="space-y-3">
+                            {warrantyInfo.componentWarranties.map(
+                              (comp: ComponentWarranty, index: number) => (
+                                <div
+                                  key={index}
+                                  className="bg-white rounded-lg p-4 border border-gray-200"
+                                >
+                                  <div className="flex items-center justify-between mb-2">
+                                    <h5 className="font-medium text-gray-900">
+                                      {comp.componentName}
+                                    </h5>
+                                    <span
+                                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                        comp.duration.status === "ACTIVE"
+                                          ? "bg-green-100 text-green-700"
+                                          : "bg-red-100 text-red-700"
+                                      }`}
+                                    >
+                                      {comp.duration.status === "ACTIVE"
+                                        ? "Active"
+                                        : "Expired"}
+                                    </span>
+                                  </div>
+                                  <div className="text-xs text-gray-600 space-y-1">
+                                    <p>
+                                      Coverage: {comp.policy.durationMonths}{" "}
+                                      months /{" "}
+                                      {comp.policy.mileageLimit.toLocaleString()}{" "}
+                                      km
+                                    </p>
+                                    {comp.duration.status === "ACTIVE" && (
+                                      <>
+                                        <p>
+                                          Expires:{" "}
+                                          {new Date(
+                                            comp.duration.endDate
+                                          ).toLocaleDateString()}
+                                        </p>
+                                        <p>
+                                          Remaining:{" "}
+                                          {comp.mileage.remainingMileage.toLocaleString()}{" "}
+                                          km
+                                        </p>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      )}
                   </motion.div>
                 )}
 
@@ -1039,7 +1291,14 @@ export function NewClaimModal({
                       step === "search"
                         ? handleSearchVehicle
                         : step === "verify"
-                        ? handleVerifyAndNext
+                        ? noOwnerWarning
+                          ? handlePreviewWarranty
+                          : handleVerifyAndNext
+                        : step === "preview"
+                        ? () => {
+                            setStep("search");
+                            setWarrantyInfo(null);
+                          }
                         : step === "claim"
                         ? handleProceedToOTP
                         : step === "otp"
@@ -1051,7 +1310,9 @@ export function NewClaimModal({
                     disabled={
                       isSearching ||
                       isSubmitting ||
-                      (step === "verify" && noOwnerWarning) ||
+                      (step === "verify" &&
+                        noOwnerWarning &&
+                        (!odometer || !previewPurchaseDate)) ||
                       (step === "otp" && otpSent && otp.length !== 6)
                     }
                     className="px-6 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
@@ -1061,7 +1322,8 @@ export function NewClaimModal({
                     )}
                     {step === "search" && "Search Vehicle"}
                     {step === "verify" &&
-                      (noOwnerWarning ? "Owner Required" : "Continue")}
+                      (noOwnerWarning ? "Preview Warranty" : "Continue")}
+                    {step === "preview" && "Back to Search"}
                     {step === "claim" && "Proceed to Verification"}
                     {step === "otp" && !otpSent && "Send OTP"}
                     {step === "otp" && otpSent && "Verify & Submit"}

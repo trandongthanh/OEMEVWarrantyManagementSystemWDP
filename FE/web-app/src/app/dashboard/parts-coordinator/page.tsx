@@ -1,14 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  Home,
-  Package,
-  RotateCcw,
-  Clock,
-  Settings,
-  Boxes,
-} from "lucide-react";
+import { Home, Package, RotateCcw, Clock, Settings, Boxes } from "lucide-react";
 import { authService } from "@/services";
 import { useRoleProtection } from "@/hooks/useRoleProtection";
 import {
@@ -19,6 +12,9 @@ import {
   ComponentStatusManager,
 } from "@/components/dashboard";
 import Inventory from "@/components/dashboard/partscoordinatordashboard/Inventory";
+import { InventoryDashboard } from "@/components/inventory";
+import AllocateComponentModal from "@/components/dashboard/partscoordinatordashboard/AllocationModal";
+import TransferComponentModal from "@/components/dashboard/partscoordinatordashboard/TransferModal";
 
 interface CurrentUser {
   userId: string;
@@ -40,6 +36,8 @@ export default function PartsCoordinatorDashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [showAllocateModal, setShowAllocateModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
 
   useEffect(() => {
     const userInfo = authService.getUserInfo();
@@ -72,21 +70,48 @@ export default function PartsCoordinatorDashboard() {
         return <PartsCoordinatorDashboardOverview />;
 
       case "inventory":
+        // Role-based inventory view
+        const isCompanyCoordinator =
+          currentUser?.roleName === "parts_coordinator_company";
+
         return (
           <div className="flex-1 overflow-auto">
             <div className="p-8">
-              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-                <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                  <Boxes className="w-5 h-5 text-blue-600" />
-                  Inventory Management
-                </h2>
-                <p className="text-sm text-gray-500 mt-1">
-                  View and manage stock levels and warehouse components.
-                </p>
-                <div className="mt-6">
-                  <Inventory /> {/* 👈 Component Inventory bạn đã tạo */}
+              {isCompanyCoordinator ? (
+                // Company Coordinator: Warehouse-level summary view
+                <div className="space-y-6">
+                  <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl border-2 border-blue-200 p-6 shadow-lg">
+                    <InventoryDashboard
+                      onOpenAllocate={() => setShowAllocateModal(true)}
+                      onOpenTransfer={() => setShowTransferModal(true)}
+                    />
+                  </div>
+
+                  {/* Modals */}
+                  <AllocateComponentModal
+                    isOpen={showAllocateModal}
+                    onClose={() => setShowAllocateModal(false)}
+                  />
+                  <TransferComponentModal
+                    isOpen={showTransferModal}
+                    onClose={() => setShowTransferModal(false)}
+                  />
                 </div>
-              </div>
+              ) : (
+                // Service Center Coordinator: Component-level detail view
+                <div className="bg-white rounded-2xl border-2 border-gray-200 p-6 shadow-lg">
+                  <div className="mb-6">
+                    <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                      <Boxes className="w-6 h-6 text-blue-600" />
+                      Service Center Inventory
+                    </h2>
+                    <p className="text-gray-600 text-sm mt-1">
+                      Manage components for your service center
+                    </p>
+                  </div>
+                  <Inventory />
+                </div>
+              )}
             </div>
           </div>
         );

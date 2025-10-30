@@ -91,14 +91,29 @@ export interface AllocateStockResponse {
   status: "success";
   message: string;
   data: {
-    caseline: {
+    componentReservations?: Array<{
+      reservationId: string;
+      caseLineId: string;
+      componentId: string;
+      status: string;
+      createdAt?: string;
+    }>;
+    stockUpdates?: unknown[];
+    componentStatusUpdates?: unknown[];
+    formattedCaselineStatus?: Array<{
+      caselineId: string;
+      status: string;
+      updatedAt: string;
+    }>;
+    // Old format (for backward compatibility)
+    caseline?: {
       caselineId: string;
       componentId: string;
       quantity: number;
       quantityReserved: number;
       status: string;
     };
-    reservations: Array<{
+    reservations?: Array<{
       reservationId: string;
       caselineId: string;
       stockId: string;

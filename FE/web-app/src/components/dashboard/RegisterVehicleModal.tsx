@@ -22,6 +22,7 @@ interface RegisterVehicleModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  onCreateClaim?: () => void;
   initialVin?: string;
 }
 
@@ -29,6 +30,7 @@ export function RegisterVehicleModal({
   isOpen,
   onClose,
   onSuccess,
+  onCreateClaim,
   initialVin,
 }: RegisterVehicleModalProps) {
   const [step, setStep] = useState<
@@ -710,9 +712,29 @@ export function RegisterVehicleModal({
                     <h3 className="text-2xl font-bold text-gray-900 mb-2">
                       Vehicle Registered Successfully!
                     </h3>
-                    <p className="text-gray-600">
+                    <p className="text-gray-600 mb-6">
                       The vehicle has been registered to the customer.
                     </p>
+
+                    {/* Suggestion to create claim */}
+                    {onCreateClaim && (
+                      <div className="mt-6 pt-6 border-t border-gray-200">
+                        <p className="text-sm text-gray-600 mb-4">
+                          Would you like to create a warranty claim for this
+                          vehicle?
+                        </p>
+                        <button
+                          onClick={() => {
+                            handleClose();
+                            onCreateClaim();
+                          }}
+                          className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                        >
+                          Create New Claim
+                          <ArrowRight className="w-5 h-5" />
+                        </button>
+                      </div>
+                    )}
                   </motion.div>
                 )}
               </div>

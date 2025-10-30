@@ -241,6 +241,9 @@ export default function StaffDashboard() {
           // Reset VIN after successful registration
           setRegisterVehicleVin(undefined);
         }}
+        onCreateClaim={() => {
+          setShowNewClaimModal(true);
+        }}
         initialVin={registerVehicleVin}
       />
     </>

@@ -212,7 +212,7 @@ export function CreateStockTransferRequestModal({
 
       console.log("Creating stock transfer request:", requestPayload);
 
-      await stockTransferService.createRequest(requestPayload);
+      await stockTransferService.createRequest(requestPayload as any);
 
       // Success
       onSuccess?.();
@@ -332,7 +332,7 @@ export function CreateStockTransferRequestModal({
                             setShowDropdown(newDropdown);
                           }}
                           placeholder="Search for component..."
-                          className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full pl-9 pr-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           required
                         />
                         {showDropdown[index] && (

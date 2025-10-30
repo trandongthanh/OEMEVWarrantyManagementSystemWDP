@@ -253,13 +253,13 @@ export function CaseLineOperations() {
         caseLineId
       );
 
-      const reservedQty = response.data.reservations.reduce(
-        (sum: number, r: any) => sum + r.quantity,
-        0
-      );
+      // Backend returns componentReservations array (each reservation is 1 component)
+      const reservations =
+        response.data.componentReservations || response.data.reservations || [];
+      const reservedQty = reservations.length; // Each reservation = 1 component
 
       setSuccessMessage(
-        `✓ Stock allocated! Reserved ${reservedQty} units from ${response.data.reservations.length} warehouse(s).`
+        `✓ Stock allocated successfully! Reserved ${reservedQty} component(s).`
       );
 
       await fetchCaseLines();

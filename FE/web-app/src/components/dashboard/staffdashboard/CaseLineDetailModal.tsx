@@ -12,6 +12,9 @@ import {
   Wrench,
   CheckSquare,
   Square,
+  Image as ImageIcon,
+  Upload,
+  Trash2,
 } from "lucide-react";
 import type { ProcessingRecord } from "@/services/processingRecordService";
 import { useState } from "react";
@@ -45,6 +48,9 @@ export function CaseLineDetailModal({
   const [selectedCaseLines, setSelectedCaseLines] = useState<Set<string>>(
     new Set()
   );
+  const [diagnosisImages, setDiagnosisImages] = useState<
+    Map<string, { file: File; preview: string }[]>
+  >(new Map());
 
   if (!record) return null;
 
@@ -107,6 +113,50 @@ export function CaseLineDetailModal({
 
   const clearSelection = () => {
     setSelectedCaseLines(new Set());
+  };
+
+  // Image handling functions
+  const handleImageSelect = (
+    caseLineId: string,
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const newImages: { file: File; preview: string }[] = [];
+    Array.from(files).forEach((file) => {
+      if (file.type.startsWith("image/")) {
+        const preview = URL.createObjectURL(file);
+        newImages.push({ file, preview });
+      }
+    });
+
+    if (newImages.length > 0) {
+      setDiagnosisImages((prev) => {
+        const updated = new Map(prev);
+        const existing = updated.get(caseLineId) || [];
+        updated.set(caseLineId, [...existing, ...newImages]);
+        return updated;
+      });
+    }
+  };
+
+  const handleRemoveImage = (caseLineId: string, index: number) => {
+    setDiagnosisImages((prev) => {
+      const updated = new Map(prev);
+      const images = updated.get(caseLineId) || [];
+      // Revoke the object URL to free memory
+      if (images[index]) {
+        URL.revokeObjectURL(images[index].preview);
+      }
+      const filtered = images.filter((_, i) => i !== index);
+      if (filtered.length === 0) {
+        updated.delete(caseLineId);
+      } else {
+        updated.set(caseLineId, filtered);
+      }
+      return updated;
+    });
   };
 
   const getWarrantyStatusBadge = (status: string) => {
@@ -429,9 +479,84 @@ export function CaseLineDetailModal({
                               Diagnosis
                             </h5>
                           </div>
-                          <p className="text-sm text-gray-700 leading-relaxed">
+                          <p className="text-sm text-gray-700 leading-relaxed mb-3">
                             {caseLine.diagnosisText}
                           </p>
+
+                          {/* Image Upload Section */}
+                          <div className="mt-3 pt-3 border-t border-gray-300">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <ImageIcon className="w-4 h-4 text-gray-600" />
+                                <span className="text-xs font-medium text-gray-700">
+                                  Diagnosis Images
+                                </span>
+                              </div>
+                              <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors text-xs font-medium">
+                                <Upload className="w-3.5 h-3.5" />
+                                Upload Images
+                                <input
+                                  type="file"
+                                  multiple
+                                  accept="image/*"
+                                  onChange={(e) =>
+                                    handleImageSelect(caseLine.id, e)
+                                  }
+                                  className="hidden"
+                                />
+                              </label>
+                            </div>
+
+                            {/* Image Previews */}
+                            {diagnosisImages.get(caseLine.id) &&
+                              diagnosisImages.get(caseLine.id)!.length > 0 && (
+                                <div className="grid grid-cols-3 gap-2 mt-2">
+                                  {diagnosisImages
+                                    .get(caseLine.id)!
+                                    .map((img, imgIndex) => (
+                                      <div
+                                        key={imgIndex}
+                                        className="relative group aspect-square rounded-lg overflow-hidden border border-gray-300 bg-white"
+                                      >
+                                        <img
+                                          src={img.preview}
+                                          alt={`Diagnosis ${imgIndex + 1}`}
+                                          className="w-full h-full object-cover"
+                                        />
+                                        <button
+                                          onClick={() =>
+                                            handleRemoveImage(
+                                              caseLine.id,
+                                              imgIndex
+                                            )
+                                          }
+                                          className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <p className="text-xs text-white truncate">
+                                            {img.file.name}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    ))}
+                                </div>
+                              )}
+
+                            {(!diagnosisImages.get(caseLine.id) ||
+                              diagnosisImages.get(caseLine.id)!.length ===
+                                0) && (
+                              <div className="flex items-center justify-center py-4 text-gray-400">
+                                <div className="text-center">
+                                  <ImageIcon className="w-8 h-8 mx-auto mb-1 opacity-50" />
+                                  <p className="text-xs">
+                                    No images uploaded yet
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
 
                         {/* Correction */}

@@ -10,6 +10,19 @@ export interface InventorySummary {
   availableStock: number;
 }
 
+interface RawInventorySummary {
+  warehouseId: string;
+  totalInStock: string;
+  totalReserved: string;
+  totalAvailable: string;
+  warehouse: {
+    warehouseId: string;
+    name: string;
+    serviceCenterId: string | null;
+    vehicleCompanyId: string;
+  };
+}
+
 export interface TypeComponentStock {
   typeComponentId: string;
   typeComponentName: string;
@@ -53,7 +66,15 @@ export async function getInventorySummary(
     const response = await apiClient.get("/inventory/summary", {
       params: { serviceCenterId },
     });
-    return response.data.data.summary;
+
+    // Transform backend response to match frontend interface
+    return response.data.data.summary.map((item: RawInventorySummary) => ({
+      warehouseId: item.warehouseId,
+      warehouseName: item.warehouse.name,
+      totalStock: parseInt(item.totalInStock) || 0,
+      reservedStock: Math.max(0, parseInt(item.totalReserved) || 0), // Ensure non-negative
+      availableStock: Math.max(0, parseInt(item.totalAvailable) || 0), // Ensure non-negative
+    }));
   } catch (error) {
     console.error("Error fetching inventory summary:", error);
     throw error;
