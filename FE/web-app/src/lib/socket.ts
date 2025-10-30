@@ -85,6 +85,10 @@ export function joinChatRoom(
     throw new Error("Chat socket not initialized");
   }
 
+  console.log(
+    `[Frontend] ${senderType} (${senderId}) joining conversation: ${conversationId}`
+  );
+
   chatSocket.emit("joinRoom", {
     conversationId,
     senderId,
@@ -95,24 +99,47 @@ export function joinChatRoom(
 /**
  * Send a message through socket
  */
-export function sendSocketMessage(data: {
-  conversationId: string;
-  senderId: string;
-  senderType: "guest" | "staff";
-  content: string;
-  timestamp: string;
-}): void {
+export function sendSocketMessage(
+  data: {
+    conversationId: string;
+    senderId: string;
+    senderType: "guest" | "staff";
+    content: string;
+    timestamp: string;
+  },
+  callback?: (response: {
+    success: boolean;
+    data?: unknown;
+    error?: string;
+  }) => void
+): void {
   if (!chatSocket) {
     throw new Error("Chat socket not initialized");
   }
 
   // Convert senderType to uppercase for backend
   const backendData = {
-    ...data,
+    conversationId: data.conversationId,
+    senderId: data.senderId,
     senderType: data.senderType.toUpperCase() as "GUEST" | "STAFF",
+    content: data.content,
   };
 
-  chatSocket.emit("sendMessage", backendData);
+  console.log(
+    `[Frontend] Sending message from ${data.senderType} to conversation ${data.conversationId}`
+  );
+
+  if (callback) {
+    chatSocket.emit("sendMessage", backendData, callback);
+  } else {
+    chatSocket.emit(
+      "sendMessage",
+      backendData,
+      (response: { success: boolean; data?: unknown; error?: string }) => {
+        console.log("[Frontend] Message send response:", response);
+      }
+    );
+  }
 }
 
 /**

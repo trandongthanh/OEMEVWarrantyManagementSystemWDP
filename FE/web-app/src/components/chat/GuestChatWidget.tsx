@@ -12,6 +12,7 @@ import {
   CheckCircle,
   AlertCircle,
   Paperclip,
+  Download,
 } from "lucide-react";
 import {
   startAnonymousChat,
@@ -29,7 +30,8 @@ import {
   disconnectChatSocket,
   sendTypingIndicator,
 } from "@/lib/socket";
-import { uploadToCloudinary, getFileType } from "@/lib/cloudinary";
+import { uploadToCloudinary } from "@/lib/cloudinary";
+import { decodeFileFromContent } from "@/lib/fileMessageUtils";
 
 interface GuestChatWidgetProps {
   serviceCenterId?: string; // Default service center to connect to
@@ -82,7 +84,8 @@ export default function GuestChatWidget({
   useEffect(() => {
     if (conversationId && isConnected) {
       loadMessages();
-      setupSocketListeners();
+      // Socket listeners are now set up in handleStartChat BEFORE joining room
+      // to avoid race conditions with chatAccepted event
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId, isConnected]);
@@ -99,79 +102,6 @@ export default function GuestChatWidget({
       console.error("Failed to initialize socket:", err);
       setError("Failed to connect. Please try again.");
     }
-  };
-
-  const setupSocketListeners = () => {
-    const socket = getChatSocket();
-    if (!socket) return;
-
-    // Listen for new messages
-    socket.on("newMessage", (data: { newMessage: Message }) => {
-      // Normalize senderType to lowercase for frontend consistency
-      const normalizedMessage = {
-        ...data.newMessage,
-        senderType: data.newMessage.senderType.toLowerCase() as
-          | "guest"
-          | "staff",
-      };
-      setMessages((prev) => [...prev, normalizedMessage]);
-      setIsTyping(false);
-    });
-
-    // Listen for typing indicator
-    socket.on("userTyping", () => {
-      setIsTyping(true);
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-      typingTimeoutRef.current = setTimeout(() => {
-        setIsTyping(false);
-      }, 3000);
-    });
-
-    // Listen for chat accepted by staff
-    socket.on(
-      "chatAccepted",
-      (data: { conversationId: string; staffId: string }) => {
-        if (data.conversationId === conversationId) {
-          setConnectionStatus("active");
-          setMessages((prev) => [
-            ...prev,
-            {
-              messageId: `system-${Date.now()}`,
-              content: "A staff member has joined the chat.",
-              senderId: "system",
-              senderType: "staff",
-              senderName: "System",
-              sentAt: new Date().toISOString(),
-              isRead: true,
-            },
-          ]);
-        }
-      }
-    );
-
-    // Listen for conversation closed
-    socket.on(
-      "conversationClosed",
-      (data: { conversationId: string; closedBy: string }) => {
-        if (data.conversationId === conversationId) {
-          setConnectionStatus("closed");
-          setMessages((prev) => [
-            ...prev,
-            {
-              messageId: `system-${Date.now()}`,
-              content: "This conversation has been closed by staff.",
-              senderId: "system",
-              senderType: "staff",
-              senderName: "System",
-              sentAt: new Date().toISOString(),
-              isRead: true,
-            },
-          ]);
-        }
-      }
-    );
   };
 
   const loadMessages = async () => {
@@ -220,7 +150,88 @@ export default function GuestChatWidget({
       // Initialize socket connection only after chat is started
       initializeSocket();
 
-      // Join the chat room
+      // Set up socket listeners IMMEDIATELY after socket initialization
+      // and BEFORE joining the room to avoid missing events
+      const socket = getChatSocket();
+      if (socket) {
+        console.log("[Guest] Setting up socket listeners before joining room");
+
+        // Clean up any existing listeners
+        socket.off("newMessage");
+        socket.off("userTyping");
+        socket.off("chatAccepted");
+        socket.off("conversationClosed");
+
+        // Listen for new messages
+        socket.on("newMessage", (data: { newMessage: Message }) => {
+          const normalizedMessage = {
+            ...data.newMessage,
+            senderType: data.newMessage.senderType.toLowerCase() as
+              | "guest"
+              | "staff",
+          };
+          setMessages((prev) => [...prev, normalizedMessage]);
+          setIsTyping(false);
+        });
+
+        // Listen for typing indicator
+        socket.on("userTyping", () => {
+          setIsTyping(true);
+          if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+          }
+          typingTimeoutRef.current = setTimeout(() => {
+            setIsTyping(false);
+          }, 3000);
+        });
+
+        // Listen for chat accepted by staff
+        socket.on(
+          "chatAccepted",
+          (data: { conversationId: string; staffId: string }) => {
+            console.log("[Guest] Received chatAccepted event:", data);
+            if (data.conversationId === session.conversationId) {
+              setConnectionStatus("active");
+              setMessages((prev) => [
+                ...prev,
+                {
+                  messageId: `system-${Date.now()}`,
+                  content: "A staff member has joined the chat.",
+                  senderId: "system",
+                  senderType: "staff",
+                  senderName: "System",
+                  sentAt: new Date().toISOString(),
+                  isRead: true,
+                },
+              ]);
+            }
+          }
+        );
+
+        // Listen for conversation closed
+        socket.on(
+          "conversationClosed",
+          (data: { conversationId: string; closedBy: string }) => {
+            if (data.conversationId === session.conversationId) {
+              setConnectionStatus("closed");
+              setMessages((prev) => [
+                ...prev,
+                {
+                  messageId: `system-closed-${Date.now()}`,
+                  content: "This conversation has been closed by staff.",
+                  senderId: "system",
+                  senderType: "staff",
+                  senderName: "System",
+                  sentAt: new Date().toISOString(),
+                  isRead: true,
+                },
+              ]);
+            }
+          }
+        );
+      }
+
+      // Join the chat room AFTER listeners are set up
       joinChatRoom(session.conversationId, freshGuestId, "guest");
 
       // Add welcome message
@@ -248,42 +259,37 @@ export default function GuestChatWidget({
     if ((!inputText.trim() && !selectedFile) || !conversationId) return;
 
     setIsUploading(true);
-    let fileUrl: string | undefined;
-    let fileType: "image" | "file" | undefined;
 
     try {
-      // Upload file to Cloudinary if selected
+      let messageContent = inputText.trim();
+
+      // Upload file to Cloudinary if selected - just include the URL in message
       if (selectedFile) {
-        fileUrl = await uploadToCloudinary(selectedFile);
-        fileType = getFileType(fileUrl);
+        const fileUrl = await uploadToCloudinary(selectedFile);
+        // Simply add the URL to the message - frontend will auto-detect and display it
+        messageContent = fileUrl + (messageContent ? ` ${messageContent}` : "");
       }
 
       const messageData = {
         conversationId,
         senderId: guestId,
         senderType: "guest" as const,
-        content:
-          inputText.trim() || (selectedFile ? `📎 ${selectedFile.name}` : ""),
+        content: messageContent || `📎 ${selectedFile?.name || "attachment"}`,
         timestamp: new Date().toISOString(),
-        fileUrl,
-        fileType,
       };
 
       // Send through socket
       sendSocketMessage(messageData);
 
-      // Add to local state immediately
+      // Add to local state for immediate display
       const newMessage: Message = {
         messageId: `temp-${Date.now()}`,
-        content:
-          inputText.trim() || (selectedFile ? `📎 ${selectedFile.name}` : ""),
+        content: messageContent || `📎 ${selectedFile?.name || "attachment"}`,
         senderId: guestId,
         senderType: "guest",
         senderName: guestName || "You",
         sentAt: new Date().toISOString(),
         isRead: false,
-        fileUrl,
-        fileType,
       };
 
       setMessages((prev) => [...prev, newMessage]);
@@ -572,74 +578,88 @@ export default function GuestChatWidget({
                                 {message.senderName}
                               </p>
                             )}
-                            <div
-                              className={`rounded-2xl px-5 py-3 ${
-                                message.senderType === "guest"
-                                  ? "bg-gradient-to-br from-blue-500 to-emerald-500 text-white shadow-lg shadow-blue-500/20"
-                                  : "bg-white/5 text-gray-200 border border-white/10 backdrop-blur-sm"
-                              }`}
-                            >
-                              <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                                {message.content}
-                              </p>
-
-                              {/* File/Image Display */}
-                              {message.fileUrl && (
-                                <div className="mt-3">
-                                  {message.fileType === "image" ? (
-                                    <div className="relative">
-                                      <Image
-                                        src={message.fileUrl!}
-                                        alt="Shared image"
-                                        width={300}
-                                        height={200}
-                                        className="max-w-full max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity object-cover"
-                                        onClick={() =>
-                                          window.open(message.fileUrl, "_blank")
-                                        }
-                                      />
-                                      <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
-                                        📷 Image
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="flex items-center gap-3 p-3 bg-black/20 rounded-lg">
-                                      <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                                        <span className="text-blue-300">
-                                          📎
-                                        </span>
-                                      </div>
-                                      <div className="flex-1">
-                                        <p className="text-sm text-white font-medium">
-                                          {message.fileUrl.split("/").pop()}
-                                        </p>
-                                        <p className="text-xs text-gray-400">
-                                          File attachment
-                                        </p>
-                                      </div>
-                                      <button
-                                        onClick={() =>
-                                          window.open(message.fileUrl, "_blank")
-                                        }
-                                        className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
-                                      >
-                                        Download
-                                      </button>
+                            {(() => {
+                              const { file, text } = decodeFileFromContent(
+                                message.content
+                              );
+                              return (
+                                <div
+                                  className={`rounded-2xl px-5 py-3 ${
+                                    message.senderType === "guest"
+                                      ? "bg-gradient-to-br from-blue-500 to-emerald-500 text-white shadow-lg shadow-blue-500/20"
+                                      : "bg-white/5 text-gray-200 border border-white/10 backdrop-blur-sm"
+                                  }`}
+                                >
+                                  {/* File/Image Display */}
+                                  {file && (
+                                    <div className="mb-3">
+                                      {file.type === "image" ? (
+                                        <div className="relative">
+                                          <Image
+                                            src={file.url}
+                                            alt="Shared image"
+                                            width={300}
+                                            height={200}
+                                            className="max-w-full max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity object-cover"
+                                            onClick={() =>
+                                              window.open(file.url, "_blank")
+                                            }
+                                          />
+                                          <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+                                            📷 Image
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <div className="flex items-center gap-3 p-3 bg-blue-50/60 rounded-lg">
+                                          <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                                            <span className="text-blue-300">
+                                              📎
+                                            </span>
+                                          </div>
+                                          <div className="flex-1">
+                                            <p className="text-sm font-medium">
+                                              {file.name}
+                                            </p>
+                                            <p className="text-xs text-gray-500">
+                                              File attachment
+                                            </p>
+                                          </div>
+                                          {/* Only show download button for messages not from current user */}
+                                          {message.senderId !== guestId && (
+                                            <button
+                                              onClick={() =>
+                                                window.open(file.url, "_blank")
+                                              }
+                                              className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                                              title="Download file"
+                                            >
+                                              <Download size={16} />
+                                            </button>
+                                          )}
+                                        </div>
+                                      )}
                                     </div>
                                   )}
-                                </div>
-                              )}
 
-                              <p
-                                className={`text-xs mt-2 ${
-                                  message.senderType === "guest"
-                                    ? "text-white/60"
-                                    : "text-gray-500"
-                                }`}
-                              >
-                                {formatTime(message.sentAt)}
-                              </p>
-                            </div>
+                                  {/* Message Text */}
+                                  {text && (
+                                    <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                                      {text}
+                                    </p>
+                                  )}
+
+                                  <p
+                                    className={`text-xs mt-2 ${
+                                      message.senderType === "guest"
+                                        ? "text-white/60"
+                                        : "text-gray-500"
+                                    }`}
+                                  >
+                                    {formatTime(message.sentAt)}
+                                  </p>
+                                </div>
+                              );
+                            })()}
                           </>
                         )}
                       </div>

@@ -27,7 +27,7 @@ export interface Message {
   messageId: string;
   content: string;
   senderId: string;
-  senderType: "guest" | "staff";
+  senderType: "guest" | "staff" | "system";
   senderName: string;
   sentAt: string;
   isRead: boolean;
