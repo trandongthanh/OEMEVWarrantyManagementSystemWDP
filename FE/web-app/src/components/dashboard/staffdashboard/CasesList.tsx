@@ -164,6 +164,32 @@ export function CasesList({ onViewDetails }: CasesListProps) {
     });
   };
 
+  const getGuaranteeCaseStatusColor = (status: string) => {
+    switch (status) {
+      case "PENDING_ASSIGNMENT":
+        return "bg-yellow-100 text-yellow-700";
+      case "IN_DIAGNOSIS":
+        return "bg-blue-100 text-blue-700";
+      case "DIAGNOSED":
+        return "bg-green-100 text-green-700";
+      default:
+        return "bg-gray-100 text-gray-700";
+    }
+  };
+
+  const formatGuaranteeCaseStatus = (status: string) => {
+    switch (status) {
+      case "PENDING_ASSIGNMENT":
+        return "PENDING_ASSIGNMENT";
+      case "IN_DIAGNOSIS":
+        return "IN_DIAGNOSIS";
+      case "DIAGNOSED":
+        return "DIAGNOSED";
+      default:
+        return status;
+    }
+  };
+
   return (
     <div className="flex-1 overflow-auto">
       <div className="p-8">
@@ -290,14 +316,25 @@ export function CasesList({ onViewDetails }: CasesListProps) {
                         </div>
 
                         {/* Guarantee Cases */}
-                        <div className="ml-8 space-y-1">
+                        <div className="ml-8 space-y-2">
                           {record.guaranteeCases?.map((gCase: any) => (
-                            <p
+                            <div
                               key={gCase.guaranteeCaseId || gCase.caseId}
-                              className="text-sm text-gray-600"
+                              className="flex items-center gap-2"
                             >
-                              • {gCase.contentGuarantee}
-                            </p>
+                              <span className="text-sm text-gray-600">
+                                • {gCase.contentGuarantee}
+                              </span>
+                              <span
+                                className={`px-2 py-0.5 rounded text-xs font-medium ${getGuaranteeCaseStatusColor(
+                                  gCase.status || gCase.statusForGuaranteeCase
+                                )}`}
+                              >
+                                {formatGuaranteeCaseStatus(
+                                  gCase.status || gCase.statusForGuaranteeCase
+                                )}
+                              </span>
+                            </div>
                           ))}
                         </div>
 
@@ -308,21 +345,89 @@ export function CasesList({ onViewDetails }: CasesListProps) {
                               (gc) => gc.caseLines || []
                             ) || [];
                           const totalLines = caseLines.length;
+
                           if (totalLines > 0) {
+                            // Count case lines by status
+                            const pendingApproval = caseLines.filter(
+                              (cl) => cl.status === "PENDING_APPROVAL"
+                            ).length;
+                            const approved = caseLines.filter(
+                              (cl) =>
+                                cl.status === "CUSTOMER_APPROVED" ||
+                                cl.status === "READY_FOR_REPAIR" ||
+                                cl.status === "IN_REPAIR" ||
+                                cl.status === "COMPLETED"
+                            ).length;
+                            const rejected = caseLines.filter((cl) =>
+                              cl.status?.includes("REJECTED")
+                            ).length;
+
+                            // Determine button style and text
+                            let buttonText = "";
+                            let buttonStyle =
+                              "bg-gray-900 text-white hover:bg-gray-800";
+                            let statusBadge = null;
+
+                            if (pendingApproval > 0) {
+                              buttonText = `Review ${totalLines} Case Line${
+                                totalLines !== 1 ? "s" : ""
+                              }`;
+                              buttonStyle =
+                                "bg-yellow-600 text-white hover:bg-yellow-700";
+                              statusBadge = (
+                                <span className="px-2 py-0.5 bg-yellow-200 text-yellow-800 rounded text-xs font-semibold">
+                                  {pendingApproval} Pending Approval
+                                </span>
+                              );
+                            } else if (approved === totalLines) {
+                              buttonText = `View ${totalLines} Approved Case Line${
+                                totalLines !== 1 ? "s" : ""
+                              }`;
+                              buttonStyle =
+                                "bg-green-600 text-white hover:bg-green-700";
+                              statusBadge = (
+                                <span className="px-2 py-0.5 bg-green-200 text-green-800 rounded text-xs font-semibold">
+                                  All Approved
+                                </span>
+                              );
+                            } else if (rejected > 0 && approved === 0) {
+                              buttonText = `View ${totalLines} Case Line${
+                                totalLines !== 1 ? "s" : ""
+                              }`;
+                              buttonStyle =
+                                "bg-red-600 text-white hover:bg-red-700";
+                              statusBadge = (
+                                <span className="px-2 py-0.5 bg-red-200 text-red-800 rounded text-xs font-semibold">
+                                  {rejected} Rejected
+                                </span>
+                              );
+                            } else {
+                              buttonText = `View ${totalLines} Case Line${
+                                totalLines !== 1 ? "s" : ""
+                              }`;
+                              statusBadge = (
+                                <span className="px-2 py-0.5 bg-blue-200 text-blue-800 rounded text-xs font-semibold">
+                                  Mixed Status
+                                </span>
+                              );
+                            }
+
                             return (
                               <div className="ml-8 mt-4 pt-4 border-t border-gray-100">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedRecord(record);
-                                    setShowCaseLineModal(true);
-                                  }}
-                                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 active:bg-gray-950 transition-all text-sm font-semibold shadow-sm hover:shadow-md"
-                                >
-                                  <List className="w-4 h-4" />
-                                  View {totalLines} Case Line
-                                  {totalLines !== 1 ? "s" : ""}
-                                </button>
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedRecord(record);
+                                      setShowCaseLineModal(true);
+                                    }}
+                                    className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-lg transition-all text-sm font-semibold shadow-sm hover:shadow-md ${buttonStyle}`}
+                                  >
+                                    <List className="w-4 h-4" />
+                                    {buttonText}
+                                  </button>
+                                  {statusBadge}
+                                </div>
                               </div>
                             );
                           }
@@ -571,18 +676,62 @@ export function CasesList({ onViewDetails }: CasesListProps) {
                                 (gc) => gc.caseLines || []
                               ) || [];
                             const totalLines = caseLines.length;
+
                             if (totalLines > 0) {
+                              // Count case lines by status
+                              const pendingApproval = caseLines.filter(
+                                (cl) => cl.status === "PENDING_APPROVAL"
+                              ).length;
+                              const approved = caseLines.filter(
+                                (cl) =>
+                                  cl.status === "CUSTOMER_APPROVED" ||
+                                  cl.status === "READY_FOR_REPAIR" ||
+                                  cl.status === "IN_REPAIR" ||
+                                  cl.status === "COMPLETED"
+                              ).length;
+                              const rejected = caseLines.filter((cl) =>
+                                cl.status?.includes("REJECTED")
+                              ).length;
+
+                              // Determine button style and text
+                              let buttonText = "";
+                              let buttonStyle =
+                                "bg-gray-900 text-white hover:bg-gray-800";
+
+                              if (pendingApproval > 0) {
+                                buttonText = `Review ${totalLines} Case Line${
+                                  totalLines !== 1 ? "s" : ""
+                                }`;
+                                buttonStyle =
+                                  "bg-yellow-600 text-white hover:bg-yellow-700";
+                              } else if (approved === totalLines) {
+                                buttonText = `View ${totalLines} Approved Case Line${
+                                  totalLines !== 1 ? "s" : ""
+                                }`;
+                                buttonStyle =
+                                  "bg-green-600 text-white hover:bg-green-700";
+                              } else if (rejected > 0 && approved === 0) {
+                                buttonText = `View ${totalLines} Case Line${
+                                  totalLines !== 1 ? "s" : ""
+                                }`;
+                                buttonStyle =
+                                  "bg-red-600 text-white hover:bg-red-700";
+                              } else {
+                                buttonText = `View ${totalLines} Case Line${
+                                  totalLines !== 1 ? "s" : ""
+                                }`;
+                              }
+
                               return (
                                 <button
                                   onClick={() => {
                                     setShowDetailsModal(false);
                                     setShowCaseLineModal(true);
                                   }}
-                                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 active:bg-gray-950 transition-all text-sm font-semibold shadow-sm hover:shadow-md"
+                                  className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-lg transition-all text-sm font-semibold shadow-sm hover:shadow-md ${buttonStyle}`}
                                 >
                                   <List className="w-4 h-4" />
-                                  View {totalLines} Case Line
-                                  {totalLines !== 1 ? "s" : ""}
+                                  {buttonText}
                                 </button>
                               );
                             }
@@ -599,8 +748,18 @@ export function CasesList({ onViewDetails }: CasesListProps) {
                                 <p className="text-sm text-gray-900 flex-1">
                                   {gCase.contentGuarantee}
                                 </p>
-                                <span className="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium whitespace-nowrap">
-                                  {gCase.status || gCase.statusForGuaranteeCase}
+                                <span
+                                  className={`px-2.5 py-1 rounded-md text-xs font-medium whitespace-nowrap ${getGuaranteeCaseStatusColor(
+                                    gCase.status ||
+                                      gCase.statusForGuaranteeCase ||
+                                      ""
+                                  )}`}
+                                >
+                                  {formatGuaranteeCaseStatus(
+                                    gCase.status ||
+                                      gCase.statusForGuaranteeCase ||
+                                      ""
+                                  )}
                                 </span>
                               </div>
                               <p className="text-xs text-gray-500 font-mono">

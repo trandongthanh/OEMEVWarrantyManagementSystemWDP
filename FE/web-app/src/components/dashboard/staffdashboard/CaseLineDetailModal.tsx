@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { ProcessingRecord } from "@/services/processingRecordService";
 import { useState } from "react";
+import { WorkflowTimeline } from "../shared";
 
 interface CaseLineDetailModalProps {
   isOpen: boolean;
@@ -58,7 +59,7 @@ export function CaseLineDetailModal({
         correctionText: cl.correctionText || "",
         quantity: cl.quantity || 0,
         warrantyStatus: cl.warrantyStatus || "UNKNOWN",
-        status: "PENDING", // Default status since it's not provided in processing record
+        status: (cl as { status?: string }).status || "PENDING_APPROVAL",
       });
     });
   });
@@ -241,8 +242,77 @@ export function CaseLineDetailModal({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {/* Bulk Actions - Only show when multiple case lines exist */}
-                  {allCaseLines.length > 1 && (
+                  {/* Status Summary */}
+                  {(() => {
+                    const pendingCount = allCaseLines.filter(
+                      (cl) => cl.status === "PENDING_APPROVAL"
+                    ).length;
+                    const approvedCount = allCaseLines.filter(
+                      (cl) =>
+                        cl.status === "CUSTOMER_APPROVED" ||
+                        cl.status === "READY_FOR_REPAIR" ||
+                        cl.status === "IN_REPAIR" ||
+                        cl.status === "COMPLETED"
+                    ).length;
+                    const rejectedCount = allCaseLines.filter((cl) =>
+                      cl.status?.includes("REJECTED")
+                    ).length;
+
+                    if (
+                      pendingCount === 0 &&
+                      approvedCount === 0 &&
+                      rejectedCount === 0
+                    ) {
+                      return null;
+                    }
+
+                    return (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div className="flex items-center gap-6">
+                          <h4 className="text-sm font-semibold text-gray-900">
+                            Status Overview:
+                          </h4>
+                          {pendingCount > 0 && (
+                            <div className="flex items-center gap-2">
+                              <Clock className="w-4 h-4 text-yellow-600" />
+                              <span className="text-sm text-gray-900">
+                                <span className="font-semibold">
+                                  {pendingCount}
+                                </span>{" "}
+                                Pending Approval
+                              </span>
+                            </div>
+                          )}
+                          {approvedCount > 0 && (
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="w-4 h-4 text-green-600" />
+                              <span className="text-sm text-gray-900">
+                                <span className="font-semibold">
+                                  {approvedCount}
+                                </span>{" "}
+                                Approved
+                              </span>
+                            </div>
+                          )}
+                          {rejectedCount > 0 && (
+                            <div className="flex items-center gap-2">
+                              <XCircle className="w-4 h-4 text-red-600" />
+                              <span className="text-sm text-gray-900">
+                                <span className="font-semibold">
+                                  {rejectedCount}
+                                </span>{" "}
+                                Rejected
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Bulk Actions - Only show when multiple pending case lines exist */}
+                  {allCaseLines.filter((cl) => cl.status === "PENDING_APPROVAL")
+                    .length > 1 && (
                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-3">
@@ -250,8 +320,13 @@ export function CaseLineDetailModal({
                             Bulk Actions
                           </h4>
                           <span className="text-xs text-gray-500">
-                            {selectedCaseLines.size} of {allCaseLines.length}{" "}
-                            selected
+                            {selectedCaseLines.size} of{" "}
+                            {
+                              allCaseLines.filter(
+                                (cl) => cl.status === "PENDING_APPROVAL"
+                              ).length
+                            }{" "}
+                            pending selected
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -302,21 +377,24 @@ export function CaseLineDetailModal({
                       {/* Header - Always Visible */}
                       <div className="p-4 flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                          {/* Checkbox for bulk selection - only show when multiple case lines */}
-                          {allCaseLines.length > 1 && (
-                            <button
-                              onClick={() =>
-                                toggleCaseLineSelection(caseLine.id)
-                              }
-                              className="flex-shrink-0 p-1 hover:bg-gray-100 rounded transition-colors"
-                            >
-                              {selectedCaseLines.has(caseLine.id) ? (
-                                <CheckSquare className="w-5 h-5 text-gray-900" />
-                              ) : (
-                                <Square className="w-5 h-5 text-gray-400" />
-                              )}
-                            </button>
-                          )}
+                          {/* Checkbox for bulk selection - only show for pending approval items when multiple exist */}
+                          {allCaseLines.filter(
+                            (cl) => cl.status === "PENDING_APPROVAL"
+                          ).length > 1 &&
+                            caseLine.status === "PENDING_APPROVAL" && (
+                              <button
+                                onClick={() =>
+                                  toggleCaseLineSelection(caseLine.id)
+                                }
+                                className="flex-shrink-0 p-1 hover:bg-gray-100 rounded transition-colors"
+                              >
+                                {selectedCaseLines.has(caseLine.id) ? (
+                                  <CheckSquare className="w-5 h-5 text-gray-900" />
+                                ) : (
+                                  <Square className="w-5 h-5 text-gray-400" />
+                                )}
+                              </button>
+                            )}
                           <div className="w-10 h-10 bg-gray-900 rounded-lg flex items-center justify-center text-white font-bold flex-shrink-0">
                             {index + 1}
                           </div>
@@ -369,6 +447,57 @@ export function CaseLineDetailModal({
                           </p>
                         </div>
 
+                        {/* Workflow Timeline */}
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Clock className="w-4 h-4 text-blue-600" />
+                            <h5 className="text-xs font-semibold text-gray-900 uppercase tracking-wide">
+                              Status Progression
+                            </h5>
+                          </div>
+                          <WorkflowTimeline
+                            events={[
+                              {
+                                status: "PENDING_APPROVAL",
+                                timestamp: null,
+                                label: "Pending Approval",
+                                description:
+                                  "Awaiting customer approval for repair",
+                              },
+                              {
+                                status: "CUSTOMER_APPROVED",
+                                timestamp: null,
+                                label: "Customer Approved",
+                                description: "Customer has approved the repair",
+                              },
+                              {
+                                status: "READY_FOR_REPAIR",
+                                timestamp: null,
+                                label: "Ready for Repair",
+                                description:
+                                  "All parts available, ready to start",
+                              },
+                              {
+                                status: "IN_PROGRESS",
+                                timestamp: null,
+                                label: "In Progress",
+                                description: "Repair work is underway",
+                              },
+                              {
+                                status: "COMPLETED",
+                                timestamp: null,
+                                label: "Completed",
+                                description:
+                                  "Repair completed and quality checked",
+                              },
+                            ]}
+                            currentStatus={
+                              caseLine.status || "PENDING_APPROVAL"
+                            }
+                            variant="horizontal"
+                          />
+                        </div>
+
                         {/* Quantity & Actions */}
                         <div className="flex items-center justify-between gap-4 pt-2">
                           <div className="flex items-center gap-2 text-sm">
@@ -381,23 +510,33 @@ export function CaseLineDetailModal({
                             </span>
                           </div>
 
-                          {/* Action Buttons */}
-                          <div className="flex items-center gap-3">
-                            <button
-                              onClick={() => handleReject(caseLine.id)}
-                              className="px-5 py-2.5 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 active:bg-red-800 transition-colors flex items-center gap-2 shadow-sm hover:shadow"
-                            >
-                              <XCircle className="w-4 h-4" />
-                              Reject
-                            </button>
-                            <button
-                              onClick={() => handleApprove(caseLine.id)}
-                              className="px-5 py-2.5 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 active:bg-green-800 transition-colors flex items-center gap-2 shadow-sm hover:shadow"
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                              Approve
-                            </button>
-                          </div>
+                          {/* Action Buttons - Only show for PENDING_APPROVAL status */}
+                          {caseLine.status === "PENDING_APPROVAL" ? (
+                            <div className="flex items-center gap-3">
+                              <button
+                                onClick={() => handleReject(caseLine.id)}
+                                className="px-5 py-2.5 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 active:bg-red-800 transition-colors flex items-center gap-2 shadow-sm hover:shadow"
+                              >
+                                <XCircle className="w-4 h-4" />
+                                Reject
+                              </button>
+                              <button
+                                onClick={() => handleApprove(caseLine.id)}
+                                className="px-5 py-2.5 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 active:bg-green-800 transition-colors flex items-center gap-2 shadow-sm hover:shadow"
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                                Approve
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="text-sm text-gray-500 italic">
+                              {caseLine.status?.includes("APPROVED")
+                                ? "✓ Already processed"
+                                : caseLine.status?.includes("REJECTED")
+                                ? "✗ Already rejected"
+                                : "No action needed"}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </motion.div>

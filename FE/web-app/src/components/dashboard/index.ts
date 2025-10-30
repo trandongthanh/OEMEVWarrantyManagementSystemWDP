@@ -3,13 +3,15 @@ export { DashboardHeader } from "./DashboardHeader";
 export { NewClaimModal } from "./NewClaimModal";
 export { PlaceholderContent } from "./PlaceholderContent";
 export { RegisterVehicleModal } from "./RegisterVehicleModal";
+export { NotificationPanel } from "./NotificationPanel";
 
 // Staff Dashboard Components
 export {
   DashboardOverview,
   CustomerSearchResults,
   CasesList,
-  VehicleManagement,
+  VehicleComponents,
+  VehicleHistory,
 } from "./staffdashboard";
 
 // Manager Dashboard Components
@@ -17,7 +19,12 @@ export {
   DashboardOverview as ManagerDashboardOverview,
   ManagerCasesList,
   CustomerManagement,
-  CaseLineManagement,
+  CaseLineOperations,
+  ScheduleManagement,
+  StockTransferRequestList,
+  CreateStockTransferRequestModal,
+  AllCaseLinesList,
+  WarehouseOverview,
 } from "./managerdashboard";
 
 // Technician Dashboard Components
@@ -27,3 +34,10 @@ export {
   PartsInventory,
   WorkHistory,
 } from "./techniciandashboard";
+
+// Parts Coordinator Dashboard Components
+export {
+  DashboardOverview as PartsCoordinatorDashboardOverview,
+  ComponentPickupList,
+  ComponentStatusManager,
+} from "./partscoordinatordashboard";

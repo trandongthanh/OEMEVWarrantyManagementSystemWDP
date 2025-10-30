@@ -1,11 +1,68 @@
 import apiClient from "@/lib/apiClient";
 import type {
   VehicleResponse,
-  VehicleWarrantyCheckRequest,
   VehicleWarrantyCheckResponse,
   RegisterOwnerRequest,
   RegisterOwnerResponse,
 } from "./types";
+
+/**
+ * Types for vehicle components and history
+ */
+export interface VehicleComponent {
+  componentId: string;
+  serialNumber: string;
+  status:
+    | "IN_WAREHOUSE"
+    | "RESERVED"
+    | "IN_TRANSIT"
+    | "WITH_TECHNICIAN"
+    | "INSTALLED"
+    | "RETURNED";
+  vehicleVin: string;
+  installedAt: string;
+  currentHolderId?: string;
+  typeComponent: {
+    typeComponentId: string;
+    name: string;
+    category: string;
+    price: number;
+  };
+}
+
+export interface VehicleComponentsResponse {
+  status: "success";
+  data: {
+    components: VehicleComponent[];
+  };
+}
+
+export interface VehicleHistoryItem {
+  recordId: string;
+  checkInDate: string;
+  completionDate?: string;
+  status: string;
+  odometer: number;
+  description?: string;
+  serviceCenter: {
+    serviceCenterId: string;
+    name: string;
+    address: string;
+  };
+  guaranteeCases?: Array<{
+    guaranteeCaseId: string;
+    caseNumber: string;
+    status: string;
+    createdAt: string;
+  }>;
+}
+
+export interface VehicleHistoryResponse {
+  status: "success";
+  data: {
+    history: VehicleHistoryItem[];
+  };
+}
 
 /**
  * Vehicle Service
@@ -30,7 +87,7 @@ export const findVehicleByVin = async (
     const response = await apiClient.get(`/vehicles/${vin}`);
 
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error finding vehicle by VIN:", error);
     throw error;
   }
@@ -59,7 +116,7 @@ export const checkVehicleWarranty = async (
     });
 
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error checking vehicle warranty:", error);
     throw error;
   }
@@ -125,11 +182,66 @@ export const registerVehicleOwner = async (
   }
 };
 
+/**
+ * Get all components installed on vehicle
+ * GET /vehicles/{vin}/components
+ *
+ * Returns all components that are currently installed on the vehicle,
+ * including component details and installation dates.
+ *
+ * @param vin - Vehicle Identification Number
+ * @param status - Optional filter by component status (ALL, INSTALLED, RETURNED, DEFECTIVE)
+ * @returns List of components installed on the vehicle
+ */
+export const getVehicleComponents = async (
+  vin: string,
+  status?: "ALL" | "INSTALLED" | "RETURNED" | "DEFECTIVE"
+): Promise<VehicleComponentsResponse> => {
+  try {
+    const response = await apiClient.get(`/vehicles/${vin}/components`, {
+      params: status ? { status } : undefined,
+    });
+
+    return response.data;
+  } catch (error: unknown) {
+    console.error("Error fetching vehicle components:", error);
+    throw error;
+  }
+};
+
+/**
+ * Get vehicle service and warranty history
+ * GET /vehicles/{vin}/service-history
+ *
+ * Returns the complete service history for a vehicle, including:
+ * - All processing records (check-ins)
+ * - Guarantee cases
+ * - Service center information
+ * - Status and dates
+ *
+ * @param vin - Vehicle Identification Number
+ * @returns Complete service and warranty history
+ */
+export const getVehicleHistory = async (
+  vin: string
+): Promise<VehicleHistoryResponse> => {
+  try {
+    const response = await apiClient.get(`/vehicles/${vin}/service-history`);
+
+    return response.data;
+  } catch (error: unknown) {
+    console.error("Error fetching vehicle history:", error);
+    throw error;
+  }
+};
+
 const vehicleService = {
   findVehicleByVin,
   checkVehicleWarranty,
   previewVehicleWarranty,
   registerVehicleOwner,
+  getVehicleComponents,
+  getVehicleHistory,
 };
 
 export default vehicleService;

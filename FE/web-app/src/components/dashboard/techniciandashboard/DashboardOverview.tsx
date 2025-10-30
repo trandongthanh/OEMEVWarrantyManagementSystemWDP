@@ -16,6 +16,8 @@ import technicianService, {
   TechnicianProcessingRecord,
 } from "@/services/technicianService";
 import { CaseDetailsModal } from "./CaseDetailsModal";
+import { ComponentsToInstall } from "./ComponentsToInstall";
+import { RepairsToComplete } from "./RepairsToComplete";
 
 export function DashboardOverview() {
   const [processingRecords, setProcessingRecords] = useState<
@@ -231,8 +233,37 @@ export function DashboardOverview() {
                               </p>
                               <div className="space-y-2">
                                 {record.guaranteeCases.map((guaranteeCase) => {
-                                  const isDiagnosed =
-                                    guaranteeCase.status === "DIAGNOSED";
+                                  // Check case line statuses
+                                  const hasDraftCaseLines =
+                                    guaranteeCase.caseLines &&
+                                    guaranteeCase.caseLines.length > 0 &&
+                                    guaranteeCase.caseLines.some(
+                                      (cl) => cl.status === "DRAFT"
+                                    );
+
+                                  const hasCompletedDiagnosis =
+                                    guaranteeCase.caseLines &&
+                                    guaranteeCase.caseLines.length > 0 &&
+                                    !hasDraftCaseLines; // Has case lines but none are DRAFT
+
+                                  // Determine button text, color, and hover effect based on status
+                                  let buttonText = "Add diagnosis →";
+                                  let buttonColor = "text-blue-600";
+                                  let hoverColor =
+                                    "hover:bg-blue-50 hover:border-blue-300";
+
+                                  if (hasDraftCaseLines) {
+                                    buttonText = "Edit diagnosis →";
+                                    buttonColor = "text-gray-600";
+                                    hoverColor =
+                                      "hover:bg-gray-50 hover:border-gray-300";
+                                  } else if (hasCompletedDiagnosis) {
+                                    buttonText = "View diagnosis →";
+                                    buttonColor = "text-green-600";
+                                    hoverColor =
+                                      "hover:bg-green-50 hover:border-green-300";
+                                  }
+
                                   return (
                                     <button
                                       key={guaranteeCase.guaranteeCaseId}
@@ -245,11 +276,7 @@ export function DashboardOverview() {
                                         )
                                       }
                                       disabled={!recordId}
-                                      className={`w-full p-3 bg-white border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-all text-left disabled:cursor-not-allowed disabled:opacity-60 ${
-                                        isDiagnosed
-                                          ? "hover:bg-green-50 hover:border-green-300"
-                                          : ""
-                                      }`}
+                                      className={`w-full p-3 bg-white border border-gray-200 rounded-lg ${hoverColor} transition-all text-left disabled:cursor-not-allowed disabled:opacity-60`}
                                     >
                                       <div className="flex items-center justify-between">
                                         <div className="flex-1">
@@ -260,28 +287,26 @@ export function DashboardOverview() {
                                             Status:{" "}
                                             <span
                                               className={`font-medium ${
-                                                isDiagnosed
+                                                hasCompletedDiagnosis
                                                   ? "text-green-600"
-                                                  : "text-orange-600"
+                                                  : hasDraftCaseLines
+                                                  ? "text-gray-600"
+                                                  : "text-blue-600"
                                               }`}
                                             >
-                                              {guaranteeCase.status.replace(
-                                                /_/g,
-                                                " "
-                                              )}
+                                              {hasDraftCaseLines
+                                                ? "DRAFT"
+                                                : guaranteeCase.status.replace(
+                                                    /_/g,
+                                                    " "
+                                                  )}
                                             </span>
                                           </p>
                                         </div>
                                         <div
-                                          className={`text-xs font-medium ${
-                                            isDiagnosed
-                                              ? "text-green-600"
-                                              : "text-blue-600"
-                                          }`}
+                                          className={`text-xs font-medium ${buttonColor}`}
                                         >
-                                          {isDiagnosed
-                                            ? "Edit diagnosis →"
-                                            : "Add diagnosis →"}
+                                          {buttonText}
                                         </div>
                                       </div>
                                     </button>
@@ -364,6 +389,15 @@ export function DashboardOverview() {
               </div>
             </motion.div>
           </div>
+        </div>
+
+        {/* Action Items Section - Full Width Below */}
+        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Components to Install */}
+          <ComponentsToInstall />
+
+          {/* Repairs to Complete */}
+          <RepairsToComplete />
         </div>
 
         {/* Case Details Modal */}

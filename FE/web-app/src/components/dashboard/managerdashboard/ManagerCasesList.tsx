@@ -48,6 +48,12 @@ const statusConfig: Record<
     bgColor: "bg-yellow-100",
     icon: AlertCircle,
   },
+  WAITING_CUSTOMER_APPROVAL: {
+    label: "Waiting for Approval",
+    color: "text-yellow-700",
+    bgColor: "bg-yellow-100",
+    icon: AlertCircle,
+  },
   IN_REPAIR: {
     label: "In Repair",
     color: "text-orange-700",
@@ -176,24 +182,21 @@ export function ManagerCasesList({}: ManagerCasesListProps) {
   return (
     <div className="flex-1 overflow-auto">
       <div className="p-8">
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
-          {/* Header */}
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Task Assignment
-                </h2>
-                <p className="text-sm text-gray-500 mt-1">
-                  Assign technicians to processing records
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <UserCheck className="w-8 h-8 text-blue-600" />
-              </div>
-            </div>
+        {/* Header */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-gray-900">Task Assignment</h2>
+          <p className="text-gray-600 mt-1">
+            Assign technicians to processing records
+          </p>
+        </div>
 
-            {/* Search and Filter */}
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+          {/* Search and Filters */}
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center gap-2 mb-4">
+              <UserCheck className="w-5 h-5 text-gray-600" />
+              <h3 className="font-semibold text-gray-900">Search & Filters</h3>
+            </div>
             <div className="flex gap-3">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -202,13 +205,13 @@ export function ManagerCasesList({}: ManagerCasesListProps) {
                   placeholder="Search by VIN, license plate, or owner..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent focus:bg-white transition-colors text-gray-900"
                 />
               </div>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                className="px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent focus:bg-white transition-colors text-gray-900"
               >
                 <option value="ALL">All Status</option>
                 {Object.entries(statusConfig).map(([key, config]) => (
@@ -224,15 +227,15 @@ export function ManagerCasesList({}: ManagerCasesListProps) {
           <div className="p-6">
             {loading ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
               </div>
             ) : paginatedRecords.length === 0 ? (
               <div className="text-center py-12">
-                <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-500">No records found</p>
+                <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                <p className="text-gray-500 text-sm">No records found</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 max-h-[600px] overflow-y-auto">
                 {paginatedRecords.map((record, index) => {
                   const status = statusConfig[record.status] || {
                     label: record.status,

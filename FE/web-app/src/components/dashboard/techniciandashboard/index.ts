@@ -2,4 +2,8 @@ export { DashboardOverview } from "./DashboardOverview";
 export { MyTasks } from "./MyTasks";
 export { PartsInventory } from "./PartsInventory";
 export { CaseDetailsModal } from "./CaseDetailsModal";
+export { ComponentInstallModal } from "./ComponentInstallModal";
+export { ComponentsToInstall } from "./ComponentsToInstall";
+export { RepairsToComplete } from "./RepairsToComplete";
 export { WorkHistory } from "./WorkHistory";
+export { MySchedule } from "./MySchedule";
