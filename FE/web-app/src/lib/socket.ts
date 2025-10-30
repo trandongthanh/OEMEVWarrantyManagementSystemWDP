@@ -10,10 +10,12 @@ let chatSocket: Socket | null = null;
 /**
  * Initialize chat socket connection
  */
-export function initializeChatSocket(): Socket {
+export function initializeChatSocket(token?: string): Socket {
   if (chatSocket && chatSocket.connected) {
     return chatSocket;
   }
+
+  const auth = token ? { token } : {};
 
   chatSocket = io(`${SOCKET_URL}/chats`, {
     transports: ["websocket", "polling"],
@@ -23,6 +25,7 @@ export function initializeChatSocket(): Socket {
     timeout: 20000, // 20 second timeout
     forceNew: false,
     upgrade: true,
+    auth,
   });
 
   chatSocket.on("connect", () => {
@@ -73,12 +76,20 @@ export function disconnectChatSocket(): void {
 /**
  * Join a chat room/conversation
  */
-export function joinChatRoom(conversationId: string, senderId: string, senderType: "guest" | "staff"): void {
+export function joinChatRoom(
+  conversationId: string,
+  senderId: string,
+  senderType: "guest" | "staff"
+): void {
   if (!chatSocket) {
     throw new Error("Chat socket not initialized");
   }
 
-  chatSocket.emit("joinRoom", { conversationId, senderId, senderType: senderType.toUpperCase() });
+  chatSocket.emit("joinRoom", {
+    conversationId,
+    senderId,
+    senderType: senderType.toUpperCase(),
+  });
 }
 
 /**

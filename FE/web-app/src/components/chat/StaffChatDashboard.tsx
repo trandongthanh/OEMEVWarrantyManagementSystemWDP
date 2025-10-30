@@ -26,6 +26,7 @@ import {
   sendSocketMessage,
   getChatSocket,
   initializeNotificationSocket,
+  getNotificationSocket,
   sendTypingIndicator,
 } from "@/lib/socket";
 import { uploadToCloudinary, getFileType } from "@/lib/cloudinary";
@@ -46,8 +47,8 @@ export default function StaffChatDashboard({
   const [isTyping, setIsTyping] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedTab, setSelectedTab] = useState<
-    "waiting" | "active" | "closed"
-  >("waiting");
+    "UNASSIGNED" | "ACTIVE" | "CLOSED"
+  >("UNASSIGNED");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -67,10 +68,16 @@ export default function StaffChatDashboard({
 
     // Cleanup on unmount
     return () => {
-      const socket = getChatSocket();
-      if (socket) {
-        socket.off("newMessage");
-        socket.off("userTyping");
+      const chatSocket = getChatSocket();
+      if (chatSocket) {
+        chatSocket.off("newMessage");
+        chatSocket.off("userTyping");
+      }
+
+      // Also cleanup notification socket listeners
+      const notifSocket = getNotificationSocket();
+      if (notifSocket) {
+        notifSocket.off("newConversation");
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -103,18 +110,21 @@ export default function StaffChatDashboard({
   }, [messages]);
 
   const initializeSockets = () => {
-    // Initialize chat socket
-    initializeChatSocket();
+    // Initialize chat socket with auth token for staff
+    initializeChatSocket(authToken || undefined);
 
     // Initialize notification socket for new chat alerts
     if (authToken) {
       const notifSocket = initializeNotificationSocket(authToken);
 
+      // Clean up any existing listeners to prevent duplicates
+      notifSocket.off("newConversation");
+
       // Listen for new conversation requests
       notifSocket.on("newConversation", (data: { conversationId: string }) => {
         console.log("New conversation request:", data);
-        // Reload waiting conversations
-        if (selectedTab === "waiting") {
+        // Reload unassigned conversations
+        if (selectedTab === "UNASSIGNED") {
           loadConversations();
         }
         // Show notification
@@ -130,7 +140,7 @@ export default function StaffChatDashboard({
     // Ensure socket is connected before setting up listeners
     if (!socket.connected) {
       console.log("Socket not connected, initializing...");
-      initializeChatSocket();
+      initializeChatSocket(authToken || undefined);
       // Retry after a short delay
       setTimeout(() => setupChatListeners(), 1000);
       return;
@@ -175,18 +185,7 @@ export default function StaffChatDashboard({
     setLoading(true);
     try {
       const convs = await getMyConversations(selectedTab);
-      // Filter conversations based on selected tab
-      const filteredConvs = convs.filter((conv) => {
-        if (selectedTab === "waiting") {
-          return conv.status === "waiting" || conv.status === "UNASSIGNED";
-        } else if (selectedTab === "active") {
-          return conv.status === "active" || conv.status === "ACTIVE";
-        } else if (selectedTab === "closed") {
-          return conv.status === "closed" || conv.status === "CLOSED";
-        }
-        return false;
-      });
-      setConversations(filteredConvs);
+      setConversations(convs);
     } catch (err) {
       console.error("Failed to load conversations:", err);
     } finally {
@@ -211,8 +210,8 @@ export default function StaffChatDashboard({
   const handleAcceptChat = async (conversation: Conversation) => {
     try {
       await acceptConversation(conversation.conversationId);
-      setActiveConversation({ ...conversation, status: "active" });
-      setSelectedTab("active");
+      setActiveConversation({ ...conversation, status: "ACTIVE" });
+      setSelectedTab("ACTIVE");
       loadConversations();
     } catch (err) {
       console.error("Failed to accept chat:", err);
@@ -347,7 +346,7 @@ export default function StaffChatDashboard({
   };
 
   const getWaitingCount = () => {
-    return conversations.filter((c) => c.status === "waiting").length;
+    return conversations.filter((c) => c.status === "UNASSIGNED").length;
   };
 
   return (
@@ -368,9 +367,9 @@ export default function StaffChatDashboard({
           {/* Tabs */}
           <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
             <button
-              onClick={() => setSelectedTab("waiting")}
+              onClick={() => setSelectedTab("UNASSIGNED")}
               className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200 relative ${
-                selectedTab === "waiting"
+                selectedTab === "UNASSIGNED"
                   ? "bg-white text-gray-900 shadow-sm"
                   : "text-gray-600 hover:text-gray-900"
               }`}
@@ -399,9 +398,9 @@ export default function StaffChatDashboard({
               </AnimatePresence>
             </button>
             <button
-              onClick={() => setSelectedTab("active")}
+              onClick={() => setSelectedTab("ACTIVE")}
               className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                selectedTab === "active"
+                selectedTab === "ACTIVE"
                   ? "bg-white text-gray-900 shadow-sm"
                   : "text-gray-600 hover:text-gray-900"
               }`}
@@ -412,9 +411,9 @@ export default function StaffChatDashboard({
               </div>
             </button>
             <button
-              onClick={() => setSelectedTab("closed")}
+              onClick={() => setSelectedTab("CLOSED")}
               className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                selectedTab === "closed"
+                selectedTab === "CLOSED"
                   ? "bg-white text-gray-900 shadow-sm"
                   : "text-gray-600 hover:text-gray-900"
               }`}
@@ -440,12 +439,13 @@ export default function StaffChatDashboard({
                 <MessageCircle className="w-8 h-8 text-gray-300" />
               </div>
               <p className="text-base font-semibold text-gray-700 mb-1">
-                No {selectedTab} conversations
+                No {selectedTab.toLowerCase()} conversations
               </p>
               <p className="text-sm text-gray-500">
-                {selectedTab === "waiting" && "Waiting for customer inquiries"}
-                {selectedTab === "active" && "No active chats at the moment"}
-                {selectedTab === "closed" && "No closed conversations yet"}
+                {selectedTab === "UNASSIGNED" &&
+                  "Waiting for customer inquiries"}
+                {selectedTab === "ACTIVE" && "No active chats at the moment"}
+                {selectedTab === "CLOSED" && "No closed conversations yet"}
               </p>
             </div>
           ) : (
@@ -470,11 +470,9 @@ export default function StaffChatDashboard({
                       </div>
                       <div
                         className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white shadow-sm ${
-                          conversation.status === "waiting" ||
                           conversation.status === "UNASSIGNED"
                             ? "bg-amber-400"
-                            : conversation.status === "active" ||
-                              conversation.status === "ACTIVE"
+                            : conversation.status === "ACTIVE"
                             ? "bg-green-500"
                             : "bg-gray-400"
                         }`}
@@ -482,9 +480,16 @@ export default function StaffChatDashboard({
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1.5">
-                        <h4 className="font-semibold text-gray-900 truncate">
-                          {conversation.guest?.name || "Anonymous Guest"}
-                        </h4>
+                        <div>
+                          <h4 className="font-semibold text-gray-900 truncate">
+                            Anonymous Guest
+                          </h4>
+                          <p className="text-xs text-gray-500">
+                            ID:{" "}
+                            {conversation.guest?.guestId?.slice(-23) ||
+                              "Unknown"}
+                          </p>
+                        </div>
                         <span className="text-xs text-gray-500 font-medium">
                           {formatDate(conversation.createdAt)}
                         </span>
@@ -497,18 +502,18 @@ export default function StaffChatDashboard({
                       <div className="flex items-center justify-between">
                         <span
                           className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                            conversation.status === "waiting" ||
                             conversation.status === "UNASSIGNED"
                               ? "bg-amber-50 text-amber-700 border border-amber-200"
-                              : conversation.status === "active" ||
-                                conversation.status === "ACTIVE"
+                              : conversation.status === "ACTIVE"
                               ? "bg-green-50 text-green-700 border border-green-200"
                               : "bg-gray-100 text-gray-700 border border-gray-200"
                           }`}
                         >
                           {conversation.status === "UNASSIGNED"
-                            ? "waiting"
-                            : conversation.status}
+                            ? "Waiting"
+                            : conversation.status === "ACTIVE"
+                            ? "Active"
+                            : "Closed"}
                         </span>
                         <AnimatePresence mode="wait">
                           {conversation.unreadCount &&
@@ -534,8 +539,7 @@ export default function StaffChatDashboard({
                   </div>
 
                   {/* Accept Button for Waiting Chats */}
-                  {(conversation.status === "waiting" ||
-                    conversation.status === "UNASSIGNED") && (
+                  {conversation.status === "UNASSIGNED" && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -567,12 +571,16 @@ export default function StaffChatDashboard({
                   </div>
                   <div>
                     <h3 className="font-bold text-gray-900 text-lg">
-                      {activeConversation.guest?.name || "Anonymous Guest"}
+                      Anonymous Guest
                     </h3>
+                    <p className="text-xs text-gray-500">
+                      ID:{" "}
+                      {activeConversation.guest?.guestId?.slice(-23) ||
+                        "Unknown"}
+                    </p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <div
                         className={`w-2 h-2 rounded-full ${
-                          activeConversation.status === "active" ||
                           activeConversation.status === "ACTIVE"
                             ? "bg-green-500"
                             : "bg-gray-400"
@@ -580,14 +588,15 @@ export default function StaffChatDashboard({
                       ></div>
                       <p className="text-sm text-gray-600 font-medium capitalize">
                         {activeConversation.status === "UNASSIGNED"
-                          ? "waiting"
-                          : activeConversation.status}
+                          ? "Waiting"
+                          : activeConversation.status === "ACTIVE"
+                          ? "Active"
+                          : "Closed"}
                       </p>
                     </div>
                   </div>
                 </div>
-                {(activeConversation.status === "active" ||
-                  activeConversation.status === "ACTIVE") && (
+                {activeConversation.status === "ACTIVE" && (
                   <button
                     onClick={handleCloseConversation}
                     className="px-5 py-2.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md"
@@ -736,8 +745,7 @@ export default function StaffChatDashboard({
 
             {/* Input Area */}
             <div className="bg-white border-t border-gray-200 p-5 shadow-sm">
-              {activeConversation.status === "active" ||
-              activeConversation.status === "ACTIVE" ? (
+              {activeConversation.status === "ACTIVE" ? (
                 <>
                   {/* File Preview */}
                   {selectedFile && (
@@ -812,8 +820,7 @@ export default function StaffChatDashboard({
               ) : (
                 <div className="text-center py-4">
                   <div className="inline-block px-6 py-3 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl">
-                    {activeConversation.status === "waiting" ||
-                    activeConversation.status === "UNASSIGNED"
+                    {activeConversation.status === "UNASSIGNED"
                       ? "Accept this chat to start messaging"
                       : "This conversation is closed"}
                   </div>

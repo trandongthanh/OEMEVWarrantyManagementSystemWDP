@@ -70,6 +70,7 @@ export interface UpdateCaseLineResponse {
 export interface ApproveCaseLinesData {
   approvedCaseLineIds?: { id: string }[];
   rejectedCaseLineIds?: { id: string }[];
+  approverEmail: string; // Required for OTP verification
 }
 
 export interface ApproveCaseLinesResponse {

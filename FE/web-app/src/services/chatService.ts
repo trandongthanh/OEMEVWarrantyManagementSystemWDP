@@ -7,10 +7,19 @@ import apiClient from "@/lib/apiClient";
  */
 
 // ==================== Types ====================
+
+/**
+ * Backend Conversation Status (defined in BE/src/models/Conversation.cjs)
+ * - UNASSIGNED: No staff assigned yet (guest waiting)
+ * - ACTIVE: Staff has accepted and is chatting
+ * - CLOSED: Conversation ended by staff
+ */
+export type ConversationStatus = "UNASSIGNED" | "ACTIVE" | "CLOSED";
+
 export interface GuestChatSession {
   conversationId: string;
   guestId: string;
-  status: "waiting" | "active" | "closed" | "UNASSIGNED" | "ACTIVE";
+  status: ConversationStatus;
   createdAt: string;
 }
 
@@ -30,9 +39,9 @@ export interface Conversation {
   conversationId: string;
   guest?: {
     guestId: string;
-    name: string;
+    name?: string; // Optional since Guest table only has guestId
   };
-  status: "waiting" | "active" | "closed" | "UNASSIGNED" | "ACTIVE" | "CLOSED";
+  status: ConversationStatus;
   lastMessage?: {
     content: string;
     sentAt: string;
@@ -65,10 +74,25 @@ export interface MessagesResponse {
   };
 }
 
+// Backend API response structure (before mapping to frontend)
+interface BackendConversation {
+  id: string;
+  guest?: {
+    guestId: string;
+    name?: string; // Optional since Guest table only has guestId
+  };
+  status: ConversationStatus;
+  messages?: Array<{
+    content: string;
+    createdAt: string;
+  }>;
+  createdAt: string;
+}
+
 export interface ConversationsResponse {
   status: "success";
   data: {
-    conversations: Conversation[];
+    conversations: BackendConversation[];
     pagination?: {
       total: number;
       limit: number;
@@ -95,18 +119,7 @@ export async function startAnonymousChat(
       }
     );
 
-    // Map backend status to frontend status
-    const conversation = response.data.data.conversation;
-    const mappedConversation: GuestChatSession = {
-      ...conversation,
-      status: (conversation.status === "UNASSIGNED"
-        ? "waiting"
-        : conversation.status === "ACTIVE"
-        ? "active"
-        : "closed") as "waiting" | "active" | "closed",
-    };
-
-    return mappedConversation;
+    return response.data.data.conversation;
   } catch (error) {
     console.error("Error starting anonymous chat:", error);
     throw error;
@@ -156,30 +169,20 @@ export async function acceptConversation(
  * Get all conversations for authenticated staff
  */
 export async function getMyConversations(
-  status?: "waiting" | "active" | "closed",
+  status?: ConversationStatus,
   limit: number = 20,
   offset: number = 0
 ): Promise<Conversation[]> {
   try {
-    // Map frontend status to backend status for API call
-    const backendStatus =
-      status === "waiting"
-        ? "UNASSIGNED"
-        : status === "active"
-        ? "ACTIVE"
-        : status === "closed"
-        ? "CLOSED"
-        : undefined;
-
     const response = await apiClient.get<ConversationsResponse>(
       "/chats/my-conversations",
       {
-        params: { status: backendStatus, limit, offset },
+        params: { status, limit, offset },
       }
     );
 
-    // Map backend statuses to frontend statuses
-    const conversations = response.data.data.conversations.map((conv: any) => ({
+    // Map backend response to frontend interface
+    const conversations = response.data.data.conversations.map((conv) => ({
       conversationId: conv.id,
       guest: conv.guest,
       lastMessage: conv.messages?.[0]
@@ -190,19 +193,7 @@ export async function getMyConversations(
         : undefined,
       unreadCount: 0, // TODO: Implement unread count
       createdAt: conv.createdAt,
-      status: (conv.status === "UNASSIGNED"
-        ? "waiting"
-        : conv.status === "ACTIVE"
-        ? "active"
-        : conv.status === "CLOSED"
-        ? "closed"
-        : conv.status) as
-        | "waiting"
-        | "active"
-        | "closed"
-        | "UNASSIGNED"
-        | "ACTIVE"
-        | "CLOSED",
+      status: conv.status,
     }));
 
     return conversations;

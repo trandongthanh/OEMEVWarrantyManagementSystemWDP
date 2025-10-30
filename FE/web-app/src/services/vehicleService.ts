@@ -190,12 +190,19 @@ export const registerVehicleOwner = async (
  * including component details and installation dates.
  *
  * @param vin - Vehicle Identification Number
- * @param status - Optional filter by component status (ALL, INSTALLED, RETURNED, DEFECTIVE)
+ * @param status - Optional filter by component status (ALL, IN_WAREHOUSE, RESERVED, IN_TRANSIT, WITH_TECHNICIAN, INSTALLED, RETURNED)
  * @returns List of components installed on the vehicle
  */
 export const getVehicleComponents = async (
   vin: string,
-  status?: "ALL" | "INSTALLED" | "RETURNED" | "DEFECTIVE"
+  status:
+    | "ALL"
+    | "IN_WAREHOUSE"
+    | "RESERVED"
+    | "IN_TRANSIT"
+    | "WITH_TECHNICIAN"
+    | "INSTALLED"
+    | "RETURNED" = "ALL"
 ): Promise<VehicleComponentsResponse> => {
   try {
     const response = await apiClient.get(`/vehicles/${vin}/components`, {

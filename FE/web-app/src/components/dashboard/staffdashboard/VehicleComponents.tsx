@@ -22,6 +22,30 @@ const statusConfig: Record<
   string,
   { label: string; color: string; bgColor: string; icon: LucideIcon }
 > = {
+  IN_WAREHOUSE: {
+    label: "In Warehouse",
+    color: "text-blue-700",
+    bgColor: "bg-blue-100",
+    icon: Package,
+  },
+  RESERVED: {
+    label: "Reserved",
+    color: "text-yellow-700",
+    bgColor: "bg-yellow-100",
+    icon: AlertCircle,
+  },
+  IN_TRANSIT: {
+    label: "In Transit",
+    color: "text-purple-700",
+    bgColor: "bg-purple-100",
+    icon: RefreshCw,
+  },
+  WITH_TECHNICIAN: {
+    label: "With Technician",
+    color: "text-orange-700",
+    bgColor: "bg-orange-100",
+    icon: Loader2,
+  },
   INSTALLED: {
     label: "Installed",
     color: "text-green-700",
@@ -30,12 +54,6 @@ const statusConfig: Record<
   },
   RETURNED: {
     label: "Returned",
-    color: "text-purple-700",
-    bgColor: "bg-purple-100",
-    icon: RefreshCw,
-  },
-  DEFECTIVE: {
-    label: "Defective",
     color: "text-red-700",
     bgColor: "bg-red-100",
     icon: XCircle,
@@ -56,7 +74,13 @@ export function VehicleComponents() {
   const [loading, setLoading] = useState(false);
   const [components, setComponents] = useState<VehicleComponent[]>([]);
   const [statusFilter, setStatusFilter] = useState<
-    "ALL" | "INSTALLED" | "RETURNED" | "DEFECTIVE"
+    | "ALL"
+    | "IN_WAREHOUSE"
+    | "RESERVED"
+    | "IN_TRANSIT"
+    | "WITH_TECHNICIAN"
+    | "INSTALLED"
+    | "RETURNED"
   >("ALL");
 
   const handleSearch = async () => {
@@ -127,17 +151,23 @@ export function VehicleComponents() {
                 setStatusFilter(
                   e.target.value as
                     | "ALL"
+                    | "IN_WAREHOUSE"
+                    | "RESERVED"
+                    | "IN_TRANSIT"
+                    | "WITH_TECHNICIAN"
                     | "INSTALLED"
                     | "RETURNED"
-                    | "DEFECTIVE"
                 )
               }
               className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
             >
               <option value="ALL">All Status</option>
+              <option value="IN_WAREHOUSE">In Warehouse</option>
+              <option value="RESERVED">Reserved</option>
+              <option value="IN_TRANSIT">In Transit</option>
+              <option value="WITH_TECHNICIAN">With Technician</option>
               <option value="INSTALLED">Installed</option>
               <option value="RETURNED">Returned</option>
-              <option value="DEFECTIVE">Defective</option>
             </select>
             <button
               onClick={handleSearch}
@@ -183,6 +213,91 @@ export function VehicleComponents() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.1 }}
+                className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-blue-600 uppercase tracking-wide">
+                      In Warehouse
+                    </p>
+                    <p className="text-2xl font-bold text-blue-900 mt-1">
+                      {
+                        components.filter((c) => c.status === "IN_WAREHOUSE")
+                          .length
+                      }
+                    </p>
+                  </div>
+                  <Package className="w-8 h-8 text-blue-600 opacity-60" />
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.15 }}
+                className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl p-4 border border-yellow-200"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-yellow-600 uppercase tracking-wide">
+                      Reserved
+                    </p>
+                    <p className="text-2xl font-bold text-yellow-900 mt-1">
+                      {components.filter((c) => c.status === "RESERVED").length}
+                    </p>
+                  </div>
+                  <AlertCircle className="w-8 h-8 text-yellow-600 opacity-60" />
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.2 }}
+                className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-purple-600 uppercase tracking-wide">
+                      In Transit
+                    </p>
+                    <p className="text-2xl font-bold text-purple-900 mt-1">
+                      {
+                        components.filter((c) => c.status === "IN_TRANSIT")
+                          .length
+                      }
+                    </p>
+                  </div>
+                  <RefreshCw className="w-8 h-8 text-purple-600 opacity-60" />
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.25 }}
+                className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-4 border border-orange-200"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-orange-600 uppercase tracking-wide">
+                      With Technician
+                    </p>
+                    <p className="text-2xl font-bold text-orange-900 mt-1">
+                      {
+                        components.filter((c) => c.status === "WITH_TECHNICIAN")
+                          .length
+                      }
+                    </p>
+                  </div>
+                  <Loader2 className="w-8 h-8 text-orange-600 opacity-60" />
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.3 }}
                 className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border border-green-200"
               >
                 <div className="flex items-center justify-between">
@@ -204,38 +319,16 @@ export function VehicleComponents() {
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.2 }}
-                className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-medium text-purple-600 uppercase tracking-wide">
-                      Returned
-                    </p>
-                    <p className="text-2xl font-bold text-purple-900 mt-1">
-                      {components.filter((c) => c.status === "RETURNED").length}
-                    </p>
-                  </div>
-                  <RefreshCw className="w-8 h-8 text-purple-600 opacity-60" />
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.3 }}
+                transition={{ delay: 0.35 }}
                 className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-4 border border-red-200"
               >
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-medium text-red-600 uppercase tracking-wide">
-                      Defective
+                      Returned
                     </p>
                     <p className="text-2xl font-bold text-red-900 mt-1">
-                      {
-                        components.filter((c) => c.status === "DEFECTIVE")
-                          .length
-                      }
+                      {components.filter((c) => c.status === "RETURNED").length}
                     </p>
                   </div>
                   <XCircle className="w-8 h-8 text-red-600 opacity-60" />

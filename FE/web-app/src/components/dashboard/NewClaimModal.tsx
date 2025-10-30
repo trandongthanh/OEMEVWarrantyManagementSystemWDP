@@ -17,9 +17,12 @@ import {
   Trash2,
   UserPlus,
   ArrowRight,
+  Shield,
 } from "lucide-react";
 import { vehicleService, claimService, customerService } from "@/services";
 import type { ComponentWarranty } from "@/services/types";
+import { sendOtp, verifyOtp } from "@/services/mailService";
+import { getUserInfo } from "@/services/authService";
 
 interface NewClaimModalProps {
   isOpen: boolean;
@@ -39,9 +42,9 @@ export function NewClaimModal({
   onSuccess,
   onRegisterOwner,
 }: NewClaimModalProps) {
-  const [step, setStep] = useState<"search" | "verify" | "claim" | "success">(
-    "search"
-  );
+  const [step, setStep] = useState<
+    "search" | "verify" | "claim" | "otp" | "success"
+  >("search");
   const [vinOrPlate, setVinOrPlate] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [vehicleData, setVehicleData] = useState<any>(null);
@@ -60,6 +63,30 @@ export function NewClaimModal({
     relationship: "",
     note: "",
   });
+
+  // OTP verification states
+  const [staffEmail, setStaffEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCountdown, setOtpCountdown] = useState(0);
+
+  // Auto-fill staff email from logged-in user
+  useEffect(() => {
+    if (isOpen && step === "otp" && !staffEmail) {
+      const userInfo = getUserInfo();
+      if (userInfo?.email) {
+        setStaffEmail(userInfo.email);
+      }
+    }
+  }, [isOpen, step, staffEmail]);
+
+  // OTP countdown timer
+  useEffect(() => {
+    if (otpCountdown > 0) {
+      const timer = setTimeout(() => setOtpCountdown(otpCountdown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [otpCountdown]);
 
   // Reset form when modal closes
   useEffect(() => {
@@ -80,6 +107,10 @@ export function NewClaimModal({
           relationship: "",
           note: "",
         });
+        setStaffEmail("");
+        setOtp("");
+        setOtpSent(false);
+        setOtpCountdown(0);
       }, 300);
     }
   }, [isOpen]);
@@ -216,8 +247,8 @@ export function NewClaimModal({
     );
   };
 
-  const handleSubmitClaim = async () => {
-    // Validate
+  const handleProceedToOTP = () => {
+    // Validate before going to OTP
     const validCases = guaranteeCases.filter(
       (c) => c.contentGuarantee.trim() !== ""
     );
@@ -233,10 +264,52 @@ export function NewClaimModal({
       return;
     }
 
+    setError("");
+    setStep("otp");
+  };
+
+  const handleSendOTP = async () => {
+    if (!staffEmail || !staffEmail.includes("@")) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
     setIsSubmitting(true);
     setError("");
 
     try {
+      await sendOtp(staffEmail);
+      setOtpSent(true);
+      setOtpCountdown(60);
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(
+        error?.response?.data?.message ||
+          "Failed to send OTP. Please try again."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleVerifyAndSubmit = async () => {
+    if (!otp || otp.length !== 6) {
+      setError("Please enter a valid 6-digit OTP code");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError("");
+
+    try {
+      // Verify OTP first
+      await verifyOtp(staffEmail, otp);
+
+      // Now submit the claim
+      const validCases = guaranteeCases.filter(
+        (c) => c.contentGuarantee.trim() !== ""
+      );
+
       await claimService.createClaim(vehicleData.vin, {
         odometer: parseInt(odometer),
         guaranteeCases: validCases.map((c) => ({
@@ -255,9 +328,10 @@ export function NewClaimModal({
         onSuccess?.();
         onClose();
       }, 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
       setError(
-        err.response?.data?.message ||
+        error?.response?.data?.message ||
           "Failed to create claim. Please try again."
       );
     } finally {
@@ -296,6 +370,7 @@ export function NewClaimModal({
                     {step === "search" && "Step 1: Find Vehicle"}
                     {step === "verify" && "Step 2: Verify Information"}
                     {step === "claim" && "Step 3: Claim Details"}
+                    {step === "otp" && "Step 4: Email Verification"}
                     {step === "success" && "Claim Created Successfully!"}
                   </p>
                 </div>
@@ -829,7 +904,98 @@ export function NewClaimModal({
                   </motion.div>
                 )}
 
-                {/* Step 4: Success */}
+                {/* Step 4: OTP Verification */}
+                {step === "otp" && (
+                  <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    className="space-y-6"
+                  >
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+                      <Shield className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                      <div className="text-sm text-blue-800">
+                        <p className="font-semibold mb-1">
+                          Verification Required
+                        </p>
+                        <p>
+                          Please verify your email to create this warranty claim
+                          record.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Email Address
+                      </label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <input
+                          type="email"
+                          value={staffEmail}
+                          onChange={(e) => setStaffEmail(e.target.value)}
+                          placeholder="your.email@example.com"
+                          disabled={otpSent || isSubmitting}
+                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        />
+                      </div>
+                    </div>
+
+                    {otpSent && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                      >
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Verification Code
+                        </label>
+                        <p className="text-sm text-gray-600 mb-3">
+                          Enter the 6-digit code sent to{" "}
+                          <span className="font-semibold">{staffEmail}</span>
+                        </p>
+                        <input
+                          type="text"
+                          value={otp}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\D/g, "");
+                            if (value.length <= 6) setOtp(value);
+                          }}
+                          placeholder="000000"
+                          maxLength={6}
+                          disabled={isSubmitting}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl text-center text-2xl font-mono tracking-widest focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        />
+
+                        {otpCountdown > 0 ? (
+                          <p className="text-sm text-gray-600 text-center mt-3">
+                            Resend code in{" "}
+                            <span className="font-semibold text-blue-600">
+                              {otpCountdown}s
+                            </span>
+                          </p>
+                        ) : (
+                          <button
+                            onClick={handleSendOTP}
+                            disabled={isSubmitting}
+                            className="text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline mx-auto block mt-3"
+                          >
+                            Didn&apos;t receive the code? Resend
+                          </button>
+                        )}
+                      </motion.div>
+                    )}
+
+                    {error && (
+                      <div className="flex items-start gap-2 p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                        <p className="text-sm text-red-700">{error}</p>
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+
+                {/* Step 5: Success */}
                 {step === "success" && (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
@@ -857,7 +1023,14 @@ export function NewClaimModal({
                     onClick={
                       step === "search"
                         ? onClose
-                        : () => setStep(step === "claim" ? "verify" : "search")
+                        : () =>
+                            setStep(
+                              step === "otp"
+                                ? "claim"
+                                : step === "claim"
+                                ? "verify"
+                                : "search"
+                            )
                     }
                     className="px-6 py-2.5 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors font-medium"
                   >
@@ -870,12 +1043,19 @@ export function NewClaimModal({
                         ? handleSearchVehicle
                         : step === "verify"
                         ? handleVerifyAndNext
-                        : handleSubmitClaim
+                        : step === "claim"
+                        ? handleProceedToOTP
+                        : step === "otp"
+                        ? otpSent
+                          ? handleVerifyAndSubmit
+                          : handleSendOTP
+                        : undefined
                     }
                     disabled={
                       isSearching ||
                       isSubmitting ||
-                      (step === "verify" && noOwnerWarning)
+                      (step === "verify" && noOwnerWarning) ||
+                      (step === "otp" && otpSent && otp.length !== 6)
                     }
                     className="px-6 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
@@ -885,7 +1065,9 @@ export function NewClaimModal({
                     {step === "search" && "Search Vehicle"}
                     {step === "verify" &&
                       (noOwnerWarning ? "Owner Required" : "Continue")}
-                    {step === "claim" && "Submit Claim"}
+                    {step === "claim" && "Proceed to Verification"}
+                    {step === "otp" && !otpSent && "Send OTP"}
+                    {step === "otp" && otpSent && "Verify & Submit"}
                   </button>
                 </div>
               )}

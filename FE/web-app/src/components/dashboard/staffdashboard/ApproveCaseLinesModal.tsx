@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { useState } from "react";
 import caseLineService from "@/services/caseLineService";
+import OTPVerificationModal from "@/components/common/OTPVerificationModal";
 
 interface ApproveCaseLinesModalProps {
   isOpen: boolean;
@@ -23,6 +24,8 @@ export function ApproveCaseLinesModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  const [showOTPModal, setShowOTPModal] = useState(false);
+  const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
 
   const handleSubmit = async () => {
     if (!caseLineIds || caseLineIds.length === 0) {
@@ -35,6 +38,15 @@ export function ApproveCaseLinesModal({
       return;
     }
 
+    // Show OTP modal for verification
+    setShowOTPModal(true);
+  };
+
+  const handleOTPVerified = async (email: string) => {
+    setVerifiedEmail(email);
+    setShowOTPModal(false);
+
+    // Now proceed with the actual approval/rejection
     try {
       setLoading(true);
       setError(null);
@@ -44,6 +56,7 @@ export function ApproveCaseLinesModal({
           action === "approve" ? caseLineIds.map((id) => ({ id })) : [],
         rejectedCaseLineIds:
           action === "reject" ? caseLineIds.map((id) => ({ id })) : [],
+        approverEmail: email,
       };
 
       await caseLineService.approveCaseLines(payload);
@@ -262,6 +275,17 @@ export function ApproveCaseLinesModal({
           </motion.div>
         </motion.div>
       )}
+
+      {/* OTP Verification Modal */}
+      <OTPVerificationModal
+        isOpen={showOTPModal}
+        onClose={() => setShowOTPModal(false)}
+        onVerified={handleOTPVerified}
+        title="Verify Email to Continue"
+        description={`Please verify your email to ${
+          action === "approve" ? "approve" : "reject"
+        } the selected case lines.`}
+      />
     </AnimatePresence>
   );
 }
