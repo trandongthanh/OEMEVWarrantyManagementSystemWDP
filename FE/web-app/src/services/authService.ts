@@ -66,7 +66,7 @@ export const login = async (credentials: LoginCredentials): Promise<string> => {
           userId: decoded.userId,
           username: credentials.username, // Store from login
           name: decoded.name || credentials.username,
-          email: decoded.email,
+          email: decoded.email || undefined,
           roleName: decoded.roleName,
           serviceCenterId: decoded.serviceCenterId,
           companyId: decoded.companyId,

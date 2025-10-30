@@ -30,6 +30,7 @@ import {
 interface CurrentUser {
   userId: string;
   roleName: string;
+  serviceCenterId?: string;
 }
 
 export default function ManagerDashboard() {
@@ -41,17 +42,33 @@ export default function ManagerDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
+  const [warehouseId, setWarehouseId] = useState<string | null>(null);
 
   useEffect(() => {
     const user = authService.getCurrentUser();
     setCurrentUser(user);
-    fetchData();
+    fetchData(user);
   }, []);
 
-  const fetchData = async () => {
+  const fetchData = async (user: CurrentUser | null) => {
     try {
       const techData = await userService.getTechnicians();
       setTechnicians(techData);
+
+      // Fetch warehouse for this service center
+      if (user?.serviceCenterId) {
+        const { warehouseService } = await import(
+          "@/services/warehouseService"
+        );
+        const { warehouses } = await warehouseService.getWarehouseInfo();
+        // Find the warehouse for this service center
+        const warehouse = warehouses.find(
+          (w) => w.serviceCenterId === user.serviceCenterId
+        );
+        if (warehouse) {
+          setWarehouseId(warehouse.warehouseId);
+        }
+      }
     } catch (error) {
       console.error("Error fetching data:", error);
     }
@@ -99,6 +116,7 @@ export default function ManagerDashboard() {
         return (
           <StockTransferRequestList
             userRole="service_center_manager"
+            warehouseId={warehouseId || undefined}
             onRequestCreated={() => {
               // Refresh transfers list
             }}

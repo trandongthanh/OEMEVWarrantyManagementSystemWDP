@@ -14,7 +14,7 @@ export interface Stock {
   typeComponent: {
     typeComponentId: string;
     name: string;
-    price: number;
+    sku: string;
     category: string;
   };
 }
@@ -23,10 +23,22 @@ export interface Warehouse {
   warehouseId: string;
   name: string;
   address: string;
-  vehicleCompanyId: string;
-  serviceCenterId: string;
+  vehicleCompanyId: string | null;
+  serviceCenterId: string | null;
   priority: number;
-  stock: Stock[];
+  createdAt: string;
+  updatedAt: string;
+  serviceCenter?: {
+    serviceCenterId: string;
+    name: string;
+    address: string;
+  };
+  company?: {
+    vehicleCompanyId: string;
+    name: string;
+  } | null;
+  stocks: Stock[]; // API uses 'stocks' not 'stock'
+  stock?: Stock[]; // Keep for backward compatibility
 }
 
 export interface WarehouseQueryParams {

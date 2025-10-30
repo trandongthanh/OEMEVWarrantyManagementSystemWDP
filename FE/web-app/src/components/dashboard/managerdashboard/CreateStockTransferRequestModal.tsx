@@ -1,9 +1,10 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Plus, Minus, Package, AlertCircle } from "lucide-react";
-import { useState } from "react";
+import { X, Plus, Minus, Package, AlertCircle, Search } from "lucide-react";
+import { useState, useEffect } from "react";
 import stockTransferService from "@/services/stockTransferService";
+import warehouseService from "@/services/warehouseService";
 
 interface CreateStockTransferRequestModalProps {
   isOpen: boolean;
@@ -24,6 +25,14 @@ interface TransferItem {
   requestedQuantity: number;
 }
 
+interface TypeComponent {
+  typeComponentId: string;
+  name: string;
+  category?: string;
+  sku?: string;
+  price?: number;
+}
+
 export function CreateStockTransferRequestModal({
   isOpen,
   onClose,
@@ -40,18 +49,116 @@ export function CreateStockTransferRequestModal({
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [availableComponents, setAvailableComponents] = useState<
+    TypeComponent[]
+  >([]);
+  const [componentSearch, setComponentSearch] = useState<string[]>(
+    items.map(() => "")
+  );
+  const [showDropdown, setShowDropdown] = useState<boolean[]>(
+    items.map(() => false)
+  );
+
+  // Fetch available components from warehouse
+  useEffect(() => {
+    const fetchComponents = async () => {
+      try {
+        const response = await warehouseService.getWarehouseInfo();
+        const allComponents = new Map<string, TypeComponent>();
+
+        // Collect unique components from all warehouses
+        response.warehouses.forEach((warehouse) => {
+          // API returns 'stocks', fallback to 'stock' for compatibility
+          const stockItems = warehouse.stocks || warehouse.stock || [];
+          stockItems.forEach((stock) => {
+            if (stock.typeComponent) {
+              allComponents.set(stock.typeComponent.typeComponentId, {
+                typeComponentId: stock.typeComponent.typeComponentId,
+                name: stock.typeComponent.name,
+                category: stock.typeComponent.category,
+                price: 0, // Price not included in API response
+              });
+            }
+          });
+        });
+
+        setAvailableComponents(Array.from(allComponents.values()));
+      } catch (error) {
+        console.error("Failed to fetch components:", error);
+      }
+    };
+
+    if (isOpen) {
+      fetchComponents();
+    }
+  }, [isOpen]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setShowDropdown(showDropdown.map(() => false));
+    };
+
+    if (showDropdown.some((show) => show)) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showDropdown]);
 
   const handleAddItem = () => {
     setItems([
       ...items,
       { componentId: "", componentName: "", requestedQuantity: 1 },
     ]);
+    setComponentSearch([...componentSearch, ""]);
+    setShowDropdown([...showDropdown, false]);
   };
 
   const handleRemoveItem = (index: number) => {
     if (items.length > 1) {
       setItems(items.filter((_, i) => i !== index));
+      setComponentSearch(componentSearch.filter((_, i) => i !== index));
+      setShowDropdown(showDropdown.filter((_, i) => i !== index));
     }
+  };
+
+  const handleComponentSelect = (index: number, component: TypeComponent) => {
+    const newItems = [...items];
+    newItems[index] = {
+      ...newItems[index],
+      componentId: component.typeComponentId,
+      componentName: component.name,
+    };
+    setItems(newItems);
+
+    const newSearch = [...componentSearch];
+    newSearch[index] = component.name;
+    setComponentSearch(newSearch);
+
+    const newDropdown = [...showDropdown];
+    newDropdown[index] = false;
+    setShowDropdown(newDropdown);
+  };
+
+  const handleSearchChange = (index: number, value: string) => {
+    const newSearch = [...componentSearch];
+    newSearch[index] = value;
+    setComponentSearch(newSearch);
+
+    const newDropdown = [...showDropdown];
+    newDropdown[index] = value.length > 0;
+    setShowDropdown(newDropdown);
+  };
+
+  const getFilteredComponents = (searchTerm: string) => {
+    if (!searchTerm) return availableComponents;
+    const query = searchTerm.toLowerCase();
+    return availableComponents.filter(
+      (comp) =>
+        comp.name.toLowerCase().includes(query) ||
+        comp.category?.toLowerCase().includes(query)
+    );
   };
 
   const handleItemChange = (
@@ -82,15 +189,30 @@ export function CreateStockTransferRequestModal({
     setIsSubmitting(true);
 
     try {
-      await stockTransferService.createRequest({
-        requestingWarehouseId: warehouseId,
-        caselineIds: caseLineId ? [caseLineId] : [],
-        items: items.map((item) => ({
+      const requestItems = items.map((item) => {
+        const itemData: {
+          typeComponentId: string;
+          quantityRequested: number;
+          caselineId?: string;
+        } = {
           typeComponentId: item.componentId,
           quantityRequested: item.requestedQuantity,
-          caselineId: caseLineId,
-        })),
+        };
+        // Only include caselineId if it exists
+        if (caseLineId) {
+          itemData.caselineId = caseLineId;
+        }
+        return itemData;
       });
+
+      const requestPayload = {
+        requestingWarehouseId: warehouseId,
+        items: requestItems,
+      };
+
+      console.log("Creating stock transfer request:", requestPayload);
+
+      await stockTransferService.createRequest(requestPayload);
 
       // Success
       onSuccess?.();
@@ -191,63 +313,95 @@ export function CreateStockTransferRequestModal({
                       )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">
-                          Component ID *
-                        </label>
+                    {/* Component Selection with Search */}
+                    <div className="relative">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Component *
+                      </label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
                           type="text"
-                          value={item.componentId}
+                          value={componentSearch[index] || item.componentName}
                           onChange={(e) =>
-                            handleItemChange(
-                              index,
-                              "componentId",
-                              e.target.value
-                            )
+                            handleSearchChange(index, e.target.value)
                           }
-                          placeholder="e.g., COMP-12345"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          onFocus={() => {
+                            const newDropdown = [...showDropdown];
+                            newDropdown[index] = true;
+                            setShowDropdown(newDropdown);
+                          }}
+                          placeholder="Search for component..."
+                          className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           required
                         />
+                        {showDropdown[index] && (
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                            {getFilteredComponents(componentSearch[index])
+                              .length > 0 ? (
+                              getFilteredComponents(componentSearch[index]).map(
+                                (component) => (
+                                  <button
+                                    key={component.typeComponentId}
+                                    type="button"
+                                    onClick={() =>
+                                      handleComponentSelect(index, component)
+                                    }
+                                    className="w-full px-3 py-2 text-left hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0"
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex-1">
+                                        <p className="text-sm font-medium text-gray-900">
+                                          {component.name}
+                                        </p>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                          {component.sku && (
+                                            <span className="text-xs text-gray-500">
+                                              {component.sku}
+                                            </span>
+                                          )}
+                                          {component.category && (
+                                            <span className="text-xs text-gray-400">
+                                              • {component.category}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </button>
+                                )
+                              )
+                            ) : (
+                              <div className="px-3 py-2 text-sm text-gray-500">
+                                No components found
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">
-                          Quantity *
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={item.requestedQuantity}
-                          onChange={(e) =>
-                            handleItemChange(
-                              index,
-                              "requestedQuantity",
-                              parseInt(e.target.value) || 1
-                            )
-                          }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          required
-                        />
-                      </div>
+                      {item.componentId && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          ID: {item.componentId}
+                        </p>
+                      )}
                     </div>
 
+                    {/* Quantity */}
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">
-                        Component Name *
+                        Quantity *
                       </label>
                       <input
-                        type="text"
-                        value={item.componentName}
+                        type="number"
+                        min="1"
+                        value={item.requestedQuantity}
                         onChange={(e) =>
                           handleItemChange(
                             index,
-                            "componentName",
-                            e.target.value
+                            "requestedQuantity",
+                            parseInt(e.target.value) || 1
                           )
                         }
-                        placeholder="e.g., Battery Module"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         required
                       />

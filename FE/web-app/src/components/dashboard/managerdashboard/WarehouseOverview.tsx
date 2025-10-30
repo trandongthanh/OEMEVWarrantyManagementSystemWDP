@@ -27,7 +27,12 @@ export function WarehouseOverview() {
       const response = await warehouseService.getWarehouseInfo({
         minStock: minStockFilter,
       });
-      setWarehouses(response.warehouses);
+      // Normalize data: API returns 'stocks' but we use 'stock' internally
+      const normalizedWarehouses = response.warehouses.map((warehouse) => ({
+        ...warehouse,
+        stock: warehouse.stocks || warehouse.stock || [],
+      }));
+      setWarehouses(normalizedWarehouses);
     } catch (error) {
       console.error("Error fetching warehouses:", error);
       setWarehouses([]);
@@ -44,9 +49,11 @@ export function WarehouseOverview() {
   const getTotalStockAcrossWarehouses = () => {
     let total = 0;
     warehouses.forEach((warehouse) => {
-      warehouse.stock.forEach((stock) => {
-        total += stock.quantityInStock;
-      });
+      if (warehouse.stock) {
+        warehouse.stock.forEach((stock) => {
+          total += stock.quantityInStock;
+        });
+      }
     });
     return total;
   };
@@ -58,15 +65,17 @@ export function WarehouseOverview() {
       quantity: number;
     }[] = [];
     warehouses.forEach((warehouse) => {
-      warehouse.stock.forEach((stock) => {
-        if (stock.quantityInStock < 10) {
-          lowStockItems.push({
-            warehouse: warehouse.name,
-            component: stock.typeComponent?.name || "Unknown",
-            quantity: stock.quantityInStock,
-          });
-        }
-      });
+      if (warehouse.stock) {
+        warehouse.stock.forEach((stock) => {
+          if (stock.quantityInStock < 10) {
+            lowStockItems.push({
+              warehouse: warehouse.name,
+              component: stock.typeComponent?.name || "Unknown",
+              quantity: stock.quantityInStock,
+            });
+          }
+        });
+      }
     });
     return lowStockItems;
   };
@@ -81,18 +90,21 @@ export function WarehouseOverview() {
     return warehouses
       .map((warehouse) => {
         // Filter stock items that match the search
-        const matchingStock = warehouse.stock.filter((stock) => {
-          const componentName = stock.typeComponent?.name?.toLowerCase() || "";
-          const componentCategory =
-            stock.typeComponent?.category?.toLowerCase() || "";
-          const warehouseName = warehouse.name.toLowerCase();
+        const matchingStock = warehouse.stock
+          ? warehouse.stock.filter((stock) => {
+              const componentName =
+                stock.typeComponent?.name?.toLowerCase() || "";
+              const componentCategory =
+                stock.typeComponent?.category?.toLowerCase() || "";
+              const warehouseName = warehouse.name.toLowerCase();
 
-          return (
-            componentName.includes(query) ||
-            componentCategory.includes(query) ||
-            warehouseName.includes(query)
-          );
-        });
+              return (
+                componentName.includes(query) ||
+                componentCategory.includes(query) ||
+                warehouseName.includes(query)
+              );
+            })
+          : [];
 
         // Only include warehouse if it has matching stock
         if (matchingStock.length > 0) {
@@ -259,10 +271,12 @@ export function WarehouseOverview() {
                       <div className="text-right">
                         <p className="text-sm text-gray-500">Total Items</p>
                         <p className="text-2xl font-bold text-gray-900">
-                          {warehouse.stock.reduce(
-                            (sum, stock) => sum + stock.quantityInStock,
-                            0
-                          )}
+                          {warehouse.stock
+                            ? warehouse.stock.reduce(
+                                (sum, stock) => sum + stock.quantityInStock,
+                                0
+                              )
+                            : 0}
                         </p>
                       </div>
                     </div>
@@ -270,63 +284,62 @@ export function WarehouseOverview() {
                     {/* Stock Items */}
                     <div className="space-y-2">
                       <p className="text-sm font-semibold text-gray-700 mb-3">
-                        Stock Items ({warehouse.stock.length})
+                        Stock Items ({warehouse.stock?.length || 0})
                       </p>
                       <div className="grid grid-cols-1 gap-2">
-                        {warehouse.stock.map((stock) => (
-                          <div
-                            key={stock.typeComponentId}
-                            className={`flex items-center justify-between p-3 rounded-lg ${
-                              stock.quantityInStock < 10
-                                ? "bg-red-50 border border-red-200"
-                                : stock.quantityInStock < 20
-                                ? "bg-yellow-50 border border-yellow-200"
-                                : "bg-gray-50 border border-gray-200"
-                            }`}
-                          >
-                            <div className="flex items-center gap-3 flex-1">
-                              <Package
-                                className={`w-4 h-4 ${
-                                  stock.quantityInStock < 10
-                                    ? "text-red-600"
-                                    : stock.quantityInStock < 20
-                                    ? "text-yellow-600"
-                                    : "text-gray-600"
-                                }`}
-                              />
-                              <div className="flex-1">
-                                <p className="text-sm font-medium text-gray-900">
-                                  {stock.typeComponent?.name ||
-                                    "Unknown Component"}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  $
-                                  {stock.typeComponent?.price.toLocaleString() ||
-                                    "0"}
-                                </p>
+                        {warehouse.stock &&
+                          warehouse.stock.map((stock) => (
+                            <div
+                              key={stock.typeComponentId}
+                              className={`flex items-center justify-between p-3 rounded-lg ${
+                                stock.quantityInStock < 10
+                                  ? "bg-red-50 border border-red-200"
+                                  : stock.quantityInStock < 20
+                                  ? "bg-yellow-50 border border-yellow-200"
+                                  : "bg-gray-50 border border-gray-200"
+                              }`}
+                            >
+                              <div className="flex items-center gap-3 flex-1">
+                                <Package
+                                  className={`w-4 h-4 ${
+                                    stock.quantityInStock < 10
+                                      ? "text-red-600"
+                                      : stock.quantityInStock < 20
+                                      ? "text-yellow-600"
+                                      : "text-gray-600"
+                                  }`}
+                                />
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium text-gray-900">
+                                    {stock.typeComponent?.name ||
+                                      "Unknown Component"}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    SKU: {stock.typeComponent?.sku || "N/A"}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                {stock.quantityInStock < 10 && (
+                                  <span className="flex items-center gap-1 text-xs text-red-600 font-medium">
+                                    <TrendingDown className="w-3.5 h-3.5" />
+                                    Low Stock
+                                  </span>
+                                )}
+                                <span
+                                  className={`px-3 py-1 rounded-lg text-sm font-bold ${
+                                    stock.quantityInStock < 10
+                                      ? "bg-red-100 text-red-700"
+                                      : stock.quantityInStock < 20
+                                      ? "bg-yellow-100 text-yellow-700"
+                                      : "bg-green-100 text-green-700"
+                                  }`}
+                                >
+                                  {stock.quantityInStock}
+                                </span>
                               </div>
                             </div>
-                            <div className="flex items-center gap-3">
-                              {stock.quantityInStock < 10 && (
-                                <span className="flex items-center gap-1 text-xs text-red-600 font-medium">
-                                  <TrendingDown className="w-3.5 h-3.5" />
-                                  Low Stock
-                                </span>
-                              )}
-                              <span
-                                className={`px-3 py-1 rounded-lg text-sm font-bold ${
-                                  stock.quantityInStock < 10
-                                    ? "bg-red-100 text-red-700"
-                                    : stock.quantityInStock < 20
-                                    ? "bg-yellow-100 text-yellow-700"
-                                    : "bg-green-100 text-green-700"
-                                }`}
-                              >
-                                {stock.quantityInStock}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
+                          ))}
                       </div>
                     </div>
                   </motion.div>

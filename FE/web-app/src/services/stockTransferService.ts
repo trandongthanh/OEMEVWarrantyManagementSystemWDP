@@ -21,7 +21,7 @@ export interface StockTransferRequestItem {
 export interface CreateStockTransferRequest {
   requestingWarehouseId: string;
   items: StockTransferRequestItem[];
-  caselineIds: string[];
+  caselineIds?: string[]; // Optional, only needed when request is tied to specific caselines
 }
 
 export interface StockTransferRequest {

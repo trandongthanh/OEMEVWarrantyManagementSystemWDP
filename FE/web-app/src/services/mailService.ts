@@ -37,11 +37,21 @@ export interface VerifyOtpResponse {
  * Sends a 6-digit OTP code to the specified email.
  * OTP is valid for 5 minutes.
  */
-export async function sendOtp(email: string): Promise<SendOtpResponse> {
+export async function sendOtp(
+  email: string,
+  vin?: string
+): Promise<SendOtpResponse> {
   try {
-    const response = await apiClient.post<SendOtpResponse>("/mail/otp/send", {
-      email,
-    });
+    const payload: { email: string; vin?: string } = { email };
+    if (vin) {
+      payload.vin = vin;
+    }
+    console.log("Sending OTP with payload:", payload);
+
+    const response = await apiClient.post<SendOtpResponse>(
+      "/mail/otp/send",
+      payload
+    );
 
     return response.data;
   } catch (error) {

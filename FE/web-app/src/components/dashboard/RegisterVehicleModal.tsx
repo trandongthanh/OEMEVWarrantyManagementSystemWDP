@@ -520,7 +520,9 @@ export function RegisterVehicleModal({
                               onChange={(e) =>
                                 setDateOfManufacture(e.target.value)
                               }
-                              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent focus:bg-white transition-colors"
+                              readOnly
+                              aria-readonly
+                              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent focus:bg-white transition-colors cursor-not-allowed"
                             />
                           </div>
                         </div>

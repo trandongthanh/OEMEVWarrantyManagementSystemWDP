@@ -830,6 +830,8 @@ export function CasesList({ onViewDetails }: CasesListProps) {
             setSelectedCaseLineIds([]);
             fetchRecords(); // Refresh the list
           }}
+          customerEmail={selectedRecord?.visitorInfo?.email}
+          vin={selectedRecord?.vin}
         />
 
         {/* Complete Record Modal */}

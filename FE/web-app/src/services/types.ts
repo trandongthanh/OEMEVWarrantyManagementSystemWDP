@@ -201,6 +201,7 @@ export interface CreateClaimRequest {
   visitorInfo: {
     fullName: string;
     phone: string;
+    email: string; // Required email for visitor/customer
     relationship?: string;
     note?: string;
   };

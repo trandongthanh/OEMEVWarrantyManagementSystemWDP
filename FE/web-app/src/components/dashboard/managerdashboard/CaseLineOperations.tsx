@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import caseLineService from "@/services/caseLineService";
 import userService from "@/services/userService";
+import warehouseService from "@/services/warehouseService";
 import { Pagination } from "@/components/ui";
 
 // Status configuration with modern styling
@@ -192,6 +193,61 @@ export function CaseLineOperations() {
         return;
       }
 
+      if (!caseLine.typeComponentId && !caseLine.typeComponent) {
+        setErrorMessage(
+          "Cannot allocate stock: No component type specified for this case line. Please update the case line with a component type first."
+        );
+        return;
+      }
+
+      // Add validation for quantity
+      if (!caseLine.quantity || caseLine.quantity <= 0) {
+        setErrorMessage(
+          "Cannot allocate stock: Invalid quantity specified for this case line."
+        );
+        return;
+      }
+
+      // Check if we have warehouse data to validate stock availability
+      try {
+        const warehouseResponse = await warehouseService.getWarehouses();
+        const warehouses = warehouseResponse.data.warehouses || [];
+
+        // Find if any warehouse has stock for this component
+        const hasStock = warehouses.some((warehouse: any) =>
+          warehouse.stocks?.some(
+            (stock: any) =>
+              stock.typeComponentId === caseLine.typeComponentId &&
+              stock.quantityAvailable >= caseLine.quantity
+          )
+        );
+
+        if (!hasStock) {
+          setErrorMessage(
+            `Cannot allocate stock: No warehouse has sufficient stock (${
+              caseLine.quantity
+            } units needed) for component "${
+              caseLine.typeComponent?.name || "Unknown"
+            }". Please create a stock transfer request from the company warehouse.`
+          );
+          return;
+        }
+      } catch (warehouseError) {
+        console.warn(
+          "Could not check warehouse stock availability:",
+          warehouseError
+        );
+        // Continue with allocation attempt if warehouse check fails
+      }
+
+      console.log("Allocating stock for case line:", {
+        caseLineId,
+        guaranteeCaseId: caseLine.guaranteeCaseId,
+        typeComponentId: caseLine.typeComponentId,
+        typeComponent: caseLine.typeComponent?.name,
+        quantity: caseLine.quantity,
+      });
+
       const response = await caseLineService.allocateStock(
         caseLine.guaranteeCaseId,
         caseLineId
@@ -216,8 +272,21 @@ export function CaseLineOperations() {
 
       let helpText = "";
       if (error?.response?.status === 409) {
-        helpText =
-          " Reasons: (1) Insufficient stock, (2) No component specified, or (3) Already allocated.";
+        if (
+          errorMsg.includes("Available: 0") ||
+          errorMsg.includes("Insufficient available components")
+        ) {
+          helpText =
+            " → Stock appears available in inventory, but individual component records are missing from the database. This is a backend data seeding issue - the Component table needs to be populated with individual component items that match the stock quantities.";
+        } else if (errorMsg.includes("No component specified")) {
+          helpText =
+            " → This case line doesn't have a component type assigned.";
+        } else if (errorMsg.includes("already allocated")) {
+          helpText = " → Stock has already been allocated for this case line.";
+        } else {
+          helpText =
+            " → Possible issue: Component inventory data missing or insufficient stock.";
+        }
       }
 
       setErrorMessage(`${errorMsg}${helpText}`);
@@ -322,6 +391,14 @@ export function CaseLineOperations() {
           if (!caseLine || !caseLine.guaranteeCaseId) {
             errors.push(
               `${caseLineId.substring(0, 8)}...: Guarantee case not found`
+            );
+            failedCount++;
+            continue;
+          }
+
+          if (!caseLine.typeComponentId && !caseLine.typeComponent) {
+            errors.push(
+              `${caseLineId.substring(0, 8)}...: No component specified`
             );
             failedCount++;
             continue;
@@ -832,13 +909,19 @@ export function CaseLineOperations() {
                           <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
                             <button
                               onClick={() => handleAllocateStock(caseLine.id)}
-                              disabled={!isApproved || isFullyReserved}
+                              disabled={
+                                !isApproved ||
+                                isFullyReserved ||
+                                !caseLine.typeComponent
+                              }
                               className="flex-1 px-4 py-2.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                               title={
                                 !isApproved
                                   ? "Must be approved first"
                                   : isFullyReserved
                                   ? "Stock already allocated"
+                                  : !caseLine.typeComponent
+                                  ? "No component specified - update case line first"
                                   : "Allocate stock"
                               }
                             >

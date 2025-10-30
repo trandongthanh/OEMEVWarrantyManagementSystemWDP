@@ -33,6 +33,13 @@ export interface ProcessingRecord {
     userId: string;
     name: string;
   };
+  visitorInfo?: {
+    fullName: string;
+    phone: string;
+    email: string;
+    relationship?: string;
+    note?: string;
+  };
   guaranteeCases?: Array<{
     guaranteeCaseId?: string;
     caseId?: string;

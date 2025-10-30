@@ -22,7 +22,6 @@ import {
 import { vehicleService, claimService, customerService } from "@/services";
 import type { ComponentWarranty } from "@/services/types";
 import { sendOtp, verifyOtp } from "@/services/mailService";
-import { getUserInfo } from "@/services/authService";
 
 interface NewClaimModalProps {
   isOpen: boolean;
@@ -70,15 +69,12 @@ export function NewClaimModal({
   const [otpSent, setOtpSent] = useState(false);
   const [otpCountdown, setOtpCountdown] = useState(0);
 
-  // Auto-fill staff email from logged-in user
+  // Auto-fill email with customer email from vehicle data
   useEffect(() => {
-    if (isOpen && step === "otp" && !staffEmail) {
-      const userInfo = getUserInfo();
-      if (userInfo?.email) {
-        setStaffEmail(userInfo.email);
-      }
+    if (isOpen && step === "otp" && !staffEmail && vehicleData?.owner?.email) {
+      setStaffEmail(vehicleData.owner.email);
     }
-  }, [isOpen, step, staffEmail]);
+  }, [isOpen, step, staffEmail, vehicleData]);
 
   // OTP countdown timer
   useEffect(() => {
@@ -278,7 +274,7 @@ export function NewClaimModal({
     setError("");
 
     try {
-      await sendOtp(staffEmail);
+      await sendOtp(staffEmail, vehicleData?.vin);
       setOtpSent(true);
       setOtpCountdown(60);
     } catch (err: unknown) {
@@ -318,6 +314,7 @@ export function NewClaimModal({
         visitorInfo: {
           fullName: visitorInfo.fullName.trim(),
           phone: visitorInfo.phone.trim(),
+          email: staffEmail.trim(), // Include the verified email
           relationship: visitorInfo.relationship.trim() || undefined,
           note: visitorInfo.note.trim() || undefined,
         },
@@ -937,7 +934,7 @@ export function NewClaimModal({
                           onChange={(e) => setStaffEmail(e.target.value)}
                           placeholder="your.email@example.com"
                           disabled={otpSent || isSubmitting}
-                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          className="w-full pl-10 pr-4 py-3 border text-black border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
                         />
                       </div>
                     </div>
@@ -964,7 +961,7 @@ export function NewClaimModal({
                           placeholder="000000"
                           maxLength={6}
                           disabled={isSubmitting}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-xl text-center text-2xl font-mono tracking-widest focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                          className="w-full px-4 py-3 border text-black border-gray-300 rounded-xl text-center text-2xl font-mono tracking-widest focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         />
 
                         {otpCountdown > 0 ? (

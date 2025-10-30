@@ -17,14 +17,17 @@ import {
   User,
   AlertCircle,
   Loader2,
+  Plus,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import stockTransferService from "@/services/stockTransferService";
 import type { StockTransferRequest } from "@/services/stockTransferService";
+import { CreateStockTransferRequestModal } from "./CreateStockTransferRequestModal";
 
 interface StockTransferRequestListProps {
   userRole: string;
   onRequestCreated?: () => void;
+  warehouseId?: string;
 }
 
 const statusColors = {
@@ -48,6 +51,7 @@ const statusIcons = {
 export function StockTransferRequestList({
   userRole,
   onRequestCreated,
+  warehouseId,
 }: StockTransferRequestListProps) {
   const [requests, setRequests] = useState<StockTransferRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +59,7 @@ export function StockTransferRequestList({
     undefined
   );
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const fetchRequests = async (status?: string) => {
     try {
@@ -226,9 +231,20 @@ export function StockTransferRequestList({
                   <option value="CANCELLED">Cancelled</option>
                 </select>
               </div>
-              <p className="text-sm text-gray-500">
-                {requests.length} request{requests.length !== 1 ? "s" : ""}
-              </p>
+              <div className="flex items-center gap-3">
+                {userRole === "service_center_manager" && warehouseId && (
+                  <button
+                    onClick={() => setIsCreateModalOpen(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Create Request
+                  </button>
+                )}
+                <p className="text-sm text-gray-500">
+                  {requests.length} request{requests.length !== 1 ? "s" : ""}
+                </p>
+              </div>
             </div>
           </div>
 
@@ -435,6 +451,19 @@ export function StockTransferRequestList({
           </div>
         </div>
       </div>
+
+      {/* Create Stock Transfer Request Modal */}
+      {warehouseId && (
+        <CreateStockTransferRequestModal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          warehouseId={warehouseId}
+          onSuccess={() => {
+            fetchRequests(selectedStatus);
+            onRequestCreated?.();
+          }}
+        />
+      )}
     </div>
   );
 }
