@@ -15,7 +15,7 @@ interface RawInventorySummary {
   totalInStock: string;
   totalReserved: string;
   totalAvailable: string;
-  warehouse: {
+  warehouse?: {
     warehouseId: string;
     name: string;
     serviceCenterId: string | null;
@@ -70,7 +70,7 @@ export async function getInventorySummary(
     // Transform backend response to match frontend interface
     return response.data.data.summary.map((item: RawInventorySummary) => ({
       warehouseId: item.warehouseId,
-      warehouseName: item.warehouse.name,
+      warehouseName: item.warehouse?.name || `Warehouse ${item.warehouseId}`,
       totalStock: parseInt(item.totalInStock) || 0,
       reservedStock: Math.max(0, parseInt(item.totalReserved) || 0), // Ensure non-negative
       availableStock: Math.max(0, parseInt(item.totalAvailable) || 0), // Ensure non-negative

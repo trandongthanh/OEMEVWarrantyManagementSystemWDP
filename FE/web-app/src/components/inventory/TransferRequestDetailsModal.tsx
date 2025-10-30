@@ -293,50 +293,59 @@ export default function TransferRequestDetailsModal({
                   </div>
 
                   {/* Timeline */}
-                  {details.timeline && details.timeline.length > 0 && (
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                        <Clock className="w-5 h-5" />
-                        Timeline
-                      </h3>
-                      <div className="space-y-4">
-                        {details.timeline.map((event, index) => (
-                          <motion.div
-                            key={index}
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: index * 0.05 }}
-                            className="flex gap-4"
-                          >
-                            <div className="flex flex-col items-center">
-                              <div className="p-2 bg-blue-100 rounded-full">
-                                <Clock className="w-4 h-4 text-blue-600" />
-                              </div>
-                              {index < details.timeline.length - 1 && (
-                                <div className="w-0.5 h-full bg-blue-200 mt-2" />
-                              )}
-                            </div>
-                            <div className="flex-1 pb-6">
-                              <p className="font-semibold text-gray-900">
-                                {event.action}
-                              </p>
-                              <p className="text-sm text-gray-600">
-                                {event.performedBy}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {new Date(event.timestamp).toLocaleString()}
-                              </p>
-                              {event.details && (
-                                <p className="text-sm text-gray-700 mt-1 bg-gray-50 rounded p-2">
-                                  {event.details}
-                                </p>
-                              )}
-                            </div>
-                          </motion.div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  {details.timeline &&
+                    details.timeline.length > 0 &&
+                    (() => {
+                      const timeline = details.timeline;
+                      return (
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                            <Clock className="w-5 h-5" />
+                            Timeline
+                          </h3>
+                          <div className="space-y-4">
+                            {timeline.map((event, index) => (
+                              <motion.div
+                                key={index}
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: index * 0.05 }}
+                                className="flex gap-4"
+                              >
+                                <div className="flex flex-col items-center">
+                                  <div className="p-2 bg-blue-100 rounded-full">
+                                    <Clock className="w-4 h-4 text-blue-600" />
+                                  </div>
+                                  {index < timeline.length - 1 && (
+                                    <div className="w-0.5 h-full bg-blue-200 mt-2" />
+                                  )}
+                                </div>
+                                <div className="flex-1 pb-6">
+                                  <p className="font-semibold text-gray-900">
+                                    {event.action || "Unknown action"}
+                                  </p>
+                                  <p className="text-sm text-gray-600">
+                                    {event.performedBy || "Unknown user"}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {event.timestamp
+                                      ? new Date(
+                                          event.timestamp
+                                        ).toLocaleString()
+                                      : "Unknown time"}
+                                  </p>
+                                  {event.details && (
+                                    <p className="text-sm text-gray-700 mt-1 bg-gray-50 rounded p-2">
+                                      {event.details}
+                                    </p>
+                                  )}
+                                </div>
+                              </motion.div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                   {/* Notes */}
                   {details.notes && (
