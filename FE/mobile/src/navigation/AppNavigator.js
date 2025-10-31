@@ -2,12 +2,11 @@ import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
-// 📄 Screens
 import LoginScreen from "../screens/LoginScreen";
 import ManagerDashboardTabs from "../screens/manager/ManagerDashboardTabs";
 import StaffDashboardTabs from "../screens/staff/StaffDashboardTabs";
-import TechnicianDashboard from "../screens/TechnicianDashboard";
-import StaffChatScreen from "../screens/staff/StaffChatScreen"; // 👈 thêm vào đây
+import TechnicianDashboard from "../screens/technician/TechnicianDashboard";
+import StaffChatScreen from "../screens/staff/StaffChatScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -59,6 +58,7 @@ export default function AppNavigator() {
           name="TechnicianDashboard"
           component={TechnicianDashboard}
           options={{
+            headerShown: false,
             title: "Technician Dashboard",
           }}
         />
