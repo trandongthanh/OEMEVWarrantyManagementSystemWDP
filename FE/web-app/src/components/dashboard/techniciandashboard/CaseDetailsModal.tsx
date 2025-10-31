@@ -14,6 +14,9 @@ import {
   FileText,
   Shield,
   ShieldOff,
+  Image as ImageIcon,
+  Upload,
+  Trash2,
 } from "lucide-react";
 import technicianService, {
   CaseLineInput,
@@ -21,6 +24,7 @@ import technicianService, {
 } from "@/services/technicianService";
 import caseLineService from "@/services/caseLineService";
 import { CompleteDiagnosisButton } from "./CompleteDiagnosisButton";
+import { uploadToCloudinary } from "@/lib/cloudinary";
 
 interface CaseDetailsModalProps {
   isOpen: boolean;
@@ -40,6 +44,7 @@ interface CaseLineForm extends CaseLineInput {
   isUnderWarranty?: boolean; // Track if component is under warranty
   rejectionReason?: string; // Reason for warranty ineligibility
   status?: string; // Case line status (DRAFT, PENDING_APPROVAL, etc.)
+  evidenceImageUrls?: string[]; // Array of evidence image URLs
 }
 
 // EV-specific categories matching backend TypeComponent table
@@ -102,6 +107,9 @@ export function CaseDetailsModal({
     useState(false);
   const [actualCaseId, setActualCaseId] = useState<string | undefined>(caseId);
   const [isReadOnly, setIsReadOnly] = useState(false); // True if case lines are not in DRAFT status
+  const [diagnosisImages, setDiagnosisImages] = useState<
+    Map<number, { file: File; preview: string }[]>
+  >(new Map());
 
   // Load case line data - either specific case line or all case lines for the guarantee case
   useEffect(() => {
@@ -286,6 +294,17 @@ export function CaseDetailsModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, searchCategory]);
 
+  // Cleanup image preview URLs when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      // Revoke all object URLs to free memory
+      diagnosisImages.forEach((images) => {
+        images.forEach((img) => URL.revokeObjectURL(img.preview));
+      });
+      setDiagnosisImages(new Map());
+    }
+  }, [isOpen, diagnosisImages]);
+
   const searchComponents = async () => {
     if (!recordId) {
       setErrorMessage(
@@ -379,6 +398,42 @@ export function CaseDetailsModal({
     setShowComponentSearch(true);
   };
 
+  const handleImageSelect = (
+    lineIndex: number,
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
+
+    const newImages = files.map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+
+    setDiagnosisImages((prev) => {
+      const updated = new Map(prev);
+      const existing = updated.get(lineIndex) || [];
+      updated.set(lineIndex, [...existing, ...newImages]);
+      return updated;
+    });
+  };
+
+  const handleRemoveImage = (lineIndex: number, imgIndex: number) => {
+    setDiagnosisImages((prev) => {
+      const updated = new Map(prev);
+      const images = updated.get(lineIndex) || [];
+      // Revoke the object URL to free memory
+      URL.revokeObjectURL(images[imgIndex].preview);
+      images.splice(imgIndex, 1);
+      if (images.length === 0) {
+        updated.delete(lineIndex);
+      } else {
+        updated.set(lineIndex, images);
+      }
+      return updated;
+    });
+  };
+
   const handleSubmit = async () => {
     // Clear previous messages
     setErrorMessage("");
@@ -403,6 +458,29 @@ export function CaseDetailsModal({
 
     setIsSaving(true);
     try {
+      // Upload all diagnosis images to Cloudinary and get URLs
+      const uploadedImageUrls = new Map<number, string[]>();
+
+      for (const [lineIndex, images] of diagnosisImages.entries()) {
+        if (images.length > 0) {
+          const urls: string[] = [];
+          for (const img of images) {
+            try {
+              const url = await uploadToCloudinary(img.file);
+              urls.push(url);
+            } catch (error) {
+              console.error("Failed to upload image:", error);
+              setErrorMessage(
+                "Failed to upload one or more images. Please try again."
+              );
+              setIsSaving(false);
+              return;
+            }
+          }
+          uploadedImageUrls.set(lineIndex, urls);
+        }
+      }
+
       // Check if we're editing existing case lines (have caseLineId)
       const hasExistingCaseLines = caseLines.some((line) => line.caseLineId);
 
@@ -418,8 +496,13 @@ export function CaseDetailsModal({
         // Update each case line that has an ID
         const updatePromises = caseLines
           .filter((line) => line.caseLineId)
-          .map((caseLine) =>
-            caseLineService.updateCaseLine(caseLine.caseLineId!, {
+          .map((caseLine, index) => {
+            // Combine existing evidenceImageUrls with newly uploaded ones
+            const existingUrls = caseLine.evidenceImageUrls || [];
+            const newUrls = uploadedImageUrls.get(index) || [];
+            const allUrls = [...existingUrls, ...newUrls];
+
+            return caseLineService.updateCaseLine(caseLine.caseLineId!, {
               caseId: actualCaseId,
               diagnosisText: caseLine.diagnosisText,
               correctionText: caseLine.correctionText,
@@ -427,8 +510,9 @@ export function CaseDetailsModal({
               quantity: caseLine.quantity,
               warrantyStatus: caseLine.warrantyStatus,
               rejectionReason: caseLine.rejectionReason || null,
-            })
-          );
+              evidenceImageUrls: allUrls.length > 0 ? allUrls : undefined,
+            });
+          });
 
         await Promise.all(updatePromises);
         setSuccessMessage(
@@ -445,20 +529,24 @@ export function CaseDetailsModal({
         }
 
         const caselinesToSend = caseLines.map(
-          ({
-            diagnosisText,
-            correctionText,
-            typeComponentId,
-            quantity,
-            warrantyStatus,
-            rejectionReason,
-          }) => ({
+          (
+            {
+              diagnosisText,
+              correctionText,
+              typeComponentId,
+              quantity,
+              warrantyStatus,
+              rejectionReason,
+            },
+            index
+          ) => ({
             diagnosisText,
             correctionText,
             typeComponentId: typeComponentId || null,
             quantity,
             warrantyStatus,
             rejectionReason: rejectionReason || null,
+            evidenceImageUrls: uploadedImageUrls.get(index) || undefined,
           })
         );
 
@@ -979,6 +1067,103 @@ export function CaseDetailsModal({
                           </p>
                         </motion.div>
                       )}
+
+                      {/* Evidence Images */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <ImageIcon className="w-4 h-4 inline mr-1" />
+                          Evidence Images
+                        </label>
+                        {!isReadOnly && (
+                          <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors border border-gray-300">
+                            <Upload className="w-4 h-4" />
+                            Upload Images
+                            <input
+                              type="file"
+                              multiple
+                              accept="image/*"
+                              onChange={(e) => handleImageSelect(index, e)}
+                              className="hidden"
+                            />
+                          </label>
+                        )}
+
+                        {/* Existing Evidence Images from Backend */}
+                        {caseLine.evidenceImageUrls &&
+                          caseLine.evidenceImageUrls.length > 0 && (
+                            <div className="mt-3">
+                              <p className="text-xs text-gray-500 mb-2">
+                                Existing Evidence:
+                              </p>
+                              <div className="grid grid-cols-4 gap-2">
+                                {caseLine.evidenceImageUrls.map((url, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="relative group aspect-square rounded-lg overflow-hidden border border-gray-300 bg-white"
+                                  >
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={url}
+                                      alt={`Evidence ${idx + 1}`}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                        {/* Newly Selected Image Previews (Local) */}
+                        {diagnosisImages.get(index) &&
+                          diagnosisImages.get(index)!.length > 0 && (
+                            <div className="grid grid-cols-4 gap-2 mt-3">
+                              {diagnosisImages
+                                .get(index)!
+                                .map((img, imgIndex) => (
+                                  <div
+                                    key={imgIndex}
+                                    className="relative group aspect-square rounded-lg overflow-hidden border border-gray-300 bg-white"
+                                  >
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={img.preview}
+                                      alt={`New upload ${imgIndex + 1}`}
+                                      className="w-full h-full object-cover"
+                                    />
+                                    {!isReadOnly && (
+                                      <button
+                                        onClick={() =>
+                                          handleRemoveImage(index, imgIndex)
+                                        }
+                                        className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <p className="text-xs text-white truncate">
+                                        {img.file.name}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                            </div>
+                          )}
+
+                        {(!diagnosisImages.get(index) ||
+                          diagnosisImages.get(index)!.length === 0) &&
+                          (!caseLine.evidenceImageUrls ||
+                            caseLine.evidenceImageUrls.length === 0) && (
+                            <div className="flex items-center justify-center py-6 text-gray-400 border border-gray-200 rounded-lg mt-2">
+                              <div className="text-center">
+                                <ImageIcon className="w-8 h-8 mx-auto mb-1 opacity-50" />
+                                <p className="text-xs">
+                                  No images uploaded yet
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                      </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">

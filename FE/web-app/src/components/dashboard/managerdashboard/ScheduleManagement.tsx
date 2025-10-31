@@ -5,13 +5,15 @@ import { motion } from "framer-motion";
 import {
   Calendar,
   Upload,
-  Clock,
   User,
   Filter,
   Loader2,
   AlertCircle,
   CheckCircle,
   X,
+  Mail,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import workScheduleService, {
   WorkSchedule,
@@ -26,7 +28,7 @@ export function ScheduleManagement() {
     startDate: string;
     endDate: string;
     technicianId: string;
-    status?: "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+    status?: "AVAILABLE" | "UNAVAILABLE";
   }>({
     startDate: "",
     endDate: "",
@@ -35,30 +37,27 @@ export function ScheduleManagement() {
   });
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   useEffect(() => {
     loadSchedules();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, filters]);
+  }, [filters]);
 
   const loadSchedules = async () => {
     setLoading(true);
     try {
       const response = await workScheduleService.getSchedules({
         ...filters,
-        page,
-        limit: 20,
+        limit: 100, // Get more records for calendar view
       });
 
-      setSchedules(response.data?.schedules || []);
-      setTotalPages(response.data?.pagination?.totalPages || 1);
+      setSchedules(response.data || []);
     } catch (error) {
       console.error("Error loading schedules:", error);
       toast.error("Failed to load schedules");
       setSchedules([]);
-      setTotalPages(1);
     } finally {
       setLoading(false);
     }
@@ -112,27 +111,113 @@ export function ScheduleManagement() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "SCHEDULED":
-        return "bg-blue-100 text-blue-700";
-      case "IN_PROGRESS":
-        return "bg-yellow-100 text-yellow-700";
-      case "COMPLETED":
+      case "AVAILABLE":
         return "bg-green-100 text-green-700";
-      case "CANCELLED":
+      case "UNAVAILABLE":
         return "bg-red-100 text-red-700";
       default:
         return "bg-gray-100 text-gray-700";
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      weekday: "short",
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+  // Group schedules by date for calendar view
+  const groupedSchedules = schedules.reduce(
+    (acc, schedule) => {
+      const date = schedule.workDate;
+      if (!acc[date]) {
+        acc[date] = [];
+      }
+      acc[date].push(schedule);
+      return acc;
+    },
+    {} as Record<string, WorkSchedule[]>
+  );
+
+  // Get unique technicians for summary
+  const uniqueTechnicians = Array.from(
+    new Set(schedules.map((s) => s.technicianId))
+  );
+
+  const getAvailabilityStats = () => {
+    const available = schedules.filter((s) => s.status === "AVAILABLE").length;
+    const unavailable = schedules.filter(
+      (s) => s.status === "UNAVAILABLE"
+    ).length;
+    return { available, unavailable, total: schedules.length };
   };
+
+  const stats = getAvailabilityStats();
+
+  // Calendar generation helpers
+  const getDaysInMonth = (date: Date) => {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  };
+
+  const getFirstDayOfMonth = (date: Date) => {
+    return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+  };
+
+  const generateCalendarDays = () => {
+    const daysInMonth = getDaysInMonth(currentMonth);
+    const firstDay = getFirstDayOfMonth(currentMonth);
+    const days = [];
+
+    // Add empty cells for days before month starts
+    for (let i = 0; i < firstDay; i++) {
+      days.push(null);
+    }
+
+    // Add days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      days.push(day);
+    }
+
+    return days;
+  };
+
+  const formatDateKey = (day: number) => {
+    const year = currentMonth.getFullYear();
+    const month = String(currentMonth.getMonth() + 1).padStart(2, "0");
+    const dayStr = String(day).padStart(2, "0");
+    return `${year}-${month}-${dayStr}`;
+  };
+
+  const getSchedulesForDate = (day: number | null) => {
+    if (!day) return [];
+    const dateKey = formatDateKey(day);
+    return groupedSchedules[dateKey] || [];
+  };
+
+  const goToPreviousMonth = () => {
+    setCurrentMonth(
+      new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1)
+    );
+  };
+
+  const goToNextMonth = () => {
+    setCurrentMonth(
+      new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1)
+    );
+  };
+
+  const goToToday = () => {
+    setCurrentMonth(new Date());
+  };
+
+  const isToday = (day: number | null) => {
+    if (!day) return false;
+    const today = new Date();
+    return (
+      currentMonth.getFullYear() === today.getFullYear() &&
+      currentMonth.getMonth() === today.getMonth() &&
+      day === today.getDate()
+    );
+  };
+
+  const calendarDays = generateCalendarDays();
+  const selectedDateSchedules = selectedDate
+    ? groupedSchedules[selectedDate] || []
+    : [];
 
   return (
     <div className="flex-1 overflow-auto">
@@ -158,15 +243,114 @@ export function ScheduleManagement() {
           </div>
         </div>
 
-        {/* Filters Card */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm mb-6">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center gap-2">
-              <Filter className="w-5 h-5 text-gray-600" />
-              <h3 className="font-semibold text-gray-900">Filters</h3>
+        {/* Stats Overview */}
+        {!loading && schedules.length > 0 && (
+          <div className="grid grid-cols-4 gap-4 mb-6">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 font-medium">
+                    Total Schedules
+                  </p>
+                  <p className="text-3xl font-bold text-gray-900 mt-1">
+                    {stats.total}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <Calendar className="w-6 h-6 text-blue-600" />
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 font-medium">Available</p>
+                  <p className="text-3xl font-bold text-green-600 mt-1">
+                    {stats.available}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 font-medium">
+                    Unavailable
+                  </p>
+                  <p className="text-3xl font-bold text-red-600 mt-1">
+                    {stats.unavailable}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+                  <AlertCircle className="w-6 h-6 text-red-600" />
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 font-medium">
+                    Technicians
+                  </p>
+                  <p className="text-3xl font-bold text-gray-900 mt-1">
+                    {uniqueTechnicians.length}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                  <User className="w-6 h-6 text-purple-600" />
+                </div>
+              </div>
             </div>
           </div>
-          <div className="p-6">
+        )}
+
+        {/* Calendar Navigation */}
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm mb-6">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-gray-600" />
+                <h3 className="font-semibold text-gray-900">
+                  {currentMonth.toLocaleDateString("en-US", {
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={goToToday}
+                  className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Today
+                </button>
+                <button
+                  onClick={goToPreviousMonth}
+                  className="p-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={goToNextMonth}
+                  className="p-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Filters */}
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center gap-2 mb-4">
+              <Filter className="w-4 h-4 text-gray-600" />
+              <h4 className="text-sm font-semibold text-gray-900">
+                Quick Filters
+              </h4>
+            </div>
             <div className="grid grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -204,21 +388,15 @@ export function ScheduleManagement() {
                     setFilters({
                       ...filters,
                       status: e.target.value
-                        ? (e.target.value as
-                            | "SCHEDULED"
-                            | "IN_PROGRESS"
-                            | "COMPLETED"
-                            | "CANCELLED")
+                        ? (e.target.value as "AVAILABLE" | "UNAVAILABLE")
                         : undefined,
                     })
                   }
                   className="w-full px-3 py-2 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-colors"
                 >
                   <option value="">All Status</option>
-                  <option value="SCHEDULED">Scheduled</option>
-                  <option value="IN_PROGRESS">In Progress</option>
-                  <option value="COMPLETED">Completed</option>
-                  <option value="CANCELLED">Cancelled</option>
+                  <option value="AVAILABLE">Available</option>
+                  <option value="UNAVAILABLE">Unavailable</option>
                 </select>
               </div>
               <div className="flex items-end">
@@ -230,7 +408,6 @@ export function ScheduleManagement() {
                       technicianId: "",
                       status: undefined,
                     });
-                    setPage(1);
                   }}
                   className="w-full px-4 py-2 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
                 >
@@ -239,22 +416,8 @@ export function ScheduleManagement() {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Schedules List Card */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-gray-600" />
-                Work Schedules
-              </h3>
-              <span className="text-sm text-gray-500">
-                {schedules.length} schedule{schedules.length !== 1 ? "s" : ""}
-              </span>
-            </div>
-          </div>
-
+          {/* Calendar Grid */}
           <div className="p-6">
             {loading ? (
               <div className="flex items-center justify-center py-12">
@@ -269,79 +432,190 @@ export function ScheduleManagement() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                {schedules.map((schedule) => (
-                  <div
-                    key={schedule.id}
-                    className="p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors border border-gray-200"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-3">
-                          <span
-                            className={`px-2.5 py-1 text-xs font-medium rounded-lg ${getStatusColor(
-                              schedule.status
-                            )}`}
-                          >
-                            {schedule.status.replace("_", " ")}
-                          </span>
-                        </div>
-
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <User className="w-4 h-4 text-gray-400" />
-                            <span className="font-medium text-gray-900">
-                              {schedule.technician?.fullName ||
-                                "Unknown Technician"}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-4 text-sm text-gray-600">
-                            <span className="flex items-center gap-2">
-                              <Calendar className="w-4 h-4 text-gray-400" />
-                              {formatDate(schedule.date)}
-                            </span>
-                            <span className="flex items-center gap-2">
-                              <Clock className="w-4 h-4 text-gray-400" />
-                              {schedule.startTime} - {schedule.endTime}
-                            </span>
-                          </div>
-
-                          {schedule.notes && (
-                            <div className="mt-2 pt-2 border-t border-gray-100">
-                              <p className="text-sm text-gray-600">
-                                {schedule.notes}
-                              </p>
-                            </div>
-                          )}
-                        </div>
+              <div>
+                {/* Calendar Grid */}
+                <div className="grid grid-cols-7 gap-2 mb-4">
+                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
+                    (day) => (
+                      <div
+                        key={day}
+                        className="text-center text-xs font-semibold text-gray-600 py-2"
+                      >
+                        {day}
                       </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                    )
+                  )}
+                </div>
 
-            {/* Pagination */}
-            {!loading && totalPages > 1 && (
-              <div className="mt-6 pt-6 border-t border-gray-200 flex items-center justify-between">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="px-4 py-2 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-                >
-                  Previous
-                </button>
-                <span className="text-sm text-gray-600 font-medium">
-                  Page {page} of {totalPages}
-                </span>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="px-4 py-2 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-                >
-                  Next
-                </button>
+                <div className="grid grid-cols-7 gap-2">
+                  {calendarDays.map((day, index) => {
+                    const daySchedules = getSchedulesForDate(day);
+                    const availableCount = daySchedules.filter(
+                      (s) => s.status === "AVAILABLE"
+                    ).length;
+                    const unavailableCount = daySchedules.filter(
+                      (s) => s.status === "UNAVAILABLE"
+                    ).length;
+                    const hasSchedules = daySchedules.length > 0;
+                    const dateKey = day ? formatDateKey(day) : null;
+                    const isTodayDate = isToday(day);
+
+                    return (
+                      <motion.button
+                        key={index}
+                        onClick={() => day && setSelectedDate(dateKey)}
+                        disabled={!day}
+                        whileHover={day ? { scale: 1.02 } : {}}
+                        whileTap={day ? { scale: 0.98 } : {}}
+                        className={`
+                          min-h-[100px] p-3 rounded-xl border-2 transition-all
+                          ${!day ? "bg-transparent border-transparent cursor-default" : ""}
+                          ${
+                            day && !hasSchedules
+                              ? "bg-gray-50 border-gray-200 hover:border-gray-300 hover:bg-gray-100 cursor-pointer"
+                              : ""
+                          }
+                          ${
+                            day && hasSchedules
+                              ? "bg-white border-blue-200 hover:border-blue-400 hover:shadow-md cursor-pointer"
+                              : ""
+                          }
+                          ${
+                            selectedDate === dateKey
+                              ? "ring-2 ring-blue-500 ring-offset-2 border-blue-500"
+                              : ""
+                          }
+                          ${isTodayDate ? "bg-blue-50 border-blue-400" : ""}
+                        `}
+                      >
+                        {day && (
+                          <div className="flex flex-col h-full">
+                            {/* Day Number */}
+                            <div className="flex items-center justify-between mb-2">
+                              <span
+                                className={`text-sm font-bold ${
+                                  isTodayDate
+                                    ? "text-blue-600"
+                                    : hasSchedules
+                                      ? "text-gray-900"
+                                      : "text-gray-400"
+                                }`}
+                              >
+                                {day}
+                              </span>
+                              {isTodayDate && (
+                                <span className="text-[10px] font-semibold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded">
+                                  Today
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Schedule Indicators */}
+                            {hasSchedules && (
+                              <div className="flex-1 flex flex-col gap-1">
+                                {availableCount > 0 && (
+                                  <div className="flex items-center gap-1 text-[10px] font-medium text-green-700 bg-green-100 px-2 py-1 rounded">
+                                    <CheckCircle className="w-3 h-3" />
+                                    <span>{availableCount}</span>
+                                  </div>
+                                )}
+                                {unavailableCount > 0 && (
+                                  <div className="flex items-center gap-1 text-[10px] font-medium text-red-700 bg-red-100 px-2 py-1 rounded">
+                                    <AlertCircle className="w-3 h-3" />
+                                    <span>{unavailableCount}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </motion.button>
+                    );
+                  })}
+                </div>
+
+                {/* Selected Date Details */}
+                {selectedDate && selectedDateSchedules.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-6 pt-6 border-t border-gray-200"
+                  >
+                    <div className="mb-4 flex items-center justify-between">
+                      <h4 className="text-lg font-bold text-gray-900">
+                        {new Date(selectedDate).toLocaleDateString("en-US", {
+                          weekday: "long",
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })}
+                      </h4>
+                      <button
+                        onClick={() => setSelectedDate(null)}
+                        className="text-gray-500 hover:text-gray-700 p-1"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {selectedDateSchedules.map((schedule) => (
+                        <div
+                          key={schedule.scheduleId}
+                          className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-gray-300 transition-colors"
+                        >
+                          <div className="flex items-start gap-3">
+                            {/* Avatar */}
+                            <div
+                              className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-white flex-shrink-0 ${
+                                schedule.status === "AVAILABLE"
+                                  ? "bg-gradient-to-br from-green-400 to-green-600"
+                                  : "bg-gradient-to-br from-red-400 to-red-600"
+                              }`}
+                            >
+                              {schedule.technician?.name
+                                ?.split(" ")
+                                .map((n) => n[0])
+                                .join("")
+                                .toUpperCase()
+                                .slice(0, 2) || "??"}
+                            </div>
+
+                            {/* Info */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h5 className="font-semibold text-gray-900 truncate">
+                                  {schedule.technician?.name ||
+                                    "Unknown Technician"}
+                                </h5>
+                                <span
+                                  className={`px-2 py-0.5 text-[10px] font-medium rounded-full flex-shrink-0 ${getStatusColor(
+                                    schedule.status
+                                  )}`}
+                                >
+                                  {schedule.status}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 text-xs text-gray-500 mb-2">
+                                <Mail className="w-3 h-3" />
+                                <span className="truncate">
+                                  {schedule.technician?.email}
+                                </span>
+                              </div>
+                              {schedule.notes && (
+                                <div className="bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                                  <p className="text-xs text-amber-900">
+                                    📝 {schedule.notes}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
               </div>
             )}
           </div>

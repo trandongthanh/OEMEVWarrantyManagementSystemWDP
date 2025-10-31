@@ -14,6 +14,7 @@ export interface CaseLine {
   status?: string;
   techId?: string;
   rejectionReason?: string | null;
+  evidenceImageUrls?: string[]; // Array of evidence image URLs
   createdAt?: string;
   updatedAt?: string;
   // Nested relations from backend
@@ -58,6 +59,7 @@ export interface UpdateCaseLineData {
   quantity?: number;
   warrantyStatus?: "ELIGIBLE" | "INELIGIBLE";
   rejectionReason?: string | null;
+  evidenceImageUrls?: string[]; // Array of evidence image URLs
 }
 
 export interface UpdateCaseLineResponse {

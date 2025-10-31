@@ -8,19 +8,21 @@ import apiClient from "@/lib/apiClient";
 // ==================== Types ====================
 
 export interface WorkSchedule {
-  id: string;
+  scheduleId: string;
   technicianId: string;
-  date: string; // YYYY-MM-DD
-  startTime: string; // HH:MM
-  endTime: string; // HH:MM
-  status: "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
-  notes?: string;
+  workDate: string; // YYYY-MM-DD
+  status: "AVAILABLE" | "UNAVAILABLE";
+  notes?: string | null;
   createdAt: string;
   updatedAt: string;
   technician?: {
     userId: string;
-    fullName: string;
+    name: string;
     email: string;
+    serviceCenterId: string;
+    role: {
+      roleName: string;
+    };
   };
 }
 
@@ -49,14 +51,14 @@ export interface UploadSchedulesResponse {
 
 export interface GetSchedulesResponse {
   status: "success";
-  data: {
-    schedules: WorkSchedule[];
-    pagination: {
-      total: number;
-      page: number;
-      limit: number;
-      totalPages: number;
-    };
+  data: WorkSchedule[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+    itemsPerPage: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
   };
 }
 
@@ -130,7 +132,7 @@ class WorkScheduleService {
     startDate?: string;
     endDate?: string;
     technicianId?: string;
-    status?: "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+    status?: "AVAILABLE" | "UNAVAILABLE";
     page?: number;
     limit?: number;
   }): Promise<GetSchedulesResponse> {

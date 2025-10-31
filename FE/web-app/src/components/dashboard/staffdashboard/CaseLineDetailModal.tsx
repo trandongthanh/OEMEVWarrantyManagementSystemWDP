@@ -36,6 +36,7 @@ interface CaseLine {
   quantity: number;
   warrantyStatus: string;
   status: string;
+  evidenceImageUrls?: string[];
 }
 
 export function CaseLineDetailModal({
@@ -66,6 +67,8 @@ export function CaseLineDetailModal({
         quantity: cl.quantity || 0,
         warrantyStatus: cl.warrantyStatus || "UNKNOWN",
         status: (cl as { status?: string }).status || "PENDING_APPROVAL",
+        evidenceImageUrls:
+          (cl as { evidenceImageUrls?: string[] }).evidenceImageUrls || [],
       });
     });
   });
@@ -489,7 +492,7 @@ export function CaseLineDetailModal({
                               <div className="flex items-center gap-2">
                                 <ImageIcon className="w-4 h-4 text-gray-600" />
                                 <span className="text-xs font-medium text-gray-700">
-                                  Diagnosis Images
+                                  Evidence Images
                                 </span>
                               </div>
                               <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors text-xs font-medium">
@@ -507,7 +510,34 @@ export function CaseLineDetailModal({
                               </label>
                             </div>
 
-                            {/* Image Previews */}
+                            {/* Existing Evidence Images from Backend */}
+                            {caseLine.evidenceImageUrls &&
+                              caseLine.evidenceImageUrls.length > 0 && (
+                                <div className="mb-3">
+                                  <p className="text-xs text-gray-500 mb-2">
+                                    Existing Evidence:
+                                  </p>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    {caseLine.evidenceImageUrls.map(
+                                      (url, idx) => (
+                                        <div
+                                          key={idx}
+                                          className="relative group aspect-square rounded-lg overflow-hidden border border-gray-300 bg-white"
+                                        >
+                                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                                          <img
+                                            src={url}
+                                            alt={`Evidence ${idx + 1}`}
+                                            className="w-full h-full object-cover"
+                                          />
+                                        </div>
+                                      )
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                            {/* Newly Selected Image Previews (Local) */}
                             {diagnosisImages.get(caseLine.id) &&
                               diagnosisImages.get(caseLine.id)!.length > 0 && (
                                 <div className="grid grid-cols-3 gap-2 mt-2">
@@ -518,9 +548,10 @@ export function CaseLineDetailModal({
                                         key={imgIndex}
                                         className="relative group aspect-square rounded-lg overflow-hidden border border-gray-300 bg-white"
                                       >
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
                                         <img
                                           src={img.preview}
-                                          alt={`Diagnosis ${imgIndex + 1}`}
+                                          alt={`New upload ${imgIndex + 1}`}
                                           className="w-full h-full object-cover"
                                         />
                                         <button

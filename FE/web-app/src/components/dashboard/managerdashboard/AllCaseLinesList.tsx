@@ -14,6 +14,7 @@ import {
   Clock,
   XCircle,
   LucideIcon,
+  Image as ImageIcon,
 } from "lucide-react";
 import caseLineService, {
   CaseLine,
@@ -315,6 +316,41 @@ export function AllCaseLinesList() {
                               </div>
                             </div>
                           </div>
+
+                          {/* Evidence Images */}
+                          {caseLine.evidenceImageUrls &&
+                            caseLine.evidenceImageUrls.length > 0 && (
+                              <div className="mt-3 pt-3 border-t border-gray-100">
+                                <p className="text-sm font-medium text-gray-900 mb-2 flex items-center gap-1.5">
+                                  <ImageIcon className="w-4 h-4 text-gray-400" />
+                                  Evidence Images (
+                                  {caseLine.evidenceImageUrls.length})
+                                </p>
+                                <div className="grid grid-cols-4 gap-2">
+                                  {caseLine.evidenceImageUrls.map(
+                                    (url, idx) => (
+                                      <a
+                                        key={idx}
+                                        href={url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="relative group aspect-square rounded-lg overflow-hidden border border-gray-300 bg-white hover:border-blue-400 transition-colors"
+                                      >
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                          src={url}
+                                          alt={`Evidence ${idx + 1}`}
+                                          className="w-full h-full object-cover"
+                                        />
+                                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity flex items-center justify-center">
+                                          <ImageIcon className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        </div>
+                                      </a>
+                                    )
+                                  )}
+                                </div>
+                              </div>
+                            )}
 
                           {/* Component & Technicians */}
                           <div className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-100">
