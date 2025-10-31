@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Package, Loader2, AlertCircle, X } from "lucide-react";
 import componentReservationService from "@/services/componentReservationService";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ComponentPickupModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export function ComponentPickupModal({
   onClose,
   onSuccess,
 }: ComponentPickupModalProps) {
+  const { user } = useAuth();
   const [reservationId, setReservationId] = useState("");
   const [pickingUp, setPickingUp] = useState(false);
 
@@ -26,17 +28,26 @@ export function ComponentPickupModal({
       return;
     }
 
+    if (!user?.userId) {
+      toast.error("User ID not available");
+      return;
+    }
+
     setPickingUp(true);
     try {
-      await componentReservationService.pickupComponent(reservationId.trim());
+      await componentReservationService.pickupComponent(
+        reservationId.trim(),
+        user.userId
+      );
       toast.success("Component picked up successfully!");
       setReservationId("");
       onSuccess?.();
       onClose();
     } catch (error: unknown) {
       console.error("Error picking up component:", error);
+      const err = error as { response?: { data?: { message?: string } } };
       const errorMessage =
-        error instanceof Error ? error.message : "Failed to pickup component";
+        err.response?.data?.message || "Failed to pickup component";
       toast.error(errorMessage);
     } finally {
       setPickingUp(false);

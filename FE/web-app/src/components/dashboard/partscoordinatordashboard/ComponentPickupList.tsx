@@ -4,7 +4,6 @@ import { motion } from "framer-motion";
 import { Package, CheckCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import caseLineService from "@/services/caseLineService";
 import componentReservationService from "@/services/componentReservationService";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -37,63 +36,39 @@ export function ComponentPickupList({
     try {
       setLoading(true);
 
-      // Note: Parts coordinator role does not have permission to access GET /case-lines endpoint
-      // Backend authorization only allows: service_center_technician, service_center_staff, service_center_manager
-      //
-      // BACKEND FIX NEEDED:
-      // Add "parts_coordinator_service_center" to authorizationByRole array in:
-      // BE/src/api/routes/caseLine.router.js line ~301
-      //
-      // Alternative solution: Create GET /component-reservations endpoint with query filters
-      // to fetch reservations by status without needing case line access
+      // Use dedicated component reservations endpoint
+      // This endpoint is specifically authorized for parts_coordinator_service_center role
+      const response =
+        await componentReservationService.getComponentReservations({
+          status: "RESERVED",
+          limit: 100,
+          sortBy: "createdAt",
+          sortOrder: "DESC",
+        });
 
-      const response = await caseLineService.getCaseLinesList({
-        status: "READY_FOR_REPAIR",
-        limit: 100,
-      });
+      const reservationsList = response.data.reservations || [];
 
-      const caseLines = response.data.caseLines || [];
-
-      // Transform case lines with reservations into pickup items
-      const items: ReservationItem[] = [];
-
-      for (const caseLine of caseLines) {
-        if (caseLine.reservations && caseLine.reservations.length > 0) {
-          // Each reservation represents components to pick up
-          for (const reservation of caseLine.reservations) {
-            if (reservation.status === "RESERVED") {
-              items.push({
-                caseLineId: caseLine.id || caseLine.caseLineId || "",
-                reservationId: reservation.reservationId,
-                componentName:
-                  caseLine.typeComponent?.name || "Unknown Component",
-                componentId: caseLine.typeComponentId || "",
-                quantity: 1, // Each reservation is 1 component
-                status: reservation.status,
-                createdAt: caseLine.createdAt || new Date().toISOString(),
-                vehicleVin:
-                  caseLine.guaranteeCase?.vehicleProcessingRecord?.vin,
-                caseNumber: caseLine.guaranteeCaseId,
-                typeComponentId: caseLine.typeComponentId || "",
-              });
-            }
-          }
-        }
-      }
+      // Transform reservations into pickup items
+      const items: ReservationItem[] = reservationsList.map((reservation) => ({
+        caseLineId: reservation.caselineId,
+        reservationId: reservation.reservationId,
+        componentName: reservation.component?.serialNumber || "Component",
+        componentId: reservation.componentId,
+        quantity: reservation.quantityReserved,
+        status: reservation.status,
+        createdAt: reservation.createdAt,
+        vehicleVin: reservation.caseLine?.id || "",
+        caseNumber: reservation.caselineId,
+        typeComponentId: reservation.componentId,
+      }));
 
       setReservations(items);
     } catch (error) {
       console.error("Failed to fetch reservations:", error);
       const err = error as { response?: { data?: { message?: string } } };
-
-      // Check if it's a permission error
-      if (err.response?.data?.message?.includes("permission")) {
-        toast.error(
-          "Backend permission required: Parts coordinator needs access to case lines endpoint"
-        );
-      } else {
-        toast.error("Failed to load component pickups");
-      }
+      toast.error(
+        err.response?.data?.message || "Failed to load component pickups"
+      );
     } finally {
       setLoading(false);
     }

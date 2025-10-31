@@ -15,6 +15,7 @@ import Inventory from "@/components/dashboard/partscoordinatordashboard/Inventor
 import { InventoryDashboard } from "@/components/inventory";
 import AllocateComponentModal from "@/components/dashboard/partscoordinatordashboard/AllocationModal";
 import TransferComponentModal from "@/components/dashboard/partscoordinatordashboard/TransferModal";
+import { ComponentReturnList } from "@/components/dashboard/partscoordinatordashboard/ComponentReturnList";
 
 interface CurrentUser {
   userId: string;
@@ -58,9 +59,8 @@ export default function PartsCoordinatorDashboard() {
     { id: "dashboard", icon: Home, label: "Dashboard" },
     { id: "inventory", icon: Boxes, label: "Inventory" }, // 👈 mới thêm
     { id: "pickups", icon: Package, label: "Component Pickups" },
+    { id: "component-returns", icon: RotateCcw, label: "Component Returns" },
     { id: "status", icon: Settings, label: "Component Status" },
-    { id: "returns", icon: RotateCcw, label: "Returns" },
-    { id: "history", icon: Clock, label: "History" },
   ];
 
   // ✅ Xử lý hiển thị nội dung theo mục sidebar đang chọn
@@ -132,6 +132,29 @@ export default function PartsCoordinatorDashboard() {
                 </div>
                 <div className="p-6">
                   <ComponentPickupList />
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case "component-returns":
+        return (
+          <div className="flex-1 overflow-auto">
+            <div className="p-8">
+              <div className="bg-white rounded-2xl border border-gray-200">
+                <div className="border-b border-gray-200 p-6">
+                  <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                    <RotateCcw className="w-5 h-5 text-purple-600" />
+                    Components to Return
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Installed components with old parts ready to be returned to
+                    warehouse
+                  </p>
+                </div>
+                <div className="p-6">
+                  <ComponentReturnList />
                 </div>
               </div>
             </div>

@@ -3,10 +3,7 @@
 import { useState, useEffect } from "react";
 import {
   Home,
-  CreditCard,
   Users,
-  BarChart3,
-  Clock,
   FileText,
   MessageCircle,
   Package,
@@ -18,7 +15,6 @@ import {
   Sidebar,
   DashboardHeader,
   NewClaimModal,
-  PlaceholderContent,
   RegisterVehicleModal,
   DashboardOverview,
   CustomerSearchResults,
@@ -127,9 +123,6 @@ export default function StaffDashboard() {
     { id: "stock-transfers", icon: Truck, label: "Stock Transfers" },
     { id: "vehicle-components", icon: Package, label: "Vehicle Components" },
     { id: "vehicle-history", icon: HistoryIcon, label: "Vehicle History" },
-    { id: "receipts", icon: CreditCard, label: "Receipts" },
-    { id: "manage", icon: BarChart3, label: "Manage" },
-    { id: "history", icon: Clock, label: "History" },
   ];
 
   const renderSearchResults = () => {
@@ -176,33 +169,6 @@ export default function StaffDashboard() {
 
       case "vehicle-history":
         return <VehicleHistory />;
-
-      case "receipts":
-        return (
-          <PlaceholderContent
-            icon={CreditCard}
-            title="Receipts & Transactions"
-            description="View all payment receipts, invoices, and financial transactions related to warranty claims and services."
-          />
-        );
-
-      case "manage":
-        return (
-          <PlaceholderContent
-            icon={BarChart3}
-            title="Management Dashboard"
-            description="Access advanced management tools, analytics, and reports. Monitor service center performance and efficiency."
-          />
-        );
-
-      case "history":
-        return (
-          <PlaceholderContent
-            icon={Clock}
-            title="Service History"
-            description="Browse complete history of all services, repairs, and warranty claims. Filter and export data as needed."
-          />
-        );
 
       default:
         return null;

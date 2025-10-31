@@ -13,12 +13,11 @@ import {
   CheckSquare,
   Square,
   Image as ImageIcon,
-  Upload,
-  Trash2,
 } from "lucide-react";
 import type { ProcessingRecord } from "@/services/processingRecordService";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { WorkflowTimeline } from "../shared";
+import { caseLineService, type CaseLine as CaseLineType } from "@/services";
 
 interface CaseLineDetailModalProps {
   isOpen: boolean;
@@ -49,29 +48,129 @@ export function CaseLineDetailModal({
   const [selectedCaseLines, setSelectedCaseLines] = useState<Set<string>>(
     new Set()
   );
-  const [diagnosisImages, setDiagnosisImages] = useState<
-    Map<string, { file: File; preview: string }[]>
+  const [caseLineDetails, setCaseLineDetails] = useState<
+    Map<string, CaseLineType>
   >(new Map());
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+
+  // Fetch detailed case line information when modal opens
+  useEffect(() => {
+    console.log("🔵 CaseLineDetailModal useEffect triggered", {
+      isOpen,
+      hasRecord: !!record,
+    });
+
+    if (!isOpen || !record) {
+      console.log("⏹️ Skipping fetch - modal closed or no record");
+      return;
+    }
+
+    const fetchCaseLineDetails = async () => {
+      console.log("🚀 Starting to fetch case line details...");
+      setIsLoadingDetails(true);
+      const detailsMap = new Map<string, CaseLineType>();
+
+      try {
+        // Extract case line IDs and guarantee case IDs from processing record
+        const caseLineRequests: Array<{
+          caseLineId: string;
+          guaranteeCaseId: string;
+        }> = [];
+        record.guaranteeCases?.forEach((gc) => {
+          gc.caseLines?.forEach((cl) => {
+            const id = cl.caseLineId || cl.id;
+            if (id && gc.guaranteeCaseId) {
+              caseLineRequests.push({
+                caseLineId: id,
+                guaranteeCaseId: gc.guaranteeCaseId,
+              });
+            }
+          });
+        });
+
+        console.log("📝 Case line requests to fetch:", caseLineRequests);
+
+        // Fetch details for each case line
+        const detailPromises = caseLineRequests.map(
+          async ({ caseLineId, guaranteeCaseId }) => {
+            try {
+              console.log(
+                `⏳ Fetching details for case line: ${caseLineId}, case: ${guaranteeCaseId}`
+              );
+              const response = await caseLineService.getCaseLineById(
+                caseLineId,
+                guaranteeCaseId
+              );
+              console.log(
+                `✅ Received data for case line ${caseLineId}:`,
+                response.data
+              );
+              return { id: caseLineId, data: response.data.caseLine };
+            } catch (error) {
+              console.error(
+                `❌ Error fetching case line ${caseLineId}:`,
+                error
+              );
+              return null;
+            }
+          }
+        );
+
+        const results = await Promise.all(detailPromises);
+
+        results.forEach((result) => {
+          if (result) {
+            console.log(
+              `Case line ${result.id} details:`,
+              JSON.stringify(result.data, null, 2)
+            );
+            detailsMap.set(result.id, result.data);
+          }
+        });
+
+        console.log("All fetched case line details:", detailsMap);
+        setCaseLineDetails(detailsMap);
+      } catch (error) {
+        console.error("Error fetching case line details:", error);
+      } finally {
+        setIsLoadingDetails(false);
+      }
+    };
+
+    fetchCaseLineDetails();
+  }, [isOpen, record]);
 
   if (!record) return null;
 
-  // Extract all case lines from guarantee cases
+  // Extract all case lines from guarantee cases with detailed information
   const allCaseLines: CaseLine[] = [];
   record.guaranteeCases?.forEach((gc) => {
     gc.caseLines?.forEach((cl) => {
+      const id = cl.caseLineId || cl.id || "";
+      const detailedInfo = caseLineDetails.get(id);
+
+      const evidenceUrls =
+        (detailedInfo as { evidenceImageUrls?: string[] })?.evidenceImageUrls ||
+        (cl as { evidenceImageUrls?: string[] }).evidenceImageUrls ||
+        [];
+
+      console.log(`Case line ${id} evidence URLs:`, evidenceUrls);
+
       allCaseLines.push({
-        id: cl.caseLineId || (cl as { id?: string }).id || "",
+        id,
         caseLineId: cl.caseLineId,
-        diagnosisText: cl.diagnosisText || "",
-        correctionText: cl.correctionText || "",
-        quantity: cl.quantity || 0,
-        warrantyStatus: cl.warrantyStatus || "UNKNOWN",
-        status: (cl as { status?: string }).status || "PENDING_APPROVAL",
-        evidenceImageUrls:
-          (cl as { evidenceImageUrls?: string[] }).evidenceImageUrls || [],
+        diagnosisText: detailedInfo?.diagnosisText || cl.diagnosisText || "",
+        correctionText: detailedInfo?.correctionText || cl.correctionText || "",
+        quantity: detailedInfo?.quantity || cl.quantity || 0,
+        warrantyStatus:
+          detailedInfo?.warrantyStatus || cl.warrantyStatus || "UNKNOWN",
+        status: detailedInfo?.status || cl.status || "PENDING_APPROVAL",
+        evidenceImageUrls: evidenceUrls,
       });
     });
   });
+
+  console.log("Final allCaseLines with images:", allCaseLines);
 
   const handleApprove = (caseId: string) => {
     if (onApproveCaseLines) {
@@ -116,50 +215,6 @@ export function CaseLineDetailModal({
 
   const clearSelection = () => {
     setSelectedCaseLines(new Set());
-  };
-
-  // Image handling functions
-  const handleImageSelect = (
-    caseLineId: string,
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
-
-    const newImages: { file: File; preview: string }[] = [];
-    Array.from(files).forEach((file) => {
-      if (file.type.startsWith("image/")) {
-        const preview = URL.createObjectURL(file);
-        newImages.push({ file, preview });
-      }
-    });
-
-    if (newImages.length > 0) {
-      setDiagnosisImages((prev) => {
-        const updated = new Map(prev);
-        const existing = updated.get(caseLineId) || [];
-        updated.set(caseLineId, [...existing, ...newImages]);
-        return updated;
-      });
-    }
-  };
-
-  const handleRemoveImage = (caseLineId: string, index: number) => {
-    setDiagnosisImages((prev) => {
-      const updated = new Map(prev);
-      const images = updated.get(caseLineId) || [];
-      // Revoke the object URL to free memory
-      if (images[index]) {
-        URL.revokeObjectURL(images[index].preview);
-      }
-      const filtered = images.filter((_, i) => i !== index);
-      if (filtered.length === 0) {
-        updated.delete(caseLineId);
-      } else {
-        updated.set(caseLineId, filtered);
-      }
-      return updated;
-    });
   };
 
   const getWarrantyStatusBadge = (status: string) => {
@@ -282,6 +337,14 @@ export function CaseLineDetailModal({
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6">
+              {isLoadingDetails && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center gap-3 text-gray-600">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-900"></div>
+                    <span>Loading case line details...</span>
+                  </div>
+                </div>
+              )}
               {allCaseLines.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20">
                   <FileText className="w-16 h-16 text-gray-400 mb-4" />
@@ -486,108 +549,35 @@ export function CaseLineDetailModal({
                             {caseLine.diagnosisText}
                           </p>
 
-                          {/* Image Upload Section */}
-                          <div className="mt-3 pt-3 border-t border-gray-300">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <ImageIcon className="w-4 h-4 text-gray-600" />
-                                <span className="text-xs font-medium text-gray-700">
-                                  Evidence Images
-                                </span>
-                              </div>
-                              <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors text-xs font-medium">
-                                <Upload className="w-3.5 h-3.5" />
-                                Upload Images
-                                <input
-                                  type="file"
-                                  multiple
-                                  accept="image/*"
-                                  onChange={(e) =>
-                                    handleImageSelect(caseLine.id, e)
-                                  }
-                                  className="hidden"
-                                />
-                              </label>
-                            </div>
-
-                            {/* Existing Evidence Images from Backend */}
-                            {caseLine.evidenceImageUrls &&
-                              caseLine.evidenceImageUrls.length > 0 && (
-                                <div className="mb-3">
-                                  <p className="text-xs text-gray-500 mb-2">
-                                    Existing Evidence:
-                                  </p>
-                                  <div className="grid grid-cols-3 gap-2">
-                                    {caseLine.evidenceImageUrls.map(
-                                      (url, idx) => (
-                                        <div
-                                          key={idx}
-                                          className="relative group aspect-square rounded-lg overflow-hidden border border-gray-300 bg-white"
-                                        >
-                                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                                          <img
-                                            src={url}
-                                            alt={`Evidence ${idx + 1}`}
-                                            className="w-full h-full object-cover"
-                                          />
-                                        </div>
-                                      )
-                                    )}
-                                  </div>
+                          {/* Evidence Images Section - View Only for Staff */}
+                          {caseLine.evidenceImageUrls &&
+                            caseLine.evidenceImageUrls.length > 0 && (
+                              <div className="mt-3 pt-3 border-t border-gray-300">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <ImageIcon className="w-4 h-4 text-gray-600" />
+                                  <span className="text-xs font-medium text-gray-700">
+                                    Evidence Images
+                                  </span>
                                 </div>
-                              )}
-
-                            {/* Newly Selected Image Previews (Local) */}
-                            {diagnosisImages.get(caseLine.id) &&
-                              diagnosisImages.get(caseLine.id)!.length > 0 && (
-                                <div className="grid grid-cols-3 gap-2 mt-2">
-                                  {diagnosisImages
-                                    .get(caseLine.id)!
-                                    .map((img, imgIndex) => (
+                                <div className="grid grid-cols-3 gap-2">
+                                  {caseLine.evidenceImageUrls.map(
+                                    (url, idx) => (
                                       <div
-                                        key={imgIndex}
-                                        className="relative group aspect-square rounded-lg overflow-hidden border border-gray-300 bg-white"
+                                        key={idx}
+                                        className="relative aspect-square rounded-lg overflow-hidden border border-gray-300 bg-white"
                                       >
                                         {/* eslint-disable-next-line @next/next/no-img-element */}
                                         <img
-                                          src={img.preview}
-                                          alt={`New upload ${imgIndex + 1}`}
+                                          src={url}
+                                          alt={`Evidence ${idx + 1}`}
                                           className="w-full h-full object-cover"
                                         />
-                                        <button
-                                          onClick={() =>
-                                            handleRemoveImage(
-                                              caseLine.id,
-                                              imgIndex
-                                            )
-                                          }
-                                          className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                                        >
-                                          <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                          <p className="text-xs text-white truncate">
-                                            {img.file.name}
-                                          </p>
-                                        </div>
                                       </div>
-                                    ))}
-                                </div>
-                              )}
-
-                            {(!diagnosisImages.get(caseLine.id) ||
-                              diagnosisImages.get(caseLine.id)!.length ===
-                                0) && (
-                              <div className="flex items-center justify-center py-4 text-gray-400">
-                                <div className="text-center">
-                                  <ImageIcon className="w-8 h-8 mx-auto mb-1 opacity-50" />
-                                  <p className="text-xs">
-                                    No images uploaded yet
-                                  </p>
+                                    )
+                                  )}
                                 </div>
                               </div>
                             )}
-                          </div>
                         </div>
 
                         {/* Correction */}

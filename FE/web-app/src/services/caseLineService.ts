@@ -225,9 +225,16 @@ class CaseLineService {
    * Get case line details by ID
    * GET /case-lines/{caselineId}
    */
-  async getCaseLineById(caselineId: string): Promise<CaseLineDetailResponse> {
+  async getCaseLineById(
+    caselineId: string,
+    caseId?: string
+  ): Promise<CaseLineDetailResponse> {
     try {
-      const response = await apiClient.get(`/case-lines/${caselineId}`);
+      // If caseId is provided, use it in the URL path (backend validator requires it)
+      const url = caseId
+        ? `/guarantee-cases/${caseId}/case-lines/${caselineId}`
+        : `/case-lines/${caselineId}`;
+      const response = await apiClient.get(url);
       return response.data;
     } catch (error: unknown) {
       console.error("Error fetching case line details:", error);
@@ -299,6 +306,7 @@ class CaseLineService {
   /**
    * Assign technician to repair a case line (Manager only)
    * PATCH /guarantee-cases/{caseId}/case-lines/{caselineId}/assign-technician
+   * Note: Uses nested route structure to satisfy validator that expects both caseId and caselineId in params
    */
   async assignTechnicianToRepair(
     caseId: string,

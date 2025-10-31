@@ -52,25 +52,37 @@ export interface StockTransferRequest {
   estimatedDeliveryDate?: string | null;
   createdAt: string;
   updatedAt: string;
-  // Relations
+  // Relations - supporting both API response formats
   requestingWarehouse?: {
-    warehouseId: string;
-    warehouseName: string;
+    warehouseId?: string;
+    warehouseName?: string;
+    name?: string; // Alternative field name from backend
+    serviceCenterId?: string;
+    vehicleCompanyId?: string;
   };
   requestedBy?: {
     userId: string;
     name: string;
+    serviceCenterId?: string;
+  };
+  requester?: {
+    userId: string;
+    name: string;
+    serviceCenterId?: string;
   };
   items?: Array<{
-    id: string;
+    id?: string;
+    itemId?: string; // Alternative field name
     typeComponentId: string;
     quantityRequested: number;
+    quantityApproved?: number;
     caselineId?: string | null;
     typeComponent?: {
       typeComponentId: string;
       name: string;
-      sku: string;
-      price: number;
+      sku?: string;
+      partNumber?: string;
+      price?: number;
     };
   }>;
 }
@@ -78,8 +90,9 @@ export interface StockTransferRequest {
 export interface StockTransferRequestListResponse {
   status: "success";
   data: {
-    requests: StockTransferRequest[];
-    pagination: {
+    requests?: StockTransferRequest[];
+    stockTransferRequests?: StockTransferRequest[]; // Alternative response format
+    pagination?: {
       total: number;
       page: number;
       limit: number;

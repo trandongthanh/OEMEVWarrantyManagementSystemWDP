@@ -39,7 +39,17 @@ export function MySchedule() {
         endDate,
       });
 
-      setSchedules(response.data.schedules);
+      console.log("📅 Schedule API response:", response);
+
+      // Handle both response formats:
+      // 1. data.schedules (expected format)
+      // 2. data as array (actual API response)
+      const schedulesData = Array.isArray(response.data)
+        ? response.data
+        : response.data.schedules;
+
+      console.log("📋 Parsed schedules:", schedulesData);
+      setSchedules(schedulesData || []);
     } catch (error) {
       console.error("Error loading schedule:", error);
       toast.error("Failed to load your schedule");
@@ -353,148 +363,149 @@ export function MySchedule() {
           </div>
         </div>
 
-      {/* Navigation */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-2xl border border-gray-200 p-4"
-      >
-        <div className="flex items-center justify-between">
-          <button
-            onClick={navigatePrevious}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ChevronLeft className="w-5 h-5 text-gray-600" />
-          </button>
-
-          <div className="flex items-center gap-3">
-            <Calendar className="w-5 h-5 text-blue-600" />
-            <span className="font-semibold text-gray-900">
-              {getDisplayDate()}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
+        {/* Navigation */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-2xl border border-gray-200 p-4"
+        >
+          <div className="flex items-center justify-between">
             <button
-              onClick={navigateToday}
-              className="px-3 py-1 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Today
-            </button>
-            <button
-              onClick={navigateNext}
+              onClick={navigatePrevious}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
-              <ChevronRight className="w-5 h-5 text-gray-600" />
+              <ChevronLeft className="w-5 h-5 text-gray-600" />
             </button>
+
+            <div className="flex items-center gap-3">
+              <Calendar className="w-5 h-5 text-blue-600" />
+              <span className="font-semibold text-gray-900">
+                {getDisplayDate()}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={navigateToday}
+                className="px-3 py-1 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Today
+              </button>
+              <button
+                onClick={navigateNext}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <ChevronRight className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
           </div>
-        </div>
-      </motion.div>
+        </motion.div>
 
-      {/* Calendar View */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="bg-white rounded-2xl border border-gray-200 p-6"
-      >
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
-            <span className="ml-2 text-gray-600">Loading schedule...</span>
-          </div>
-        ) : (
-          <>
-            {viewMode === "week" ? renderWeekView() : renderMonthView()}
-
-            {schedules?.length === 0 && !loading && (
-              <div className="text-center py-12">
-                <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500">No schedule for this period</p>
-                <p className="text-gray-400 text-sm mt-1">
-                  Contact your manager if you need to be scheduled
-                </p>
-              </div>
-            )}
-          </>
-        )}
-      </motion.div>
-
-      {/* Legend & Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Calendar View */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
+          transition={{ delay: 0.1 }}
           className="bg-white rounded-2xl border border-gray-200 p-6"
         >
-          <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
-            <div className="w-1 h-5 bg-blue-600 rounded-full" />
-            Status Legend
-          </h3>
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-green-100 border-2 border-green-200 flex items-center justify-center">
-                <CheckCircle className="w-4 h-4 text-green-600" />
-              </div>
-              <div>
-                <div className="font-semibold text-sm text-gray-900">
-                  Available
-                </div>
-                <div className="text-xs text-gray-500">
-                  Ready to work on tasks
-                </div>
-              </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+              <span className="ml-2 text-gray-600">Loading schedule...</span>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-red-100 border-2 border-red-200 flex items-center justify-center">
-                <XCircle className="w-4 h-4 text-red-600" />
-              </div>
-              <div>
-                <div className="font-semibold text-sm text-gray-900">
-                  Unavailable
+          ) : (
+            <>
+              {viewMode === "week" ? renderWeekView() : renderMonthView()}
+
+              {schedules?.length === 0 && !loading && (
+                <div className="text-center py-12">
+                  <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">No schedule for this period</p>
+                  <p className="text-gray-400 text-sm mt-1">
+                    Contact your manager if you need to be scheduled
+                  </p>
                 </div>
-                <div className="text-xs text-gray-500">
-                  Off duty or on leave
-                </div>
-              </div>
-            </div>
-          </div>
+              )}
+            </>
+          )}
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25 }}
-          className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-6"
-        >
-          <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
-            <div className="w-1 h-5 bg-indigo-600 rounded-full" />
-            Summary
-          </h3>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600">Total Days Scheduled:</span>
-              <span className="font-bold text-gray-900">
-                {schedules?.length || 0}
-              </span>
+        {/* Legend & Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="bg-white rounded-2xl border border-gray-200 p-6"
+          >
+            <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <div className="w-1 h-5 bg-blue-600 rounded-full" />
+              Status Legend
+            </h3>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-green-100 border-2 border-green-200 flex items-center justify-center">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                </div>
+                <div>
+                  <div className="font-semibold text-sm text-gray-900">
+                    Available
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Ready to work on tasks
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-red-100 border-2 border-red-200 flex items-center justify-center">
+                  <XCircle className="w-4 h-4 text-red-600" />
+                </div>
+                <div>
+                  <div className="font-semibold text-sm text-gray-900">
+                    Unavailable
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Off duty or on leave
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600">Available Days:</span>
-              <span className="font-bold text-green-600">
-                {schedules?.filter((s) => s.status === "AVAILABLE").length || 0}
-              </span>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-6"
+          >
+            <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <div className="w-1 h-5 bg-indigo-600 rounded-full" />
+              Summary
+            </h3>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Total Days Scheduled:</span>
+                <span className="font-bold text-gray-900">
+                  {schedules?.length || 0}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Available Days:</span>
+                <span className="font-bold text-green-600">
+                  {schedules?.filter((s) => s.status === "AVAILABLE").length ||
+                    0}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Unavailable Days:</span>
+                <span className="font-bold text-red-600">
+                  {schedules?.filter((s) => s.status === "UNAVAILABLE")
+                    .length || 0}
+                </span>
+              </div>
             </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600">Unavailable Days:</span>
-              <span className="font-bold text-red-600">
-                {schedules?.filter((s) => s.status === "UNAVAILABLE").length ||
-                  0}
-              </span>
-            </div>
-          </div>
-        </motion.div>
-      </div>
+          </motion.div>
+        </div>
       </div>
     </div>
   );

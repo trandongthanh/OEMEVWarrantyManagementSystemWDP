@@ -13,6 +13,8 @@ export function ComponentsToInstall() {
   const [selectedComponent, setSelectedComponent] = useState<{
     reservationId: string;
     componentName: string;
+    vehicleVin: string;
+    componentSerial: string;
   } | null>(null);
 
   useEffect(() => {
@@ -32,13 +34,11 @@ export function ComponentsToInstall() {
 
       const caseLines = response.data.caseLines || [];
 
-      // Filter only case lines with picked up components (status WITH_TECHNICIAN, not yet installed)
+      // Filter only case lines with picked up components (reservation status PICKED_UP, not yet installed)
       const componentsReady = caseLines.filter((cl) => {
-        // Check if case line has reservations with WITH_TECHNICIAN status
+        // Check if case line has reservations with PICKED_UP status
         if (cl.reservations && cl.reservations.length > 0) {
-          return cl.reservations.some(
-            (res) => res.status === "WITH_TECHNICIAN"
-          );
+          return cl.reservations.some((res) => res.status === "PICKED_UP");
         }
         // Fallback: if quantityReserved field exists and > 0
         return (cl.quantityReserved || 0) > 0;
@@ -54,9 +54,9 @@ export function ComponentsToInstall() {
   };
 
   const handleInstallClick = (component: CaseLine) => {
-    // Find the first WITH_TECHNICIAN reservation for this case line
+    // Find the first PICKED_UP reservation for this case line
     const reservation = component.reservations?.find(
-      (res) => res.status === "WITH_TECHNICIAN"
+      (res) => res.status === "PICKED_UP"
     );
 
     if (!reservation || !reservation.reservationId) {
@@ -67,6 +67,8 @@ export function ComponentsToInstall() {
     setSelectedComponent({
       reservationId: reservation.reservationId,
       componentName: component.typeComponent?.name || "Component",
+      vehicleVin: component.guaranteeCase?.vehicleProcessingRecord?.vin || "",
+      componentSerial: "", // Will be auto-filled by backend from reservation
     });
   };
   const handleInstallSuccess = () => {
@@ -142,7 +144,7 @@ export function ComponentsToInstall() {
                       <p>
                         <span className="font-medium">Qty:</span>{" "}
                         {component.reservations?.filter(
-                          (res) => res.status === "WITH_TECHNICIAN"
+                          (res) => res.status === "PICKED_UP"
                         ).length ||
                           component.quantityReserved ||
                           component.quantity}
@@ -178,6 +180,8 @@ export function ComponentsToInstall() {
           onSuccess={handleInstallSuccess}
           reservationId={selectedComponent.reservationId}
           componentName={selectedComponent.componentName}
+          vehicleVin={selectedComponent.vehicleVin}
+          componentSerial={selectedComponent.componentSerial}
         />
       )}
     </>

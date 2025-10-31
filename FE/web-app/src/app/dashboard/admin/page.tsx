@@ -13,6 +13,7 @@ import {
   TrendingUp,
   Activity,
   AlertCircle,
+  ArrowLeftRight,
 } from "lucide-react";
 import {
   authService,
@@ -26,13 +27,14 @@ import {
   DashboardHeader,
   PlaceholderContent,
 } from "@/components/dashboard";
+import StockTransferRequestManager from "@/components/dashboard/companydashboard/StockTransferRequestManager";
 
 interface CurrentUser {
   userId: string;
   roleName: string;
 }
 
-export default function AdminDashboard() {
+export default function EMVStaffDashboard() {
   const [activeNav, setActiveNav] = useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -65,6 +67,11 @@ export default function AdminDashboard() {
 
   const navItems = [
     { id: "dashboard", icon: Home, label: "Dashboard" },
+    {
+      id: "transfer-requests",
+      icon: ArrowLeftRight,
+      label: "Transfer Requests",
+    },
     { id: "inventory", icon: Package, label: "Inventory" },
     { id: "users", icon: Users, label: "Users" },
     { id: "analytics", icon: BarChart3, label: "Analytics" },
@@ -252,6 +259,29 @@ export default function AdminDashboard() {
           </div>
         );
 
+      case "transfer-requests":
+        return (
+          <div className="flex-1 overflow-auto">
+            <div className="p-8">
+              <div className="bg-white rounded-2xl border border-gray-200">
+                <div className="border-b border-gray-200 p-6">
+                  <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                    <ArrowLeftRight className="w-5 h-5 text-blue-600" />
+                    Stock Transfer Requests
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Review and manage stock transfer requests from service
+                    centers
+                  </p>
+                </div>
+                <div className="p-6">
+                  <StockTransferRequestManager />
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
       case "inventory":
         return (
           <PlaceholderContent
@@ -319,12 +349,9 @@ export default function AdminDashboard() {
         onNavChange={setActiveNav}
         navItems={navItems}
         brandIcon={FileText}
-        brandName="Admin"
+        brandName="EMV Staff"
         brandSubtitle="System Management"
         currentUser={currentUser}
-        showAddButton={true}
-        addButtonLabel="Add Resource"
-        onAddClick={() => console.log("Add resource")}
         onLogout={handleLogout}
       />
 

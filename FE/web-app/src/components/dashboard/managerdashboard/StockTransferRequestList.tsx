@@ -23,6 +23,7 @@ import { useState, useEffect } from "react";
 import stockTransferService from "@/services/stockTransferService";
 import type { StockTransferRequest } from "@/services/stockTransferService";
 import { CreateStockTransferRequestModal } from "./CreateStockTransferRequestModal";
+import StockTransferRequestDetailModal from "../companydashboard/StockTransferRequestDetailModal";
 
 interface StockTransferRequestListProps {
   userRole: string;
@@ -60,6 +61,10 @@ export function StockTransferRequestList({
   );
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
+    null
+  );
 
   const fetchRequests = async (status?: string) => {
     try {
@@ -76,7 +81,10 @@ export function StockTransferRequestList({
         page: 1,
         limit: 50,
       });
-      setRequests(response.data?.requests || []);
+      // Handle both possible response structures
+      const requestsData =
+        response.data?.requests || response.data?.stockTransferRequests || [];
+      setRequests(requestsData);
     } catch (error) {
       console.error("Failed to fetch stock transfer requests:", error);
       setRequests([]);
@@ -180,10 +188,12 @@ export function StockTransferRequestList({
     }
   };
 
-  const canApproveReject = userRole === "emv_staff";
+  const canApproveReject =
+    userRole === "emv_staff" || userRole === "service_center_staff";
   const canShip = userRole === "parts_coordinator_company";
   const canReceive = userRole === "parts_coordinator_service_center";
-  const canCancel = userRole === "emv_staff"; // Only EMV staff can cancel
+  const canCancel =
+    userRole === "emv_staff" || userRole === "service_center_staff";
 
   if (loading) {
     return (
@@ -297,6 +307,7 @@ export function StockTransferRequestList({
                               <p className="text-sm text-gray-900">
                                 <span className="font-medium">From:</span>{" "}
                                 {request.requestingWarehouse?.warehouseName ||
+                                  request.requestingWarehouse?.name ||
                                   "Unknown"}
                               </p>
                             </div>
@@ -304,7 +315,9 @@ export function StockTransferRequestList({
                               <User className="w-4 h-4 text-gray-400" />
                               <p className="text-sm text-gray-600">
                                 Requested by{" "}
-                                {request.requestedBy?.name || "Unknown"}
+                                {request.requestedBy?.name ||
+                                  request.requester?.name ||
+                                  "Unknown"}
                               </p>
                             </div>
                             <div className="flex items-center gap-2">
@@ -436,7 +449,13 @@ export function StockTransferRequestList({
                             )}
 
                           {/* View Details */}
-                          <button className="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors">
+                          <button
+                            onClick={() => {
+                              setSelectedRequestId(request.id);
+                              setShowDetailModal(true);
+                            }}
+                            className="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                          >
                             <Eye className="w-4 h-4" />
                             View
                           </button>
@@ -461,6 +480,15 @@ export function StockTransferRequestList({
             fetchRequests(selectedStatus);
             onRequestCreated?.();
           }}
+        />
+      )}
+
+      {/* Detail Modal */}
+      {selectedRequestId && (
+        <StockTransferRequestDetailModal
+          requestId={selectedRequestId}
+          isOpen={showDetailModal}
+          onClose={() => setShowDetailModal(false)}
         />
       )}
     </div>

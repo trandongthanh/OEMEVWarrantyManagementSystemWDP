@@ -92,28 +92,128 @@ export interface ReturnComponentResponse {
   };
 }
 
+export interface GetComponentReservationsParams {
+  page?: number;
+  limit?: number;
+  status?: "RESERVED" | "PICKED_UP" | "INSTALLED" | "RETURNED" | "CANCELLED";
+  warehouseId?: string;
+  typeComponentId?: string;
+  caseLineId?: string;
+  guaranteeCaseId?: string;
+  vehicleProcessingRecordId?: string;
+  repairTechId?: string;
+  repairTechPhone?: string;
+  sortBy?: "createdAt" | "updatedAt";
+  sortOrder?: "ASC" | "DESC";
+}
+
+export interface GetComponentReservationsResponse {
+  status: "success";
+  data: {
+    reservations: ComponentReservation[];
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  };
+}
+
 class ComponentReservationService {
   /**
+   * Get list of component reservations
+   * GET /reservations
+   *
+   * Query filters:
+   * - status: Filter by reservation status
+   * - warehouseId: Filter by warehouse
+   * - typeComponentId: Filter by component type
+   * - caseLineId: Filter by specific case line
+   * - guaranteeCaseId: Filter by guarantee case
+   * - vehicleProcessingRecordId: Filter by processing record
+   * - repairTechId: Filter by repair technician
+   * - repairTechPhone: Filter by technician phone
+   *
+   * @role parts_coordinator_service_center
+   */
+  async getComponentReservations(
+    params?: GetComponentReservationsParams
+  ): Promise<GetComponentReservationsResponse> {
+    try {
+      const response = await apiClient.get("/reservations", {
+        params,
+      });
+      return response.data;
+    } catch (error: unknown) {
+      console.error("Error fetching component reservations:", error);
+      throw error;
+    }
+  }
+
+  /**
    * Pickup reserved components from warehouse
-   * PATCH /component-reservations/{reservationId}/pickup
+   * PATCH /reservations/pickup
    *
    * Updates:
-   * - Reservation: RESERVED → PICKED_UP
-   * - Component: status → WITH_TECHNICIAN
+   * - Reservations: RESERVED → PICKED_UP (supports multiple)
+   * - Components: status → WITH_TECHNICIAN
    * - CaseLine: READY_FOR_REPAIR → IN_REPAIR (if first pickup)
+   *
+   * @role parts_coordinator_service_center
+   */
+  async pickupComponents(
+    reservationIds: string[],
+    pickedUpByTechId: string
+  ): Promise<{
+    status: "success";
+    data: {
+      reservations: Array<{
+        reservationId: string;
+        status: string;
+        pickedUpBy: string;
+        pickedUpAt: string;
+      }>;
+    };
+  }> {
+    try {
+      const response = await apiClient.patch(`/reservations/pickup`, {
+        reservationIds,
+        pickedUpByTechId,
+      });
+      return response.data;
+    } catch (error: unknown) {
+      console.error("Error picking up components:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Pickup single reserved component from warehouse (convenience method)
+   * Wraps pickupComponents for single reservation
    *
    * @role parts_coordinator_service_center
    */
   async pickupComponent(
     reservationId: string,
     pickedUpByTechId: string
-  ): Promise<PickupResponse> {
+  ): Promise<{
+    status: "success";
+    data: {
+      reservations: Array<{
+        reservationId: string;
+        status: string;
+        pickedUpBy: string;
+        pickedUpAt: string;
+      }>;
+    };
+  }> {
     try {
-      const response = await apiClient.patch(
-        `/component-reservations/${reservationId}/pickup`,
-        { pickedUpByTechId }
+      const response = await this.pickupComponents(
+        [reservationId],
+        pickedUpByTechId
       );
-      return response.data;
+      return response;
     } catch (error: unknown) {
       console.error("Error picking up component:", error);
       throw error;
@@ -122,7 +222,7 @@ class ComponentReservationService {
 
   /**
    * Install component on vehicle
-   * PATCH /component-reservations/{reservationId}/installComponent
+   * PATCH /reservations/{reservationId}/installComponent
    *
    * Updates:
    * - Reservation: PICKED_UP → INSTALLED
@@ -135,7 +235,7 @@ class ComponentReservationService {
   ): Promise<InstallComponentResponse> {
     try {
       const response = await apiClient.patch(
-        `/component-reservations/${reservationId}/installComponent`
+        `/reservations/${reservationId}/installComponent`
       );
       return response.data;
     } catch (error: unknown) {
@@ -146,7 +246,7 @@ class ComponentReservationService {
 
   /**
    * Return old component after replacement
-   * PATCH /component-reservations/{reservationId}/return
+   * PATCH /reservations/{reservationId}/return
    *
    * Updates:
    * - Reservation: INSTALLED → RETURNED
@@ -160,7 +260,7 @@ class ComponentReservationService {
   ): Promise<ReturnComponentResponse> {
     try {
       const response = await apiClient.patch(
-        `/component-reservations/${reservationId}/return`,
+        `/reservations/${reservationId}/return`,
         data
       );
       return response.data;
@@ -172,7 +272,7 @@ class ComponentReservationService {
 
   /**
    * Get component reservation details
-   * GET /component-reservations/{reservationId}
+   * GET /reservations/{reservationId}
    *
    * Note: This endpoint might not exist in backend yet,
    * but useful for tracking reservation status
@@ -182,9 +282,7 @@ class ComponentReservationService {
     data: { reservation: ComponentReservation };
   }> {
     try {
-      const response = await apiClient.get(
-        `/component-reservations/${reservationId}`
-      );
+      const response = await apiClient.get(`/reservations/${reservationId}`);
       return response.data;
     } catch (error: unknown) {
       console.error("Error fetching reservation details:", error);
