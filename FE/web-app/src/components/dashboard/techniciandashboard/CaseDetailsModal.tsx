@@ -195,6 +195,7 @@ export function CaseDetailsModal({
               warrantyStatus: caseLineData.warrantyStatus || "ELIGIBLE",
               isUnderWarranty: caseLineData.warrantyStatus === "ELIGIBLE",
               rejectionReason: caseLineData.rejectionReason || "",
+              evidenceImageUrls: caseLineData.evidenceImageUrls || [],
             },
           ]);
         } else if (caseId) {
@@ -238,6 +239,7 @@ export function CaseDetailsModal({
                 isUnderWarranty: cl.warrantyStatus === "ELIGIBLE",
                 rejectionReason: cl.rejectionReason || "",
                 status: cl.status || "DRAFT", // Include status from backend
+                evidenceImageUrls: cl.evidenceImageUrls || [],
               }));
 
               console.log("💾 Setting case lines to state:", existingCaseLines);

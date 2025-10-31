@@ -183,8 +183,7 @@ export function StockTransferRequestList({
   const canApproveReject = userRole === "emv_staff";
   const canShip = userRole === "parts_coordinator_company";
   const canReceive = userRole === "parts_coordinator_service_center";
-  const canCancel =
-    userRole === "service_center_manager" || userRole === "emv_staff";
+  const canCancel = userRole === "emv_staff"; // Only EMV staff can cancel
 
   if (loading) {
     return (
@@ -232,7 +231,7 @@ export function StockTransferRequestList({
                 </select>
               </div>
               <div className="flex items-center gap-3">
-                {userRole === "service_center_manager" && warehouseId && (
+                {userRole === "service_center_staff" && warehouseId && (
                   <button
                     onClick={() => setIsCreateModalOpen(true)}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"

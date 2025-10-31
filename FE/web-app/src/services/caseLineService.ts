@@ -28,6 +28,10 @@ export interface CaseLine {
     guaranteeCaseId: string;
     contentGuarantee: string;
     status: string;
+    vehicleProcessingRecord?: {
+      vehicleProcessingRecordId: string;
+      vin: string;
+    };
   };
   diagnosticTechnician?: {
     userId: string;

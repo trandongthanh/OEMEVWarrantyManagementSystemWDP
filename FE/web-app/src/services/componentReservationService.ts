@@ -95,19 +95,23 @@ export interface ReturnComponentResponse {
 class ComponentReservationService {
   /**
    * Pickup reserved components from warehouse
-   * PATCH /reservations/{reservationId}/pickup
+   * PATCH /component-reservations/{reservationId}/pickup
    *
    * Updates:
    * - Reservation: RESERVED → PICKED_UP
-   * - Component: status → PICKED_UP
+   * - Component: status → WITH_TECHNICIAN
    * - CaseLine: READY_FOR_REPAIR → IN_REPAIR (if first pickup)
    *
    * @role parts_coordinator_service_center
    */
-  async pickupComponent(reservationId: string): Promise<PickupResponse> {
+  async pickupComponent(
+    reservationId: string,
+    pickedUpByTechId: string
+  ): Promise<PickupResponse> {
     try {
       const response = await apiClient.patch(
-        `/reservations/${reservationId}/pickup`
+        `/component-reservations/${reservationId}/pickup`,
+        { pickedUpByTechId }
       );
       return response.data;
     } catch (error: unknown) {
@@ -118,7 +122,7 @@ class ComponentReservationService {
 
   /**
    * Install component on vehicle
-   * PATCH /reservations/{reservationId}/installComponent
+   * PATCH /component-reservations/{reservationId}/installComponent
    *
    * Updates:
    * - Reservation: PICKED_UP → INSTALLED
@@ -131,7 +135,7 @@ class ComponentReservationService {
   ): Promise<InstallComponentResponse> {
     try {
       const response = await apiClient.patch(
-        `/reservations/${reservationId}/installComponent`
+        `/component-reservations/${reservationId}/installComponent`
       );
       return response.data;
     } catch (error: unknown) {
@@ -142,7 +146,7 @@ class ComponentReservationService {
 
   /**
    * Return old component after replacement
-   * PATCH /reservations/{reservationId}/return
+   * PATCH /component-reservations/{reservationId}/return
    *
    * Updates:
    * - Reservation: INSTALLED → RETURNED
@@ -156,7 +160,7 @@ class ComponentReservationService {
   ): Promise<ReturnComponentResponse> {
     try {
       const response = await apiClient.patch(
-        `/reservations/${reservationId}/return`,
+        `/component-reservations/${reservationId}/return`,
         data
       );
       return response.data;
@@ -168,7 +172,7 @@ class ComponentReservationService {
 
   /**
    * Get component reservation details
-   * GET /reservations/{reservationId}
+   * GET /component-reservations/{reservationId}
    *
    * Note: This endpoint might not exist in backend yet,
    * but useful for tracking reservation status
@@ -178,7 +182,9 @@ class ComponentReservationService {
     data: { reservation: ComponentReservation };
   }> {
     try {
-      const response = await apiClient.get(`/reservations/${reservationId}`);
+      const response = await apiClient.get(
+        `/component-reservations/${reservationId}`
+      );
       return response.data;
     } catch (error: unknown) {
       console.error("Error fetching reservation details:", error);

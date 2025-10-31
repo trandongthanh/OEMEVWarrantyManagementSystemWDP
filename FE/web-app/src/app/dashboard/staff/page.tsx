@@ -11,6 +11,7 @@ import {
   MessageCircle,
   Package,
   History as HistoryIcon,
+  Truck,
 } from "lucide-react";
 import { authService, customerService, Customer } from "@/services";
 import {
@@ -26,10 +27,12 @@ import {
   VehicleHistory,
 } from "@/components/dashboard";
 import { StaffChatDashboard } from "@/components/chat";
+import { StockTransferRequestList } from "@/components/dashboard/managerdashboard";
 
 interface User {
   userId: string;
   roleName: string;
+  serviceCenterId?: string;
 }
 
 export default function StaffDashboard() {
@@ -45,6 +48,7 @@ export default function StaffDashboard() {
   const [registerVehicleVin, setRegisterVehicleVin] = useState<
     string | undefined
   >(undefined);
+  const [warehouseId, setWarehouseId] = useState<string | null>(null);
 
   const toggleSidebar = () => setSidebarCollapsed(!sidebarCollapsed);
 
@@ -55,8 +59,27 @@ export default function StaffDashboard() {
   useEffect(() => {
     const user = authService.getCurrentUser();
     setCurrentUser(user);
-    // Staff role doesn't need additional data fetching
+    fetchWarehouse(user);
   }, []);
+
+  const fetchWarehouse = async (user: User | null) => {
+    try {
+      if (user?.serviceCenterId) {
+        const { warehouseService } = await import(
+          "@/services/warehouseService"
+        );
+        const { warehouses } = await warehouseService.getWarehouseInfo();
+        const warehouse = warehouses.find(
+          (w) => w.serviceCenterId === user.serviceCenterId
+        );
+        if (warehouse) {
+          setWarehouseId(warehouse.warehouseId);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching warehouse:", error);
+    }
+  };
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
@@ -101,6 +124,7 @@ export default function StaffDashboard() {
     { id: "dashboard", icon: Home, label: "Dashboard" },
     { id: "cases", icon: Users, label: "Cases" },
     { id: "chat-support", icon: MessageCircle, label: "Chat Support" },
+    { id: "stock-transfers", icon: Truck, label: "Stock Transfers" },
     { id: "vehicle-components", icon: Package, label: "Vehicle Components" },
     { id: "vehicle-history", icon: HistoryIcon, label: "Vehicle History" },
     { id: "receipts", icon: CreditCard, label: "Receipts" },
@@ -136,6 +160,15 @@ export default function StaffDashboard() {
           <div className="flex-1 overflow-hidden p-6">
             <StaffChatDashboard serviceCenterId="default-service-center" />
           </div>
+        );
+
+      case "stock-transfers":
+        return (
+          <StockTransferRequestList
+            userRole="service_center_staff"
+            warehouseId={warehouseId || undefined}
+            onRequestCreated={() => {}}
+          />
         );
 
       case "vehicle-components":

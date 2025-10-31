@@ -39,6 +39,17 @@ export function ScheduleManagement() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [editingSchedule, setEditingSchedule] = useState<WorkSchedule | null>(
+    null
+  );
+  const [editFormData, setEditFormData] = useState<{
+    status: "AVAILABLE" | "UNAVAILABLE";
+    notes: string;
+  }>({
+    status: "AVAILABLE",
+    notes: "",
+  });
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     loadSchedules();
@@ -121,17 +132,14 @@ export function ScheduleManagement() {
   };
 
   // Group schedules by date for calendar view
-  const groupedSchedules = schedules.reduce(
-    (acc, schedule) => {
-      const date = schedule.workDate;
-      if (!acc[date]) {
-        acc[date] = [];
-      }
-      acc[date].push(schedule);
-      return acc;
-    },
-    {} as Record<string, WorkSchedule[]>
-  );
+  const groupedSchedules = schedules.reduce((acc, schedule) => {
+    const date = schedule.workDate;
+    if (!acc[date]) {
+      acc[date] = [];
+    }
+    acc[date].push(schedule);
+    return acc;
+  }, {} as Record<string, WorkSchedule[]>);
 
   // Get unique technicians for summary
   const uniqueTechnicians = Array.from(
@@ -212,6 +220,35 @@ export function ScheduleManagement() {
       currentMonth.getMonth() === today.getMonth() &&
       day === today.getDate()
     );
+  };
+
+  const handleEditClick = (schedule: WorkSchedule) => {
+    setEditingSchedule(schedule);
+    setEditFormData({
+      status: schedule.status,
+      notes: schedule.notes || "",
+    });
+  };
+
+  const handleUpdateSchedule = async () => {
+    if (!editingSchedule) return;
+
+    setUpdating(true);
+    try {
+      await workScheduleService.updateSchedule(
+        editingSchedule.scheduleId,
+        editFormData
+      );
+
+      toast.success("Schedule updated successfully");
+      setEditingSchedule(null);
+      loadSchedules();
+    } catch (error) {
+      console.error("Error updating schedule:", error);
+      toast.error("Failed to update schedule");
+    } finally {
+      setUpdating(false);
+    }
   };
 
   const calendarDays = generateCalendarDays();
@@ -469,7 +506,11 @@ export function ScheduleManagement() {
                         whileTap={day ? { scale: 0.98 } : {}}
                         className={`
                           min-h-[100px] p-3 rounded-xl border-2 transition-all
-                          ${!day ? "bg-transparent border-transparent cursor-default" : ""}
+                          ${
+                            !day
+                              ? "bg-transparent border-transparent cursor-default"
+                              : ""
+                          }
                           ${
                             day && !hasSchedules
                               ? "bg-gray-50 border-gray-200 hover:border-gray-300 hover:bg-gray-100 cursor-pointer"
@@ -497,8 +538,8 @@ export function ScheduleManagement() {
                                   isTodayDate
                                     ? "text-blue-600"
                                     : hasSchedules
-                                      ? "text-gray-900"
-                                      : "text-gray-400"
+                                    ? "text-gray-900"
+                                    : "text-gray-400"
                                 }`}
                               >
                                 {day}
@@ -603,12 +644,18 @@ export function ScheduleManagement() {
                                 </span>
                               </div>
                               {schedule.notes && (
-                                <div className="bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                                <div className="bg-amber-50 border border-amber-200 rounded px-2 py-1 mb-2">
                                   <p className="text-xs text-amber-900">
                                     📝 {schedule.notes}
                                   </p>
                                 </div>
                               )}
+                              <button
+                                onClick={() => handleEditClick(schedule)}
+                                className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                              >
+                                Edit
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -621,6 +668,112 @@ export function ScheduleManagement() {
           </div>
         </div>
       </div>
+
+      {/* Edit Schedule Modal */}
+      {editingSchedule && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => !updating && setEditingSchedule(null)}
+        >
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-xl shadow-xl max-w-md w-full border border-gray-200"
+          >
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">
+                  Edit Schedule
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {editingSchedule.technician?.name} -{" "}
+                  {new Date(editingSchedule.workDate).toLocaleDateString()}
+                </p>
+              </div>
+              <button
+                onClick={() => setEditingSchedule(null)}
+                disabled={updating}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Status
+                </label>
+                <select
+                  value={editFormData.status}
+                  onChange={(e) =>
+                    setEditFormData({
+                      ...editFormData,
+                      status: e.target.value as "AVAILABLE" | "UNAVAILABLE",
+                    })
+                  }
+                  disabled={updating}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-colors disabled:opacity-50"
+                >
+                  <option value="AVAILABLE">Available</option>
+                  <option value="UNAVAILABLE">Unavailable</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Notes
+                </label>
+                <textarea
+                  value={editFormData.notes}
+                  onChange={(e) =>
+                    setEditFormData({
+                      ...editFormData,
+                      notes: e.target.value,
+                    })
+                  }
+                  disabled={updating}
+                  rows={3}
+                  placeholder="Add notes about this schedule..."
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-colors disabled:opacity-50 resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-200 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setEditingSchedule(null)}
+                disabled={updating}
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdateSchedule}
+                disabled={updating}
+                className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              >
+                {updating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    Update
+                  </>
+                )}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
 
       {/* Upload Modal */}
       {showUploadModal && (

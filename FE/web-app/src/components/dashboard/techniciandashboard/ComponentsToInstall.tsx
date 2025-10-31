@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Package, Wrench, AlertCircle } from "lucide-react";
+import { Package, Wrench } from "lucide-react";
 import caseLineService, { CaseLine } from "@/services/caseLineService";
 import { ComponentInstallModal } from "./ComponentInstallModal";
 import { toast } from "sonner";
@@ -32,10 +32,17 @@ export function ComponentsToInstall() {
 
       const caseLines = response.data.caseLines || [];
 
-      // Filter only case lines with reserved components (picked up but not yet installed)
-      const componentsReady = caseLines.filter(
-        (cl) => (cl.quantityReserved || 0) > 0
-      );
+      // Filter only case lines with picked up components (status WITH_TECHNICIAN, not yet installed)
+      const componentsReady = caseLines.filter((cl) => {
+        // Check if case line has reservations with WITH_TECHNICIAN status
+        if (cl.reservations && cl.reservations.length > 0) {
+          return cl.reservations.some(
+            (res) => res.status === "WITH_TECHNICIAN"
+          );
+        }
+        // Fallback: if quantityReserved field exists and > 0
+        return (cl.quantityReserved || 0) > 0;
+      });
 
       setComponents(componentsReady);
     } catch (error) {
@@ -47,17 +54,20 @@ export function ComponentsToInstall() {
   };
 
   const handleInstallClick = (component: CaseLine) => {
-    // Note: We need reservationId from component reservation, but backend doesn't have GET endpoint
-    // For now, show message that this needs backend support
-    console.log("Install clicked for case line:", component.id);
-    toast.error(
-      "Install feature requires GET /component-reservations endpoint to fetch reservation ID"
+    // Find the first WITH_TECHNICIAN reservation for this case line
+    const reservation = component.reservations?.find(
+      (res) => res.status === "WITH_TECHNICIAN"
     );
 
-    // TODO: When backend adds GET endpoint:
-    // 1. Fetch component reservation by case line ID
-    // 2. Get reservationId
-    // 3. Open modal with reservationId
+    if (!reservation || !reservation.reservationId) {
+      toast.error("No reservation found for this component");
+      return;
+    }
+
+    setSelectedComponent({
+      reservationId: reservation.reservationId,
+      componentName: component.typeComponent?.name || "Component",
+    });
   };
   const handleInstallSuccess = () => {
     setSelectedComponent(null);
@@ -131,15 +141,18 @@ export function ComponentsToInstall() {
                     <div className="space-y-0.5 text-xs text-gray-600">
                       <p>
                         <span className="font-medium">Qty:</span>{" "}
-                        {component.quantityReserved || component.quantity}
+                        {component.reservations?.filter(
+                          (res) => res.status === "WITH_TECHNICIAN"
+                        ).length ||
+                          component.quantityReserved ||
+                          component.quantity}
                       </p>
                       <p className="truncate">
                         <span className="font-medium">Case:</span>{" "}
                         {component.guaranteeCaseId}
                       </p>
                       <p className="text-xs text-gray-500 mt-1 truncate">
-                        Status: {component.status} • Reserved components ready
-                        for installation
+                        Status: {component.status} • Picked up, ready to install
                       </p>
                     </div>
                   </div>
@@ -151,13 +164,6 @@ export function ComponentsToInstall() {
                     <Wrench className="w-3.5 h-3.5" />
                     Install
                   </button>
-                </div>
-
-                <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-2">
-                  <AlertCircle className="w-3.5 h-3.5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-yellow-700">
-                    <strong>Note:</strong> Requires backend endpoint
-                  </p>
                 </div>
               </motion.div>
             ))}

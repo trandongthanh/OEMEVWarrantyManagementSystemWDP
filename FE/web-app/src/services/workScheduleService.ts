@@ -77,10 +77,7 @@ export interface AvailableTechniciansResponse {
 }
 
 export interface UpdateScheduleRequest {
-  date?: string;
-  startTime?: string;
-  endTime?: string;
-  status?: "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+  status?: "AVAILABLE" | "UNAVAILABLE";
   notes?: string;
 }
 

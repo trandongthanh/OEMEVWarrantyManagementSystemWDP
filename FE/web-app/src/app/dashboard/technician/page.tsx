@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Home, ClipboardList, Package, Clock, FileText } from "lucide-react";
+import {
+  Home,
+  ClipboardList,
+  Package,
+  Clock,
+  FileText,
+  Calendar,
+} from "lucide-react";
 import { authService } from "@/services";
 import { useRoleProtection } from "@/hooks/useRoleProtection";
 import {
@@ -12,6 +19,7 @@ import {
   PartsInventory,
   WorkHistory,
 } from "@/components/dashboard";
+import { MySchedule } from "@/components/dashboard/techniciandashboard";
 
 interface CurrentUser {
   userId: string;
@@ -59,6 +67,7 @@ export default function TechnicianDashboard() {
   const navItems = [
     { id: "dashboard", icon: Home, label: "Dashboard" },
     { id: "tasks", icon: ClipboardList, label: "My Tasks" },
+    { id: "schedule", icon: Calendar, label: "My Schedule" },
     { id: "parts", icon: Package, label: "Parts" },
     { id: "history", icon: Clock, label: "Work History" },
   ];
@@ -70,6 +79,9 @@ export default function TechnicianDashboard() {
 
       case "tasks":
         return <MyTasks />;
+
+      case "schedule":
+        return <MySchedule />;
 
       case "parts":
         return <PartsInventory />;
