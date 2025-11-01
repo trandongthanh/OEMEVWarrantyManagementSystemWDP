@@ -226,24 +226,89 @@ export function CaseDetailsModal({
                 guaranteeCase.caseLines
               );
 
-              // Load existing case lines
-              const existingCaseLines = guaranteeCase.caseLines.map((cl) => ({
-                caseLineId: cl.id,
-                diagnosisText: cl.diagnosisText || "",
-                correctionText: cl.correctionText || "",
-                typeComponentId: cl.typeComponentId || null,
-                componentId: cl.typeComponentId || null,
-                componentName: cl.typeComponent?.name || "",
-                quantity: cl.quantity || 0,
-                warrantyStatus: cl.warrantyStatus || "ELIGIBLE",
-                isUnderWarranty: cl.warrantyStatus === "ELIGIBLE",
-                rejectionReason: cl.rejectionReason || "",
-                status: cl.status || "DRAFT", // Include status from backend
-                evidenceImageUrls: cl.evidenceImageUrls || [],
-              }));
+              // Fetch detailed case line data for each case line to get evidenceImageUrls
+              const detailedCaseLines = await Promise.all(
+                guaranteeCase.caseLines.map(async (cl) => {
+                  try {
+                    console.log(
+                      `⏳ Fetching detailed data for case line: ${cl.id}`
+                    );
+                    const detailResponse =
+                      await caseLineService.getCaseLineById(cl.id, caseId);
+                    const detailedData = detailResponse.data.caseLine;
+                    console.log(
+                      `✅ Received detailed data for case line ${cl.id}:`,
+                      detailedData
+                    );
 
-              console.log("💾 Setting case lines to state:", existingCaseLines);
-              setCaseLines(existingCaseLines);
+                    return {
+                      caseLineId: cl.id,
+                      diagnosisText:
+                        detailedData.diagnosisText || cl.diagnosisText || "",
+                      correctionText:
+                        detailedData.correctionText || cl.correctionText || "",
+                      typeComponentId:
+                        detailedData.typeComponentId ||
+                        cl.typeComponentId ||
+                        null,
+                      componentId:
+                        detailedData.typeComponentId ||
+                        cl.typeComponentId ||
+                        null,
+                      componentName:
+                        detailedData.typeComponent?.name ||
+                        cl.typeComponent?.name ||
+                        "",
+                      quantity: detailedData.quantity || cl.quantity || 0,
+                      warrantyStatus:
+                        detailedData.warrantyStatus ||
+                        cl.warrantyStatus ||
+                        "ELIGIBLE",
+                      isUnderWarranty:
+                        (detailedData.warrantyStatus || cl.warrantyStatus) ===
+                        "ELIGIBLE",
+                      rejectionReason:
+                        detailedData.rejectionReason ||
+                        cl.rejectionReason ||
+                        "",
+                      status: detailedData.status || cl.status || "DRAFT",
+                      evidenceImageUrls:
+                        detailedData.evidenceImageUrls ||
+                        (cl as { evidenceImageUrls?: string[] })
+                          .evidenceImageUrls ||
+                        [],
+                    };
+                  } catch (error) {
+                    console.error(
+                      `❌ Error fetching detailed data for case line ${cl.id}:`,
+                      error
+                    );
+                    // Fallback to basic data from record if detail fetch fails
+                    return {
+                      caseLineId: cl.id,
+                      diagnosisText: cl.diagnosisText || "",
+                      correctionText: cl.correctionText || "",
+                      typeComponentId: cl.typeComponentId || null,
+                      componentId: cl.typeComponentId || null,
+                      componentName: cl.typeComponent?.name || "",
+                      quantity: cl.quantity || 0,
+                      warrantyStatus: cl.warrantyStatus || "ELIGIBLE",
+                      isUnderWarranty: cl.warrantyStatus === "ELIGIBLE",
+                      rejectionReason: cl.rejectionReason || "",
+                      status: cl.status || "DRAFT",
+                      evidenceImageUrls:
+                        (cl as { evidenceImageUrls?: string[] })
+                          .evidenceImageUrls || [],
+                    };
+                  }
+                })
+              );
+
+              console.log(
+                "💾 Setting case lines to state with detailed data:",
+                detailedCaseLines
+              );
+              setCaseLines(detailedCaseLines);
 
               // Check if all case lines are DRAFT - if so, show Complete Diagnosis button
               const allDraft = guaranteeCase.caseLines.every(
