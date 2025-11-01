@@ -1,9 +1,11 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Plus, Minus, Package, AlertCircle } from "lucide-react";
-import { useState } from "react";
+import { X, Plus, Minus, Package, AlertCircle, Search } from "lucide-react";
+import { useState, useEffect } from "react";
 import stockTransferService from "@/services/stockTransferService";
+import warehouseService from "@/services/warehouseService";
+import caseLineService, { type CaseLine } from "@/services/caseLineService";
 
 interface CreateStockTransferRequestModalProps {
   isOpen: boolean;
@@ -24,6 +26,14 @@ interface TransferItem {
   requestedQuantity: number;
 }
 
+interface TypeComponent {
+  typeComponentId: string;
+  name: string;
+  category?: string;
+  sku?: string;
+  price?: number;
+}
+
 export function CreateStockTransferRequestModal({
   isOpen,
   onClose,
@@ -37,21 +47,160 @@ export function CreateStockTransferRequestModal({
       ? initialItems
       : [{ componentId: "", componentName: "", requestedQuantity: 1 }]
   );
+  const [selectedCaseLineId, setSelectedCaseLineId] = useState<string>(
+    caseLineId || ""
+  );
+  const [caseLines, setCaseLines] = useState<CaseLine[]>([]);
+  const [loadingCaseLines, setLoadingCaseLines] = useState(false);
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [availableComponents, setAvailableComponents] = useState<
+    TypeComponent[]
+  >([]);
+  const [componentSearch, setComponentSearch] = useState<string[]>(
+    items.map(() => "")
+  );
+  const [showDropdown, setShowDropdown] = useState<boolean[]>(
+    items.map(() => false)
+  );
+
+  // Fetch case lines when modal opens (only if no caseLineId provided)
+  useEffect(() => {
+    const fetchCaseLines = async () => {
+      if (caseLineId) return; // Skip if caseLineId already provided
+
+      setLoadingCaseLines(true);
+      try {
+        const response = await caseLineService.getCaseLinesList({
+          status: "WAITING_FOR_PARTS", // Only show case lines waiting for parts
+          page: 1,
+          limit: 100,
+        });
+
+        // Filter case lines that have a component type specified
+        const caseLinesWithComponents = response.data.caseLines.filter(
+          (cl) => cl.typeComponentId && cl.quantity
+        );
+
+        setCaseLines(caseLinesWithComponents);
+      } catch (error) {
+        console.error("Failed to fetch case lines:", error);
+      } finally {
+        setLoadingCaseLines(false);
+      }
+    };
+
+    if (isOpen) {
+      fetchCaseLines();
+    }
+  }, [isOpen, caseLineId]);
+
+  // Fetch available components from warehouse
+  useEffect(() => {
+    const fetchComponents = async () => {
+      try {
+        const response = await warehouseService.getWarehouseInfo();
+        const allComponents = new Map<string, TypeComponent>();
+
+        // Collect unique components from all warehouses
+        response.warehouses.forEach((warehouse) => {
+          // API returns 'stocks', fallback to 'stock' for compatibility
+          const stockItems = warehouse.stocks || warehouse.stock || [];
+          stockItems.forEach((stock) => {
+            if (stock.typeComponent) {
+              allComponents.set(stock.typeComponent.typeComponentId, {
+                typeComponentId: stock.typeComponent.typeComponentId,
+                name: stock.typeComponent.name,
+                category: stock.typeComponent.category,
+                price: 0, // Price not included in API response
+              });
+            }
+          });
+        });
+
+        setAvailableComponents(Array.from(allComponents.values()));
+      } catch (error) {
+        console.error("Failed to fetch components:", error);
+      }
+    };
+
+    if (isOpen) {
+      fetchComponents();
+    }
+  }, [isOpen]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      // Don't close if clicking inside a dropdown
+      if (target.closest(".component-dropdown")) {
+        return;
+      }
+      setShowDropdown(showDropdown.map(() => false));
+    };
+
+    if (showDropdown.some((show) => show)) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showDropdown]);
 
   const handleAddItem = () => {
     setItems([
       ...items,
       { componentId: "", componentName: "", requestedQuantity: 1 },
     ]);
+    setComponentSearch([...componentSearch, ""]);
+    setShowDropdown([...showDropdown, false]);
   };
 
   const handleRemoveItem = (index: number) => {
     if (items.length > 1) {
       setItems(items.filter((_, i) => i !== index));
+      setComponentSearch(componentSearch.filter((_, i) => i !== index));
+      setShowDropdown(showDropdown.filter((_, i) => i !== index));
     }
+  };
+
+  const handleComponentSelect = (index: number, component: TypeComponent) => {
+    const newItems = [...items];
+    newItems[index] = {
+      ...newItems[index],
+      componentId: component.typeComponentId,
+      componentName: component.name,
+    };
+    setItems(newItems);
+
+    const newSearch = [...componentSearch];
+    newSearch[index] = component.name;
+    setComponentSearch(newSearch);
+
+    const newDropdown = [...showDropdown];
+    newDropdown[index] = false;
+    setShowDropdown(newDropdown);
+  };
+
+  const handleSearchChange = (index: number, value: string) => {
+    const newSearch = [...componentSearch];
+    newSearch[index] = value;
+    setComponentSearch(newSearch);
+
+    const newDropdown = [...showDropdown];
+    newDropdown[index] = value.length > 0;
+    setShowDropdown(newDropdown);
+  };
+
+  const getFilteredComponents = (searchTerm: string) => {
+    if (!searchTerm) return availableComponents;
+    const query = searchTerm.toLowerCase();
+    return availableComponents.filter(
+      (comp) =>
+        comp.name.toLowerCase().includes(query) ||
+        comp.category?.toLowerCase().includes(query)
+    );
   };
 
   const handleItemChange = (
@@ -62,6 +211,30 @@ export function CreateStockTransferRequestModal({
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
     setItems(newItems);
+  };
+
+  const handleCaseLineSelect = (caseLineId: string) => {
+    setSelectedCaseLineId(caseLineId);
+
+    // Find the selected case line
+    const selectedCaseLine = caseLines.find(
+      (cl) => (cl.id || cl.caseLineId) === caseLineId
+    );
+
+    if (selectedCaseLine && selectedCaseLine.typeComponent) {
+      // Auto-fill the components from the case line
+      const newItems: TransferItem[] = [
+        {
+          componentId: selectedCaseLine.typeComponentId || "",
+          componentName: selectedCaseLine.typeComponent.name,
+          requestedQuantity: selectedCaseLine.quantity || 1,
+        },
+      ];
+
+      setItems(newItems);
+      setComponentSearch([selectedCaseLine.typeComponent.name]);
+      setShowDropdown([false]);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -79,18 +252,29 @@ export function CreateStockTransferRequestModal({
       return;
     }
 
+    // Check if caselineId is provided (required by backend)
+    if (!selectedCaseLineId) {
+      setError("Case Line ID is required to create a stock transfer request");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      await stockTransferService.createRequest({
+      const requestItems = items.map((item) => ({
+        typeComponentId: item.componentId,
+        quantityRequested: item.requestedQuantity,
+        caselineId: selectedCaseLineId,
+      }));
+
+      const requestPayload = {
         requestingWarehouseId: warehouseId,
-        caselineIds: caseLineId ? [caseLineId] : [],
-        items: items.map((item) => ({
-          typeComponentId: item.componentId,
-          quantityRequested: item.requestedQuantity,
-          caselineId: caseLineId,
-        })),
-      });
+        items: requestItems,
+      };
+
+      console.log("Creating stock transfer request:", requestPayload);
+
+      await stockTransferService.createRequest(requestPayload as any);
 
       // Success
       onSuccess?.();
@@ -155,6 +339,55 @@ export function CreateStockTransferRequestModal({
                 </div>
               )}
 
+              {/* Case Line Selection */}
+              {!caseLineId && (
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Case Line *
+                  </label>
+                  {loadingCaseLines ? (
+                    <div className="px-3 py-2 text-sm text-gray-500 bg-gray-50 rounded-lg">
+                      Loading case lines...
+                    </div>
+                  ) : caseLines.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-gray-500 bg-gray-50 rounded-lg">
+                      No pending case lines found that require components
+                    </div>
+                  ) : (
+                    <select
+                      value={selectedCaseLineId}
+                      onChange={(e) => handleCaseLineSelect(e.target.value)}
+                      className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    >
+                      <option value="">-- Select a case line --</option>
+                      {caseLines.map((caseLine) => {
+                        const caseLineId =
+                          caseLine.id || caseLine.caseLineId || "";
+                        const vehicleInfo =
+                          caseLine.guaranteeCase?.vehicleProcessingRecord
+                            ?.vin || "Unknown VIN";
+                        const componentName =
+                          caseLine.typeComponent?.name || "Unknown Component";
+                        const quantity = caseLine.quantity || 0;
+
+                        return (
+                          <option key={caseLineId} value={caseLineId}>
+                            {vehicleInfo} - {componentName} (Qty: {quantity}) -
+                            Status: {caseLine.status}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    {selectedCaseLineId
+                      ? "Components will be auto-filled from the selected case line"
+                      : "Select a case line to automatically fill component details"}
+                  </p>
+                </div>
+              )}
+
               {/* Items */}
               <div className="space-y-4 mb-6">
                 <div className="flex items-center justify-between">
@@ -164,7 +397,7 @@ export function CreateStockTransferRequestModal({
                   <button
                     type="button"
                     onClick={handleAddItem}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm  text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                     Add Item
@@ -191,64 +424,96 @@ export function CreateStockTransferRequestModal({
                       )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">
-                          Component ID *
-                        </label>
+                    {/* Component Selection with Search */}
+                    <div className="relative component-dropdown">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Component *
+                      </label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
                           type="text"
-                          value={item.componentId}
+                          value={componentSearch[index] || item.componentName}
                           onChange={(e) =>
-                            handleItemChange(
-                              index,
-                              "componentId",
-                              e.target.value
-                            )
+                            handleSearchChange(index, e.target.value)
                           }
-                          placeholder="e.g., COMP-12345"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          onFocus={() => {
+                            const newDropdown = [...showDropdown];
+                            newDropdown[index] = true;
+                            setShowDropdown(newDropdown);
+                          }}
+                          placeholder="Search for component..."
+                          className="w-full pl-9 pr-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           required
                         />
+                        {showDropdown[index] && (
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                            {getFilteredComponents(componentSearch[index])
+                              .length > 0 ? (
+                              getFilteredComponents(componentSearch[index]).map(
+                                (component) => (
+                                  <button
+                                    key={component.typeComponentId}
+                                    type="button"
+                                    onClick={() =>
+                                      handleComponentSelect(index, component)
+                                    }
+                                    className="w-full px-3 py-2 text-left hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0"
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex-1">
+                                        <p className="text-sm font-medium text-gray-900">
+                                          {component.name}
+                                        </p>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                          {component.sku && (
+                                            <span className="text-xs text-gray-500">
+                                              {component.sku}
+                                            </span>
+                                          )}
+                                          {component.category && (
+                                            <span className="text-xs text-gray-400">
+                                              • {component.category}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </button>
+                                )
+                              )
+                            ) : (
+                              <div className="px-3 py-2 text-sm text-gray-500">
+                                No components found
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">
-                          Quantity *
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={item.requestedQuantity}
-                          onChange={(e) =>
-                            handleItemChange(
-                              index,
-                              "requestedQuantity",
-                              parseInt(e.target.value) || 1
-                            )
-                          }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          required
-                        />
-                      </div>
+                      {item.componentId && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          ID: {item.componentId}
+                        </p>
+                      )}
                     </div>
 
+                    {/* Quantity */}
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">
-                        Component Name *
+                        Quantity *
                       </label>
                       <input
-                        type="text"
-                        value={item.componentName}
+                        type="number"
+                        min="1"
+                        value={item.requestedQuantity}
                         onChange={(e) =>
                           handleItemChange(
                             index,
-                            "componentName",
-                            e.target.value
+                            "requestedQuantity",
+                            parseInt(e.target.value) || 1
                           )
                         }
-                        placeholder="e.g., Battery Module"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         required
                       />
                     </div>
@@ -266,7 +531,7 @@ export function CreateStockTransferRequestModal({
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Additional information about this request..."
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                 />
               </div>
 

@@ -17,14 +17,18 @@ import {
   User,
   AlertCircle,
   Loader2,
+  Plus,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import stockTransferService from "@/services/stockTransferService";
 import type { StockTransferRequest } from "@/services/stockTransferService";
+import { CreateStockTransferRequestModal } from "./CreateStockTransferRequestModal";
+import StockTransferRequestDetailModal from "../companydashboard/StockTransferRequestDetailModal";
 
 interface StockTransferRequestListProps {
   userRole: string;
   onRequestCreated?: () => void;
+  warehouseId?: string;
 }
 
 const statusColors = {
@@ -48,6 +52,7 @@ const statusIcons = {
 export function StockTransferRequestList({
   userRole,
   onRequestCreated,
+  warehouseId,
 }: StockTransferRequestListProps) {
   const [requests, setRequests] = useState<StockTransferRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +60,11 @@ export function StockTransferRequestList({
     undefined
   );
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
+    null
+  );
 
   const fetchRequests = async (status?: string) => {
     try {
@@ -71,7 +81,10 @@ export function StockTransferRequestList({
         page: 1,
         limit: 50,
       });
-      setRequests(response.data?.requests || []);
+      // Handle both possible response structures
+      const requestsData =
+        response.data?.requests || response.data?.stockTransferRequests || [];
+      setRequests(requestsData);
     } catch (error) {
       console.error("Failed to fetch stock transfer requests:", error);
       setRequests([]);
@@ -179,7 +192,7 @@ export function StockTransferRequestList({
   const canShip = userRole === "parts_coordinator_company";
   const canReceive = userRole === "parts_coordinator_service_center";
   const canCancel =
-    userRole === "service_center_manager" || userRole === "emv_staff";
+    userRole === "emv_staff" || userRole === "service_center_manager";
 
   if (loading) {
     return (
@@ -226,9 +239,20 @@ export function StockTransferRequestList({
                   <option value="CANCELLED">Cancelled</option>
                 </select>
               </div>
-              <p className="text-sm text-gray-500">
-                {requests.length} request{requests.length !== 1 ? "s" : ""}
-              </p>
+              <div className="flex items-center gap-3">
+                {userRole === "service_center_manager" && warehouseId && (
+                  <button
+                    onClick={() => setIsCreateModalOpen(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Create Request
+                  </button>
+                )}
+                <p className="text-sm text-gray-500">
+                  {requests.length} request{requests.length !== 1 ? "s" : ""}
+                </p>
+              </div>
             </div>
           </div>
 
@@ -282,6 +306,7 @@ export function StockTransferRequestList({
                               <p className="text-sm text-gray-900">
                                 <span className="font-medium">From:</span>{" "}
                                 {request.requestingWarehouse?.warehouseName ||
+                                  request.requestingWarehouse?.name ||
                                   "Unknown"}
                               </p>
                             </div>
@@ -289,7 +314,9 @@ export function StockTransferRequestList({
                               <User className="w-4 h-4 text-gray-400" />
                               <p className="text-sm text-gray-600">
                                 Requested by{" "}
-                                {request.requestedBy?.name || "Unknown"}
+                                {request.requestedBy?.name ||
+                                  request.requester?.name ||
+                                  "Unknown"}
                               </p>
                             </div>
                             <div className="flex items-center gap-2">
@@ -421,7 +448,13 @@ export function StockTransferRequestList({
                             )}
 
                           {/* View Details */}
-                          <button className="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors">
+                          <button
+                            onClick={() => {
+                              setSelectedRequestId(request.id);
+                              setShowDetailModal(true);
+                            }}
+                            className="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                          >
                             <Eye className="w-4 h-4" />
                             View
                           </button>
@@ -435,6 +468,28 @@ export function StockTransferRequestList({
           </div>
         </div>
       </div>
+
+      {/* Create Stock Transfer Request Modal */}
+      {warehouseId && (
+        <CreateStockTransferRequestModal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          warehouseId={warehouseId}
+          onSuccess={() => {
+            fetchRequests(selectedStatus);
+            onRequestCreated?.();
+          }}
+        />
+      )}
+
+      {/* Detail Modal */}
+      {selectedRequestId && (
+        <StockTransferRequestDetailModal
+          requestId={selectedRequestId}
+          isOpen={showDetailModal}
+          onClose={() => setShowDetailModal(false)}
+        />
+      )}
     </div>
   );
 }

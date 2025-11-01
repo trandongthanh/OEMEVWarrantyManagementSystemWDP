@@ -24,9 +24,8 @@ function getDashboardRouteByRole(roleName: string): string {
     service_center_staff: "/dashboard/staff",
     service_center_technician: "/dashboard/technician",
     service_center_manager: "/dashboard/manager",
-    emv_admin: "/dashboard/admin",
-    emv_staff: "/dashboard/admin",
-    parts_coordinator_company: "/dashboard/parts-coordinator",
+    emv_staff: "/dashboard/emv_staff",
+    parts_coordinator_company: "/dashboard/company",
     parts_coordinator_service_center: "/dashboard/parts-coordinator",
   };
 

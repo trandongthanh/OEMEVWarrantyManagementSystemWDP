@@ -17,11 +17,13 @@ import {
   FileText,
   Eye,
   List,
+  CheckSquare,
 } from "lucide-react";
 import { processingRecordService, ProcessingRecord } from "@/services";
 import { Pagination } from "@/components/ui";
 import { CaseLineDetailModal } from "./CaseLineDetailModal";
 import { ApproveCaseLinesModal } from "./ApproveCaseLinesModal";
+import { CompleteRecordModal } from "./CompleteRecordModal";
 
 interface CasesListProps {
   onViewDetails?: (record: ProcessingRecord) => void;
@@ -87,6 +89,7 @@ export function CasesList({ onViewDetails }: CasesListProps) {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showCaseLineModal, setShowCaseLineModal] = useState(false);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [approvalAction, setApprovalAction] = useState<"approve" | "reject">(
     "approve"
   );
@@ -669,74 +672,89 @@ export function CasesList({ onViewDetails }: CasesListProps) {
                               Warranty Cases
                             </h3>
                           </div>
-                          {/* View Case Lines Button */}
-                          {(() => {
-                            const caseLines =
-                              selectedRecord.guaranteeCases?.flatMap(
-                                (gc) => gc.caseLines || []
-                              ) || [];
-                            const totalLines = caseLines.length;
+                          <div className="flex items-center gap-2">
+                            {/* Complete Record Button */}
+                            {selectedRecord.status === "READY_FOR_PICKUP" && (
+                              <button
+                                onClick={() => {
+                                  setShowDetailsModal(false);
+                                  setShowCompleteModal(true);
+                                }}
+                                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg transition-all text-sm font-semibold shadow-sm hover:shadow-md bg-green-600 text-white hover:bg-green-700"
+                              >
+                                <CheckSquare className="w-4 h-4" />
+                                Complete Record
+                              </button>
+                            )}
+                            {/* View Case Lines Button */}
+                            {(() => {
+                              const caseLines =
+                                selectedRecord.guaranteeCases?.flatMap(
+                                  (gc) => gc.caseLines || []
+                                ) || [];
+                              const totalLines = caseLines.length;
 
-                            if (totalLines > 0) {
-                              // Count case lines by status
-                              const pendingApproval = caseLines.filter(
-                                (cl) => cl.status === "PENDING_APPROVAL"
-                              ).length;
-                              const approved = caseLines.filter(
-                                (cl) =>
-                                  cl.status === "CUSTOMER_APPROVED" ||
-                                  cl.status === "READY_FOR_REPAIR" ||
-                                  cl.status === "IN_REPAIR" ||
-                                  cl.status === "COMPLETED"
-                              ).length;
-                              const rejected = caseLines.filter((cl) =>
-                                cl.status?.includes("REJECTED")
-                              ).length;
+                              if (totalLines > 0) {
+                                // Count case lines by status
+                                const pendingApproval = caseLines.filter(
+                                  (cl) => cl.status === "PENDING_APPROVAL"
+                                ).length;
+                                const approved = caseLines.filter(
+                                  (cl) =>
+                                    cl.status === "CUSTOMER_APPROVED" ||
+                                    cl.status === "READY_FOR_REPAIR" ||
+                                    cl.status === "IN_REPAIR" ||
+                                    cl.status === "COMPLETED"
+                                ).length;
+                                const rejected = caseLines.filter((cl) =>
+                                  cl.status?.includes("REJECTED")
+                                ).length;
 
-                              // Determine button style and text
-                              let buttonText = "";
-                              let buttonStyle =
-                                "bg-gray-900 text-white hover:bg-gray-800";
+                                // Determine button style and text
+                                let buttonText = "";
+                                let buttonStyle =
+                                  "bg-gray-900 text-white hover:bg-gray-800";
 
-                              if (pendingApproval > 0) {
-                                buttonText = `Review ${totalLines} Case Line${
-                                  totalLines !== 1 ? "s" : ""
-                                }`;
-                                buttonStyle =
-                                  "bg-yellow-600 text-white hover:bg-yellow-700";
-                              } else if (approved === totalLines) {
-                                buttonText = `View ${totalLines} Approved Case Line${
-                                  totalLines !== 1 ? "s" : ""
-                                }`;
-                                buttonStyle =
-                                  "bg-green-600 text-white hover:bg-green-700";
-                              } else if (rejected > 0 && approved === 0) {
-                                buttonText = `View ${totalLines} Case Line${
-                                  totalLines !== 1 ? "s" : ""
-                                }`;
-                                buttonStyle =
-                                  "bg-red-600 text-white hover:bg-red-700";
-                              } else {
-                                buttonText = `View ${totalLines} Case Line${
-                                  totalLines !== 1 ? "s" : ""
-                                }`;
+                                if (pendingApproval > 0) {
+                                  buttonText = `Review ${totalLines} Case Line${
+                                    totalLines !== 1 ? "s" : ""
+                                  }`;
+                                  buttonStyle =
+                                    "bg-yellow-600 text-white hover:bg-yellow-700";
+                                } else if (approved === totalLines) {
+                                  buttonText = `View ${totalLines} Approved Case Line${
+                                    totalLines !== 1 ? "s" : ""
+                                  }`;
+                                  buttonStyle =
+                                    "bg-green-600 text-white hover:bg-green-700";
+                                } else if (rejected > 0 && approved === 0) {
+                                  buttonText = `View ${totalLines} Case Line${
+                                    totalLines !== 1 ? "s" : ""
+                                  }`;
+                                  buttonStyle =
+                                    "bg-red-600 text-white hover:bg-red-700";
+                                } else {
+                                  buttonText = `View ${totalLines} Case Line${
+                                    totalLines !== 1 ? "s" : ""
+                                  }`;
+                                }
+
+                                return (
+                                  <button
+                                    onClick={() => {
+                                      setShowDetailsModal(false);
+                                      setShowCaseLineModal(true);
+                                    }}
+                                    className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-lg transition-all text-sm font-semibold shadow-sm hover:shadow-md ${buttonStyle}`}
+                                  >
+                                    <List className="w-4 h-4" />
+                                    {buttonText}
+                                  </button>
+                                );
                               }
-
-                              return (
-                                <button
-                                  onClick={() => {
-                                    setShowDetailsModal(false);
-                                    setShowCaseLineModal(true);
-                                  }}
-                                  className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-lg transition-all text-sm font-semibold shadow-sm hover:shadow-md ${buttonStyle}`}
-                                >
-                                  <List className="w-4 h-4" />
-                                  {buttonText}
-                                </button>
-                              );
-                            }
-                            return null;
-                          })()}
+                              return null;
+                            })()}
+                          </div>
                         </div>
                         <div className="space-y-3">
                           {selectedRecord.guaranteeCases.map((gCase) => (
@@ -810,6 +828,23 @@ export function CasesList({ onViewDetails }: CasesListProps) {
           onSuccess={() => {
             setShowApprovalModal(false);
             setSelectedCaseLineIds([]);
+            fetchRecords(); // Refresh the list
+          }}
+          customerEmail={selectedRecord?.visitorInfo?.email}
+          vin={selectedRecord?.vin}
+        />
+
+        {/* Complete Record Modal */}
+        <CompleteRecordModal
+          isOpen={showCompleteModal}
+          onClose={() => {
+            setShowCompleteModal(false);
+          }}
+          recordId={selectedRecord?.vehicleProcessingRecordId || ""}
+          vehicleVin={selectedRecord?.vin}
+          onSuccess={() => {
+            setShowCompleteModal(false);
+            setSelectedRecord(null);
             fetchRecords(); // Refresh the list
           }}
         />

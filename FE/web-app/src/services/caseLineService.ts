@@ -14,6 +14,7 @@ export interface CaseLine {
   status?: string;
   techId?: string;
   rejectionReason?: string | null;
+  evidenceImageUrls?: string[]; // Array of evidence image URLs
   createdAt?: string;
   updatedAt?: string;
   // Nested relations from backend
@@ -27,6 +28,10 @@ export interface CaseLine {
     guaranteeCaseId: string;
     contentGuarantee: string;
     status: string;
+    vehicleProcessingRecord?: {
+      vehicleProcessingRecordId: string;
+      vin: string;
+    };
   };
   diagnosticTechnician?: {
     userId: string;
@@ -58,6 +63,7 @@ export interface UpdateCaseLineData {
   quantity?: number;
   warrantyStatus?: "ELIGIBLE" | "INELIGIBLE";
   rejectionReason?: string | null;
+  evidenceImageUrls?: string[]; // Array of evidence image URLs
 }
 
 export interface UpdateCaseLineResponse {
@@ -70,6 +76,7 @@ export interface UpdateCaseLineResponse {
 export interface ApproveCaseLinesData {
   approvedCaseLineIds?: { id: string }[];
   rejectedCaseLineIds?: { id: string }[];
+  approverEmail: string; // Required for OTP verification
 }
 
 export interface ApproveCaseLinesResponse {
@@ -90,14 +97,29 @@ export interface AllocateStockResponse {
   status: "success";
   message: string;
   data: {
-    caseline: {
+    componentReservations?: Array<{
+      reservationId: string;
+      caseLineId: string;
+      componentId: string;
+      status: string;
+      createdAt?: string;
+    }>;
+    stockUpdates?: unknown[];
+    componentStatusUpdates?: unknown[];
+    formattedCaselineStatus?: Array<{
+      caselineId: string;
+      status: string;
+      updatedAt: string;
+    }>;
+    // Old format (for backward compatibility)
+    caseline?: {
       caselineId: string;
       componentId: string;
       quantity: number;
       quantityReserved: number;
       status: string;
     };
-    reservations: Array<{
+    reservations?: Array<{
       reservationId: string;
       caselineId: string;
       stockId: string;
@@ -203,9 +225,16 @@ class CaseLineService {
    * Get case line details by ID
    * GET /case-lines/{caselineId}
    */
-  async getCaseLineById(caselineId: string): Promise<CaseLineDetailResponse> {
+  async getCaseLineById(
+    caselineId: string,
+    caseId?: string
+  ): Promise<CaseLineDetailResponse> {
     try {
-      const response = await apiClient.get(`/case-lines/${caselineId}`);
+      // If caseId is provided, use it in the URL path (backend validator requires it)
+      const url = caseId
+        ? `/guarantee-cases/${caseId}/case-lines/${caselineId}`
+        : `/case-lines/${caselineId}`;
+      const response = await apiClient.get(url);
       return response.data;
     } catch (error: unknown) {
       console.error("Error fetching case line details:", error);
@@ -277,6 +306,7 @@ class CaseLineService {
   /**
    * Assign technician to repair a case line (Manager only)
    * PATCH /guarantee-cases/{caseId}/case-lines/{caselineId}/assign-technician
+   * Note: Uses nested route structure to satisfy validator that expects both caseId and caselineId in params
    */
   async assignTechnicianToRepair(
     caseId: string,

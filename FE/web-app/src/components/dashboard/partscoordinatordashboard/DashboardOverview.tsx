@@ -11,9 +11,7 @@ import {
   TrendingUp,
   Activity,
 } from "lucide-react";
-import { ComponentPickupList } from "./ComponentPickupList";
-import { ComponentPickupModal } from "./ComponentPickupModal";
-import { ComponentReturnModal } from "./ComponentReturnModal";
+import componentReservationService from "@/services/componentReservationService";
 
 interface DashboardOverviewProps {
   onNavigate?: (nav: string) => void;
@@ -27,8 +25,6 @@ export function DashboardOverview({}: DashboardOverviewProps) {
     returnedToday: 0,
   });
   const [loading, setLoading] = useState(false);
-  const [showPickupModal, setShowPickupModal] = useState(false);
-  const [showReturnModal, setShowReturnModal] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
@@ -37,20 +33,55 @@ export function DashboardOverview({}: DashboardOverviewProps) {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      // Note: Parts coordinator role currently doesn't have permission to access case lines API
-      // Backend returns 403 Forbidden
-      // TODO: Backend needs to add parts_coordinator_service_center to case lines GET endpoint
-      // For now, keep stats at 0 until backend permissions are updated
+      // Use dedicated component reservations endpoint
+      // This endpoint is authorized for parts_coordinator_service_center role
 
+      // Fetch different statuses in parallel
+      const [reserved, pickedUp, installed, returned] = await Promise.all([
+        componentReservationService.getComponentReservations({
+          status: "RESERVED",
+          limit: 1,
+        }),
+        componentReservationService.getComponentReservations({
+          status: "PICKED_UP",
+          limit: 1,
+        }),
+        componentReservationService.getComponentReservations({
+          status: "INSTALLED",
+          limit: 1,
+        }),
+        componentReservationService.getComponentReservations({
+          status: "RETURNED",
+          limit: 1,
+        }),
+      ]);
+
+      // Get today's returned count (requires filtering by date)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const returnedTodayCount = returned.data.reservations.filter((r) => {
+        if (!r.returnedAt) return false;
+        const returnDate = new Date(r.returnedAt);
+        returnDate.setHours(0, 0, 0, 0);
+        return returnDate.getTime() === today.getTime();
+      }).length;
+
+      setStats({
+        pendingPickups: reserved.data.pagination.total,
+        inTransit: pickedUp.data.pagination.total,
+        awaitingReturn: installed.data.pagination.total,
+        returnedToday: returnedTodayCount,
+      });
+    } catch (error) {
+      console.error("Error loading dashboard data:", error);
+      // Keep stats at 0 on error
       setStats({
         pendingPickups: 0,
         inTransit: 0,
         awaitingReturn: 0,
         returnedToday: 0,
       });
-    } catch (error) {
-      console.error("Error loading dashboard data:", error);
-      // Keep stats at 0 on error
     } finally {
       setLoading(false);
     }
@@ -103,7 +134,7 @@ export function DashboardOverview({}: DashboardOverviewProps) {
               animate={{ opacity: 1, y: 0 }}
               className="bg-white rounded-2xl border border-gray-200 p-6"
             >
-              <div className="flex items-center justify-between mb-4">
+              <div className="mb-4">
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">
                     Parts Coordinator Dashboard
@@ -111,22 +142,6 @@ export function DashboardOverview({}: DashboardOverviewProps) {
                   <p className="text-sm text-gray-500 mt-1">
                     Manage component pickups, installations, and returns
                   </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setShowPickupModal(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
-                  >
-                    <Package className="w-4 h-4" />
-                    <span className="font-medium">Pickup</span>
-                  </button>
-                  <button
-                    onClick={() => setShowReturnModal(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors shadow-sm"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                    <span className="font-medium">Return</span>
-                  </button>
                 </div>
               </div>
             </motion.div>
@@ -158,32 +173,6 @@ export function DashboardOverview({}: DashboardOverviewProps) {
                 </motion.div>
               ))}
             </div>
-
-            {/* Reserved Components List */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="bg-white rounded-2xl border border-gray-200"
-            >
-              <div className="border-b border-gray-200 p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                      <Package className="w-5 h-5 text-blue-600" />
-                      Reserved Components Ready for Pickup
-                    </h2>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Components that have been reserved and are waiting to be
-                      picked up from the warehouse
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="p-6">
-                <ComponentPickupList />
-              </div>
-            </motion.div>
           </div>
 
           {/* Sidebar - 4 cols */}
@@ -246,7 +235,7 @@ export function DashboardOverview({}: DashboardOverviewProps) {
                   <div>
                     <p className="text-sm font-medium text-blue-900">Pickup</p>
                     <p className="text-xs text-blue-700 mt-1">
-                      Click &ldquo;Pickup&rdquo; button in header to mark
+                      Go to &ldquo;Component Pickups&rdquo; in sidebar to mark
                       components as picked up from warehouse
                     </p>
                   </div>
@@ -269,8 +258,8 @@ export function DashboardOverview({}: DashboardOverviewProps) {
                   <div>
                     <p className="text-sm font-medium text-blue-900">Return</p>
                     <p className="text-xs text-blue-700 mt-1">
-                      Click &ldquo;Return&rdquo; button in header to return
-                      components with serial number
+                      Go to &ldquo;Component Returns&rdquo; in sidebar to return
+                      old components with serial number
                     </p>
                   </div>
                 </div>
@@ -279,22 +268,6 @@ export function DashboardOverview({}: DashboardOverviewProps) {
           </div>
         </div>
       </div>
-
-      {/* Modals */}
-      <ComponentPickupModal
-        isOpen={showPickupModal}
-        onClose={() => setShowPickupModal(false)}
-        onSuccess={() => {
-          loadDashboardData();
-        }}
-      />
-      <ComponentReturnModal
-        isOpen={showReturnModal}
-        onClose={() => setShowReturnModal(false)}
-        onSuccess={() => {
-          loadDashboardData();
-        }}
-      />
     </div>
   );
 }

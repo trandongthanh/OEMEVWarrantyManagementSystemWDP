@@ -13,6 +13,14 @@ export interface Customer {
   address: string;
   createdAt: string;
   updatedAt: string;
+  vehicles?: Array<{
+    vin: string;
+    licensePlate?: string;
+    vehicleModel?: {
+      modelName: string;
+      vehicleModelId: string;
+    };
+  }>;
 }
 
 export interface UpdateCustomerData {

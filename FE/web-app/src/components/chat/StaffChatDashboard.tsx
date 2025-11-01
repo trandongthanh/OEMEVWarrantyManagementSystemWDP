@@ -11,6 +11,7 @@ import {
   Clock,
   User,
   Paperclip,
+  Download,
 } from "lucide-react";
 import {
   getMyConversations,
@@ -26,9 +27,11 @@ import {
   sendSocketMessage,
   getChatSocket,
   initializeNotificationSocket,
+  getNotificationSocket,
   sendTypingIndicator,
 } from "@/lib/socket";
-import { uploadToCloudinary, getFileType } from "@/lib/cloudinary";
+import { uploadToCloudinary } from "@/lib/cloudinary";
+import { decodeFileFromContent } from "@/lib/fileMessageUtils";
 
 interface StaffChatDashboardProps {
   serviceCenterId?: string; // Can be used for filtering in the future
@@ -46,20 +49,38 @@ export default function StaffChatDashboard({
   const [isTyping, setIsTyping] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedTab, setSelectedTab] = useState<
-    "waiting" | "active" | "closed"
-  >("waiting");
+    "UNASSIGNED" | "ACTIVE" | "CLOSED"
+  >("UNASSIGNED");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [guestHasLeft, setGuestHasLeft] = useState(false); // Track if guest has left
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   // Get auth token and userId from localStorage or context
   const authToken =
     typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
-  const currentUserId =
-    typeof window !== "undefined" ? localStorage.getItem("userId") : null;
+
+  // Get userId from userInfo JSON object
+  const currentUserId = (() => {
+    if (typeof window === "undefined") return null;
+    const userInfoStr = localStorage.getItem("userInfo");
+    if (!userInfoStr) return null;
+    try {
+      const userInfo = JSON.parse(userInfoStr);
+      return userInfo.userId;
+    } catch {
+      return null;
+    }
+  })();
 
   useEffect(() => {
+    console.log(
+      "[Staff] Component mounted - authToken:",
+      !!authToken,
+      "userId:",
+      currentUserId
+    );
     if (authToken) {
       initializeSockets();
       loadConversations();
@@ -67,10 +88,16 @@ export default function StaffChatDashboard({
 
     // Cleanup on unmount
     return () => {
-      const socket = getChatSocket();
-      if (socket) {
-        socket.off("newMessage");
-        socket.off("userTyping");
+      const chatSocket = getChatSocket();
+      if (chatSocket) {
+        chatSocket.off("newMessage");
+        chatSocket.off("userTyping");
+      }
+
+      // Also cleanup notification socket listeners
+      const notifSocket = getNotificationSocket();
+      if (notifSocket) {
+        notifSocket.off("newConversation");
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -82,17 +109,33 @@ export default function StaffChatDashboard({
   }, [selectedTab]);
 
   useEffect(() => {
+    console.log(
+      "[Staff] 🔄 useEffect triggered - activeConversation changed:",
+      activeConversation
+    );
     if (activeConversation) {
+      // Reset guest left state when switching conversations
+      setGuestHasLeft(false);
+
+      console.log(
+        "[Staff] Loading messages for conversation:",
+        activeConversation.conversationId
+      );
       loadMessages(activeConversation.conversationId);
+      console.log("[Staff] Calling setupChatListeners...");
       setupChatListeners();
+    } else {
+      console.log("[Staff] No active conversation, skipping setup");
     }
 
     // Cleanup function to remove listeners when conversation changes
     return () => {
+      console.log("[Staff] 🧹 Cleaning up listeners for conversation change");
       const socket = getChatSocket();
       if (socket) {
         socket.off("newMessage");
         socket.off("userTyping");
+        socket.off("guestLeft");
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -103,18 +146,21 @@ export default function StaffChatDashboard({
   }, [messages]);
 
   const initializeSockets = () => {
-    // Initialize chat socket
-    initializeChatSocket();
+    // Initialize chat socket with auth token for staff
+    initializeChatSocket(authToken || undefined);
 
     // Initialize notification socket for new chat alerts
     if (authToken) {
       const notifSocket = initializeNotificationSocket(authToken);
 
+      // Clean up any existing listeners to prevent duplicates
+      notifSocket.off("newConversation");
+
       // Listen for new conversation requests
       notifSocket.on("newConversation", (data: { conversationId: string }) => {
         console.log("New conversation request:", data);
-        // Reload waiting conversations
-        if (selectedTab === "waiting") {
+        // Reload unassigned conversations
+        if (selectedTab === "UNASSIGNED") {
           loadConversations();
         }
         // Show notification
@@ -125,26 +171,56 @@ export default function StaffChatDashboard({
 
   const setupChatListeners = () => {
     const socket = getChatSocket();
-    if (!socket || !activeConversation || !currentUserId) return;
+    if (!socket || !activeConversation || !currentUserId) {
+      console.log(
+        "[Staff] Cannot setup listeners - missing:",
+        !socket ? "socket" : !activeConversation ? "conversation" : "userId"
+      );
+      return;
+    }
 
     // Ensure socket is connected before setting up listeners
     if (!socket.connected) {
-      console.log("Socket not connected, initializing...");
-      initializeChatSocket();
+      console.log("[Staff] Socket not connected, initializing...");
+      console.log(
+        "[Staff] Socket exists:",
+        !!socket,
+        "Connected:",
+        socket?.connected
+      );
+      initializeChatSocket(authToken || undefined);
       // Retry after a short delay
       setTimeout(() => setupChatListeners(), 1000);
       return;
     }
 
+    console.log("[Staff] Setting up chat listeners");
+    console.log("[Staff] Conversation ID:", activeConversation.conversationId);
+    console.log("[Staff] Current User ID:", currentUserId);
+    console.log("[Staff] Socket state:", {
+      connected: socket.connected,
+      id: socket.id,
+    });
+
     // Clean up previous listeners to avoid duplicates
+    console.log("[Staff] Cleaning up old listeners");
     socket.off("newMessage");
     socket.off("userTyping");
+    socket.off("guestLeft");
 
     // Join the conversation room
+    console.log(
+      "[Staff] 🚀 About to join room:",
+      activeConversation.conversationId
+    );
     joinChatRoom(activeConversation.conversationId, currentUserId, "staff");
+    console.log(
+      "[Staff] ✅ joinChatRoom called - check backend for confirmation"
+    );
 
     // Listen for new messages
     socket.on("newMessage", (data: { newMessage: Message }) => {
+      console.log("[Staff] 📩 Received newMessage event:", data);
       // Normalize senderType to lowercase for frontend consistency
       const normalizedMessage = {
         ...data.newMessage,
@@ -169,24 +245,42 @@ export default function StaffChatDashboard({
         }, 3000);
       }
     });
+
+    // Listen for guest leaving
+    socket.on(
+      "guestLeft",
+      (data: {
+        conversationId: string;
+        guestId: string;
+        timestamp: string;
+      }) => {
+        console.log("[Staff] 👋 Guest left the chat:", data);
+        if (data.conversationId === activeConversation.conversationId) {
+          // Mark that guest has left (frontend-only state)
+          setGuestHasLeft(true);
+
+          // Add system message to chat
+          const systemMessage: Message = {
+            messageId: `system_${Date.now()}`,
+            content: "Guest has left the conversation",
+            senderId: "system",
+            senderType: "system",
+            senderName: "System",
+            sentAt: data.timestamp,
+            isRead: true,
+          };
+          setMessages((prev) => [...prev, systemMessage]);
+          setIsTyping(false);
+        }
+      }
+    );
   };
 
   const loadConversations = async () => {
     setLoading(true);
     try {
       const convs = await getMyConversations(selectedTab);
-      // Filter conversations based on selected tab
-      const filteredConvs = convs.filter((conv) => {
-        if (selectedTab === "waiting") {
-          return conv.status === "waiting" || conv.status === "UNASSIGNED";
-        } else if (selectedTab === "active") {
-          return conv.status === "active" || conv.status === "ACTIVE";
-        } else if (selectedTab === "closed") {
-          return conv.status === "closed" || conv.status === "CLOSED";
-        }
-        return false;
-      });
-      setConversations(filteredConvs);
+      setConversations(convs);
     } catch (err) {
       console.error("Failed to load conversations:", err);
     } finally {
@@ -209,13 +303,21 @@ export default function StaffChatDashboard({
   };
 
   const handleAcceptChat = async (conversation: Conversation) => {
+    console.log(
+      "[Staff] 🎯 handleAcceptChat called for conversation:",
+      conversation.conversationId
+    );
     try {
+      console.log("[Staff] Calling acceptConversation API...");
       await acceptConversation(conversation.conversationId);
-      setActiveConversation({ ...conversation, status: "active" });
-      setSelectedTab("active");
+      console.log("[Staff] ✅ Conversation accepted, setting as active");
+      setActiveConversation({ ...conversation, status: "ACTIVE" });
+      setSelectedTab("ACTIVE");
+      console.log("[Staff] Reloading conversations list...");
       loadConversations();
+      console.log("[Staff] setupChatListeners should trigger via useEffect");
     } catch (err) {
-      console.error("Failed to accept chat:", err);
+      console.error("[Staff] ❌ Failed to accept chat:", err);
     }
   };
 
@@ -227,42 +329,57 @@ export default function StaffChatDashboard({
     )
       return;
 
+    // Check if socket is connected
+    const socket = getChatSocket();
+    if (!socket || !socket.connected) {
+      console.error("[Staff] Socket not connected! Reinitializing...");
+      initializeChatSocket(authToken || undefined);
+      alert("Connection lost. Please try again in a moment.");
+      return;
+    }
+
     setIsUploading(true);
-    let fileUrl: string | undefined;
-    let fileType: "image" | "file" | undefined;
 
     try {
-      // Upload file to Cloudinary if selected
+      let messageContent = inputText.trim();
+
+      // Upload file to Cloudinary if selected - just include the URL in message
       if (selectedFile) {
-        fileUrl = await uploadToCloudinary(selectedFile);
-        fileType = getFileType(fileUrl);
+        const fileUrl = await uploadToCloudinary(selectedFile);
+        // Simply add the URL to the message - frontend will auto-detect and display it
+        messageContent = fileUrl + (messageContent ? ` ${messageContent}` : "");
       }
 
       const messageData = {
         conversationId: activeConversation.conversationId,
         senderId: currentUserId,
         senderType: "staff" as const,
-        content:
-          inputText.trim() || (selectedFile ? `📎 ${selectedFile.name}` : ""),
+        content: messageContent || `📎 ${selectedFile?.name || "attachment"}`,
         timestamp: new Date().toISOString(),
-        fileUrl,
-        fileType,
       };
 
-      // Send through socket
-      sendSocketMessage(messageData);
+      console.log("[Staff] Sending message:", messageContent);
+      console.log("[Staff] Socket connected:", socket.connected);
+      console.log("[Staff] Socket ID:", socket.id);
 
+      // Send through socket
+      sendSocketMessage(messageData, (response) => {
+        console.log("[Staff] Message send response:", response);
+        if (!response.success) {
+          console.error("[Staff] Failed to send message:", response.error);
+          alert("Failed to send message: " + response.error);
+        }
+      });
+
+      // Add to local state for immediate display
       const newMessage: Message = {
         messageId: `temp-${Date.now()}`,
-        content:
-          inputText.trim() || (selectedFile ? `📎 ${selectedFile.name}` : ""),
+        content: messageContent || `📎 ${selectedFile?.name || "attachment"}`,
         senderId: currentUserId,
         senderType: "staff",
         senderName: "You",
         sentAt: new Date().toISOString(),
         isRead: false,
-        fileUrl,
-        fileType,
       };
 
       setMessages((prev) => [...prev, newMessage]);
@@ -347,7 +464,7 @@ export default function StaffChatDashboard({
   };
 
   const getWaitingCount = () => {
-    return conversations.filter((c) => c.status === "waiting").length;
+    return conversations.filter((c) => c.status === "UNASSIGNED").length;
   };
 
   return (
@@ -368,9 +485,9 @@ export default function StaffChatDashboard({
           {/* Tabs */}
           <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
             <button
-              onClick={() => setSelectedTab("waiting")}
+              onClick={() => setSelectedTab("UNASSIGNED")}
               className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200 relative ${
-                selectedTab === "waiting"
+                selectedTab === "UNASSIGNED"
                   ? "bg-white text-gray-900 shadow-sm"
                   : "text-gray-600 hover:text-gray-900"
               }`}
@@ -399,9 +516,9 @@ export default function StaffChatDashboard({
               </AnimatePresence>
             </button>
             <button
-              onClick={() => setSelectedTab("active")}
+              onClick={() => setSelectedTab("ACTIVE")}
               className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                selectedTab === "active"
+                selectedTab === "ACTIVE"
                   ? "bg-white text-gray-900 shadow-sm"
                   : "text-gray-600 hover:text-gray-900"
               }`}
@@ -412,9 +529,9 @@ export default function StaffChatDashboard({
               </div>
             </button>
             <button
-              onClick={() => setSelectedTab("closed")}
+              onClick={() => setSelectedTab("CLOSED")}
               className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                selectedTab === "closed"
+                selectedTab === "CLOSED"
                   ? "bg-white text-gray-900 shadow-sm"
                   : "text-gray-600 hover:text-gray-900"
               }`}
@@ -440,12 +557,13 @@ export default function StaffChatDashboard({
                 <MessageCircle className="w-8 h-8 text-gray-300" />
               </div>
               <p className="text-base font-semibold text-gray-700 mb-1">
-                No {selectedTab} conversations
+                No {selectedTab.toLowerCase()} conversations
               </p>
               <p className="text-sm text-gray-500">
-                {selectedTab === "waiting" && "Waiting for customer inquiries"}
-                {selectedTab === "active" && "No active chats at the moment"}
-                {selectedTab === "closed" && "No closed conversations yet"}
+                {selectedTab === "UNASSIGNED" &&
+                  "Waiting for customer inquiries"}
+                {selectedTab === "ACTIVE" && "No active chats at the moment"}
+                {selectedTab === "CLOSED" && "No closed conversations yet"}
               </p>
             </div>
           ) : (
@@ -470,11 +588,9 @@ export default function StaffChatDashboard({
                       </div>
                       <div
                         className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white shadow-sm ${
-                          conversation.status === "waiting" ||
                           conversation.status === "UNASSIGNED"
                             ? "bg-amber-400"
-                            : conversation.status === "active" ||
-                              conversation.status === "ACTIVE"
+                            : conversation.status === "ACTIVE"
                             ? "bg-green-500"
                             : "bg-gray-400"
                         }`}
@@ -482,9 +598,16 @@ export default function StaffChatDashboard({
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1.5">
-                        <h4 className="font-semibold text-gray-900 truncate">
-                          {conversation.guest?.name || "Anonymous Guest"}
-                        </h4>
+                        <div>
+                          <h4 className="font-semibold text-gray-900 truncate">
+                            Anonymous Guest
+                          </h4>
+                          <p className="text-xs text-gray-500">
+                            ID:{" "}
+                            {conversation.guest?.guestId?.slice(-23) ||
+                              "Unknown"}
+                          </p>
+                        </div>
                         <span className="text-xs text-gray-500 font-medium">
                           {formatDate(conversation.createdAt)}
                         </span>
@@ -497,18 +620,18 @@ export default function StaffChatDashboard({
                       <div className="flex items-center justify-between">
                         <span
                           className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                            conversation.status === "waiting" ||
                             conversation.status === "UNASSIGNED"
                               ? "bg-amber-50 text-amber-700 border border-amber-200"
-                              : conversation.status === "active" ||
-                                conversation.status === "ACTIVE"
+                              : conversation.status === "ACTIVE"
                               ? "bg-green-50 text-green-700 border border-green-200"
                               : "bg-gray-100 text-gray-700 border border-gray-200"
                           }`}
                         >
                           {conversation.status === "UNASSIGNED"
-                            ? "waiting"
-                            : conversation.status}
+                            ? "Waiting"
+                            : conversation.status === "ACTIVE"
+                            ? "Active"
+                            : "Closed"}
                         </span>
                         <AnimatePresence mode="wait">
                           {conversation.unreadCount &&
@@ -534,8 +657,7 @@ export default function StaffChatDashboard({
                   </div>
 
                   {/* Accept Button for Waiting Chats */}
-                  {(conversation.status === "waiting" ||
-                    conversation.status === "UNASSIGNED") && (
+                  {conversation.status === "UNASSIGNED" && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -567,27 +689,36 @@ export default function StaffChatDashboard({
                   </div>
                   <div>
                     <h3 className="font-bold text-gray-900 text-lg">
-                      {activeConversation.guest?.name || "Anonymous Guest"}
+                      Anonymous Guest
                     </h3>
+                    <p className="text-xs text-gray-500">
+                      ID:{" "}
+                      {activeConversation.guest?.guestId?.slice(-23) ||
+                        "Unknown"}
+                    </p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <div
                         className={`w-2 h-2 rounded-full ${
-                          activeConversation.status === "active" ||
-                          activeConversation.status === "ACTIVE"
+                          guestHasLeft
+                            ? "bg-orange-500"
+                            : activeConversation.status === "ACTIVE"
                             ? "bg-green-500"
                             : "bg-gray-400"
                         }`}
                       ></div>
                       <p className="text-sm text-gray-600 font-medium capitalize">
-                        {activeConversation.status === "UNASSIGNED"
-                          ? "waiting"
-                          : activeConversation.status}
+                        {guestHasLeft
+                          ? "Guest Left"
+                          : activeConversation.status === "UNASSIGNED"
+                          ? "Waiting"
+                          : activeConversation.status === "ACTIVE"
+                          ? "Active"
+                          : "Closed"}
                       </p>
                     </div>
                   </div>
                 </div>
-                {(activeConversation.status === "active" ||
-                  activeConversation.status === "ACTIVE") && (
+                {activeConversation.status === "ACTIVE" && (
                   <button
                     onClick={handleCloseConversation}
                     className="px-5 py-2.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md"
@@ -600,92 +731,125 @@ export default function StaffChatDashboard({
 
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
-              {messages.map((message) => (
-                <motion.div
-                  key={message.messageId}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`flex ${
-                    message.senderType === "staff"
-                      ? "justify-end"
-                      : "justify-start"
-                  }`}
-                >
-                  <div className="max-w-[70%]">
-                    {message.senderType === "guest" && (
-                      <p className="text-xs text-gray-500 mb-1.5 ml-2 font-medium">
-                        {message.senderName}
-                      </p>
-                    )}
-                    <div
-                      className={`rounded-2xl px-4 py-3 shadow-sm ${
-                        message.senderType === "staff"
-                          ? "bg-blue-500 text-white"
-                          : "bg-white text-gray-900 border border-gray-200"
-                      }`}
+              {messages.map((message) => {
+                // System messages (guest left notification)
+                if (message.senderType === "system") {
+                  return (
+                    <motion.div
+                      key={message.messageId}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex justify-center my-4"
                     >
-                      <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                      <div className="bg-gray-200/80 text-gray-600 px-4 py-2 rounded-full text-xs font-medium shadow-sm">
                         {message.content}
-                      </p>
+                      </div>
+                    </motion.div>
+                  );
+                }
 
-                      {/* File/Image Display */}
-                      {message.fileUrl && (
-                        <div className="mt-3">
-                          {message.fileType === "image" ? (
-                            <div className="relative">
-                              <Image
-                                src={message.fileUrl!}
-                                alt="Shared image"
-                                width={300}
-                                height={200}
-                                className="max-w-full max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity object-cover"
-                                onClick={() =>
-                                  window.open(message.fileUrl, "_blank")
-                                }
-                              />
-                              <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
-                                📷 Image
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-3 p-3 bg-black/20 rounded-lg">
-                              <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                                <span className="text-blue-300">📎</span>
-                              </div>
-                              <div className="flex-1">
-                                <p className="text-sm text-white font-medium">
-                                  {message.fileUrl.split("/").pop()}
-                                </p>
-                                <p className="text-xs text-gray-400">
-                                  File attachment
-                                </p>
-                              </div>
-                              <button
-                                onClick={() =>
-                                  window.open(message.fileUrl, "_blank")
-                                }
-                                className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
-                              >
-                                Download
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                // Regular messages
+                return (
+                  <motion.div
+                    key={message.messageId}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`flex ${
+                      message.senderType === "staff"
+                        ? "justify-end"
+                        : "justify-start"
+                    }`}
+                  >
+                    <div className="max-w-[70%]">
+                      {message.senderType === "guest" && (
+                        <p className="text-xs text-gray-500 mb-1.5 ml-2 font-medium">
+                          {message.senderName}
+                        </p>
                       )}
+                      {(() => {
+                        const { file, text } = decodeFileFromContent(
+                          message.content
+                        );
+                        return (
+                          <div
+                            className={`rounded-2xl px-4 py-3 shadow-sm ${
+                              message.senderType === "staff"
+                                ? "bg-blue-500 text-white"
+                                : "bg-white text-gray-900 border border-gray-200"
+                            }`}
+                          >
+                            {/* File/Image Display */}
+                            {file && (
+                              <div className="mb-3">
+                                {file.type === "image" ? (
+                                  <div className="relative">
+                                    <Image
+                                      src={file.url}
+                                      alt="Shared image"
+                                      width={300}
+                                      height={200}
+                                      className="max-w-full max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity object-cover"
+                                      onClick={() =>
+                                        window.open(file.url, "_blank")
+                                      }
+                                    />
+                                    <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+                                      📷 Image
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-3 p-3 bg-gray-100 rounded-lg">
+                                    <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                                      <span className="text-blue-300">📎</span>
+                                    </div>
+                                    <div className="flex-1">
+                                      <p className="text-sm font-medium">
+                                        {file.name}
+                                      </p>
+                                      <p className="text-xs text-blue-100">
+                                        File attachment
+                                      </p>
+                                    </div>
+                                    {/* Only show download button for messages not from current user */}
+                                    {message.senderId !== currentUserId && (
+                                      <button
+                                        onClick={() =>
+                                          window.open(file.url, "_blank")
+                                        }
+                                        className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                                        title="Download file"
+                                      >
+                                        <Download size={16} />
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
 
-                      <p
-                        className={`text-xs mt-2 ${
-                          message.senderType === "staff"
-                            ? "text-blue-100"
-                            : "text-gray-500"
-                        }`}
-                      >
-                        {formatTime(message.sentAt)}
-                      </p>
+                            {/* Message Text */}
+                            {text && (
+                              <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                                {text}
+                              </p>
+                            )}
+
+                            <p
+                              className={`text-xs mt-2 ${
+                                message.senderType === "staff"
+                                  ? "text-blue-100"
+                                  : "text-gray-500"
+                              }`}
+                            >
+                              {formatTime(message.sentAt)}
+                            </p>
+                          </div>
+                        );
+                      })()}
                     </div>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                );
+              })}
 
               {/* Typing Indicator */}
               <AnimatePresence>
@@ -736,8 +900,7 @@ export default function StaffChatDashboard({
 
             {/* Input Area */}
             <div className="bg-white border-t border-gray-200 p-5 shadow-sm">
-              {activeConversation.status === "active" ||
-              activeConversation.status === "ACTIVE" ? (
+              {activeConversation.status === "ACTIVE" ? (
                 <>
                   {/* File Preview */}
                   {selectedFile && (
@@ -788,7 +951,7 @@ export default function StaffChatDashboard({
                           );
                         }
                       }}
-                      onKeyPress={handleKeyPress}
+                      onKeyDown={handleKeyPress}
                       placeholder="Type your message..."
                       rows={1}
                       className="flex-1 resize-none rounded-xl border-2 border-gray-200 px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
@@ -811,9 +974,16 @@ export default function StaffChatDashboard({
                 </>
               ) : (
                 <div className="text-center py-4">
-                  <div className="inline-block px-6 py-3 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl">
-                    {activeConversation.status === "waiting" ||
-                    activeConversation.status === "UNASSIGNED"
+                  <div
+                    className={`inline-block px-6 py-3 text-sm font-medium rounded-xl ${
+                      guestHasLeft
+                        ? "bg-orange-50 text-orange-600 border border-orange-200"
+                        : "bg-gray-100 text-gray-600"
+                    }`}
+                  >
+                    {guestHasLeft
+                      ? "Guest has left the conversation"
+                      : activeConversation.status === "UNASSIGNED"
                       ? "Accept this chat to start messaging"
                       : "This conversation is closed"}
                   </div>

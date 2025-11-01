@@ -3,21 +3,18 @@
 import { useState, useEffect } from "react";
 import {
   Home,
-  CreditCard,
   Users,
-  BarChart3,
-  Clock,
   FileText,
   MessageCircle,
   Package,
   History as HistoryIcon,
+  Truck,
 } from "lucide-react";
 import { authService, customerService, Customer } from "@/services";
 import {
   Sidebar,
   DashboardHeader,
   NewClaimModal,
-  PlaceholderContent,
   RegisterVehicleModal,
   DashboardOverview,
   CustomerSearchResults,
@@ -26,10 +23,12 @@ import {
   VehicleHistory,
 } from "@/components/dashboard";
 import { StaffChatDashboard } from "@/components/chat";
+import { StockTransferRequestList } from "@/components/dashboard/managerdashboard";
 
 interface User {
   userId: string;
   roleName: string;
+  serviceCenterId?: string;
 }
 
 export default function StaffDashboard() {
@@ -45,6 +44,8 @@ export default function StaffDashboard() {
   const [registerVehicleVin, setRegisterVehicleVin] = useState<
     string | undefined
   >(undefined);
+  // Note: Staff role doesn't have warehouse access, so we don't fetch it
+  const warehouseId = null;
 
   const toggleSidebar = () => setSidebarCollapsed(!sidebarCollapsed);
 
@@ -55,7 +56,9 @@ export default function StaffDashboard() {
   useEffect(() => {
     const user = authService.getCurrentUser();
     setCurrentUser(user);
-    // Staff role doesn't need additional data fetching
+    // Note: service_center_staff role doesn't have warehouse access
+    // Only managers and parts coordinators can access warehouse API
+    // Stock transfers don't require warehouseId for staff role
   }, []);
 
   const handleSearch = async (query: string) => {
@@ -101,11 +104,9 @@ export default function StaffDashboard() {
     { id: "dashboard", icon: Home, label: "Dashboard" },
     { id: "cases", icon: Users, label: "Cases" },
     { id: "chat-support", icon: MessageCircle, label: "Chat Support" },
+    { id: "stock-transfers", icon: Truck, label: "Stock Transfers" },
     { id: "vehicle-components", icon: Package, label: "Vehicle Components" },
     { id: "vehicle-history", icon: HistoryIcon, label: "Vehicle History" },
-    { id: "receipts", icon: CreditCard, label: "Receipts" },
-    { id: "manage", icon: BarChart3, label: "Manage" },
-    { id: "history", icon: Clock, label: "History" },
   ];
 
   const renderSearchResults = () => {
@@ -138,38 +139,20 @@ export default function StaffDashboard() {
           </div>
         );
 
+      case "stock-transfers":
+        return (
+          <StockTransferRequestList
+            userRole="service_center_staff"
+            warehouseId={warehouseId || undefined}
+            onRequestCreated={() => {}}
+          />
+        );
+
       case "vehicle-components":
         return <VehicleComponents />;
 
       case "vehicle-history":
         return <VehicleHistory />;
-
-      case "receipts":
-        return (
-          <PlaceholderContent
-            icon={CreditCard}
-            title="Receipts & Transactions"
-            description="View all payment receipts, invoices, and financial transactions related to warranty claims and services."
-          />
-        );
-
-      case "manage":
-        return (
-          <PlaceholderContent
-            icon={BarChart3}
-            title="Management Dashboard"
-            description="Access advanced management tools, analytics, and reports. Monitor service center performance and efficiency."
-          />
-        );
-
-      case "history":
-        return (
-          <PlaceholderContent
-            icon={Clock}
-            title="Service History"
-            description="Browse complete history of all services, repairs, and warranty claims. Filter and export data as needed."
-          />
-        );
 
       default:
         return null;
@@ -198,6 +181,7 @@ export default function StaffDashboard() {
           {/* Header */}
           <DashboardHeader
             onSearch={handleSearch}
+            onNavigate={setActiveNav}
             searchPlaceholder="Search customer by email or phone..."
             showSearch={activeNav === "dashboard"}
             showNotifications={true}
@@ -240,6 +224,9 @@ export default function StaffDashboard() {
           // Data refresh not needed for staff dashboard
           // Reset VIN after successful registration
           setRegisterVehicleVin(undefined);
+        }}
+        onCreateClaim={() => {
+          setShowNewClaimModal(true);
         }}
         initialVin={registerVehicleVin}
       />

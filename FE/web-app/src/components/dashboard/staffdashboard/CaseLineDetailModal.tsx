@@ -12,10 +12,12 @@ import {
   Wrench,
   CheckSquare,
   Square,
+  Image as ImageIcon,
 } from "lucide-react";
 import type { ProcessingRecord } from "@/services/processingRecordService";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { WorkflowTimeline } from "../shared";
+import { caseLineService, type CaseLine as CaseLineType } from "@/services";
 
 interface CaseLineDetailModalProps {
   isOpen: boolean;
@@ -33,6 +35,7 @@ interface CaseLine {
   quantity: number;
   warrantyStatus: string;
   status: string;
+  evidenceImageUrls?: string[];
 }
 
 export function CaseLineDetailModal({
@@ -45,24 +48,129 @@ export function CaseLineDetailModal({
   const [selectedCaseLines, setSelectedCaseLines] = useState<Set<string>>(
     new Set()
   );
+  const [caseLineDetails, setCaseLineDetails] = useState<
+    Map<string, CaseLineType>
+  >(new Map());
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+
+  // Fetch detailed case line information when modal opens
+  useEffect(() => {
+    console.log("🔵 CaseLineDetailModal useEffect triggered", {
+      isOpen,
+      hasRecord: !!record,
+    });
+
+    if (!isOpen || !record) {
+      console.log("⏹️ Skipping fetch - modal closed or no record");
+      return;
+    }
+
+    const fetchCaseLineDetails = async () => {
+      console.log("🚀 Starting to fetch case line details...");
+      setIsLoadingDetails(true);
+      const detailsMap = new Map<string, CaseLineType>();
+
+      try {
+        // Extract case line IDs and guarantee case IDs from processing record
+        const caseLineRequests: Array<{
+          caseLineId: string;
+          guaranteeCaseId: string;
+        }> = [];
+        record.guaranteeCases?.forEach((gc) => {
+          gc.caseLines?.forEach((cl) => {
+            const id = cl.caseLineId || cl.id;
+            if (id && gc.guaranteeCaseId) {
+              caseLineRequests.push({
+                caseLineId: id,
+                guaranteeCaseId: gc.guaranteeCaseId,
+              });
+            }
+          });
+        });
+
+        console.log("📝 Case line requests to fetch:", caseLineRequests);
+
+        // Fetch details for each case line
+        const detailPromises = caseLineRequests.map(
+          async ({ caseLineId, guaranteeCaseId }) => {
+            try {
+              console.log(
+                `⏳ Fetching details for case line: ${caseLineId}, case: ${guaranteeCaseId}`
+              );
+              const response = await caseLineService.getCaseLineById(
+                caseLineId,
+                guaranteeCaseId
+              );
+              console.log(
+                `✅ Received data for case line ${caseLineId}:`,
+                response.data
+              );
+              return { id: caseLineId, data: response.data.caseLine };
+            } catch (error) {
+              console.error(
+                `❌ Error fetching case line ${caseLineId}:`,
+                error
+              );
+              return null;
+            }
+          }
+        );
+
+        const results = await Promise.all(detailPromises);
+
+        results.forEach((result) => {
+          if (result) {
+            console.log(
+              `Case line ${result.id} details:`,
+              JSON.stringify(result.data, null, 2)
+            );
+            detailsMap.set(result.id, result.data);
+          }
+        });
+
+        console.log("All fetched case line details:", detailsMap);
+        setCaseLineDetails(detailsMap);
+      } catch (error) {
+        console.error("Error fetching case line details:", error);
+      } finally {
+        setIsLoadingDetails(false);
+      }
+    };
+
+    fetchCaseLineDetails();
+  }, [isOpen, record]);
 
   if (!record) return null;
 
-  // Extract all case lines from guarantee cases
+  // Extract all case lines from guarantee cases with detailed information
   const allCaseLines: CaseLine[] = [];
   record.guaranteeCases?.forEach((gc) => {
     gc.caseLines?.forEach((cl) => {
+      const id = cl.caseLineId || cl.id || "";
+      const detailedInfo = caseLineDetails.get(id);
+
+      const evidenceUrls =
+        (detailedInfo as { evidenceImageUrls?: string[] })?.evidenceImageUrls ||
+        (cl as { evidenceImageUrls?: string[] }).evidenceImageUrls ||
+        [];
+
+      console.log(`Case line ${id} evidence URLs:`, evidenceUrls);
+
       allCaseLines.push({
-        id: cl.caseLineId || (cl as { id?: string }).id || "",
+        id,
         caseLineId: cl.caseLineId,
-        diagnosisText: cl.diagnosisText || "",
-        correctionText: cl.correctionText || "",
-        quantity: cl.quantity || 0,
-        warrantyStatus: cl.warrantyStatus || "UNKNOWN",
-        status: (cl as { status?: string }).status || "PENDING_APPROVAL",
+        diagnosisText: detailedInfo?.diagnosisText || cl.diagnosisText || "",
+        correctionText: detailedInfo?.correctionText || cl.correctionText || "",
+        quantity: detailedInfo?.quantity || cl.quantity || 0,
+        warrantyStatus:
+          detailedInfo?.warrantyStatus || cl.warrantyStatus || "UNKNOWN",
+        status: detailedInfo?.status || cl.status || "PENDING_APPROVAL",
+        evidenceImageUrls: evidenceUrls,
       });
     });
   });
+
+  console.log("Final allCaseLines with images:", allCaseLines);
 
   const handleApprove = (caseId: string) => {
     if (onApproveCaseLines) {
@@ -229,6 +337,14 @@ export function CaseLineDetailModal({
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6">
+              {isLoadingDetails && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center gap-3 text-gray-600">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-900"></div>
+                    <span>Loading case line details...</span>
+                  </div>
+                </div>
+              )}
               {allCaseLines.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20">
                   <FileText className="w-16 h-16 text-gray-400 mb-4" />
@@ -429,9 +545,39 @@ export function CaseLineDetailModal({
                               Diagnosis
                             </h5>
                           </div>
-                          <p className="text-sm text-gray-700 leading-relaxed">
+                          <p className="text-sm text-gray-700 leading-relaxed mb-3">
                             {caseLine.diagnosisText}
                           </p>
+
+                          {/* Evidence Images Section - View Only for Staff */}
+                          {caseLine.evidenceImageUrls &&
+                            caseLine.evidenceImageUrls.length > 0 && (
+                              <div className="mt-3 pt-3 border-t border-gray-300">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <ImageIcon className="w-4 h-4 text-gray-600" />
+                                  <span className="text-xs font-medium text-gray-700">
+                                    Evidence Images
+                                  </span>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2">
+                                  {caseLine.evidenceImageUrls.map(
+                                    (url, idx) => (
+                                      <div
+                                        key={idx}
+                                        className="relative aspect-square rounded-lg overflow-hidden border border-gray-300 bg-white"
+                                      >
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                          src={url}
+                                          alt={`Evidence ${idx + 1}`}
+                                          className="w-full h-full object-cover"
+                                        />
+                                      </div>
+                                    )
+                                  )}
+                                </div>
+                              </div>
+                            )}
                         </div>
 
                         {/* Correction */}

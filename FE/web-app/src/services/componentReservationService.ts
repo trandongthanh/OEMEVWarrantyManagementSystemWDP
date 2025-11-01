@@ -92,24 +92,128 @@ export interface ReturnComponentResponse {
   };
 }
 
+export interface GetComponentReservationsParams {
+  page?: number;
+  limit?: number;
+  status?: "RESERVED" | "PICKED_UP" | "INSTALLED" | "RETURNED" | "CANCELLED";
+  warehouseId?: string;
+  typeComponentId?: string;
+  caseLineId?: string;
+  guaranteeCaseId?: string;
+  vehicleProcessingRecordId?: string;
+  repairTechId?: string;
+  repairTechPhone?: string;
+  sortBy?: "createdAt" | "updatedAt";
+  sortOrder?: "ASC" | "DESC";
+}
+
+export interface GetComponentReservationsResponse {
+  status: "success";
+  data: {
+    reservations: ComponentReservation[];
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  };
+}
+
 class ComponentReservationService {
   /**
+   * Get list of component reservations
+   * GET /reservations
+   *
+   * Query filters:
+   * - status: Filter by reservation status
+   * - warehouseId: Filter by warehouse
+   * - typeComponentId: Filter by component type
+   * - caseLineId: Filter by specific case line
+   * - guaranteeCaseId: Filter by guarantee case
+   * - vehicleProcessingRecordId: Filter by processing record
+   * - repairTechId: Filter by repair technician
+   * - repairTechPhone: Filter by technician phone
+   *
+   * @role parts_coordinator_service_center
+   */
+  async getComponentReservations(
+    params?: GetComponentReservationsParams
+  ): Promise<GetComponentReservationsResponse> {
+    try {
+      const response = await apiClient.get("/reservations", {
+        params,
+      });
+      return response.data;
+    } catch (error: unknown) {
+      console.error("Error fetching component reservations:", error);
+      throw error;
+    }
+  }
+
+  /**
    * Pickup reserved components from warehouse
-   * PATCH /reservations/{reservationId}/pickup
+   * PATCH /reservations/pickup
    *
    * Updates:
-   * - Reservation: RESERVED → PICKED_UP
-   * - Component: status → PICKED_UP
+   * - Reservations: RESERVED → PICKED_UP (supports multiple)
+   * - Components: status → WITH_TECHNICIAN
    * - CaseLine: READY_FOR_REPAIR → IN_REPAIR (if first pickup)
    *
    * @role parts_coordinator_service_center
    */
-  async pickupComponent(reservationId: string): Promise<PickupResponse> {
+  async pickupComponents(
+    reservationIds: string[],
+    pickedUpByTechId: string
+  ): Promise<{
+    status: "success";
+    data: {
+      reservations: Array<{
+        reservationId: string;
+        status: string;
+        pickedUpBy: string;
+        pickedUpAt: string;
+      }>;
+    };
+  }> {
     try {
-      const response = await apiClient.patch(
-        `/reservations/${reservationId}/pickup`
-      );
+      const response = await apiClient.patch(`/reservations/pickup`, {
+        reservationIds,
+        pickedUpByTechId,
+      });
       return response.data;
+    } catch (error: unknown) {
+      console.error("Error picking up components:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Pickup single reserved component from warehouse (convenience method)
+   * Wraps pickupComponents for single reservation
+   *
+   * @role parts_coordinator_service_center
+   */
+  async pickupComponent(
+    reservationId: string,
+    pickedUpByTechId: string
+  ): Promise<{
+    status: "success";
+    data: {
+      reservations: Array<{
+        reservationId: string;
+        status: string;
+        pickedUpBy: string;
+        pickedUpAt: string;
+      }>;
+    };
+  }> {
+    try {
+      const response = await this.pickupComponents(
+        [reservationId],
+        pickedUpByTechId
+      );
+      return response;
     } catch (error: unknown) {
       console.error("Error picking up component:", error);
       throw error;

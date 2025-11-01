@@ -57,10 +57,22 @@ export function initializeSocket(httpServer) {
   });
 
   chatNamespace.on("connection", (socket) => {
+    console.log("Chat socket connected:", socket.id);
     socket.container = container;
 
-    socket.on("joinRoom", ({ conversationId }) => {
-      socket.join(`conversation_${conversationId}`);
+    // Store user data for disconnect handling
+    socket.userData = null;
+
+    socket.on("joinRoom", ({ conversationId, senderId, senderType }) => {
+      const roomName = `conversation_${conversationId}`;
+      socket.join(roomName);
+
+      // Store user data for this socket
+      socket.userData = { conversationId, senderId, senderType };
+
+      console.log(
+        `${senderType} (${senderId}) with socket ${socket.id} joined room: ${roomName}`
+      );
     });
 
     socket.on("typing", ({ conversationId }) => {
@@ -103,15 +115,30 @@ export function initializeSocket(httpServer) {
           content,
         });
 
+        console.log(
+          `[Backend] ${senderType} (${senderId}) sent message to conversation_${conversationId}. Broadcasting to room...`
+        );
+
+        // Format message for frontend
+        const formattedMessage = {
+          messageId: rawResult.id,
+          content: rawResult.content,
+          senderId: rawResult.senderId,
+          senderType: rawResult.senderType.toLowerCase(),
+          senderName: rawResult.senderType === "GUEST" ? "Guest" : "Staff",
+          sentAt: rawResult.createdAt,
+          isRead: rawResult.isRead,
+        };
+
         socket.to(`conversation_${conversationId}`).emit("newMessage", {
           sendAt: dayjs(),
-          newMessage: rawResult,
+          newMessage: formattedMessage,
         });
 
         if (acknowledgment && typeof acknowledgment === "function") {
           acknowledgment({
             success: true,
-            data: rawResult,
+            data: formattedMessage,
           });
         }
       } catch (error) {
@@ -130,6 +157,22 @@ export function initializeSocket(httpServer) {
     });
     socket.on("disconnect", () => {
       console.log("User disconnected from chat: " + socket.id);
+
+      // If this was a guest user, notify the room
+      if (socket.userData && socket.userData.senderType === "guest") {
+        const { conversationId, senderId } = socket.userData;
+        const roomName = `conversation_${conversationId}`;
+
+        console.log(
+          `[Backend] Guest (${senderId}) left conversation_${conversationId}`
+        );
+
+        socket.to(roomName).emit("guestLeft", {
+          conversationId,
+          guestId: senderId,
+          timestamp: dayjs(),
+        });
+      }
     });
   });
 

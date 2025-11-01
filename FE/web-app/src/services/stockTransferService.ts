@@ -21,7 +21,7 @@ export interface StockTransferRequestItem {
 export interface CreateStockTransferRequest {
   requestingWarehouseId: string;
   items: StockTransferRequestItem[];
-  caselineIds: string[];
+  caselineIds?: string[]; // Optional, only needed when request is tied to specific caselines
 }
 
 export interface StockTransferRequest {
@@ -52,25 +52,37 @@ export interface StockTransferRequest {
   estimatedDeliveryDate?: string | null;
   createdAt: string;
   updatedAt: string;
-  // Relations
+  // Relations - supporting both API response formats
   requestingWarehouse?: {
-    warehouseId: string;
-    warehouseName: string;
+    warehouseId?: string;
+    warehouseName?: string;
+    name?: string; // Alternative field name from backend
+    serviceCenterId?: string;
+    vehicleCompanyId?: string;
   };
   requestedBy?: {
     userId: string;
     name: string;
+    serviceCenterId?: string;
+  };
+  requester?: {
+    userId: string;
+    name: string;
+    serviceCenterId?: string;
   };
   items?: Array<{
-    id: string;
+    id?: string;
+    itemId?: string; // Alternative field name
     typeComponentId: string;
     quantityRequested: number;
+    quantityApproved?: number;
     caselineId?: string | null;
     typeComponent?: {
       typeComponentId: string;
       name: string;
-      sku: string;
-      price: number;
+      sku?: string;
+      partNumber?: string;
+      price?: number;
     };
   }>;
 }
@@ -78,8 +90,9 @@ export interface StockTransferRequest {
 export interface StockTransferRequestListResponse {
   status: "success";
   data: {
-    requests: StockTransferRequest[];
-    pagination: {
+    requests?: StockTransferRequest[];
+    stockTransferRequests?: StockTransferRequest[]; // Alternative response format
+    pagination?: {
       total: number;
       page: number;
       limit: number;
@@ -115,6 +128,48 @@ export interface ShipStockTransferRequest {
 
 export interface CancelStockTransferRequest {
   cancellationReason: string;
+}
+
+export interface TransferRequestDetails {
+  id: string;
+  fromWarehouse: {
+    id: string;
+    name: string;
+    location: string;
+  };
+  toWarehouse: {
+    id: string;
+    name: string;
+    location: string;
+  };
+  items: Array<{
+    componentId: string;
+    componentName: string;
+    quantity: number;
+    status: string;
+  }>;
+  requestedBy: {
+    userId: string;
+    name: string;
+  };
+  status: string;
+  requestedAt: string;
+  approvedAt?: string;
+  completedAt?: string;
+  notes?: string;
+  timeline?: Array<{
+    timestamp: string;
+    action: string;
+    performedBy: string;
+    details?: string;
+  }>;
+}
+
+export interface TransferRequestDetailsResponse {
+  status: "success";
+  data: {
+    transferRequest: TransferRequestDetails;
+  };
 }
 
 class StockTransferService {
@@ -290,6 +345,26 @@ class StockTransferService {
       return response.data;
     } catch (error: unknown) {
       console.error("Error cancelling stock transfer request:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get detailed transfer request information with full warehouse data
+   * GET /stock-transfer-requests/{requestId}/details
+   *
+   * @role service_center_manager, emv_staff, parts_coordinator_service_center, parts_coordinator_company
+   */
+  async getTransferRequestDetails(
+    requestId: string
+  ): Promise<TransferRequestDetailsResponse> {
+    try {
+      const response = await apiClient.get(
+        `/stock-transfer-requests/${requestId}/details`
+      );
+      return response.data;
+    } catch (error: unknown) {
+      console.error("Error fetching transfer request details:", error);
       throw error;
     }
   }

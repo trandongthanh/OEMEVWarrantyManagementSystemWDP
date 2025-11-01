@@ -21,6 +21,7 @@ export interface DecodedToken {
   userId: string;
   username?: string;
   name?: string;
+  email?: string;
   roleName: string;
   serviceCenterId?: string;
   companyId?: string;
@@ -32,6 +33,7 @@ export interface UserInfo {
   userId: string;
   username: string;
   name: string;
+  email?: string;
   roleName: string;
   serviceCenterId?: string;
   companyId?: string;
@@ -64,6 +66,7 @@ export const login = async (credentials: LoginCredentials): Promise<string> => {
           userId: decoded.userId,
           username: credentials.username, // Store from login
           name: decoded.name || credentials.username,
+          email: decoded.email || undefined,
           roleName: decoded.roleName,
           serviceCenterId: decoded.serviceCenterId,
           companyId: decoded.companyId,

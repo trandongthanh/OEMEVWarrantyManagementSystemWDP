@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 import { Package, CheckCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import componentReservationService from "@/services/componentReservationService";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ComponentPickupListProps {
   serviceCenterId?: string;
@@ -11,11 +13,13 @@ interface ComponentPickupListProps {
 
 interface ReservationItem {
   caseLineId: string;
+  reservationId: string;
   componentName: string;
+  componentId: string;
   quantity: number;
   status: string;
   createdAt: string;
-  vehicleInfo?: string;
+  vehicleVin?: string;
   caseNumber?: string;
   typeComponentId?: string;
 }
@@ -23,6 +27,7 @@ interface ReservationItem {
 export function ComponentPickupList({
   serviceCenterId,
 }: ComponentPickupListProps) {
+  const { user } = useAuth();
   const [reservations, setReservations] = useState<ReservationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [pickingUp, setPickingUp] = useState<string | null>(null);
@@ -31,15 +36,39 @@ export function ComponentPickupList({
     try {
       setLoading(true);
 
-      // Note: Parts coordinator role currently doesn't have permission to access case lines API
-      // Backend returns 403 Forbidden - only technicians, staff, and managers can access
-      // TODO: Backend needs to add parts_coordinator_service_center to case lines GET endpoint authorization
-      // For now, show empty list until backend permissions are updated
+      // Use dedicated component reservations endpoint
+      // This endpoint is specifically authorized for parts_coordinator_service_center role
+      const response =
+        await componentReservationService.getComponentReservations({
+          status: "RESERVED",
+          limit: 100,
+          sortBy: "createdAt",
+          sortOrder: "DESC",
+        });
 
-      setReservations([]);
+      const reservationsList = response.data.reservations || [];
+
+      // Transform reservations into pickup items
+      const items: ReservationItem[] = reservationsList.map((reservation) => ({
+        caseLineId: reservation.caselineId,
+        reservationId: reservation.reservationId,
+        componentName: reservation.component?.serialNumber || "Component",
+        componentId: reservation.componentId,
+        quantity: reservation.quantityReserved,
+        status: reservation.status,
+        createdAt: reservation.createdAt,
+        vehicleVin: reservation.caseLine?.id || "",
+        caseNumber: reservation.caselineId,
+        typeComponentId: reservation.componentId,
+      }));
+
+      setReservations(items);
     } catch (error) {
       console.error("Failed to fetch reservations:", error);
-      toast.error("Unable to load component pickups - permission required");
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(
+        err.response?.data?.message || "Failed to load component pickups"
+      );
     } finally {
       setLoading(false);
     }
@@ -49,23 +78,29 @@ export function ComponentPickupList({
     fetchReservations();
   }, [serviceCenterId]);
 
-  const handlePickup = async (caseLineId: string) => {
-    try {
-      setPickingUp(caseLineId);
+  const handlePickup = async (reservationId: string) => {
+    if (!user?.userId) {
+      toast.error("User ID not available");
+      return;
+    }
 
-      // Note: Pickup functionality requires backend permissions to be updated
-      // Parts coordinator role needs access to case lines API to fetch reservation data
-      toast.error(
-        "Pickup feature unavailable - waiting for backend permissions update"
+    try {
+      setPickingUp(reservationId);
+
+      // Call the pickup API with the current user's ID as the technician picking up
+      await componentReservationService.pickupComponent(
+        reservationId,
+        user.userId
       );
 
-      // TODO: When backend adds parts_coordinator_service_center to case lines endpoint:
-      // 1. Fetch case line to get component reservation ID
-      // 2. Call componentReservationService.pickupComponent(reservationId)
-      // 3. Refresh the list
+      toast.success("Component picked up successfully!");
+
+      // Refresh the list
+      await fetchReservations();
     } catch (error) {
       console.error("Failed to pickup component:", error);
-      toast.error("Failed to pickup component");
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || "Failed to pickup component");
     } finally {
       setPickingUp(null);
     }
@@ -99,7 +134,7 @@ export function ComponentPickupList({
         <div className="space-y-3">
           {reservations.map((reservation) => (
             <motion.div
-              key={reservation.caseLineId}
+              key={reservation.reservationId}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
@@ -126,13 +161,13 @@ export function ComponentPickupList({
                       <span className="font-medium">Case:</span>{" "}
                       {reservation.caseNumber || reservation.caseLineId}
                     </p>
-                    {reservation.vehicleInfo && (
+                    {reservation.vehicleVin && (
                       <p>
-                        <span className="font-medium">Vehicle:</span>{" "}
-                        {reservation.vehicleInfo}
+                        <span className="font-medium">Vehicle VIN:</span>{" "}
+                        {reservation.vehicleVin}
                       </p>
                     )}
-                    <p className="text-gray-500">
+                    <p className="text-gray-500 text-xs">
                       Reserved:{" "}
                       {new Date(reservation.createdAt).toLocaleString()}
                     </p>
@@ -140,12 +175,18 @@ export function ComponentPickupList({
                 </div>
 
                 <button
-                  onClick={() => handlePickup(reservation.caseLineId)}
-                  disabled={pickingUp === reservation.caseLineId}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  onClick={() => handlePickup(reservation.reservationId)}
+                  disabled={pickingUp === reservation.reservationId}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <CheckCircle className="w-4 h-4" />
-                  Mark as Picked Up
+                  {pickingUp === reservation.reservationId ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                  ) : (
+                    <CheckCircle className="w-4 h-4" />
+                  )}
+                  {pickingUp === reservation.reservationId
+                    ? "Picking up..."
+                    : "Mark as Picked Up"}
                 </button>
               </div>
             </motion.div>

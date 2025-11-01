@@ -38,29 +38,53 @@ export interface VehicleComponentsResponse {
 }
 
 export interface VehicleHistoryItem {
-  recordId: string;
+  vehicleProcessingRecordId: string;
+  vin: string;
   checkInDate: string;
-  completionDate?: string;
+  checkOutDate?: string | null;
   status: string;
   odometer: number;
-  description?: string;
-  serviceCenter: {
-    serviceCenterId: string;
-    name: string;
-    address: string;
-  };
+  visitorInfo?: {
+    fullName: string;
+    email: string;
+    phone: string;
+    relationship?: string;
+    note?: string;
+  } | null;
   guaranteeCases?: Array<{
     guaranteeCaseId: string;
-    caseNumber: string;
     status: string;
-    createdAt: string;
+    contentGuarantee: string;
+    caseLines?: Array<{
+      id: string;
+      diagnosisText?: string;
+      correctionText?: string;
+      warrantyStatus?: string;
+      status: string;
+      rejectionReason?: string;
+      quantity?: number;
+      typeComponent?: {
+        typeComponentId: string;
+        name: string;
+        category: string;
+      };
+    }>;
   }>;
 }
 
 export interface VehicleHistoryResponse {
   status: "success";
   data: {
-    history: VehicleHistoryItem[];
+    serviceHistory: VehicleHistoryItem[];
+    vehicle?: {
+      vin: string;
+      licensePlate?: string;
+      model?: string;
+      owner?: {
+        fullName: string;
+        phone: string;
+      };
+    };
   };
 }
 
@@ -190,12 +214,19 @@ export const registerVehicleOwner = async (
  * including component details and installation dates.
  *
  * @param vin - Vehicle Identification Number
- * @param status - Optional filter by component status (ALL, INSTALLED, RETURNED, DEFECTIVE)
+ * @param status - Optional filter by component status (ALL, IN_WAREHOUSE, RESERVED, IN_TRANSIT, WITH_TECHNICIAN, INSTALLED, RETURNED)
  * @returns List of components installed on the vehicle
  */
 export const getVehicleComponents = async (
   vin: string,
-  status?: "ALL" | "INSTALLED" | "RETURNED" | "DEFECTIVE"
+  status:
+    | "ALL"
+    | "IN_WAREHOUSE"
+    | "RESERVED"
+    | "IN_TRANSIT"
+    | "WITH_TECHNICIAN"
+    | "INSTALLED"
+    | "RETURNED" = "ALL"
 ): Promise<VehicleComponentsResponse> => {
   try {
     const response = await apiClient.get(`/vehicles/${vin}/components`, {

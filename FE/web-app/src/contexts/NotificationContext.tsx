@@ -184,19 +184,41 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       });
     });
 
-    // ========== YOUR EXISTING BACKEND EVENTS ==========
+    // ========== BACKEND SOCKET EVENTS ==========
+    //
+    // Navigation System:
+    // - Instead of hardcoded URLs, we pass `navigationAction` in data
+    // - Dashboard components receive `onNavigate` callback prop
+    // - When notification is clicked, it calls onNavigate(navigationAction)
+    // - This changes the active nav state in the dashboard (e.g., "transfers", "tasks")
+    //
+    // Navigation Action Mapping by Role:
+    // - Manager: "transfers", "tasks", "cases", "schedules", "warehouse"
+    // - Staff: "stock-transfers", "cases", "chat-support"
+    // - Technician: "tasks", "schedule"
+    // - EMV Staff: "transfer-requests", "dashboard"
+    //
+    // Data Structure:
+    // - All notifications include relevant IDs (requestId, taskId, caseId, etc.)
+    // - Backend sends: { requestId, sentAt, ... }
+    // - Frontend adds: { navigationAction, ...ids }
+    // ==========================================================
 
     // New repair task assigned to technician
     socket.on("newRepairTaskAssigned", (data: Record<string, unknown>) => {
       console.log("🔧 New repair task assigned:", data);
+      const taskId = data.taskId || data.id;
       addNotification({
         type: "case_assigned",
         priority: "high",
         title: "New Repair Task Assigned",
         message: `You have been assigned a new repair task`,
         timestamp: (data.sentAt as string) || new Date().toISOString(),
-        actionUrl: `/dashboard/technician/tasks`,
-        data: data,
+        data: {
+          ...data,
+          navigationAction: "tasks",
+          taskId: taskId,
+        },
       });
     });
 
@@ -211,8 +233,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
           title: "Case Status Updated",
           message: `Vehicle processing record has been updated`,
           timestamp: (data.sentAt as string) || new Date().toISOString(),
-          actionUrl: `/dashboard/cases`,
-          data: data,
+          data: { ...data, navigationAction: "cases" },
         });
       }
     );
@@ -222,14 +243,21 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       "stock_transfer_request_approved",
       (data: Record<string, unknown>) => {
         console.log("✅ Stock transfer approved:", data);
+        const requestId = data.requestId || data.id;
         addNotification({
           type: "stock_transfer_approved",
           priority: "high",
           title: "Stock Transfer Approved",
-          message: `Your stock transfer request has been approved`,
+          message: `Stock transfer request #${String(requestId).slice(
+            0,
+            8
+          )} has been approved`,
           timestamp: (data.sentAt as string) || new Date().toISOString(),
-          actionUrl: `/dashboard/stock-transfers`,
-          data: data,
+          data: {
+            ...data,
+            navigationAction: "stock-transfers",
+            requestId: requestId,
+          },
         });
       }
     );
@@ -239,14 +267,21 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       "stock_transfer_request_shipped",
       (data: Record<string, unknown>) => {
         console.log("📦 Stock transfer shipped:", data);
+        const requestId = data.requestId || data.id;
         addNotification({
           type: "stock_transfer_request",
           priority: "medium",
           title: "Stock Transfer Shipped",
-          message: `Stock transfer has been shipped`,
+          message: `Stock transfer request #${String(requestId).slice(
+            0,
+            8
+          )} has been shipped`,
           timestamp: (data.sentAt as string) || new Date().toISOString(),
-          actionUrl: `/dashboard/stock-transfers`,
-          data: data,
+          data: {
+            ...data,
+            navigationAction: "stock-transfers",
+            requestId: requestId,
+          },
         });
       }
     );
@@ -256,14 +291,21 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       "stock_transfer_request_received",
       (data: Record<string, unknown>) => {
         console.log("✅ Stock transfer received:", data);
+        const requestId = data.requestId || data.id;
         addNotification({
           type: "stock_transfer_approved",
           priority: "medium",
           title: "Stock Transfer Received",
-          message: `Stock transfer has been received`,
+          message: `Stock transfer request #${String(requestId).slice(
+            0,
+            8
+          )} has been received`,
           timestamp: (data.sentAt as string) || new Date().toISOString(),
-          actionUrl: `/dashboard/stock-transfers`,
-          data: data,
+          data: {
+            ...data,
+            navigationAction: "stock-transfers",
+            requestId: requestId,
+          },
         });
       }
     );
@@ -273,14 +315,22 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       "stock_transfer_request_rejected",
       (data: Record<string, unknown>) => {
         console.log("❌ Stock transfer rejected:", data);
+        const requestId = data.requestId || data.id;
+        const reason = data.rejectionReason || "No reason provided";
         addNotification({
           type: "stock_transfer_rejected",
           priority: "high",
           title: "Stock Transfer Rejected",
-          message: `Your stock transfer request has been rejected`,
+          message: `Stock transfer request #${String(requestId).slice(
+            0,
+            8
+          )} was rejected: ${reason}`,
           timestamp: (data.sentAt as string) || new Date().toISOString(),
-          actionUrl: `/dashboard/stock-transfers`,
-          data: data,
+          data: {
+            ...data,
+            navigationAction: "stock-transfers",
+            requestId: requestId,
+          },
         });
       }
     );
@@ -290,14 +340,21 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       "stock_transfer_request_cancelled",
       (data: Record<string, unknown>) => {
         console.log("🚫 Stock transfer cancelled:", data);
+        const requestId = data.requestId || data.id;
         addNotification({
           type: "system_alert",
           priority: "medium",
           title: "Stock Transfer Cancelled",
-          message: `Stock transfer request has been cancelled`,
+          message: `Stock transfer request #${String(requestId).slice(
+            0,
+            8
+          )} has been cancelled`,
           timestamp: (data.sentAt as string) || new Date().toISOString(),
-          actionUrl: `/dashboard/stock-transfers`,
-          data: data,
+          data: {
+            ...data,
+            navigationAction: "stock-transfers",
+            requestId: requestId,
+          },
         });
       }
     );
@@ -311,8 +368,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         title: "New Conversation",
         message: `You have a new conversation`,
         timestamp: (data.sentAt as string) || new Date().toISOString(),
-        actionUrl: `/dashboard/chat`,
-        data: data,
+        data: { ...data, navigationAction: "chat-support" },
       });
     });
 

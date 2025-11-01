@@ -69,6 +69,7 @@ export interface CaseLineInput {
   quantity: number;
   warrantyStatus: "ELIGIBLE" | "INELIGIBLE";
   rejectionReason?: string | null; // Optional rejection reason
+  evidenceImageUrls?: string[]; // Optional array of evidence image URLs
 }
 
 export interface CreateCaseLinesRequest {
@@ -173,6 +174,35 @@ class TechnicianService {
       return response.data;
     } catch (error: unknown) {
       console.error("Error searching compatible components:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update a single case line
+   * PATCH /case-lines/{caseLineId}
+   */
+  async updateCaseLine(
+    caseLineId: string,
+    data: CaseLineInput
+  ): Promise<{
+    status: string;
+    data: {
+      caseLine: {
+        caseLineId: string;
+        diagnosisText: string;
+        correctionText: string;
+        warrantyStatus: string;
+        rejectionReason?: string | null;
+        evidenceImageUrls?: string[];
+      };
+    };
+  }> {
+    try {
+      const response = await apiClient.patch(`/case-lines/${caseLineId}`, data);
+      return response.data;
+    } catch (error: unknown) {
+      console.error("Error updating case line:", error);
       throw error;
     }
   }

@@ -10,10 +10,12 @@ let chatSocket: Socket | null = null;
 /**
  * Initialize chat socket connection
  */
-export function initializeChatSocket(): Socket {
+export function initializeChatSocket(token?: string): Socket {
   if (chatSocket && chatSocket.connected) {
     return chatSocket;
   }
+
+  const auth = token ? { token } : {};
 
   chatSocket = io(`${SOCKET_URL}/chats`, {
     transports: ["websocket", "polling"],
@@ -23,6 +25,7 @@ export function initializeChatSocket(): Socket {
     timeout: 20000, // 20 second timeout
     forceNew: false,
     upgrade: true,
+    auth,
   });
 
   chatSocket.on("connect", () => {
@@ -73,35 +76,70 @@ export function disconnectChatSocket(): void {
 /**
  * Join a chat room/conversation
  */
-export function joinChatRoom(conversationId: string, senderId: string, senderType: "guest" | "staff"): void {
+export function joinChatRoom(
+  conversationId: string,
+  senderId: string,
+  senderType: "guest" | "staff"
+): void {
   if (!chatSocket) {
     throw new Error("Chat socket not initialized");
   }
 
-  chatSocket.emit("joinRoom", { conversationId, senderId, senderType: senderType.toUpperCase() });
+  console.log(
+    `[Frontend] ${senderType} (${senderId}) joining conversation: ${conversationId}`
+  );
+
+  chatSocket.emit("joinRoom", {
+    conversationId,
+    senderId,
+    senderType: senderType.toUpperCase(),
+  });
 }
 
 /**
  * Send a message through socket
  */
-export function sendSocketMessage(data: {
-  conversationId: string;
-  senderId: string;
-  senderType: "guest" | "staff";
-  content: string;
-  timestamp: string;
-}): void {
+export function sendSocketMessage(
+  data: {
+    conversationId: string;
+    senderId: string;
+    senderType: "guest" | "staff";
+    content: string;
+    timestamp: string;
+  },
+  callback?: (response: {
+    success: boolean;
+    data?: unknown;
+    error?: string;
+  }) => void
+): void {
   if (!chatSocket) {
     throw new Error("Chat socket not initialized");
   }
 
   // Convert senderType to uppercase for backend
   const backendData = {
-    ...data,
+    conversationId: data.conversationId,
+    senderId: data.senderId,
     senderType: data.senderType.toUpperCase() as "GUEST" | "STAFF",
+    content: data.content,
   };
 
-  chatSocket.emit("sendMessage", backendData);
+  console.log(
+    `[Frontend] Sending message from ${data.senderType} to conversation ${data.conversationId}`
+  );
+
+  if (callback) {
+    chatSocket.emit("sendMessage", backendData, callback);
+  } else {
+    chatSocket.emit(
+      "sendMessage",
+      backendData,
+      (response: { success: boolean; data?: unknown; error?: string }) => {
+        console.log("[Frontend] Message send response:", response);
+      }
+    );
+  }
 }
 
 /**
