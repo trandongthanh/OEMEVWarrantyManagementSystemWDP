@@ -202,6 +202,7 @@ export default function PartsCoordinatorDashboard() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <DashboardHeader
           onSearch={setSearchQuery}
+          onNavigate={setActiveNav}
           searchPlaceholder="Search components..."
           showSearch={false}
           showNotifications={true}

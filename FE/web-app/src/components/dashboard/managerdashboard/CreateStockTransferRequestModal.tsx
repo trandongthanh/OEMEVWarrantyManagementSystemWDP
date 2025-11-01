@@ -5,6 +5,7 @@ import { X, Plus, Minus, Package, AlertCircle, Search } from "lucide-react";
 import { useState, useEffect } from "react";
 import stockTransferService from "@/services/stockTransferService";
 import warehouseService from "@/services/warehouseService";
+import caseLineService, { type CaseLine } from "@/services/caseLineService";
 
 interface CreateStockTransferRequestModalProps {
   isOpen: boolean;
@@ -46,6 +47,11 @@ export function CreateStockTransferRequestModal({
       ? initialItems
       : [{ componentId: "", componentName: "", requestedQuantity: 1 }]
   );
+  const [selectedCaseLineId, setSelectedCaseLineId] = useState<string>(
+    caseLineId || ""
+  );
+  const [caseLines, setCaseLines] = useState<CaseLine[]>([]);
+  const [loadingCaseLines, setLoadingCaseLines] = useState(false);
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +64,37 @@ export function CreateStockTransferRequestModal({
   const [showDropdown, setShowDropdown] = useState<boolean[]>(
     items.map(() => false)
   );
+
+  // Fetch case lines when modal opens (only if no caseLineId provided)
+  useEffect(() => {
+    const fetchCaseLines = async () => {
+      if (caseLineId) return; // Skip if caseLineId already provided
+
+      setLoadingCaseLines(true);
+      try {
+        const response = await caseLineService.getCaseLinesList({
+          status: "WAITING_FOR_PARTS", // Only show case lines waiting for parts
+          page: 1,
+          limit: 100,
+        });
+
+        // Filter case lines that have a component type specified
+        const caseLinesWithComponents = response.data.caseLines.filter(
+          (cl) => cl.typeComponentId && cl.quantity
+        );
+
+        setCaseLines(caseLinesWithComponents);
+      } catch (error) {
+        console.error("Failed to fetch case lines:", error);
+      } finally {
+        setLoadingCaseLines(false);
+      }
+    };
+
+    if (isOpen) {
+      fetchCaseLines();
+    }
+  }, [isOpen, caseLineId]);
 
   // Fetch available components from warehouse
   useEffect(() => {
@@ -95,7 +132,12 @@ export function CreateStockTransferRequestModal({
 
   // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = () => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      // Don't close if clicking inside a dropdown
+      if (target.closest(".component-dropdown")) {
+        return;
+      }
       setShowDropdown(showDropdown.map(() => false));
     };
 
@@ -171,6 +213,30 @@ export function CreateStockTransferRequestModal({
     setItems(newItems);
   };
 
+  const handleCaseLineSelect = (caseLineId: string) => {
+    setSelectedCaseLineId(caseLineId);
+
+    // Find the selected case line
+    const selectedCaseLine = caseLines.find(
+      (cl) => (cl.id || cl.caseLineId) === caseLineId
+    );
+
+    if (selectedCaseLine && selectedCaseLine.typeComponent) {
+      // Auto-fill the components from the case line
+      const newItems: TransferItem[] = [
+        {
+          componentId: selectedCaseLine.typeComponentId || "",
+          componentName: selectedCaseLine.typeComponent.name,
+          requestedQuantity: selectedCaseLine.quantity || 1,
+        },
+      ];
+
+      setItems(newItems);
+      setComponentSearch([selectedCaseLine.typeComponent.name]);
+      setShowDropdown([false]);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -186,24 +252,20 @@ export function CreateStockTransferRequestModal({
       return;
     }
 
+    // Check if caselineId is provided (required by backend)
+    if (!selectedCaseLineId) {
+      setError("Case Line ID is required to create a stock transfer request");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      const requestItems = items.map((item) => {
-        const itemData: {
-          typeComponentId: string;
-          quantityRequested: number;
-          caselineId?: string;
-        } = {
-          typeComponentId: item.componentId,
-          quantityRequested: item.requestedQuantity,
-        };
-        // Only include caselineId if it exists
-        if (caseLineId) {
-          itemData.caselineId = caseLineId;
-        }
-        return itemData;
-      });
+      const requestItems = items.map((item) => ({
+        typeComponentId: item.componentId,
+        quantityRequested: item.requestedQuantity,
+        caselineId: selectedCaseLineId,
+      }));
 
       const requestPayload = {
         requestingWarehouseId: warehouseId,
@@ -277,6 +339,55 @@ export function CreateStockTransferRequestModal({
                 </div>
               )}
 
+              {/* Case Line Selection */}
+              {!caseLineId && (
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Case Line *
+                  </label>
+                  {loadingCaseLines ? (
+                    <div className="px-3 py-2 text-sm text-gray-500 bg-gray-50 rounded-lg">
+                      Loading case lines...
+                    </div>
+                  ) : caseLines.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-gray-500 bg-gray-50 rounded-lg">
+                      No pending case lines found that require components
+                    </div>
+                  ) : (
+                    <select
+                      value={selectedCaseLineId}
+                      onChange={(e) => handleCaseLineSelect(e.target.value)}
+                      className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    >
+                      <option value="">-- Select a case line --</option>
+                      {caseLines.map((caseLine) => {
+                        const caseLineId =
+                          caseLine.id || caseLine.caseLineId || "";
+                        const vehicleInfo =
+                          caseLine.guaranteeCase?.vehicleProcessingRecord
+                            ?.vin || "Unknown VIN";
+                        const componentName =
+                          caseLine.typeComponent?.name || "Unknown Component";
+                        const quantity = caseLine.quantity || 0;
+
+                        return (
+                          <option key={caseLineId} value={caseLineId}>
+                            {vehicleInfo} - {componentName} (Qty: {quantity}) -
+                            Status: {caseLine.status}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    {selectedCaseLineId
+                      ? "Components will be auto-filled from the selected case line"
+                      : "Select a case line to automatically fill component details"}
+                  </p>
+                </div>
+              )}
+
               {/* Items */}
               <div className="space-y-4 mb-6">
                 <div className="flex items-center justify-between">
@@ -286,7 +397,7 @@ export function CreateStockTransferRequestModal({
                   <button
                     type="button"
                     onClick={handleAddItem}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm  text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                     Add Item
@@ -314,7 +425,7 @@ export function CreateStockTransferRequestModal({
                     </div>
 
                     {/* Component Selection with Search */}
-                    <div className="relative">
+                    <div className="relative component-dropdown">
                       <label className="block text-xs font-medium text-gray-600 mb-1">
                         Component *
                       </label>
@@ -402,7 +513,7 @@ export function CreateStockTransferRequestModal({
                             parseInt(e.target.value) || 1
                           )
                         }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         required
                       />
                     </div>
@@ -420,7 +531,7 @@ export function CreateStockTransferRequestModal({
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Additional information about this request..."
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                 />
               </div>
 

@@ -73,8 +73,9 @@ export function VehicleHistory() {
     try {
       const response = await vehicleService.getVehicleHistory(vin);
       if (response.status === "success") {
-        setHistory(response.data.history);
-        toast.success(`Found ${response.data.history.length} service records`);
+        const serviceHistory = response.data.serviceHistory || [];
+        setHistory(serviceHistory);
+        toast.success(`Found ${serviceHistory.length} service records`);
       }
     } catch (error: unknown) {
       console.error("Error fetching history:", error);
@@ -213,7 +214,7 @@ export function VehicleHistory() {
 
                 return (
                   <motion.div
-                    key={record.recordId}
+                    key={record.vehicleProcessingRecordId}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.05 }}
@@ -254,12 +255,6 @@ export function VehicleHistory() {
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 text-sm text-gray-700 ml-12">
-                            <MapPin className="w-4 h-4 text-gray-500" />
-                            <span className="font-medium">
-                              {record.serviceCenter.name}
-                            </span>
-                          </div>
                         </div>
                         <div
                           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl ${statusConfig.bg} border ${statusConfig.borderColor} shadow-sm`}
@@ -289,7 +284,7 @@ export function VehicleHistory() {
                             <span className="text-sm ml-1">km</span>
                           </p>
                         </div>
-                        {record.completionDate && (
+                        {record.checkOutDate && (
                           <div className="bg-green-50 rounded-xl p-4 border border-green-100">
                             <div className="flex items-center gap-2 mb-2">
                               <CheckCircle className="w-5 h-5 text-green-600" />
@@ -298,30 +293,74 @@ export function VehicleHistory() {
                               </p>
                             </div>
                             <p className="text-lg font-bold text-green-900">
-                              {new Date(
-                                record.completionDate
-                              ).toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              })}
+                              {new Date(record.checkOutDate).toLocaleDateString(
+                                "en-US",
+                                {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                }
+                              )}
                             </p>
                           </div>
                         )}
                       </div>
 
-                      {/* Description */}
-                      {record.description && (
+                      {/* Visitor Info */}
+                      {record.visitorInfo && (
                         <div className="mt-5 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                          <div className="flex items-center gap-2 mb-2">
+                          <div className="flex items-center gap-2 mb-3">
                             <FileText className="w-4 h-4 text-gray-600" />
                             <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                              Service Description
+                              Visitor Information
                             </p>
                           </div>
-                          <p className="text-sm text-gray-900 leading-relaxed">
-                            {record.description}
-                          </p>
+                          <div className="space-y-2">
+                            <div className="flex justify-between">
+                              <span className="text-sm font-medium text-gray-700">
+                                Name:
+                              </span>
+                              <span className="text-sm text-gray-900">
+                                {record.visitorInfo.fullName}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-sm font-medium text-gray-700">
+                                Email:
+                              </span>
+                              <span className="text-sm text-gray-900">
+                                {record.visitorInfo.email}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-sm font-medium text-gray-700">
+                                Phone:
+                              </span>
+                              <span className="text-sm text-gray-900">
+                                {record.visitorInfo.phone}
+                              </span>
+                            </div>
+                            {record.visitorInfo.relationship && (
+                              <div className="flex justify-between">
+                                <span className="text-sm font-medium text-gray-700">
+                                  Relationship:
+                                </span>
+                                <span className="text-sm text-gray-900">
+                                  {record.visitorInfo.relationship}
+                                </span>
+                              </div>
+                            )}
+                            {record.visitorInfo.note && (
+                              <div className="mt-3">
+                                <span className="text-sm font-medium text-gray-700">
+                                  Note:
+                                </span>
+                                <p className="text-sm text-gray-900 mt-1 leading-relaxed">
+                                  {record.visitorInfo.note}
+                                </p>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
 
@@ -344,14 +383,19 @@ export function VehicleHistory() {
                                   key={gc.guaranteeCaseId}
                                   className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-3 border border-indigo-200 hover:border-indigo-300 transition-colors"
                                 >
-                                  <div className="flex items-center justify-between">
+                                  <div className="flex items-center justify-between mb-2">
                                     <span className="font-semibold text-gray-900 text-sm">
-                                      {gc.caseNumber}
+                                      Case #{gc.guaranteeCaseId.slice(0, 8)}
                                     </span>
                                     <span className="px-2 py-1 bg-white rounded text-xs font-medium text-gray-700 border border-gray-200">
-                                      {gc.status}
+                                      {gc.status.replace(/_/g, " ")}
                                     </span>
                                   </div>
+                                  {gc.contentGuarantee && (
+                                    <p className="text-xs text-gray-600 mt-1">
+                                      {gc.contentGuarantee}
+                                    </p>
+                                  )}
                                 </div>
                               ))}
                             </div>

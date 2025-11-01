@@ -112,6 +112,7 @@ export default function TechnicianDashboard() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <DashboardHeader
           onSearch={(query) => setSearchQuery(query)}
+          onNavigate={setActiveNav}
           searchPlaceholder="Search tasks, vehicles, or parts..."
           showSearch={activeNav === "dashboard"}
           showNotifications={true}

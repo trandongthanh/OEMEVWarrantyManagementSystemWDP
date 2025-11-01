@@ -147,6 +147,7 @@ export default function CompanyDashboard() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <DashboardHeader
           onSearch={setSearchQuery}
+          onNavigate={setActiveNav}
           searchPlaceholder="Search..."
           showSearch={false}
           showNotifications={true}

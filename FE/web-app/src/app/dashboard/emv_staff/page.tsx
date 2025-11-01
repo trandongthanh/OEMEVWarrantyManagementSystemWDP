@@ -174,6 +174,7 @@ export default function EMVStaffDashboard() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <DashboardHeader
           onSearch={(query) => setSearchQuery(query)}
+          onNavigate={setActiveNav}
           searchPlaceholder="Search warehouses, users, or components..."
           showSearch={activeNav === "dashboard"}
           showNotifications={true}

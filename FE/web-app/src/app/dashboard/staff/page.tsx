@@ -44,7 +44,8 @@ export default function StaffDashboard() {
   const [registerVehicleVin, setRegisterVehicleVin] = useState<
     string | undefined
   >(undefined);
-  const [warehouseId, setWarehouseId] = useState<string | null>(null);
+  // Note: Staff role doesn't have warehouse access, so we don't fetch it
+  const warehouseId = null;
 
   const toggleSidebar = () => setSidebarCollapsed(!sidebarCollapsed);
 
@@ -55,27 +56,10 @@ export default function StaffDashboard() {
   useEffect(() => {
     const user = authService.getCurrentUser();
     setCurrentUser(user);
-    fetchWarehouse(user);
+    // Note: service_center_staff role doesn't have warehouse access
+    // Only managers and parts coordinators can access warehouse API
+    // Stock transfers don't require warehouseId for staff role
   }, []);
-
-  const fetchWarehouse = async (user: User | null) => {
-    try {
-      if (user?.serviceCenterId) {
-        const { warehouseService } = await import(
-          "@/services/warehouseService"
-        );
-        const { warehouses } = await warehouseService.getWarehouseInfo();
-        const warehouse = warehouses.find(
-          (w) => w.serviceCenterId === user.serviceCenterId
-        );
-        if (warehouse) {
-          setWarehouseId(warehouse.warehouseId);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching warehouse:", error);
-    }
-  };
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
@@ -197,6 +181,7 @@ export default function StaffDashboard() {
           {/* Header */}
           <DashboardHeader
             onSearch={handleSearch}
+            onNavigate={setActiveNav}
             searchPlaceholder="Search customer by email or phone..."
             showSearch={activeNav === "dashboard"}
             showNotifications={true}

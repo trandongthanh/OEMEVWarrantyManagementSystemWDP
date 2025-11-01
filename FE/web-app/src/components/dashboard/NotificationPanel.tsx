@@ -25,9 +25,14 @@ import { createPortal } from "react-dom";
 interface NotificationPanelProps {
   isOpen: boolean;
   onClose: () => void;
+  onNavigate?: (navId: string) => void;
 }
 
-export function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
+export function NotificationPanel({
+  isOpen,
+  onClose,
+  onNavigate,
+}: NotificationPanelProps) {
   const {
     notifications,
     unreadCount,
@@ -137,14 +142,26 @@ export function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
     return date.toLocaleDateString();
   };
 
-  const handleNotificationClick = (notification: Notification) => {
+  const handleNotificationClick = (
+    notification: Notification,
+    onNavigate?: (navId: string) => void
+  ) => {
     // Mark as read
     if (!notification.read) {
       markAsRead(notification.id);
     }
 
-    // Navigate to action URL if available
-    if (notification.actionUrl) {
+    // Handle navigation action from notification data
+    const navigationAction = notification.data?.navigationAction as
+      | string
+      | undefined;
+
+    if (navigationAction && onNavigate) {
+      // Use the navigation callback passed from dashboard (changes active nav state)
+      onNavigate(navigationAction);
+      onClose();
+    } else if (notification.actionUrl) {
+      // Fallback to URL navigation
       router.push(notification.actionUrl);
       onClose();
     }
@@ -180,11 +197,11 @@ export function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
             className="fixed right-0 top-0 h-full w-full sm:w-[420px] bg-white shadow-2xl z-[9999] flex flex-col"
           >
-            {/* Enhanced Header */}
-            <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-700 text-white p-5">
+            {/* Header - Dark theme matching sidebar exactly (#2d2d2d) */}
+            <div className="bg-[#2d2d2d] text-white p-5 border-b border-gray-700">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <div className="p-2.5 bg-white/10 rounded-xl backdrop-blur-sm">
                     <Bell className="w-5 h-5" />
                   </div>
                   <div>
@@ -192,7 +209,7 @@ export function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
                       Notifications
                     </h2>
                     {unreadCount > 0 && (
-                      <p className="text-xs text-white/80 mt-0.5 font-medium">
+                      <p className="text-xs text-gray-400 mt-0.5 font-medium">
                         {unreadCount} unread message
                         {unreadCount !== 1 ? "s" : ""}
                       </p>
@@ -201,15 +218,15 @@ export function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
                 </div>
                 <button
                   onClick={onClose}
-                  className="p-2 hover:bg-white/20 rounded-xl transition-all duration-200 active:scale-95"
+                  className="p-2 hover:bg-white/10 rounded-xl transition-all duration-200 active:scale-95"
                   aria-label="Close notifications"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              {/* Enhanced Connection Status */}
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-white/10 rounded-lg backdrop-blur-sm">
+              {/* Connection Status */}
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-lg backdrop-blur-sm border border-white/10">
                 <div
                   className={`w-2 h-2 rounded-full ${
                     isConnected
@@ -217,7 +234,7 @@ export function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
                       : "bg-red-400 animate-pulse"
                   }`}
                 />
-                <span className="text-xs text-white/90 font-medium">
+                <span className="text-xs text-gray-300 font-medium">
                   {isConnected ? "Live updates active" : "Reconnecting..."}
                 </span>
               </div>
@@ -325,7 +342,9 @@ export function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
                           notification.type,
                           notification.read
                         )}`}
-                        onClick={() => handleNotificationClick(notification)}
+                        onClick={() =>
+                          handleNotificationClick(notification, onNavigate)
+                        }
                       >
                         <div className="p-4">
                           <div className="flex items-start gap-3">

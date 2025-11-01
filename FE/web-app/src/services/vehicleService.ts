@@ -38,29 +38,53 @@ export interface VehicleComponentsResponse {
 }
 
 export interface VehicleHistoryItem {
-  recordId: string;
+  vehicleProcessingRecordId: string;
+  vin: string;
   checkInDate: string;
-  completionDate?: string;
+  checkOutDate?: string | null;
   status: string;
   odometer: number;
-  description?: string;
-  serviceCenter: {
-    serviceCenterId: string;
-    name: string;
-    address: string;
-  };
+  visitorInfo?: {
+    fullName: string;
+    email: string;
+    phone: string;
+    relationship?: string;
+    note?: string;
+  } | null;
   guaranteeCases?: Array<{
     guaranteeCaseId: string;
-    caseNumber: string;
     status: string;
-    createdAt: string;
+    contentGuarantee: string;
+    caseLines?: Array<{
+      id: string;
+      diagnosisText?: string;
+      correctionText?: string;
+      warrantyStatus?: string;
+      status: string;
+      rejectionReason?: string;
+      quantity?: number;
+      typeComponent?: {
+        typeComponentId: string;
+        name: string;
+        category: string;
+      };
+    }>;
   }>;
 }
 
 export interface VehicleHistoryResponse {
   status: "success";
   data: {
-    history: VehicleHistoryItem[];
+    serviceHistory: VehicleHistoryItem[];
+    vehicle?: {
+      vin: string;
+      licensePlate?: string;
+      model?: string;
+      owner?: {
+        fullName: string;
+        phone: string;
+      };
+    };
   };
 }
 

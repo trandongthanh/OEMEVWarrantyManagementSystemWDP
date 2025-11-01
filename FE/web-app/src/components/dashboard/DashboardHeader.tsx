@@ -15,6 +15,7 @@ interface DashboardHeaderProps {
   searchValue?: string;
   isSearching?: boolean;
   searchResults?: React.ReactNode;
+  onNavigate?: (navId: string) => void; // For notification navigation
 }
 
 export function DashboardHeader({
@@ -26,6 +27,7 @@ export function DashboardHeader({
   searchValue = "",
   isSearching = false,
   searchResults,
+  onNavigate,
 }: DashboardHeaderProps) {
   const [localSearchQuery, setLocalSearchQuery] = useState(searchValue);
   const [showNotificationPanel, setShowNotificationPanel] = useState(false);
@@ -152,6 +154,7 @@ export function DashboardHeader({
       <NotificationPanel
         isOpen={showNotificationPanel}
         onClose={() => setShowNotificationPanel(false)}
+        onNavigate={onNavigate}
       />
     </header>
   );

@@ -146,6 +146,7 @@ export default function ManagerDashboard() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <DashboardHeader
           onSearch={(query) => setSearchQuery(query)}
+          onNavigate={setActiveNav}
           searchPlaceholder={
             activeNav === "customers"
               ? "Search customers by name, email, or phone..."
