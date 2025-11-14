@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Pressable, // Sử dụng Pressable để đóng modal khi nhấn bên ngoài
+  Pressable,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { componentReservationService } from "../../services/technician";
@@ -19,32 +19,31 @@ export default function ComponentInstallModal({
   reservationId,
   componentName,
   vehicleVin: initialVin = "",
-  componentSerial: initialSerial = "",
+  componentSerial = "", 
 }) {
   const [vehicleVin, setVehicleVin] = useState(initialVin);
-  const [serialNumber, setSerialNumber] = useState(initialSerial);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     if (isOpen) {
       setVehicleVin(initialVin);
-      setSerialNumber(initialSerial);
       setError(null);
     }
-  }, [isOpen, initialVin, initialSerial]);
+  }, [isOpen, initialVin]);
 
   const handleSubmit = async () => {
     setError(null);
 
     if (!vehicleVin.trim()) {
-      setError("Vehicle VIN is required");
+      setError("Vehicle VIN is required"); // Vẫn kiểm tra cho chắc
       return;
     }
 
     setIsSubmitting(true);
 
     try {
+      // Logic đã đơn giản hóa: chỉ cần gọi installComponent
       await componentReservationService.installComponent(reservationId);
       onSuccess?.();
       onClose();
@@ -70,7 +69,8 @@ export default function ComponentInstallModal({
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerIconWrapper}>
-              <Ionicons name="cube" size={20} color="#16A34A" />
+              {/* Icon thay đổi cho khớp web */}
+              <Ionicons name="package-outline" size={20} color="#16A34A" />
             </View>
             <View style={styles.headerTextContainer}>
               <Text style={styles.title}>Lắp đặt linh kiện</Text>
@@ -90,8 +90,8 @@ export default function ComponentInstallModal({
                 color="#0284C7"
               />
               <Text style={styles.infoText}>
-                Việc này sẽ đánh dấu linh kiện là ĐÃ LẮP ĐẶT và liên kết nó với
-                xe.
+                Hành động này sẽ đánh dấu linh kiện là ĐÃ LẮP ĐẶT và liên kết nó
+                với xe. Serial number được theo dõi tự động.
               </Text>
             </View>
 
@@ -105,35 +105,25 @@ export default function ComponentInstallModal({
             {/* Form Fields */}
             <View style={styles.fieldContainer}>
               <Text style={styles.label}>
-                Vehicle VIN *
-                {vehicleVin && (
-                  <Text style={styles.autoFillLabel}> (Tự động điền)</Text>
-                )}
+                Vehicle VIN * (Tự động điền)
               </Text>
               <TextInput
                 style={[styles.input, styles.inputDisabled]}
                 value={vehicleVin}
-                onChangeText={setVehicleVin}
-                placeholder="Enter vehicle VIN"
-                editable={false} // Không cho sửa VIN
+                placeholder="Vehicle VIN"
+                editable={false} // KHÓA: Không cho sửa VIN
               />
             </View>
 
-            <View style={styles.fieldContainer}>
-              <Text style={styles.label}>
-                Component Serial Number
-                {serialNumber && (
-                  <Text style={styles.autoFillLabel}> (Tự động điền)</Text>
-                )}
-              </Text>
-              <TextInput
-                style={[styles.input, serialNumber && styles.inputDisabled]}
-                value={serialNumber}
-                onChangeText={setSerialNumber}
-                placeholder="Serial number (optional)"
-                editable={!serialNumber} // Cho sửa nếu chưa có
-              />
-            </View>
+            {/* HIỂN THỊ Serial number thay vì nhập */}
+            {componentSerial && (
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Component Serial Number</Text>
+                <View style={styles.serialBox}>
+                  <Text style={styles.serialText}>{componentSerial}</Text>
+                </View>
+              </View>
+            )}
           </View>
 
           {/* Footer */}
@@ -178,23 +168,18 @@ const styles = StyleSheet.create({
   modalContent: {
     width: "100%",
     backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 10,
+    borderRadius: 12, //
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
+    padding: 16, //
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
   },
   headerIconWrapper: {
     padding: 8,
-    backgroundColor: "#F0FDF4",
+    backgroundColor: "#F0FDF4", //
     borderRadius: 8,
     marginRight: 12,
   },
@@ -202,7 +187,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 18,
+    fontSize: 18, //
     fontWeight: "600",
     color: "#111827",
   },
@@ -214,20 +199,20 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   body: {
-    padding: 16,
+    padding: 16, //
   },
   infoBox: {
     flexDirection: "row",
-    backgroundColor: "#EFF6FF",
+    backgroundColor: "#EFF6FF", //
     padding: 12,
     borderRadius: 8,
-    alignItems: "center",
+    alignItems: "flex-start", //
     marginBottom: 16,
   },
   infoText: {
     flex: 1,
-    fontSize: 13,
-    color: "#0284C7",
+    fontSize: 13, //
+    color: "#0284C7", //
     marginLeft: 8,
   },
   errorBox: {
@@ -235,7 +220,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FEF2F2",
     padding: 12,
     borderRadius: 8,
-    alignItems: "center",
+    alignItems: "flex-start",
     marginBottom: 16,
   },
   errorText: {
@@ -253,11 +238,6 @@ const styles = StyleSheet.create({
     color: "#374151",
     marginBottom: 8,
   },
-  autoFillLabel: {
-    fontSize: 12,
-    fontWeight: "400",
-    color: "#16A34A",
-  },
   input: {
     borderWidth: 1,
     borderColor: "#D1D5DB",
@@ -267,13 +247,25 @@ const styles = StyleSheet.create({
     color: "#111827",
   },
   inputDisabled: {
-    backgroundColor: "#F3F4F6",
+    backgroundColor: "#F3F4F6", //
     color: "#6B7280",
+    borderColor: "#E5E7EB", //
+  },
+  serialBox: {
+    backgroundColor: "#F3F4F6",
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E5E7EB", //
+  },
+  serialText: {
+    fontSize: 16,
+    color: "#374151",
   },
   footer: {
     flexDirection: "row",
     justifyContent: "flex-end",
-    padding: 16,
+    padding: 16, //
     borderTopWidth: 1,
     borderTopColor: "#E5E7EB",
   },
@@ -294,7 +286,7 @@ const styles = StyleSheet.create({
     color: "#374151",
   },
   submitButton: {
-    backgroundColor: "#16A34A",
+    backgroundColor: "#16A34A", //
   },
   submitButtonText: {
     fontSize: 16,

@@ -23,7 +23,7 @@ const getComponentReservations = async (params) => {
  */
 const pickupComponents = async (reservationIds, pickedUpByTechId) => {
   try {
-    const response = await api.patch(`/reservations/pickup`, {
+    const response = await api.patch(`/reservations/pickup`, { //
       reservationIds,
       pickedUpByTechId,
     });
@@ -37,11 +37,13 @@ const pickupComponents = async (reservationIds, pickedUpByTechId) => {
 /**
  * Lắp đặt linh kiện lên xe (Quan trọng cho Kỹ thuật viên)
  * API: PATCH /reservations/{reservationId}/installComponent
+ *
+ * CẬP NHẬT: Hàm này chỉ cần reservationId.
  */
 const installComponent = async (reservationId) => {
   try {
     const response = await api.patch(
-      `/reservations/${reservationId}/installComponent`
+      `/reservations/${reservationId}/installComponent` //
     );
     return response.data;
   } catch (error) {
@@ -56,7 +58,7 @@ const installComponent = async (reservationId) => {
  */
 const getReservationById = async (reservationId) => {
   try {
-    const response = await api.get(`/reservations/${reservationId}`);
+    const response = await api.get(`/reservations/${reservationId}`); //
     return response.data;
   } catch (error) {
     console.error(

@@ -3,23 +3,23 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { caseLineService } from "../../services/technician";
+import MarkRepairCompleteButton from "./MarkRepairCompleteButton"; // IMPORT NÚT ĐÃ CÓ MODAL
 
 export default function RepairsToComplete() {
   const [caseLines, setCaseLines] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [completingId, setCompletingId] = useState(null);
 
   const fetchInRepairCaseLines = async () => {
     setLoading(true);
     try {
       const response = await caseLineService.getCaseLinesList({
-        status: "IN_REPAIR",
+        status: "IN_REPAIR", //
       });
       const inRepairLines = response.data?.caseLines || [];
       setCaseLines(inRepairLines);
@@ -36,18 +36,9 @@ export default function RepairsToComplete() {
     }, [])
   );
 
-  const handleMarkComplete = async (caseLineId) => {
-    if (!caseLineId) return;
-
-    setCompletingId(caseLineId);
-    try {
-      await caseLineService.markRepairComplete(caseLineId);
-      await fetchInRepairCaseLines();
-    } catch (error) {
-      console.error("Error marking repair complete:", error);
-    } finally {
-      setCompletingId(null);
-    }
+  const handleRepairSuccess = () => {
+    // Không cần Alert ở đây vì Nút đã tự Alert
+    fetchInRepairCaseLines(); // Chỉ cần làm mới danh sách
   };
 
   const renderContent = useMemo(() => {
@@ -71,9 +62,9 @@ export default function RepairsToComplete() {
 
     return (
       <View style={styles.listContainer}>
-        {caseLines.map((caseLine) => {
+        {caseLines.map((caseLine, index) => {
           const caseLineId = caseLine.id || caseLine.caseLineId || "";
-          const isCompleting = completingId === caseLineId;
+          const pendingCount = caseLines.length - index - 1; //
 
           return (
             <View key={caseLineId} style={styles.itemCard}>
@@ -82,42 +73,66 @@ export default function RepairsToComplete() {
                   {caseLine.typeComponent?.name || "Linh kiện"}
                 </Text>
 
+                {/* --- Thông tin chi tiết mới --- */}
                 <View style={styles.itemMeta}>
-                  <Text style={styles.metaText} numberOfLines={1}>
-                    Case: {caseLine.guaranteeCaseId}
+                  {caseLine.diagnosisText && (
+                    <Text style={styles.metaText} numberOfLines={1}>
+                      <Text style={styles.metaLabel}>Chẩn đoán:</Text>{" "}
+                      {caseLine.diagnosisText}
+                    </Text>
+                  )}
+                  {caseLine.correctionText && (
+                    <Text style={styles.metaText} numberOfLines={1}>
+                      <Text style={styles.metaLabel}>Sửa chữa:</Text>{" "}
+                      {caseLine.correctionText}
+                    </Text>
+                  )}
+                  <Text style={styles.metaText}>
+                    <Text style={styles.metaLabel}>Số lượng:</Text>{" "}
+                    {caseLine.quantity || 1}
                   </Text>
                   <Text style={styles.metaText} numberOfLines={1}>
-                    Chẩn đoán: {caseLine.diagnosisText}
+                    <Text style={styles.metaLabel}>Case:</Text>{" "}
+                    {caseLine.guaranteeCaseId}
+                  </Text>
+                  <Text style={styles.itemStatus}>
+                    Trạng thái: {caseLine.status}
                   </Text>
                 </View>
-                <Text style={styles.itemStatus}>
-                  Trạng thái: {caseLine.status}
-                </Text>
+                {/* --- Hết thông tin chi tiết --- */}
+
+                {/* Cảnh báo bảo hành */}
+                {caseLine.warrantyStatus === "INELIGIBLE" && (
+                  <View style={styles.warningBox}>
+                    <Ionicons
+                      name="alert-circle-outline"
+                      size={16}
+                      color="#B45309"
+                    />
+                    <Text style={styles.warningText}>
+                      Bảo hành không đủ ĐK
+                      {caseLine.rejectionReason
+                        ? `: ${caseLine.rejectionReason}`
+                        : ""}
+                    </Text>
+                  </View>
+                )}
               </View>
 
-              <TouchableOpacity
-                onPress={() => handleMarkComplete(caseLineId)}
-                disabled={isCompleting || !caseLineId}
-                style={[
-                  styles.completeButton,
-                  isCompleting && styles.disabledButton,
-                ]}
-              >
-                {isCompleting ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
-                )}
-                <Text style={styles.completeButtonText}>
-                  {isCompleting ? "Đang..." : "Hoàn tất"}
-                </Text>
-              </TouchableOpacity>
+              {/* SỬ DỤNG COMPONENT NÚT BẤM MỚI */}
+              <MarkRepairCompleteButton
+                caseLineId={caseLineId}
+                showNextSteps={true}
+                pendingRepairsCount={pendingCount}
+                onSuccess={handleRepairSuccess}
+                style={styles.completeButton} // style để căn chỉnh
+              />
             </View>
           );
         })}
       </View>
     );
-  }, [loading, caseLines, completingId]);
+  }, [loading, caseLines]);
 
   return (
     <View style={styles.container}>
@@ -203,48 +218,52 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E5E7EB",
     padding: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
     marginBottom: 8,
   },
   itemContent: {
     flex: 1,
-    marginRight: 12,
+    // marginRight: 12, // Bỏ marginRight vì nút bấm xuống dòng
   },
   itemName: {
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 15,
+    fontWeight: "600",
     color: "#111827",
-    marginBottom: 4,
+    marginBottom: 8,
   },
   itemMeta: {
-    marginBottom: 4,
+    marginBottom: 8,
   },
   metaText: {
-    fontSize: 12,
+    fontSize: 13, //
     color: "#4B5563",
+    marginBottom: 2,
+  },
+  metaLabel: { //
+    fontWeight: "500",
   },
   itemStatus: {
     fontSize: 12,
     color: "#16A34A",
     fontStyle: "italic",
+    marginTop: 4,
+  },
+  warningBox: { //
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFBEB",
+    padding: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+    marginTop: 8,
+  },
+  warningText: { //
+    fontSize: 12,
+    color: "#B45309",
+    marginLeft: 6,
+    flex: 1,
   },
   completeButton: {
-    flexDirection: "row",
-    backgroundColor: "#16A34A",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  disabledButton: {
-    backgroundColor: "#166534", // Darker green
-  },
-  completeButtonText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "500",
-    marginLeft: 6,
+    marginTop: 12, // Nút bấm nằm dưới cùng
   },
 });

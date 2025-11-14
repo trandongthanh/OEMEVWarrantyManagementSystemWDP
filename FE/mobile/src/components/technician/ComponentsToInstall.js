@@ -5,11 +5,12 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  Alert, // Thêm Alert
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { caseLineService } from "../../services/technician";
-import ComponentInstallModal from "./ComponentInstallModal";
+import ComponentInstallModal from "./ComponentInstallModal"; // Modal này đã được cập nhật
 
 export default function ComponentsToInstall() {
   const [components, setComponents] = useState([]);
@@ -26,11 +27,12 @@ export default function ComponentsToInstall() {
 
       const caseLines = response.data.caseLines || [];
 
+      // Logic lọc khớp với web
       const componentsReady = caseLines.filter((cl) => {
         if (cl.reservations && cl.reservations.length > 0) {
           return cl.reservations.some((res) => res.status === "PICKED_UP");
         }
-        return false;
+        return (cl.quantityReserved || 0) > 0;
       });
 
       setComponents(componentsReady);
@@ -48,12 +50,13 @@ export default function ComponentsToInstall() {
   );
 
   const handleInstallClick = (component) => {
+    // Tìm reservation đã PICKED_UP
     const reservation = component.reservations?.find(
       (res) => res.status === "PICKED_UP"
     );
 
     if (!reservation || !reservation.reservationId) {
-      console.error("No reservation found for this component");
+      Alert.alert("Lỗi", "Không tìm thấy linh kiện đã lấy (reservation).");
       return;
     }
 
@@ -61,13 +64,15 @@ export default function ComponentsToInstall() {
       reservationId: reservation.reservationId,
       componentName: component.typeComponent?.name || "Component",
       vehicleVin: component.guaranteeCase?.vehicleProcessingRecord?.vin || "",
-      componentSerial: "",
+      // CẬP NHẬT: Lấy serial number từ reservation
+      componentSerial: reservation.component?.serialNumber || "",
     });
   };
 
   const handleInstallSuccess = () => {
     setSelectedComponent(null);
     loadComponentsToInstall();
+    Alert.alert("Thành công", "Linh kiện đã được lắp đặt.");
   };
 
   const renderContent = useMemo(() => {
@@ -96,24 +101,34 @@ export default function ComponentsToInstall() {
           const pickedUpCount =
             component.reservations?.filter(
               (res) => res.status === "PICKED_UP"
-            ).length || 0;
+            ).length ||
+            component.quantityReserved ||
+            component.quantity;
 
           return (
             <View key={caseLineId} style={styles.itemCard}>
               <View style={styles.itemContent}>
                 <View style={styles.itemHeader}>
+                  {/* Icon thay đổi */}
                   <Ionicons name="build-outline" size={16} color="#5B21B6" />
                   <Text style={styles.itemName}>
                     {component.typeComponent?.name || "Component"}
                   </Text>
                 </View>
 
+                {/* --- Thông tin chi tiết mới --- */}
                 <View style={styles.itemMeta}>
+                  {component.diagnosisText && (
+                    <Text style={styles.metaText} numberOfLines={1}>
+                      <Text style={styles.metaLabel}>Chẩn đoán:</Text>{" "}
+                      {component.diagnosisText}
+                    </Text>
+                  )}
                   <Text style={styles.metaText}>
-                    Số lượng: {pickedUpCount}
+                    <Text style={styles.metaLabel}>Số lượng:</Text> {pickedUpCount}
                   </Text>
                   <Text style={styles.metaText} ellipsizeMode="tail" numberOfLines={1}>
-                    Case: {component.guaranteeCaseId}
+                    <Text style={styles.metaLabel}>Case:</Text> {component.guaranteeCaseId}
                   </Text>
                 </View>
                 <Text style={styles.itemStatus}>
@@ -125,7 +140,8 @@ export default function ComponentsToInstall() {
                 onPress={() => handleInstallClick(component)}
                 style={styles.installButton}
               >
-                <Ionicons name="checkmark-circle-outline" size={16} color="#FFFFFF" />
+                {/* Icon thay đổi */}
+                <Ionicons name="build-outline" size={16} color="#FFFFFF" /> 
                 <Text style={styles.installButtonText}>Lắp đặt</Text>
               </TouchableOpacity>
             </View>
@@ -161,7 +177,7 @@ export default function ComponentsToInstall() {
           reservationId={selectedComponent.reservationId}
           componentName={selectedComponent.componentName}
           vehicleVin={selectedComponent.vehicleVin}
-          componentSerial={selectedComponent.componentSerial}
+          componentSerial={selectedComponent.componentSerial} // Truyền prop mới
         />
       )}
     </>
@@ -171,7 +187,7 @@ export default function ComponentsToInstall() {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 12,
+    borderRadius: 12, //
     borderWidth: 1,
     borderColor: "#E5E7EB",
     padding: 16,
@@ -183,28 +199,28 @@ const styles = StyleSheet.create({
   },
   headerIconWrapper: {
     padding: 8,
-    backgroundColor: "#F3E8FF",
+    backgroundColor: "#F3E8FF", //
     borderRadius: 8,
     marginRight: 12,
   },
   title: {
-    fontSize: 16,
+    fontSize: 16, //
     fontWeight: "600",
     color: "#111827",
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: 12, //
     color: "#6B7280",
   },
   countBadge: {
-    backgroundColor: "#F3E8FF",
+    backgroundColor: "#F3E8FF", //
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 12,
     marginLeft: "auto",
   },
   countText: {
-    color: "#5B21B6",
+    color: "#5B21B6", //
     fontWeight: "600",
     fontSize: 14,
   },
@@ -212,7 +228,7 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F9FAFB",
+    backgroundColor: "#F9FAFB", //
     borderRadius: 8,
   },
   loadingText: {
@@ -228,14 +244,11 @@ const styles = StyleSheet.create({
     maxHeight: 400,
   },
   itemCard: {
-    backgroundColor: "#F9FAFB",
+    backgroundColor: "#F9FAFB", //
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "#E5E7EB",
-    padding: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    padding: 12, //
     marginBottom: 8,
   },
   itemContent: {
@@ -248,21 +261,23 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   itemName: {
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 14, //
+    fontWeight: "500", //
     color: "#111827",
     marginLeft: 6,
     flexShrink: 1,
   },
   itemMeta: {
-    flexDirection: "row",
+    //
     marginBottom: 4,
   },
   metaText: {
-    fontSize: 12,
+    fontSize: 12, //
     color: "#4B5563",
-    marginRight: 12,
     flexShrink: 1,
+  },
+  metaLabel: { //
+    fontWeight: "500",
   },
   itemStatus: {
     fontSize: 12,
@@ -271,7 +286,7 @@ const styles = StyleSheet.create({
   },
   installButton: {
     flexDirection: "row",
-    backgroundColor: "#5B21B6",
+    backgroundColor: "#7C3AED", //
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,

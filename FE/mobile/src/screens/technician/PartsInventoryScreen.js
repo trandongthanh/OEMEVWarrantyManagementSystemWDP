@@ -14,7 +14,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
-import technicianService from "../../services/technician/technicianService";
+import { technicianService } from "../../services/technician";
 
 const COMPONENT_CATEGORIES = [
   { value: "all", label: "All Categories" },
@@ -32,26 +32,28 @@ const COMPONENT_CATEGORIES = [
 
 export default function PartsInventoryScreen() {
   const [components, setComponents] = useState([]);
+  const [filteredComponents, setFilteredComponents] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [selectedComponent, setSelectedComponent] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [currentRecordId, setCurrentRecordId] = useState(null);
+  const [currentVehicleInfo, setCurrentVehicleInfo] = useState(null);
   const [availableRecords, setAvailableRecords] = useState([]);
   const [isLoadingRecords, setIsLoadingRecords] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  // --- SỬA LỖI CHÍNH Ở ĐÂY ---
   const loadAvailableRecords = async () => {
     setIsLoadingRecords(true);
     try {
+      // 1. Gọi đúng hàm: getAssignedRecords
       const response = await technicianService.getAssignedRecords();
       const records = response.data?.records?.records || [];
-      const activeRecords = records.filter(
-        (r) => r.status === "IN_DIAGNOSIS" || r.status === "IN_REPAIR"
-      );
-      setAvailableRecords(activeRecords);
+      // 2. Không lọc status ở client, hiển thị tất cả xe được gán
+      setAvailableRecords(records);
     } catch (err) {
       console.error("Failed to load records:", err);
       setError("Không thể tải danh sách xe");
@@ -84,7 +86,11 @@ export default function PartsInventoryScreen() {
 
         const promises = categoriesToFetch.map((cat) =>
           technicianService
-            .searchCompatibleComponents(currentRecordId, cat, searchQuery)
+            .searchCompatibleComponents(
+              currentRecordId, 
+              cat, 
+              searchQuery || undefined // 3. Sửa tên param
+            ) 
             .then((res) => res.data?.result || [])
         );
         const allResults = await Promise.all(promises);
@@ -93,7 +99,7 @@ export default function PartsInventoryScreen() {
         const response = await technicianService.searchCompatibleComponents(
           currentRecordId,
           categoryFilter,
-          searchQuery
+          searchQuery || undefined // 3. Sửa tên param
         );
         results = response.data?.result || [];
       }
@@ -107,9 +113,26 @@ export default function PartsInventoryScreen() {
     }
   };
 
+  // Tải components khi category thay đổi
   useEffect(() => {
-    loadComponents();
-  }, [currentRecordId, categoryFilter, searchQuery]);
+    if (currentRecordId && categoryFilter !== "") {
+      loadComponents();
+    }
+  }, [currentRecordId, categoryFilter]);
+
+  // Lọc client-side khi search query thay đổi
+  useEffect(() => {
+    let filtered = [...components];
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (comp) =>
+          comp.name.toLowerCase().includes(query) ||
+          comp.typeComponentId.toLowerCase().includes(query)
+      );
+    }
+    setFilteredComponents(filtered);
+  }, [components, searchQuery]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -118,15 +141,28 @@ export default function PartsInventoryScreen() {
     );
   }, [currentRecordId, categoryFilter, searchQuery]);
 
-  const currentVehicleInfo = useMemo(() => {
-    if (!currentRecordId) return null;
+  const handleRecordSelection = (recordId) => {
     const record = availableRecords.find(
-      (r) => r.vehicleProcessingRecordId === currentRecordId
+      (r) => r.vehicleProcessingRecordId === recordId
     );
-    return record
-      ? { vin: record.vin, model: record.vehicle?.model?.name }
-      : null;
-  }, [currentRecordId, availableRecords]);
+    if (record) {
+      setCurrentRecordId(recordId);
+      setCurrentVehicleInfo({
+        vin: record.vin,
+        model: record.vehicle?.model?.name || "Unknown Model",
+      });
+      setComponents([]);
+      setFilteredComponents([]);
+      setCategoryFilter("");
+      setTimeout(() => setCategoryFilter("all"), 0);
+    } else {
+      setCurrentRecordId(null);
+      setCurrentVehicleInfo(null);
+      setComponents([]);
+      setFilteredComponents([]);
+      setCategoryFilter("");
+    }
+  };
 
   const viewComponentDetails = (component) => {
     setSelectedComponent(component);
@@ -164,7 +200,7 @@ export default function PartsInventoryScreen() {
       );
     }
 
-    if (components.length === 0) {
+    if (filteredComponents.length === 0) {
       return (
         <View style={styles.centeredContainer}>
           <Ionicons name="cube-outline" size={64} color="#9CA3AF" />
@@ -179,9 +215,9 @@ export default function PartsInventoryScreen() {
     return (
       <View style={styles.listContainer}>
         <Text style={styles.resultCountText}>
-          Tìm thấy {components.length} linh kiện
+          Tìm thấy {filteredComponents.length} linh kiện
         </Text>
-        {components.map((component) => (
+        {filteredComponents.map((component) => (
           <TouchableOpacity
             key={component.typeComponentId}
             style={styles.componentCard}
@@ -227,12 +263,21 @@ export default function PartsInventoryScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
+        <View style={styles.infoBox}>
+          <Ionicons name="information-circle-outline" size={20} color="#1D4ED8" />
+          <Text style={styles.infoText}>
+            {currentVehicleInfo
+              ? `Đang hiển thị linh kiện cho: ${currentVehicleInfo.model}`
+              : "Chọn xe để bắt đầu tìm linh kiện."}
+          </Text>
+        </View>
+
         <View style={styles.filterSection}>
           <Text style={styles.label}>Chọn xe (đang sửa chữa)</Text>
           <View style={styles.pickerContainer}>
             <Picker
               selectedValue={currentRecordId}
-              onValueChange={(itemValue) => setCurrentRecordId(itemValue)}
+              onValueChange={(itemValue) => handleRecordSelection(itemValue)}
               style={styles.picker}
               enabled={!isLoadingRecords}
             >
@@ -240,7 +285,7 @@ export default function PartsInventoryScreen() {
               {availableRecords.map((record) => (
                 <Picker.Item
                   key={record.vehicleProcessingRecordId}
-                  label={`${record.vehicle?.model?.name} - ${record.vin}`}
+                  label={`${record.vehicle?.model?.name} - ${record.vin} (${record.status})`}
                   value={record.vehicleProcessingRecordId}
                 />
               ))}
@@ -273,6 +318,7 @@ export default function PartsInventoryScreen() {
               style={styles.picker}
               enabled={!!currentRecordId}
             >
+              <Picker.Item label="-- Chọn danh mục --" value="" />
               {COMPONENT_CATEGORIES.map((cat) => (
                 <Picker.Item
                   key={cat.value}
@@ -283,18 +329,6 @@ export default function PartsInventoryScreen() {
             </Picker>
           </View>
         </View>
-
-        {currentVehicleInfo && (
-          <View style={styles.infoBox}>
-            <Ionicons name="car-sport-outline" size={20} color="#1D4ED8" />
-            <Text style={styles.infoText}>
-              Đang hiển thị linh kiện cho:{" "}
-              <Text style={{ fontWeight: "bold" }}>
-                {currentVehicleInfo.model}
-              </Text>
-            </Text>
-          </View>
-        )}
 
         {renderComponentList()}
       </ScrollView>
@@ -383,6 +417,19 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flex: 1,
   },
+  infoBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#EFF6FF",
+    padding: 12,
+    margin: 16,
+    borderRadius: 8,
+  },
+  infoText: {
+    flex: 1,
+    marginLeft: 8,
+    color: "#1E40AF",
+  },
   filterSection: {
     backgroundColor: "#FFFFFF",
     padding: 16,
@@ -424,19 +471,6 @@ const styles = StyleSheet.create({
     height: 48,
     fontSize: 16,
     color: "#111827",
-  },
-  infoBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#DBEAFE",
-    padding: 12,
-    margin: 16,
-    borderRadius: 8,
-  },
-  infoText: {
-    flex: 1,
-    marginLeft: 8,
-    color: "#1E40AF",
   },
   centeredContainer: {
     flex: 1,
@@ -534,6 +568,7 @@ const styles = StyleSheet.create({
     color: "#EF4444",
     marginLeft: 4,
   },
+  // Modal Styles
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",

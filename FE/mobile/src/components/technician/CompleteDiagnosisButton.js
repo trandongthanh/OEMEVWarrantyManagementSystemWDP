@@ -9,17 +9,19 @@ import {
   View,
   Pressable,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons"; // Đảm bảo import từ @expo
 import processingRecordService from "../../services/technician/processingRecordService";
 
 export default function CompleteDiagnosisButton({
   recordId,
   onSuccess,
   disabled = false,
+  onNavigateToInstall, // Prop mới để điều hướng
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false); // Modal thành công mới
 
   const handleCompleteDiagnosis = () => {
     setShowConfirmModal(true);
@@ -32,7 +34,8 @@ export default function CompleteDiagnosisButton({
 
     try {
       await processingRecordService.completeDiagnosis(recordId);
-      onSuccess?.();
+      // Hiển thị modal thành công thay vì đóng ngay
+      setShowSuccessModal(true);
     } catch (err) {
       console.error("Failed to complete diagnosis:", err);
       const message =
@@ -43,6 +46,19 @@ export default function CompleteDiagnosisButton({
       setIsSubmitting(false);
     }
   };
+
+  // --- CÁC HÀM MỚI CHO MODAL THÀNH CÔNG ---
+  const handleSuccessClose = () => {
+    setShowSuccessModal(false);
+    onSuccess?.(); // Gọi onSuccess (ví dụ: navigation.goBack())
+  };
+
+  const handleNavigateToInstall = () => {
+    setShowSuccessModal(false);
+    onSuccess?.(); // Gọi onSuccess trước
+    onNavigateToInstall?.(); // Sau đó gọi điều hướng
+  };
+  // ----------------------------------------
 
   return (
     <>
@@ -64,7 +80,7 @@ export default function CompleteDiagnosisButton({
         </Text>
       </TouchableOpacity>
 
-      {/* Modal xác nhận */}
+      {/* Modal xác nhận (Giữ nguyên) */}
       <Modal
         visible={showConfirmModal}
         transparent={true}
@@ -113,6 +129,54 @@ export default function CompleteDiagnosisButton({
                 <Text style={styles.confirmButtonText}>
                   {isSubmitting ? "Đang..." : "Xác nhận"}
                 </Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* --- MODAL THÀNH CÔNG (MỚI) --- */}
+      {/* */}
+      <Modal
+        visible={showSuccessModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleSuccessClose}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={handleSuccessClose}>
+          <Pressable style={styles.modalContent} onPress={() => {}}>
+            <View style={styles.successHeader}>
+              <View style={styles.successIconWrapper}>
+                <Ionicons name="checkmark-circle" size={32} color="#16A34A" />
+              </View>
+              <Text style={styles.successTitle}>Chẩn đoán Hoàn tất!</Text>
+              <Text style={styles.successSubtitle}>
+                Các hạng mục đã được gửi đi duyệt. Bạn muốn làm gì tiếp theo?
+              </Text>
+            </View>
+            <View style={styles.successBody}>
+              {onNavigateToInstall && (
+                <TouchableOpacity
+                  style={styles.nextStepButton}
+                  onPress={handleNavigateToInstall}
+                >
+                  <Ionicons name="cube-outline" size={20} color="#1D4ED8" />
+                  <View style={styles.nextStepTextContainer}>
+                    <Text style={styles.nextStepTitle}>
+                      Xem Linh kiện chờ Lắp đặt
+                    </Text>
+                    <Text style={styles.nextStepSubtitle}>
+                      Kiểm tra các linh kiện đã được duyệt
+                    </Text>
+                  </View>
+                  <Ionicons name="arrow-forward" size={20} color="#1D4ED8" />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton, { width: "100%" }]}
+                onPress={handleSuccessClose}
+              >
+                <Text style={styles.cancelButtonText}>Quay lại Dashboard</Text>
               </TouchableOpacity>
             </View>
           </Pressable>
@@ -209,6 +273,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
     color: "#374151",
+    textAlign: "center",
   },
   confirmButton: {
     backgroundColor: "#1D4ED8",
@@ -217,5 +282,59 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
     color: "#FFFFFF",
+  },
+
+  // Success Modal Styles
+  successHeader: {
+    alignItems: "center",
+    padding: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  successIconWrapper: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#F0FDF4",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  successTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#111827",
+    marginBottom: 8,
+  },
+  successSubtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+    textAlign: "center",
+  },
+  successBody: {
+    padding: 16,
+  },
+  nextStepButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    backgroundColor: "#EFF6FF",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#DBEAFE",
+    marginBottom: 12,
+  },
+  nextStepTextContainer: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  nextStepTitle: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#111827",
+  },
+  nextStepSubtitle: {
+    fontSize: 12,
+    color: "#6B7280",
   },
 });

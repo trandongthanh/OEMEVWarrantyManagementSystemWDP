@@ -1,4 +1,5 @@
 import api from "../api";
+
 /**
  * Lấy danh sách các case line với bộ lọc
  * API: GET /case-lines
@@ -16,17 +17,24 @@ const getCaseLinesList = async (params) => {
 /**
  * Lấy chi tiết case line bằng ID
  * API: GET /case-lines/{caselineId}
+ *
+ * SỬA LỖI: File web gốc xác nhận hàm này KHÔNG cần caseId.
  */
-const getCaseLineById = async (caselineId, caseId) => {
+const getCaseLineById = async (caselineId) => {
+  if (!caselineId) {
+    const errorMsg = `Lỗi gọi API: caselineId bị rỗng.`;
+    console.error(errorMsg);
+    throw new Error(errorMsg);
+  }
+
   try {
-    // Backend validator yêu cầu cả caseId nếu có
-    const url = caseId
-      ? `/guarantee-cases/${caseId}/case-lines/${caselineId}`
-      : `/case-lines/${caselineId}`;
+    const url = `/case-lines/${caselineId}`; //
     const response = await api.get(url);
     return response.data;
   } catch (error) {
-    console.error("Lỗi khi lấy chi tiết case line (getCaseLineById):", error);
+    console.error(
+      `Lỗi khi lấy chi tiết case line (getCaseLineById): ${error.message}`
+    );
     throw error;
   }
 };
@@ -34,16 +42,17 @@ const getCaseLineById = async (caselineId, caseId) => {
 /**
  * Cập nhật thông tin case line (KTV dùng khi lưu chẩn đoán)
  * API: PATCH /guarantee-cases/{caseId}/case-lines/{caselineId}
+ *
+ * Hàm này yêu cầu caseId, giống hệt file web.
  */
 const updateCaseLine = async (caselineId, data) => {
   try {
-    // Backend validator yêu...
     const { caseId, ...bodyData } = data;
     if (!caseId) {
       throw new Error("caseId là bắt buộc để cập nhật case line");
     }
     const response = await api.patch(
-      `/guarantee-cases/${caseId}/case-lines/${caselineId}`,
+      `/guarantee-cases/${caseId}/case-lines/${caselineId}`, //
       bodyData
     );
     return response.data;
@@ -60,7 +69,7 @@ const updateCaseLine = async (caselineId, data) => {
 const markRepairComplete = async (caselineId) => {
   try {
     const response = await api.patch(
-      `/case-lines/${caselineId}/mark-repair-complete`
+      `/case-lines/${caselineId}/mark-repair-complete` //
     );
     return response.data;
   } catch (error) {
@@ -79,7 +88,10 @@ const bulkUpdateStockQuantities = async (caseId, data) => {
       caseId,
       ...data, // data có dạng { caselines: [...] }
     };
-    const response = await api.post(`/guarantee-cases/${caseId}`, payload);
+    const response = await api.post(
+      `/guarantee-cases/${caseId}`, //
+      payload
+    );
     return response.data;
   } catch (error) {
     console.error(
@@ -92,10 +104,6 @@ const bulkUpdateStockQuantities = async (caseId, data) => {
 
 // --- Các hàm KTV có thể không dùng ---
 
-/**
- * Phê duyệt hoặc từ chối case lines (Dành cho Staff/Manager)
- * API: PATCH /case-lines/approve
- */
 const approveCaseLines = async (data) => {
   try {
     const response = await api.patch("/case-lines/approve", data);
@@ -106,14 +114,10 @@ const approveCaseLines = async (data) => {
   }
 };
 
-/**
- * Phân bổ kho cho case line (Dành cho Manager)
- * API: POST /guarantee-cases/{caseId}/case-lines/{caselineId}/allocate-stock
- */
 const allocateStock = async (caseId, caselineId) => {
   try {
     const response = await api.post(
-      `/guarantee-cases/${caseId}/case-lines/${caselineId}/allocate-stock`
+      `/guarantee-cases/${caseId}/case-lines/${caselineId}/allocate-stock` //
     );
     return response.data;
   } catch (error) {
@@ -122,14 +126,10 @@ const allocateStock = async (caseId, caselineId) => {
   }
 };
 
-/**
- * Gán kỹ thuật viên sửa chữa (Dành cho Manager)
- * API: PATCH /guarantee-cases/{caseId}/case-lines/{caselineId}/assign-technician
- */
 const assignTechnicianToRepair = async (caseId, caselineId, data) => {
   try {
     const response = await api.patch(
-      `/guarantee-cases/${caseId}/case-lines/${caselineId}/assign-technician`,
+      `/guarantee-cases/${caseId}/case-lines/${caselineId}/assign-technician`, //
       data
     );
     return response.data;
@@ -146,7 +146,6 @@ const caseLineService = {
   updateCaseLine,
   markRepairComplete,
   bulkUpdateStockQuantities,
-  // Các hàm khác nếu cần
   approveCaseLines,
   allocateStock,
   assignTechnicianToRepair,

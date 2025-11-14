@@ -20,6 +20,7 @@ import {
   caseLineService,
   imageUploadService,
 } from "../../services/technician";
+// Component này đã được cập nhật ở bước trước
 import CompleteDiagnosisButton from "../../components/technician/CompleteDiagnosisButton";
 
 const COMPONENT_CATEGORIES = [
@@ -35,6 +36,7 @@ const COMPONENT_CATEGORIES = [
   { value: "INFOTAINMENT_ADAS", label: "Infotainment & ADAS" },
 ];
 
+// --- Component Form Hạng mục ---
 const CaseLineForm = ({
   caseLine,
   index,
@@ -199,6 +201,7 @@ const CaseLineForm = ({
   );
 };
 
+// --- Component Tìm kiếm Linh kiện ---
 const ComponentSearch = ({
   onClose,
   onSelectComponent,
@@ -215,6 +218,7 @@ const ComponentSearch = ({
     setIsSearching(true);
     setError("");
     try {
+      // Dùng service đã cập nhật
       const response = await technicianService.searchCompatibleComponents(
         recordId,
         searchCategory,
@@ -242,7 +246,7 @@ const ComponentSearch = ({
         </TouchableOpacity>
       </View>
 
-      <View style={styles.pickerContainer}>
+      <View style={styles.pickerContainerSearch}>
         <Picker
           selectedValue={searchCategory}
           onValueChange={setSearchCategory}
@@ -262,7 +266,7 @@ const ComponentSearch = ({
           onChangeText={setSearchQuery}
         />
         <TouchableOpacity
-          style={styles.searchButton}
+          style={styles.searchButtonModal}
           onPress={searchComponents}
           disabled={isSearching}
         >
@@ -306,10 +310,14 @@ const ComponentSearch = ({
   );
 };
 
+// --- Màn hình Chính ---
 export default function CaseDetailsScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { vin, recordId, caseId } = route.params;
+
+  // Lấy params an toàn (đã sửa ở lần trước)
+  const params = route.params?.params || route.params;
+  const { vin, recordId, caseId } = params;
 
   const [caseLines, setCaseLines] = useState([
     {
@@ -348,11 +356,13 @@ export default function CaseDetailsScreen() {
         );
 
         if (guaranteeCase && guaranteeCase.caseLines?.length > 0) {
+          const validCaseLines = guaranteeCase.caseLines.filter(cl => cl.id);
+
           const detailedCaseLines = await Promise.all(
-            guaranteeCase.caseLines.map(async (cl) => {
+            validCaseLines.map(async (cl) => {
+              // Sử dụng service ĐÚNG (chỉ cần cl.id)
               const detailResponse = await caseLineService.getCaseLineById(
-                cl.id,
-                caseId
+                cl.id
               );
               const d = detailResponse.data.caseLine;
               return {
@@ -363,7 +373,7 @@ export default function CaseDetailsScreen() {
                 componentName: d.typeComponent?.name || "",
                 quantity: d.quantity || 1,
                 warrantyStatus: d.warrantyStatus || "ELIGIBLE",
-                isUnderWarranty: (d.warrantyStatus || "ELIGIBLE") === "ELIGIBLE", // simplified logic
+                isUnderWarranty: (d.warrantyStatus || "ELIGIBLE") === "ELIGIBLE",
                 rejectionReason: d.rejectionReason || "",
                 status: d.status || "DRAFT",
                 evidenceImageUrls: d.evidenceImageUrls || [],
@@ -379,6 +389,20 @@ export default function CaseDetailsScreen() {
           }
         } else {
           setShowCompleteDiagnosis(false);
+          setIsReadOnly(false);
+          setCaseLines([
+            {
+              diagnosisText: "",
+              correctionText: "",
+              typeComponentId: null,
+              componentName: "",
+              quantity: 1,
+              warrantyStatus: "ELIGIBLE",
+              isUnderWarranty: true,
+              newImages: [],
+              evidenceImageUrls: [],
+            },
+          ]);
         }
       } catch (error) {
         console.error("Error loading case line data:", error);
@@ -543,6 +567,14 @@ export default function CaseDetailsScreen() {
     }
   };
 
+  // --- CẬP NHẬT LOGIC: HÀM ĐIỀU HƯỚNG MỚI ---
+  const handleNavigateToInstall = () => {
+    // Điều hướng đến tab 'Dashboard', nơi có component "Ready to Install"
+    //
+    navigation.navigate("DashboardTab");
+  };
+  // ------------------------------------------
+
   if (isLoading) {
     return (
       <View style={styles.centered}>
@@ -619,7 +651,8 @@ export default function CaseDetailsScreen() {
         )}
       </ScrollView>
 
-      {!isReadOnly && (
+      {/* --- CẬP NHẬT LOGIC FOOTER --- */}
+      {!isReadOnly && !showCompleteDiagnosis && (
         <View style={styles.footer}>
           <TouchableOpacity
             style={[styles.saveButton, isSaving && styles.disabledButton]}
@@ -636,21 +669,25 @@ export default function CaseDetailsScreen() {
         </View>
       )}
 
-      {showCompleteDiagnosis && (
+      {showCompleteDiagnosis && !isReadOnly && (
         <View style={styles.footer}>
           <CompleteDiagnosisButton
             recordId={recordId}
             onSuccess={() => {
-              Alert.alert("Hoàn tất", "Đã hoàn tất chẩn đoán.");
+              // onSuccess của button sẽ điều hướng goBack()
               navigation.goBack();
             }}
+            // Truyền hàm điều hướng mới vào
+            onNavigateToInstall={handleNavigateToInstall}
           />
         </View>
       )}
+      {/* --- KẾT THÚC CẬP NHẬT FOOTER --- */}
     </View>
   );
 }
 
+// --- Stylesheet ---
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -670,7 +707,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#FFFFFF",
-    paddingVertical: 12,
+    paddingTop: 40, // An toàn cho status bar
+    paddingBottom: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
@@ -847,6 +885,7 @@ const styles = StyleSheet.create({
   footer: {
     backgroundColor: "#FFFFFF",
     padding: 16,
+    paddingBottom: 24, // An toàn cho status bar
     borderTopWidth: 1,
     borderTopColor: "#E5E7EB",
   },
@@ -872,6 +911,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     flex: 1,
     backgroundColor: "#F3F4F6",
+    paddingTop: 40, // An toàn cho status bar
   },
   searchHeader: {
     flexDirection: "row",
@@ -890,9 +930,16 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: 4,
   },
+  pickerContainerSearch: {
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    borderRadius: 8,
+    margin: 16,
+    backgroundColor: "#FFFFFF",
+  },
   searchInputContainer: {
     flexDirection: "row",
-    padding: 16,
+    paddingHorizontal: 16,
   },
   searchInput: {
     flex: 1,
@@ -904,9 +951,17 @@ const styles = StyleSheet.create({
     color: "#111827",
     backgroundColor: "#FFFFFF",
   },
+  searchButtonModal: {
+    backgroundColor: "#1D4ED8",
+    padding: 12,
+    borderRadius: 8,
+    marginLeft: 8,
+    justifyContent: "center",
+  },
   componentList: {
     flex: 1,
     paddingHorizontal: 16,
+    marginTop: 16,
   },
   componentItem: {
     flexDirection: "row",
@@ -921,5 +976,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#111827",
     flex: 1,
+  },
+  emptyText: {
+    textAlign: "center",
+    marginTop: 20,
+    fontSize: 16,
+    color: "#6B7280",
   },
 });
