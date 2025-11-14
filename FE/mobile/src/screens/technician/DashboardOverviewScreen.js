@@ -7,9 +7,11 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import technicianService from "../../services/technician/technicianService";
 import ComponentsToInstall from "../../components/technician/ComponentsToInstall";
 import RepairsToComplete from "../../components/technician/RepairsToComplete";
@@ -60,6 +62,27 @@ const DashboardOverviewScreen = () => {
     setRefreshing(false);
   }, []);
 
+  const handleLogout = () => {
+    Alert.alert(
+      "Đăng xuất",
+      "Bạn có chắc chắn muốn đăng xuất?",
+      [
+        { text: "Hủy", style: "cancel" },
+        {
+          text: "Đăng xuất",
+          style: "destructive",
+          onPress: async () => {
+            await AsyncStorage.removeItem("authToken");
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "Login" }],
+            });
+          },
+        },
+      ]
+    );
+  };
+
   const stats = useMemo(() => {
     const active = processingRecords.filter(
       (r) => r.status === "IN_DIAGNOSIS" || r.status === "IN_REPAIR"
@@ -73,7 +96,7 @@ const DashboardOverviewScreen = () => {
   const handleOpenCase = (vin, recordId, caseId) => {
     navigation.navigate("TasksTab", {
       screen: "CaseDetails",
-      params: {
+      params: { 
         vin,
         recordId,
         caseId,
@@ -121,7 +144,7 @@ const DashboardOverviewScreen = () => {
           if (!recordId) return null;
 
           return (
-            <View key={record.vin} style={styles.recordCard}>
+            <View key={recordId} style={styles.recordCard}>
               <View style={styles.recordHeader}>
                 <Text style={styles.vinText}>VIN: {record.vin}</Text>
                 <View
@@ -172,13 +195,13 @@ const DashboardOverviewScreen = () => {
                       guaranteeCase.caseLines?.length > 0 && !hasDraft;
 
                     let buttonText = "Thêm chẩn đoán";
-                    let buttonColor = "#2563EB";
+                    let buttonColor = "#2563EB"; // Blue
                     if (hasDraft) {
                       buttonText = "Sửa chẩn đoán";
-                      buttonColor = "#4B5563";
+                      buttonColor = "#4B5563"; // Gray
                     } else if (hasCompleted) {
                       buttonText = "Xem chẩn đoán";
-                      buttonColor = "#16A34A";
+                      buttonColor = "#16A34A"; // Green
                     }
 
                     return (
@@ -222,6 +245,9 @@ const DashboardOverviewScreen = () => {
     >
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Dashboard</Text>
+        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+          <Ionicons name="log-out-outline" size={28} color="#EF4444" />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.statsContainer}>
@@ -262,6 +288,8 @@ const DashboardOverviewScreen = () => {
   );
 };
 
+// --- StyleSheet ---
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -273,12 +301,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center", 
   },
   headerTitle: {
     fontSize: 28,
     fontWeight: "bold",
     color: "#111827",
   },
+  logoutButton: {
+    padding: 8,
+  },
+
+  // Stats
   statsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -300,6 +336,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     marginTop: 4,
   },
+  // Section Header
   sectionHeader: {
     paddingHorizontal: 16,
     marginTop: 24,
@@ -310,6 +347,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#111827",
   },
+  // Centered States (Loading, Error, Empty)
   centered: {
     flex: 1,
     justifyContent: "center",
@@ -353,6 +391,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: "center",
   },
+  // Record List
   listContainer: {
     paddingHorizontal: 16,
   },
@@ -404,6 +443,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#4B5563",
   },
+  // Case List
   caseListContainer: {
     borderTopWidth: 1,
     borderTopColor: "#E5E7EB",
