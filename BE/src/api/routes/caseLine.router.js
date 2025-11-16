@@ -289,6 +289,7 @@ router.get(
   validate(getCaseLineByIdParamsSchema, "params"),
   async (req, res, next) => {
     const caseLineController = req.container.resolve("caseLineController");
+
     await caseLineController.getCaseLineById(req, res, next);
   }
 );

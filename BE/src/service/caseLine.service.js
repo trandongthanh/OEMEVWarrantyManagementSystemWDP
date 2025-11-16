@@ -106,7 +106,6 @@ class CaseLineService {
         ...caseline,
         guaranteeCaseId: guaranteeCaseId,
         diagnosticTechId: techId,
-        repairTechId: techId,
       }));
 
       const newCaseLines = await this.#caselineRepository.bulkCreate(
@@ -211,7 +210,6 @@ class CaseLineService {
           warrantyStatus: processedCaseline.warrantyStatus,
           rejectionReason: processedCaseline.rejectionReason,
           diagnosticTechId: techId,
-          repairTechId: techId,
           evidenceImageUrls: processedCaseline.evidenceImageUrls,
         },
         transaction
