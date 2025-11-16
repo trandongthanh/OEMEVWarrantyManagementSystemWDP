@@ -12,7 +12,7 @@ import {
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import technicianService from "../../services/technician/technicianService";
+import { technicianService } from "../../services/technician";
 import ComponentsToInstall from "../../components/technician/ComponentsToInstall";
 import RepairsToComplete from "../../components/technician/RepairsToComplete";
 
@@ -47,6 +47,7 @@ const DashboardOverviewScreen = () => {
       console.error("Lỗi khi tải (loadProcessingRecords):", err);
     } finally {
       setIsLoading(false);
+      setRefreshing(false); 
     }
   };
 
@@ -59,7 +60,6 @@ const DashboardOverviewScreen = () => {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadProcessingRecords();
-    setRefreshing(false);
   }, []);
 
   const handleLogout = () => {
@@ -84,6 +84,7 @@ const DashboardOverviewScreen = () => {
   };
 
   const stats = useMemo(() => {
+    // Logic khớp với web
     const active = processingRecords.filter(
       (r) => r.status === "IN_DIAGNOSIS" || r.status === "IN_REPAIR"
     ).length;
@@ -94,9 +95,10 @@ const DashboardOverviewScreen = () => {
   }, [processingRecords]);
 
   const handleOpenCase = (vin, recordId, caseId) => {
+    //
     navigation.navigate("TasksTab", {
       screen: "CaseDetails",
-      params: { 
+      params: {
         vin,
         recordId,
         caseId,
@@ -187,6 +189,7 @@ const DashboardOverviewScreen = () => {
                     Hồ sơ bảo hành ({record.guaranteeCases.length}):
                   </Text>
                   {record.guaranteeCases.map((guaranteeCase) => {
+                    // Logic xác định trạng thái nút
                     const hasDraft =
                       guaranteeCase.caseLines?.some(
                         (cl) => cl.status === "DRAFT"
@@ -250,6 +253,7 @@ const DashboardOverviewScreen = () => {
         </TouchableOpacity>
       </View>
 
+      {/* Stats */}
       <View style={styles.statsContainer}>
         <View style={[styles.statBox, { backgroundColor: "#DBEAFE" }]}>
           <Text style={[styles.statNumber, { color: "#1E40AF" }]}>
@@ -279,6 +283,7 @@ const DashboardOverviewScreen = () => {
 
       {renderContent()}
 
+      {/* Action Items */}
       <View style={styles.actionItemsContainer}>
         <ComponentsToInstall />
         <View style={{ height: 16 }} />
@@ -303,7 +308,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "#E5E7EB",
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center", 
+    alignItems: "center",
   },
   headerTitle: {
     fontSize: 28,
@@ -313,7 +318,6 @@ const styles = StyleSheet.create({
   logoutButton: {
     padding: 8,
   },
-
   // Stats
   statsContainer: {
     flexDirection: "row",
@@ -347,7 +351,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#111827",
   },
-  // Centered States (Loading, Error, Empty)
+  // Centered States
   centered: {
     flex: 1,
     justifyContent: "center",

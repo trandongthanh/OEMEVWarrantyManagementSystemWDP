@@ -7,17 +7,19 @@ import {
   ActivityIndicator,
   RefreshControl,
   TextInput,
+  TouchableOpacity,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import { Ionicons } from "@expo/vector-icons";
-import technicianService from "../../services/technician/technicianService";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Picker } from "@react-native-picker/picker";
+import { technicianService } from "../../services/technician";
 
 const statusConfig = {
   COMPLETED: {
     label: "Completed",
     color: "#16A34A",
     bg: "#F0FDF4",
-    icon: "checkmark-circle-outline",
+    icon: "checkmark-done-outline",
   },
   CANCELLED: {
     label: "Cancelled",
@@ -43,7 +45,7 @@ export default function WorkHistoryScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL"); // 'ALL', 'COMPLETED', 'CANCELLED'
+  const [statusFilter, setStatusFilter] = useState("ALL"); 
 
   const loadHistory = async () => {
     setLoading(true);
@@ -101,10 +103,22 @@ export default function WorkHistoryScreen() {
       (r) => r.status === "COMPLETED"
     ).length;
     const total = history.length;
+    const thisMonth = history.filter((r) => {
+      const completedDate = new Date(r.checkInDate);
+      const now = new Date();
+      return (
+        completedDate.getMonth() === now.getMonth() &&
+        completedDate.getFullYear() === now.getFullYear()
+      );
+    }).length;
+    const successRate =
+      total > 0 ? Math.round((completed / total) * 100) : 0;
+      
     return {
-      total: total,
-      completed: completed,
-      successRate: total > 0 ? Math.round((completed / total) * 100) : 0,
+      total,
+      completed,
+      thisMonth,
+      successRate,
     };
   }, [history]);
 
@@ -146,7 +160,7 @@ export default function WorkHistoryScreen() {
             <Text style={styles.metaText}>{checkInDate}</Text>
           </View>
           <View style={styles.metaItem}>
-            <Ionicons name="speedometer-outline" size={14} color="#6B7280" />
+            <MaterialCommunityIcons name="speedometer" size={14} color="#6B7280" />
             <Text style={styles.metaText}>
               {task.odometer.toLocaleString()} km
             </Text>
@@ -168,14 +182,19 @@ export default function WorkHistoryScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
+        {/* Cập nhật Stats */}
         <View style={styles.statsContainer}>
           <View style={styles.statBox}>
             <Text style={styles.statNumber}>{stats.total}</Text>
-            <Text style={styles.statLabel}>Total</Text>
+            <Text style={styles.statLabel}>Total History</Text>
           </View>
           <View style={styles.statBox}>
             <Text style={styles.statNumber}>{stats.completed}</Text>
             <Text style={styles.statLabel}>Completed</Text>
+          </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statNumber}>{stats.thisMonth}</Text>
+            <Text style={styles.statLabel}>This Month</Text>
           </View>
           <View style={styles.statBox}>
             <Text style={styles.statNumber}>{stats.successRate}%</Text>
@@ -198,6 +217,17 @@ export default function WorkHistoryScreen() {
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
+          </View>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={statusFilter}
+              onValueChange={(itemValue) => setStatusFilter(itemValue)}
+              style={styles.picker}
+            >
+              <Picker.Item label="All Statuses" value="ALL" />
+              <Picker.Item label="Completed" value="COMPLETED" />
+              <Picker.Item label="Cancelled" value="CANCELLED" />
+            </Picker>
           </View>
         </View>
 
@@ -243,16 +273,18 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "space-between",
     paddingHorizontal: 12,
     marginTop: 16,
   },
   statBox: {
-    flex: 1,
+    width: "48%",
     backgroundColor: "#FFFFFF",
     padding: 16,
     borderRadius: 12,
-    marginHorizontal: 4,
+    marginHorizontal: "1%",
+    marginBottom: 8,
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
@@ -269,6 +301,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#6B7280",
     marginTop: 4,
+    textAlign: "center",
   },
   filterContainer: {
     paddingHorizontal: 16,
@@ -282,6 +315,7 @@ const styles = StyleSheet.create({
     borderColor: "#E5E7EB",
     alignItems: "center",
     paddingHorizontal: 12,
+    marginBottom: 12,
   },
   searchIcon: {
     marginRight: 8,
@@ -290,6 +324,16 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 48,
     fontSize: 16,
+    color: "#111827",
+  },
+  pickerContainer: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    borderRadius: 8,
+  },
+  picker: {
+    height: 50,
     color: "#111827",
   },
   emptyContainer: {

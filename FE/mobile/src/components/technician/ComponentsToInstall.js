@@ -5,12 +5,12 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Alert, // Thêm Alert
+  Alert, 
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { caseLineService } from "../../services/technician";
-import ComponentInstallModal from "./ComponentInstallModal"; // Modal này đã được cập nhật
+import ComponentInstallModal from "./ComponentInstallModal"; 
 
 export default function ComponentsToInstall() {
   const [components, setComponents] = useState([]);
@@ -27,7 +27,6 @@ export default function ComponentsToInstall() {
 
       const caseLines = response.data.caseLines || [];
 
-      // Logic lọc khớp với web
       const componentsReady = caseLines.filter((cl) => {
         if (cl.reservations && cl.reservations.length > 0) {
           return cl.reservations.some((res) => res.status === "PICKED_UP");
@@ -38,6 +37,7 @@ export default function ComponentsToInstall() {
       setComponents(componentsReady);
     } catch (error) {
       console.error("Failed to load components to install:", error);
+      Alert.alert("Lỗi", "Không thể tải danh sách chờ lắp đặt.");
     } finally {
       setLoading(false);
     }
@@ -50,7 +50,6 @@ export default function ComponentsToInstall() {
   );
 
   const handleInstallClick = (component) => {
-    // Tìm reservation đã PICKED_UP
     const reservation = component.reservations?.find(
       (res) => res.status === "PICKED_UP"
     );
@@ -64,7 +63,6 @@ export default function ComponentsToInstall() {
       reservationId: reservation.reservationId,
       componentName: component.typeComponent?.name || "Component",
       vehicleVin: component.guaranteeCase?.vehicleProcessingRecord?.vin || "",
-      // CẬP NHẬT: Lấy serial number từ reservation
       componentSerial: reservation.component?.serialNumber || "",
     });
   };
@@ -109,14 +107,12 @@ export default function ComponentsToInstall() {
             <View key={caseLineId} style={styles.itemCard}>
               <View style={styles.itemContent}>
                 <View style={styles.itemHeader}>
-                  {/* Icon thay đổi */}
                   <Ionicons name="build-outline" size={16} color="#5B21B6" />
                   <Text style={styles.itemName}>
                     {component.typeComponent?.name || "Component"}
                   </Text>
                 </View>
 
-                {/* --- Thông tin chi tiết mới --- */}
                 <View style={styles.itemMeta}>
                   {component.diagnosisText && (
                     <Text style={styles.metaText} numberOfLines={1}>
@@ -140,7 +136,6 @@ export default function ComponentsToInstall() {
                 onPress={() => handleInstallClick(component)}
                 style={styles.installButton}
               >
-                {/* Icon thay đổi */}
                 <Ionicons name="build-outline" size={16} color="#FFFFFF" /> 
                 <Text style={styles.installButtonText}>Lắp đặt</Text>
               </TouchableOpacity>

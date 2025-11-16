@@ -36,14 +36,13 @@ export default function ComponentInstallModal({
     setError(null);
 
     if (!vehicleVin.trim()) {
-      setError("Vehicle VIN is required"); // Vẫn kiểm tra cho chắc
+      setError("Vehicle VIN is required"); 
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // Logic đã đơn giản hóa: chỉ cần gọi installComponent
       await componentReservationService.installComponent(reservationId);
       onSuccess?.();
       onClose();
@@ -66,11 +65,9 @@ export default function ComponentInstallModal({
     >
       <Pressable style={styles.modalBackdrop} onPress={onClose}>
         <Pressable style={styles.modalContent} onPress={() => {}}>
-          {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerIconWrapper}>
-              {/* Icon thay đổi cho khớp web */}
-              <Ionicons name="package-outline" size={20} color="#16A34A" />
+              <Ionicons name="cube-outline" size={20} color="#16A34A" />
             </View>
             <View style={styles.headerTextContainer}>
               <Text style={styles.title}>Lắp đặt linh kiện</Text>
@@ -81,7 +78,6 @@ export default function ComponentInstallModal({
             </TouchableOpacity>
           </View>
 
-          {/* Body */}
           <View style={styles.body}>
             <View style={styles.infoBox}>
               <Ionicons
@@ -90,8 +86,8 @@ export default function ComponentInstallModal({
                 color="#0284C7"
               />
               <Text style={styles.infoText}>
-                Hành động này sẽ đánh dấu linh kiện là ĐÃ LẮP ĐẶT và liên kết nó
-                với xe. Serial number được theo dõi tự động.
+                Hành động này sẽ đánh dấu linh kiện là ĐÃ LẮP ĐẶT. Serial number
+                được theo dõi tự động.
               </Text>
             </View>
 
@@ -102,7 +98,6 @@ export default function ComponentInstallModal({
               </View>
             )}
 
-            {/* Form Fields */}
             <View style={styles.fieldContainer}>
               <Text style={styles.label}>
                 Vehicle VIN * (Tự động điền)
@@ -111,11 +106,10 @@ export default function ComponentInstallModal({
                 style={[styles.input, styles.inputDisabled]}
                 value={vehicleVin}
                 placeholder="Vehicle VIN"
-                editable={false} // KHÓA: Không cho sửa VIN
+                editable={false} 
               />
             </View>
 
-            {/* HIỂN THỊ Serial number thay vì nhập */}
             {componentSerial && (
               <View style={styles.fieldContainer}>
                 <Text style={styles.label}>Component Serial Number</Text>
@@ -126,7 +120,6 @@ export default function ComponentInstallModal({
             )}
           </View>
 
-          {/* Footer */}
           <View style={styles.footer}>
             <TouchableOpacity
               style={[styles.button, styles.cancelButton]}

@@ -9,7 +9,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { caseLineService } from "../../services/technician";
-import MarkRepairCompleteButton from "./MarkRepairCompleteButton"; // IMPORT NÚT ĐÃ CÓ MODAL
+import MarkRepairCompleteButton from "./MarkRepairCompleteButton";
 
 export default function RepairsToComplete() {
   const [caseLines, setCaseLines] = useState([]);
@@ -25,6 +25,7 @@ export default function RepairsToComplete() {
       setCaseLines(inRepairLines);
     } catch (error) {
       console.error("Error fetching in-repair case lines:", error);
+      Alert.alert("Lỗi", "Không thể tải danh sách sửa chữa.");
     } finally {
       setLoading(false);
     }
@@ -37,8 +38,7 @@ export default function RepairsToComplete() {
   );
 
   const handleRepairSuccess = () => {
-    // Không cần Alert ở đây vì Nút đã tự Alert
-    fetchInRepairCaseLines(); // Chỉ cần làm mới danh sách
+    fetchInRepairCaseLines(); 
   };
 
   const renderContent = useMemo(() => {
@@ -73,7 +73,6 @@ export default function RepairsToComplete() {
                   {caseLine.typeComponent?.name || "Linh kiện"}
                 </Text>
 
-                {/* --- Thông tin chi tiết mới --- */}
                 <View style={styles.itemMeta}>
                   {caseLine.diagnosisText && (
                     <Text style={styles.metaText} numberOfLines={1}>
@@ -99,9 +98,7 @@ export default function RepairsToComplete() {
                     Trạng thái: {caseLine.status}
                   </Text>
                 </View>
-                {/* --- Hết thông tin chi tiết --- */}
 
-                {/* Cảnh báo bảo hành */}
                 {caseLine.warrantyStatus === "INELIGIBLE" && (
                   <View style={styles.warningBox}>
                     <Ionicons
@@ -119,13 +116,12 @@ export default function RepairsToComplete() {
                 )}
               </View>
 
-              {/* SỬ DỤNG COMPONENT NÚT BẤM MỚI */}
               <MarkRepairCompleteButton
                 caseLineId={caseLineId}
-                showNextSteps={true}
-                pendingRepairsCount={pendingCount}
+                showNextSteps={true} //
+                pendingRepairsCount={pendingCount} //
                 onSuccess={handleRepairSuccess}
-                style={styles.completeButton} // style để căn chỉnh
+                style={styles.completeButton}
               />
             </View>
           );
@@ -222,7 +218,6 @@ const styles = StyleSheet.create({
   },
   itemContent: {
     flex: 1,
-    // marginRight: 12, // Bỏ marginRight vì nút bấm xuống dòng
   },
   itemName: {
     fontSize: 15,
@@ -257,13 +252,13 @@ const styles = StyleSheet.create({
     borderColor: "#FDE68A",
     marginTop: 8,
   },
-  warningText: { //
+  warningText: { 
     fontSize: 12,
     color: "#B45309",
     marginLeft: 6,
     flex: 1,
   },
   completeButton: {
-    marginTop: 12, // Nút bấm nằm dưới cùng
+    marginTop: 12,
   },
 });

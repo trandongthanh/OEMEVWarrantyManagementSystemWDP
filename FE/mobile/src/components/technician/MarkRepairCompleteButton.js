@@ -5,11 +5,11 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
-  Modal,
-  View,
-  Pressable,
+  Modal, 
+  View, 
+  Pressable, 
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons"; 
 import { caseLineService } from "../../services/technician";
 
 export default function MarkRepairCompleteButton({
@@ -17,16 +17,16 @@ export default function MarkRepairCompleteButton({
   onSuccess,
   disabled = false,
   style,
-  showNextSteps = false, // Prop mới
-  pendingRepairsCount = 0, // Prop mới
+  showNextSteps = false,
+  pendingRepairsCount = 0, 
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState(null);
-  const [showConfirmModal, setShowConfirmModal] = useState(false); //
-  const [showSuccess, setShowSuccess] = useState(false); //
+  const [error, setError] = useState(null); 
+  const [showConfirmModal, setShowConfirmModal] = useState(false); 
+  const [showSuccess, setShowSuccess] = useState(false); 
 
   const handleOpenModal = () => {
-    setShowConfirmModal(true);
+    setShowConfirmModal(true); 
   };
 
   const handleConfirmComplete = async () => {
@@ -38,16 +38,12 @@ export default function MarkRepairCompleteButton({
       await caseLineService.markRepairComplete(caseLineId);
 
       if (showNextSteps && pendingRepairsCount > 0) {
-        // Hiển thị thông báo thành công (toast-like)
-        // Trong React Native, chúng ta dùng Alert hoặc một component Toast tùy chỉnh
         Alert.alert(
           "Hoàn tất!",
           `Bạn còn ${pendingRepairsCount} mục sửa chữa khác đang chờ.`
         );
-        // (File web dùng toast tự ẩn, ở đây ta gọi onSuccess ngay)
         onSuccess?.();
       } else {
-        Alert.alert("Hoàn tất!", "Sửa chữa đã được đánh dấu hoàn tất.");
         onSuccess?.();
       }
     } catch (err) {
@@ -64,7 +60,7 @@ export default function MarkRepairCompleteButton({
   return (
     <>
       <TouchableOpacity
-        onPress={handleOpenModal} // Mở modal thay vì gọi thẳng
+        onPress={handleOpenModal}
         disabled={disabled || isSubmitting}
         style={[
           styles.button,
@@ -72,14 +68,16 @@ export default function MarkRepairCompleteButton({
           style,
         ]}
       >
-        <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+        {isSubmitting ? (
+          <ActivityIndicator size="small" color="#FFFFFF" />
+        ) : (
+          <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+        )}
         <Text style={styles.buttonText}>
-          {isSubmitting ? "Đang lưu..." : "Hoàn tất"}
+          {isSubmitting ? "Đang lưu..." : "Mark Complete"}
         </Text>
       </TouchableOpacity>
 
-      {/* --- Modal xác nhận (MỚI) --- */}
-      {/* */}
       <Modal
         visible={showConfirmModal}
         transparent={true}
@@ -181,23 +179,23 @@ const styles = StyleSheet.create({
   modalContent: {
     width: "100%",
     backgroundColor: "#FFFFFF",
-    borderRadius: 12, //
+    borderRadius: 12,
   },
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16, //
+    padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
   },
   headerIconWrapper: {
     padding: 8,
-    backgroundColor: "#F0FDF4", //
+    backgroundColor: "#F0FDF4", 
     borderRadius: 8,
     marginRight: 12,
   },
   modalTitle: {
-    fontSize: 18, //
+    fontSize: 18,
     fontWeight: "600",
     color: "#111827",
     flex: 1,
@@ -206,19 +204,19 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   modalBody: {
-    padding: 16, //
+    padding: 16,
   },
   infoBox: {
     flexDirection: "row",
     backgroundColor: "#EFF6FF", //
     padding: 12,
     borderRadius: 8,
-    alignItems: "flex-start", //
+    alignItems: "flex-start",
     marginBottom: 16,
   },
   infoText: {
     flex: 1,
-    fontSize: 13, //
+    fontSize: 13,
     color: "#0284C7",
     marginLeft: 8,
     lineHeight: 18,
@@ -243,13 +241,13 @@ const styles = StyleSheet.create({
   modalFooter: {
     flexDirection: "row",
     justifyContent: "flex-end",
-    padding: 16, //
+    padding: 16,
     borderTopWidth: 1,
     borderTopColor: "#E5E7EB",
   },
   modalButton: {
-    flexDirection: "row", // Thêm để icon và chữ thẳng hàng
-    alignItems: "center", // Thêm
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
@@ -266,12 +264,12 @@ const styles = StyleSheet.create({
     color: "#374151",
   },
   confirmButton: {
-    backgroundColor: "#16A34A", //
+    backgroundColor: "#16A34A",
   },
   confirmButtonText: {
     fontSize: 16,
     fontWeight: "500",
     color: "#FFFFFF",
-    marginLeft: 8, // Thêm
+    marginLeft: 8,
   },
 });

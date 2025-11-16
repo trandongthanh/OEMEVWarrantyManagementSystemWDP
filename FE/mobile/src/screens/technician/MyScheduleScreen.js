@@ -7,15 +7,15 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  Dimensions, // Để lấy chiều rộng màn hình cho view tháng
+  Dimensions,
+  Alert,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import workScheduleService from "../../services/technician/workScheduleService";
+import { workScheduleService } from "../../services/technician";
 
 const { width: screenWidth } = Dimensions.get("window");
 
-// --- Helper Functions ---
 const getDaysOfWeek = (startDate) => {
   const days = [];
   const start = new Date(startDate);
@@ -33,13 +33,13 @@ const getDaysInMonth = (date) => {
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
   const daysInMonth = lastDay.getDate();
-  const startingDayOfWeek = firstDay.getDay(); // 0 = Sunday, 1 = Monday
+  const startingDayOfWeek = firstDay.getDay();
 
   const days = [];
-  const adjustedStart = (startingDayOfWeek === 0 ? 6 : startingDayOfWeek - 1); // 0 = Monday
+  const adjustedStart = (startingDayOfWeek === 0 ? 6 : startingDayOfWeek - 1);
 
   for (let i = 0; i < adjustedStart; i++) {
-    days.push(null); // Empty cells
+    days.push(null);
   }
   for (let i = 1; i <= daysInMonth; i++) {
     days.push(new Date(year, month, i));
@@ -57,13 +57,12 @@ const getStatusInfo = (status) => {
       return { bg: "#F3F4F6", text: "#6B7280", icon: "ellipse" };
   }
 };
-// --- End Helper Functions ---
 
 export default function MyScheduleScreen() {
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [viewMode, setViewMode] = useState("week"); // 'week' | 'month'
+  const [viewMode, setViewMode] = useState("week"); 
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const getDateRange = useCallback(() => {
@@ -72,7 +71,7 @@ export default function MyScheduleScreen() {
 
     if (viewMode === "week") {
       const day = start.getDay();
-      const diff = start.getDate() - day + (day === 0 ? -6 : 1); // 1 = Monday
+      const diff = start.getDate() - day + (day === 0 ? -6 : 1);
       start.setDate(diff);
       start.setHours(0, 0, 0, 0);
       end.setDate(start.getDate() + 6);
@@ -105,8 +104,10 @@ export default function MyScheduleScreen() {
       setSchedules(schedulesData || []);
     } catch (error) {
       console.error("Error loading schedule:", error);
+      Alert.alert("Lỗi", "Không thể tải lịch làm việc.");
     } finally {
       setLoading(false);
+      setRefreshing(false); 
     }
   };
 
@@ -119,13 +120,12 @@ export default function MyScheduleScreen() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadMySchedule();
-    setRefreshing(false);
   }, [currentDate, viewMode]);
 
   const navigateDate = (direction) => {
     const newDate = new Date(currentDate);
     if (viewMode === "week") {
-      newDate.setDate(newDate.getDate() + direction);
+      newDate.setDate(newDate.getDate() + (direction * 7)); 
     } else {
       newDate.setMonth(newDate.getMonth() + direction);
     }
@@ -164,11 +164,18 @@ export default function MyScheduleScreen() {
   // --- Render Views ---
   const renderWeekView = () => {
     const { startDate } = getDateRange();
-    const weekDays = getDaysOfWeek(startDate);
+    const weekStart = new Date(startDate);
+    const days = [];
+
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(weekStart);
+      date.setDate(weekStart.getDate() + i);
+      days.push(date);
+    }
 
     return (
       <View style={styles.weekContainer}>
-        {weekDays.map((date) => {
+        {days.map((date, index) => {
           const dateStr = date.toISOString().split("T")[0];
           const schedule = schedulesByDate.get(dateStr);
           const statusInfo = schedule ? getStatusInfo(schedule.status) : null;
@@ -231,7 +238,7 @@ export default function MyScheduleScreen() {
 
   const renderMonthView = () => {
     const monthDays = getDaysInMonth(currentDate);
-    const daySize = (screenWidth - 32 - 12) / 7; // padding - gaps
+    const daySize = (screenWidth - 32 - 12) / 7; 
 
     return (
       <View style={styles.monthContainer}>
@@ -275,7 +282,6 @@ export default function MyScheduleScreen() {
       </View>
     );
   };
-  // --- End Render Views ---
 
   return (
     <View style={styles.container}>

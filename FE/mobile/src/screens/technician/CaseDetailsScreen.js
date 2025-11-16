@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import { launchImageLibrary } from "react-native-image-picker";
+import { launchImageLibrary } from "react-native-image-picker"; //
 import { Picker } from "@react-native-picker/picker";
 
 import {
@@ -20,8 +20,7 @@ import {
   caseLineService,
   imageUploadService,
 } from "../../services/technician";
-// Component này đã được cập nhật ở bước trước
-import CompleteDiagnosisButton from "../../components/technician/CompleteDiagnosisButton";
+import CompleteDiagnosisButton from "../../components/technician/CompleteDiagnosisButton"; //
 
 const COMPONENT_CATEGORIES = [
   { value: "HIGH_VOLTAGE_BATTERY", label: "High Voltage Battery & BMS" },
@@ -36,7 +35,6 @@ const COMPONENT_CATEGORIES = [
   { value: "INFOTAINMENT_ADAS", label: "Infotainment & ADAS" },
 ];
 
-// --- Component Form Hạng mục ---
 const CaseLineForm = ({
   caseLine,
   index,
@@ -46,6 +44,8 @@ const CaseLineForm = ({
   onImageSelect,
   isReadOnly,
   caseLinesLength,
+  diagnosisImages,
+  onRemoveImage,
 }) => {
   const handleWarrantyChange = (value) => {
     onCaseLineChange(index, "warrantyStatus", value);
@@ -55,7 +55,7 @@ const CaseLineForm = ({
   };
 
   const handleImagePicker = () => {
-    launchImageLibrary({ mediaType: "photo", quality: 0.7 }, (response) => {
+    launchImageLibrary({ mediaType: "photo", quality: 0.7, selectionLimit: 5 }, (response) => {
       if (response.didCancel) {
         console.log("User cancelled image picker");
       } else if (response.errorCode) {
@@ -87,7 +87,7 @@ const CaseLineForm = ({
         onChangeText={(val) => onCaseLineChange(index, "diagnosisText", val)}
         placeholder="Mô tả vấn đề..."
         multiline
-        readOnly={isReadOnly}
+        editable={!isReadOnly} 
       />
 
       <Text style={styles.label}>Cách khắc phục *</Text>
@@ -97,7 +97,7 @@ const CaseLineForm = ({
         onChangeText={(val) => onCaseLineChange(index, "correctionText", val)}
         placeholder="Mô tả hành động sửa chữa..."
         multiline
-        readOnly={isReadOnly}
+        editable={!isReadOnly} 
       />
 
       <Text style={styles.label}>Linh kiện *</Text>
@@ -126,7 +126,7 @@ const CaseLineForm = ({
           onCaseLineChange(index, "quantity", parseInt(val) || 0)
         }
         keyboardType="number-pad"
-        readOnly={isReadOnly}
+        editable={!isReadOnly} //
       />
 
       <Text style={styles.label}>Trạng thái bảo hành</Text>
@@ -150,7 +150,7 @@ const CaseLineForm = ({
           <Picker
             selectedValue={caseLine.warrantyStatus}
             onValueChange={handleWarrantyChange}
-            enabled={!isReadOnly}
+            enabled={!isReadOnly} //
             style={styles.picker}
           >
             <Picker.Item label="Đủ điều kiện" value="ELIGIBLE" />
@@ -170,22 +170,28 @@ const CaseLineForm = ({
             }
             placeholder="Giải thích lý do từ chối bảo hành..."
             multiline
-            readOnly={isReadOnly}
+            editable={!isReadOnly} //
           />
         </>
       )}
 
       <Text style={styles.label}>Hình ảnh bằng chứng</Text>
       <View style={styles.imageGrid}>
-        {caseLine.evidenceImageUrls?.map((url) => (
-          <Image key={url} source={{ uri: url }} style={styles.imagePreview} />
+        {caseLine.evidenceImageUrls?.map((url, idx) => (
+          <Image key={`exist-${idx}`} source={{ uri: url }} style={styles.imagePreview} />
         ))}
-        {caseLine.newImages?.map((img, idx) => (
-          <Image
-            key={idx}
-            source={{ uri: img.uri }}
-            style={styles.imagePreview}
-          />
+        {diagnosisImages?.map((img, idx) => (
+          <View key={`new-${idx}`} style={styles.imagePreviewContainer}>
+            <Image
+              source={{ uri: img.uri }}
+              style={styles.imagePreview}
+            />
+            {!isReadOnly && (
+              <TouchableOpacity style={styles.removeImageButton} onPress={() => onRemoveImage(index, idx)}>
+                <Ionicons name="close-circle" size={24} color="#DC2626" />
+              </TouchableOpacity>
+            )}
+          </View>
         ))}
       </View>
       {!isReadOnly && (
@@ -201,41 +207,65 @@ const CaseLineForm = ({
   );
 };
 
-// --- Component Tìm kiếm Linh kiện ---
 const ComponentSearch = ({
   onClose,
   onSelectComponent,
   recordId,
-  isSearching,
-  setIsSearching,
 }) => {
-  const [searchCategory, setSearchCategory] = useState("HIGH_VOLTAGE_BATTERY");
   const [searchQuery, setSearchQuery] = useState("");
-  const [components, setComponents] = useState([]);
+  const [allComponents, setAllComponents] = useState([]);
+  const [filteredComponents, setFilteredComponents] = useState([]);
+  const [isSearching, setIsSearching] = useState(true);
   const [error, setError] = useState("");
 
-  const searchComponents = async () => {
-    setIsSearching(true);
-    setError("");
-    try {
-      // Dùng service đã cập nhật
-      const response = await technicianService.searchCompatibleComponents(
-        recordId,
-        searchCategory,
-        searchQuery || undefined
-      );
-      setComponents(response.data?.result || []);
-    } catch (err) {
-      console.error("Error searching components:", err);
-      setError("Không thể tìm thấy linh kiện.");
-    } finally {
-      setIsSearching(false);
-    }
-  };
+  useEffect(() => {
+    const loadAllComponents = async () => {
+      if (!recordId) {
+        setError("Missing Record ID.");
+        return;
+      }
+      setIsSearching(true);
+      setError("");
+      try {
+        const categoryPromises = COMPONENT_CATEGORIES.map((category) =>
+          technicianService
+            .searchCompatibleComponents(recordId, category.value, undefined)
+            .then((response) => response.data?.result || [])
+        );
+        const results = await Promise.all(categoryPromises);
+        const combinedComponents = results.flat();
+        
+        const allComponentsMap = new Map();
+        combinedComponents.forEach((comp) => {
+          if (!allComponentsMap.has(comp.typeComponentId)) {
+            allComponentsMap.set(comp.typeComponentId, comp);
+          }
+        });
+        
+        const uniqueComponents = Array.from(allComponentsMap.values());
+        setAllComponents(uniqueComponents);
+        setFilteredComponents(uniqueComponents);
+      } catch (err) {
+        console.error("Error loading components:", err);
+        setError("Failed to load components.");
+      } finally {
+        setIsSearching(false);
+      }
+    };
+    loadAllComponents();
+  }, [recordId]);
 
   useEffect(() => {
-    searchComponents();
-  }, [searchCategory]);
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      const filtered = allComponents.filter((comp) =>
+        comp.name.toLowerCase().includes(query)
+      );
+      setFilteredComponents(filtered);
+    } else {
+      setFilteredComponents(allComponents);
+    }
+  }, [searchQuery, allComponents]);
 
   return (
     <View style={styles.searchContainer}>
@@ -246,76 +276,55 @@ const ComponentSearch = ({
         </TouchableOpacity>
       </View>
 
-      <View style={styles.pickerContainerSearch}>
-        <Picker
-          selectedValue={searchCategory}
-          onValueChange={setSearchCategory}
-          style={styles.picker}
-        >
-          {COMPONENT_CATEGORIES.map((cat) => (
-            <Picker.Item key={cat.value} label={cat.label} value={cat.value} />
-          ))}
-        </Picker>
-      </View>
-
       <View style={styles.searchInputContainer}>
+        <Ionicons name="search-outline" size={20} color="#9CA3AF" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
           placeholder="Tìm theo tên..."
           value={searchQuery}
           onChangeText={setSearchQuery}
+          autoFocus={true}
         />
-        <TouchableOpacity
-          style={styles.searchButtonModal}
-          onPress={searchComponents}
-          disabled={isSearching}
-        >
-          {isSearching ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <Ionicons name="search" size={20} color="#FFFFFF" />
-          )}
-        </TouchableOpacity>
       </View>
 
       {error && <Text style={styles.errorText}>{error}</Text>}
 
-      <ScrollView style={styles.componentList}>
-        {components.length > 0 ? (
-          components.map((component) => (
-            <TouchableOpacity
-              key={component.typeComponentId}
-              style={styles.componentItem}
-              onPress={() => onSelectComponent(component)}
-            >
-              <Text style={styles.componentName}>{component.name}</Text>
-              <Ionicons
-                name={
-                  component.isUnderWarranty
-                    ? "shield-checkmark"
-                    : "shield-outline"
-                }
-                size={20}
-                color={component.isUnderWarranty ? "#16A34A" : "#EF4444"}
-              />
-            </TouchableOpacity>
-          ))
-        ) : (
-          !isSearching && (
+      {isSearching ? (
+        <ActivityIndicator size="large" color="#1D4ED8" style={{marginTop: 24}} />
+      ) : (
+        <ScrollView style={styles.componentList}>
+          {filteredComponents.length > 0 ? (
+            filteredComponents.map((component) => (
+              <TouchableOpacity
+                key={component.typeComponentId}
+                style={styles.componentItem}
+                onPress={() => onSelectComponent(component)}
+              >
+                <Text style={styles.componentName}>{component.name}</Text>
+                <Ionicons
+                  name={
+                    component.isUnderWarranty
+                      ? "shield-checkmark"
+                      : "shield-outline"
+                  }
+                  size={20}
+                  color={component.isUnderWarranty ? "#16A34A" : "#EF4444"}
+                />
+              </TouchableOpacity>
+            ))
+          ) : (
             <Text style={styles.emptyText}>Không tìm thấy linh kiện.</Text>
-          )
-        )}
-      </ScrollView>
+          )}
+        </ScrollView>
+      )}
     </View>
   );
 };
 
-// --- Màn hình Chính ---
 export default function CaseDetailsScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-
-  // Lấy params an toàn (đã sửa ở lần trước)
+  
   const params = route.params?.params || route.params;
   const { vin, recordId, caseId } = params;
 
@@ -334,19 +343,21 @@ export default function CaseDetailsScreen() {
   ]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [showComponentSearch, setShowComponentSearch] = useState(false);
   const [activeLineIndex, setActiveLineIndex] = useState(null);
   const [showCompleteDiagnosis, setShowCompleteDiagnosis] = useState(false);
-  const [isReadOnly, setIsReadOnly] = useState(false);
+  const [isReadOnly, setIsReadOnly] = useState(false); 
+  const [diagnosisImages, setDiagnosisImages] = useState(new Map());
 
   useEffect(() => {
     const loadCaseData = async () => {
-      if (!caseId) {
+      if (!caseId || !recordId) {
+        setErrorMessage("Case ID hoặc Record ID không hợp lệ.");
         setIsLoading(false);
         return;
       }
+      
       setIsLoading(true);
       try {
         const recordResponse = await technicianService.getRecordDetails(recordId);
@@ -357,10 +368,9 @@ export default function CaseDetailsScreen() {
 
         if (guaranteeCase && guaranteeCase.caseLines?.length > 0) {
           const validCaseLines = guaranteeCase.caseLines.filter(cl => cl.id);
-
+          
           const detailedCaseLines = await Promise.all(
             validCaseLines.map(async (cl) => {
-              // Sử dụng service ĐÚNG (chỉ cần cl.id)
               const detailResponse = await caseLineService.getCaseLineById(
                 cl.id
               );
@@ -381,6 +391,7 @@ export default function CaseDetailsScreen() {
               };
             })
           );
+          
           setCaseLines(detailedCaseLines);
           const allDraft = detailedCaseLines.every((cl) => cl.status === "DRAFT");
           setIsReadOnly(!allDraft);
@@ -389,8 +400,8 @@ export default function CaseDetailsScreen() {
           }
         } else {
           setShowCompleteDiagnosis(false);
-          setIsReadOnly(false);
-          setCaseLines([
+          setIsReadOnly(false); 
+          setCaseLines([ 
             {
               diagnosisText: "",
               correctionText: "",
@@ -441,6 +452,11 @@ export default function CaseDetailsScreen() {
   const handleRemoveCaseLine = (index) => {
     const newCaseLines = caseLines.filter((_, i) => i !== index);
     setCaseLines(newCaseLines);
+    setDiagnosisImages(prev => {
+      const updated = new Map(prev);
+      updated.delete(index);
+      return updated;
+    });
   };
 
   const handleImageSelect = (index, assets) => {
@@ -449,12 +465,22 @@ export default function CaseDetailsScreen() {
       type: a.type,
       fileName: a.fileName,
     }));
-    const newCaseLines = [...caseLines];
-    newCaseLines[index].newImages = [
-      ...(newCaseLines[index].newImages || []),
-      ...newImages,
-    ];
-    setCaseLines(newCaseLines);
+    setDiagnosisImages(prev => {
+      const updated = new Map(prev);
+      const existing = updated.get(index) || [];
+      updated.set(index, [...existing, ...newImages]);
+      return updated;
+    });
+  };
+
+  const handleRemoveImage = (lineIndex, imgIndex) => {
+    setDiagnosisImages(prev => {
+      const updated = new Map(prev);
+      const images = updated.get(lineIndex) || [];
+      images.splice(imgIndex, 1);
+      updated.set(lineIndex, images);
+      return updated;
+    });
   };
 
   const handleOpenComponentSearch = (index) => {
@@ -465,7 +491,7 @@ export default function CaseDetailsScreen() {
   const handleSelectComponent = (component) => {
     if (activeLineIndex !== null) {
       const newCaseLines = [...caseLines];
-      const isUnderWarranty = component.isUnderWarranty ?? false;
+      const isUnderWarranty = component.isUnderWarranty ?? false; //
       newCaseLines[activeLineIndex] = {
         ...newCaseLines[activeLineIndex],
         typeComponentId: component.typeComponentId,
@@ -491,40 +517,35 @@ export default function CaseDetailsScreen() {
     );
 
     if (hasInvalidLines) {
-      setErrorMessage(
-        "Vui lòng điền tất cả các trường bắt buộc (*)."
-      );
+      setErrorMessage("Vui lòng điền tất cả các trường bắt buộc (*).");
       return;
     }
 
     setIsSaving(true);
     try {
-      const uploadPromises = caseLines.map(async (line, index) => {
-        const uploadedUrls = [];
-        if (line.newImages && line.newImages.length > 0) {
-          for (const img of line.newImages) {
+      const uploadedImageUrls = new Map();
+      for (const [lineIndex, images] of diagnosisImages.entries()) {
+        if (images.length > 0) {
+          const urls = [];
+          for (const img of images) {
             const url = await imageUploadService.uploadImage(img);
-            uploadedUrls.push(url);
+            urls.push(url);
           }
+          uploadedImageUrls.set(lineIndex, urls);
         }
-        return {
-          ...line,
-          evidenceImageUrls: [
-            ...(line.evidenceImageUrls || []),
-            ...uploadedUrls,
-          ],
-        };
-      });
+      }
 
-      const caseLinesWithUrls = await Promise.all(uploadPromises);
-
-      const hasExistingCaseLines = caseLinesWithUrls.some((line) => line.caseLineId);
+      const hasExistingCaseLines = caseLines.some((line) => line.caseLineId);
 
       if (hasExistingCaseLines) {
-        const updatePromises = caseLinesWithUrls
+        const updatePromises = caseLines
           .filter((line) => line.caseLineId)
-          .map((line) =>
-            caseLineService.updateCaseLine(line.caseLineId, {
+          .map((line, index) => {
+            const existingUrls = line.evidenceImageUrls || [];
+            const newUrls = uploadedImageUrls.get(index) || [];
+            const allUrls = [...existingUrls, ...newUrls];
+
+            return caseLineService.updateCaseLine(line.caseLineId, {
               caseId: caseId,
               diagnosisText: line.diagnosisText,
               correctionText: line.correctionText,
@@ -532,19 +553,19 @@ export default function CaseDetailsScreen() {
               quantity: line.quantity,
               warrantyStatus: line.warrantyStatus,
               rejectionReason: line.rejectionReason || null,
-              evidenceImageUrls: line.evidenceImageUrls,
-            })
-          );
+              evidenceImageUrls: allUrls.length > 0 ? allUrls : undefined,
+            });
+          });
         await Promise.all(updatePromises);
       } else {
-        const caselinesToSend = caseLinesWithUrls.map((line) => ({
+        const caselinesToSend = caseLines.map((line, index) => ({
           diagnosisText: line.diagnosisText,
           correctionText: line.correctionText,
           typeComponentId: line.typeComponentId || null,
           quantity: line.quantity,
           warrantyStatus: line.warrantyStatus,
           rejectionReason: line.rejectionReason || null,
-          evidenceImageUrls: line.evidenceImageUrls,
+          evidenceImageUrls: uploadedImageUrls.get(index) || undefined,
         }));
 
         await technicianService.createCaseLines(caseId, {
@@ -556,7 +577,8 @@ export default function CaseDetailsScreen() {
         "Thành công",
         "Đã lưu chẩn đoán. Bạn có thể hoàn tất chẩn đoán."
       );
-      setShowCompleteDiagnosis(true);
+      setShowCompleteDiagnosis(true); //
+      setDiagnosisImages(new Map());
     } catch (error) {
       console.error("Error saving case lines:", error);
       setErrorMessage(
@@ -566,14 +588,10 @@ export default function CaseDetailsScreen() {
       setIsSaving(false);
     }
   };
-
-  // --- CẬP NHẬT LOGIC: HÀM ĐIỀU HƯỚNG MỚI ---
+  
   const handleNavigateToInstall = () => {
-    // Điều hướng đến tab 'Dashboard', nơi có component "Ready to Install"
-    //
     navigation.navigate("DashboardTab");
   };
-  // ------------------------------------------
 
   if (isLoading) {
     return (
@@ -590,8 +608,6 @@ export default function CaseDetailsScreen() {
         onClose={() => setShowComponentSearch(false)}
         onSelectComponent={handleSelectComponent}
         recordId={recordId}
-        isSearching={isSearching}
-        setIsSearching={setIsSearching}
       />
     );
   }
@@ -637,6 +653,8 @@ export default function CaseDetailsScreen() {
             onImageSelect={handleImageSelect}
             isReadOnly={isReadOnly}
             caseLinesLength={caseLines.length}
+            diagnosisImages={diagnosisImages.get(index) || []}
+            onRemoveImage={handleRemoveImage}
           />
         ))}
 
@@ -651,7 +669,6 @@ export default function CaseDetailsScreen() {
         )}
       </ScrollView>
 
-      {/* --- CẬP NHẬT LOGIC FOOTER --- */}
       {!isReadOnly && !showCompleteDiagnosis && (
         <View style={styles.footer}>
           <TouchableOpacity
@@ -674,15 +691,12 @@ export default function CaseDetailsScreen() {
           <CompleteDiagnosisButton
             recordId={recordId}
             onSuccess={() => {
-              // onSuccess của button sẽ điều hướng goBack()
               navigation.goBack();
             }}
-            // Truyền hàm điều hướng mới vào
             onNavigateToInstall={handleNavigateToInstall}
           />
         </View>
       )}
-      {/* --- KẾT THÚC CẬP NHẬT FOOTER --- */}
     </View>
   );
 }
@@ -802,7 +816,7 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
   inputDisabled: {
-    backgroundColor: "#F3F4F6",
+    backgroundColor: "#F3F4F6", //
     color: "#6B7280",
   },
   componentSearchRow: {
@@ -845,6 +859,9 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     marginBottom: 8,
   },
+  imagePreviewContainer: {
+    position: "relative",
+  },
   imagePreview: {
     width: 60,
     height: 60,
@@ -852,6 +869,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E5E7EB",
     margin: 4,
+  },
+  removeImageButton: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    borderRadius: 12,
   },
   uploadButton: {
     flexDirection: "row",
@@ -906,7 +930,7 @@ const styles = StyleSheet.create({
   disabledButton: {
     backgroundColor: "#60A5FA",
   },
-
+  
   // Component Search Styles
   searchContainer: {
     flex: 1,
@@ -930,38 +954,28 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: 4,
   },
-  pickerContainerSearch: {
-    borderWidth: 1,
-    borderColor: "#D1D5DB",
-    borderRadius: 8,
-    margin: 16,
-    backgroundColor: "#FFFFFF",
-  },
   searchInputContainer: {
     flexDirection: "row",
-    paddingHorizontal: 16,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    margin: 16,
+  },
+  searchIcon: {
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: "#D1D5DB",
-    borderRadius: 8,
-    padding: 12,
+    height: 48,
     fontSize: 16,
     color: "#111827",
-    backgroundColor: "#FFFFFF",
-  },
-  searchButtonModal: {
-    backgroundColor: "#1D4ED8",
-    padding: 12,
-    borderRadius: 8,
-    marginLeft: 8,
-    justifyContent: "center",
   },
   componentList: {
     flex: 1,
     paddingHorizontal: 16,
-    marginTop: 16,
   },
   componentItem: {
     flexDirection: "row",

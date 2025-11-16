@@ -5,23 +5,23 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
-  Modal,
-  View,
+  Modal, 
+  View, 
   Pressable,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons"; // Đảm bảo import từ @expo
-import processingRecordService from "../../services/technician/processingRecordService";
+import { Ionicons } from "@expo/vector-icons"; 
+import {processingRecordService} from "../../services/technician";
 
 export default function CompleteDiagnosisButton({
   recordId,
   onSuccess,
   disabled = false,
-  onNavigateToInstall, // Prop mới để điều hướng
+  onNavigateToInstall,
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false); // Modal thành công mới
+  const [showSuccessModal, setShowSuccessModal] = useState(false); 
 
   const handleCompleteDiagnosis = () => {
     setShowConfirmModal(true);
@@ -34,7 +34,6 @@ export default function CompleteDiagnosisButton({
 
     try {
       await processingRecordService.completeDiagnosis(recordId);
-      // Hiển thị modal thành công thay vì đóng ngay
       setShowSuccessModal(true);
     } catch (err) {
       console.error("Failed to complete diagnosis:", err);
@@ -47,18 +46,16 @@ export default function CompleteDiagnosisButton({
     }
   };
 
-  // --- CÁC HÀM MỚI CHO MODAL THÀNH CÔNG ---
   const handleSuccessClose = () => {
     setShowSuccessModal(false);
-    onSuccess?.(); // Gọi onSuccess (ví dụ: navigation.goBack())
+    onSuccess?.(); 
   };
 
   const handleNavigateToInstall = () => {
     setShowSuccessModal(false);
-    onSuccess?.(); // Gọi onSuccess trước
-    onNavigateToInstall?.(); // Sau đó gọi điều hướng
+    onSuccess?.(); 
+    onNavigateToInstall?.(); 
   };
-  // ----------------------------------------
 
   return (
     <>
@@ -80,7 +77,6 @@ export default function CompleteDiagnosisButton({
         </Text>
       </TouchableOpacity>
 
-      {/* Modal xác nhận (Giữ nguyên) */}
       <Modal
         visible={showConfirmModal}
         transparent={true}
@@ -135,8 +131,6 @@ export default function CompleteDiagnosisButton({
         </Pressable>
       </Modal>
 
-      {/* --- MODAL THÀNH CÔNG (MỚI) --- */}
-      {/* */}
       <Modal
         visible={showSuccessModal}
         transparent={true}
@@ -242,7 +236,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#EFF6FF",
     padding: 12,
     borderRadius: 8,
-    alignItems: "center",
+    alignItems: "flex-start", //
   },
   infoText: {
     flex: 1,

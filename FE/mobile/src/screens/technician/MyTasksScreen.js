@@ -10,15 +10,15 @@ import {
   TextInput,
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
-import { Ionicons } from "@expo/vector-icons";
-import technicianService from "../../services/technician/technicianService";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { technicianService } from "../../services/technician";
 
 const statusConfig = {
-  CHECKED_IN: { label: "Checked In", color: "#3B82F6", bg: "#EFF6FF", icon: "log-in-outline" },
+  CHECKED_IN: { label: "Checked In", color: "#3B82F6", bg: "#EFF6FF", icon: "checkmark-circle-outline" },
   IN_DIAGNOSIS: { label: "In Diagnosis", color: "#A855F7", bg: "#F3E8FF", icon: "search-outline" },
   WAITING_FOR_PARTS: { label: "Waiting for Parts", color: "#F59E0B", bg: "#FFFBEB", icon: "time-outline" },
   IN_REPAIR: { label: "In Repair", color: "#F97316", bg: "#FFF7ED", icon: "build-outline" },
-  COMPLETED: { label: "Completed", color: "#22C55E", bg: "#F0FDF4", icon: "checkmark-circle-outline" },
+  COMPLETED: { label: "Completed", color: "#22C55E", bg: "#F0FDF4", icon: "checkmark-done-outline" },
   CANCELLED: { label: "Cancelled", color: "#EF4444", bg: "#FEF2F2", icon: "close-circle-outline" },
 };
 
@@ -32,7 +32,7 @@ export default function MyTasksScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL"); // 'ALL', 'CHECKED_IN', 'IN_DIAGNOSIS', etc.
+  const [statusFilter, setStatusFilter] = useState("ALL"); //
 
   const loadTasks = async () => {
     setLoading(true);
@@ -47,6 +47,7 @@ export default function MyTasksScreen() {
     }
   };
 
+  // Thay thế usePolling bằng useFocusEffect
   useFocusEffect(
     useCallback(() => {
       loadTasks();
@@ -59,6 +60,7 @@ export default function MyTasksScreen() {
     setRefreshing(false);
   }, []);
 
+  // Lọc dữ liệu
   const filteredTasks = useMemo(() => {
     let filtered = [...tasks];
 
@@ -81,12 +83,18 @@ export default function MyTasksScreen() {
     return filtered;
   }, [tasks, searchQuery, statusFilter]);
 
+  // Cập nhật logic thống kê
   const stats = useMemo(() => {
+    const today = new Date().toDateString();
     return {
       total: tasks.length,
       urgent: tasks.filter(
         (t) => t.status === "IN_REPAIR" || t.status === "WAITING_FOR_PARTS"
       ).length,
+      today: tasks.filter((t) => {
+        const checkInDate = new Date(t.checkInDate).toDateString();
+        return checkInDate === today;
+      }).length,
       pending: tasks.filter((t) => t.status === "CHECKED_IN").length,
     };
   }, [tasks]);
@@ -106,6 +114,7 @@ export default function MyTasksScreen() {
     });
   };
 
+  // Cập nhật giao diện Card
   const renderTaskItem = (task) => {
     const statusInfo = getStatusInfo(task.status);
     const checkInDate = new Date(task.checkInDate).toLocaleDateString();
@@ -148,7 +157,7 @@ export default function MyTasksScreen() {
             <Text style={styles.metaText}>{checkInDate}</Text>
           </View>
           <View style={styles.metaItem}>
-            <Ionicons name="speedometer-outline" size={14} color="#6B7280" />
+            <MaterialCommunityIcons name="speedometer" size={14} color="#6B7280" />
             <Text style={styles.metaText}>
               {task.odometer.toLocaleString()} km
             </Text>
@@ -174,6 +183,7 @@ export default function MyTasksScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
+        {/* Cập nhật Stats */}
         <View style={styles.statsContainer}>
           <View style={styles.statBox}>
             <Text style={styles.statNumber}>{stats.total}</Text>
@@ -182,6 +192,10 @@ export default function MyTasksScreen() {
           <View style={styles.statBox}>
             <Text style={styles.statNumber}>{stats.urgent}</Text>
             <Text style={styles.statLabel}>Urgent</Text>
+          </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statNumber}>{stats.today}</Text>
+            <Text style={styles.statLabel}>Checked In Today</Text>
           </View>
           <View style={styles.statBox}>
             <Text style={styles.statNumber}>{stats.pending}</Text>
@@ -207,7 +221,7 @@ export default function MyTasksScreen() {
           </View>
           {/* Status Filter (Simple) */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statusFilterScroll}>
-            {['ALL', 'CHECKED_IN', 'IN_DIAGNOSIS', 'IN_REPAIR'].map((status) => (
+            {['ALL', 'CHECKED_IN', 'IN_DIAGNOSIS', 'WAITING_FOR_PARTS', 'IN_REPAIR'].map((status) => (
               <TouchableOpacity
                 key={status}
                 style={[
@@ -222,7 +236,7 @@ export default function MyTasksScreen() {
                     statusFilter === status && styles.statusFilterTextActive,
                   ]}
                 >
-                  {status.replace(/_/g, " ")}
+                  {statusConfig[status]?.label || status.replace(/_/g, " ")}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -271,16 +285,18 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: "row",
+    flexWrap: "wrap", // Cho phép xuống hàng
     justifyContent: "space-between",
     paddingHorizontal: 12,
     marginTop: 16,
   },
   statBox: {
-    flex: 1,
+    width: "48%", // 2 cột
     backgroundColor: "#FFFFFF",
     padding: 16,
     borderRadius: 12,
-    marginHorizontal: 4,
+    marginHorizontal: "1%",
+    marginBottom: 8, // Thêm margin bottom
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
@@ -297,6 +313,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#6B7280",
     marginTop: 4,
+    textAlign: "center", // Cho text dài
   },
   filterContainer: {
     paddingHorizontal: 16,
