@@ -911,11 +911,11 @@ export default function StaffChatDashboard({
                     exit={{ opacity: 0 }}
                     className="flex justify-start"
                   >
-                    <div className="flex flex-col gap-1">
-                      <p className="text-xs text-gray-500 ml-2 font-medium">
+                    <div className="inline-flex flex-col gap-1">
+                      <p className="text-xs text-gray-500 font-medium whitespace-nowrap">
                         Guest is typing...
                       </p>
-                      <div className="bg-white border border-gray-200 rounded-2xl px-5 py-3 shadow-sm">
+                      <div className="bg-white border border-gray-200 rounded-2xl px-5 py-3 shadow-sm w-fit">
                         <div className="flex gap-1.5">
                           <motion.div
                             key="typing-dot-1"
