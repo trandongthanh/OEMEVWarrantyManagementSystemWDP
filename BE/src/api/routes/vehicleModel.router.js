@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  attachCompanyContext,
   authentication,
   authorizationByRole,
   validate,
@@ -58,6 +59,7 @@ router.get(
   "/statistics/most-problematic",
   authentication,
   authorizationByRole(["service_center_center"]),
+  attachCompanyContext(),
   validate(getMostProblematicModelsSchema, "query"),
   async (req, res, next) => {
     const oemVehicleModelController = req.container.resolve(
