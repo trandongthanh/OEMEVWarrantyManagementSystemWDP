@@ -233,7 +233,7 @@ export function MostProblematicModels() {
               <AlertTriangle className="w-12 h-12 text-red-500 mb-4" />
               <p className="text-red-600 font-medium">{error}</p>
             </div>
-          ) : models.length === 0 ? (
+          ) : !models || models.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20">
               <Car className="w-12 h-12 text-gray-300 mb-4" />
               <p className="text-gray-500">No problematic models found</p>
