@@ -32,7 +32,7 @@ class UserRepository {
     return existingUser.toJSON();
   }
 
-  findUsersByEmployeeCodes(employeeCodes, transaction = null) {
+  async findUsersByEmployeeCodes(employeeCodes, transaction = null) {
     const users = await User.findAll({
       where: {
         employeeCode: employeeCodes,
