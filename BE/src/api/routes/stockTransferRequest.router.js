@@ -1,5 +1,4 @@
 import express from "express";
-import multer from "multer";
 import {
   attachCompanyContext,
   authentication,
@@ -7,15 +6,7 @@ import {
   validate,
 } from "../middleware/index.js";
 import { stockTransferRequestSchema } from "../../validators/stockTransferRequest.validator.js";
-import { createWarehouseRestockRequestSchema } from "../../validators/createWarehouseRestockRequest.validator.js";
 const router = express.Router();
-
-const upload = multer({
-  storage: multer.memoryStorage(), // Store file in memory as a Buffer
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB file size limit
-  },
-});
 
 /**
  * @swagger
@@ -23,140 +14,6 @@ const upload = multer({
  *   name: StockTransferRequest
  *   description: Quản lý yêu cầu chuyển kho linh kiện từ Service Center lên Hãng
  */
-
-/**
- * @swagger
- * /stock-transfer-requests/warehouse-restock:
- *   post:
- *     summary: Tạo yêu cầu bổ sung kho từ Service Center lên Hãng
- *     description: |-
- *       Parts Coordinator Service Center tạo yêu cầu bổ sung kho linh kiện từ kho hãng.
- *       Sau khi tạo thành công, hệ thống phát sự kiện socket `new_stock_transfer_request`
- *       tới phòng `emv_staff_{companyId}` để thông báo cho bộ phận OEM.
- *     tags: [StockTransferRequest]
- *     security:
- *       - BearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - requestingWarehouseId
- *               - items
- *             properties:
- *               requestingWarehouseId:
- *                 type: string
- *                 format: uuid
- *                 description: ID kho Service Center yêu cầu nhận hàng
- *                 example: "550e8400-e29b-41d4-a716-446655440001"
- *               items:
- *                 type: array
- *                 description: Danh sách loại linh kiện và số lượng cần bổ sung
- *                 items:
- *                   type: object
- *                   required:
- *                     - typeComponentId
- *                     - quantityRequested
- *                   properties:
- *                     typeComponentId:
- *                       type: string
- *                       format: uuid
- *                       description: ID loại linh kiện
- *                       example: "660e8400-e29b-41d4-a716-446655440002"
- *                     quantityRequested:
- *                       type: integer
- *                       minimum: 1
- *                       description: Số lượng yêu cầu
- *                       example: 5
- *     responses:
- *       201:
- *         description: Tạo yêu cầu thành công
- *       400:
- *         description: Dữ liệu không hợp lệ
- *       401:
- *         description: Chưa xác thực
- *       403:
- *         description: Không có quyền truy cập
- */
-router.post(
-  "/warehouse-restock",
-  authentication,
-  authorizationByRole(["parts_coordinator_service_center"]),
-  attachCompanyContext,
-  validate(createWarehouseRestockRequestSchema),
-  async (req, res, next) => {
-    const stockTransferRequestController = req.container.resolve(
-      "stockTransferRequestController"
-    );
-    await stockTransferRequestController.createWarehouseRestockRequest(
-      req,
-      res,
-      next
-    );
-  }
-);
-
-/**
- * @swagger
- * /stock-transfer-requests/{id}/dispatch-with-file:
- *   post:
- *     summary: Xuất kho và gửi hàng bổ sung kho bằng file Excel (Parts Coordinator - Company)
- *     description: |-
- *       Parts Coordinator của hãng xác nhận xuất kho và gửi hàng bổ sung kho bằng cách upload file Excel chứa SKU và Serial Number.
- *       Chỉ áp dụng cho request đang ở trạng thái `APPROVED` và `requestType` là `WAREHOUSE_RESTOCK`.
- *       Hệ thống sẽ trừ tồn kho của hãng và cộng tồn kho cho Service Center.
- *       Sau khi xử lý, server phát sự kiện socket `stock_transfer_request_shipped`
- *       tới các phòng `service_center_staff_{serviceCenterId}`, `service_center_manager_{serviceCenterId}` và `parts_coordinator_service_center_{serviceCenterId}`.
- *     tags: [StockTransferRequest]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *         description: ID của yêu cầu chuyển kho
- *         example: "880e8400-e29b-41d4-a716-446655440004"
- *       - in: formData
- *         name: file
- *         type: file
- *         required: true
- *         description: File Excel chứa danh sách linh kiện (SKU, SERIAL_NUMBER)
- *     responses:
- *       200:
- *         description: Xuất kho và gửi hàng thành công
- *       400:
- *         description: Dữ liệu không hợp lệ hoặc không có file được upload
- *       404:
- *         description: Không tìm thấy request
- *       409:
- *         description: Conflict - Trạng thái không phù hợp hoặc không đủ components
- *       401:
- *         description: Chưa xác thực
- *       403:
- *         description: Không có quyền (chỉ Parts Coordinator Company)
- */
-router.post(
-  "/:id/dispatch-with-file",
-  authentication,
-  authorizationByRole(["parts_coordinator_company"]),
-  attachCompanyContext,
-  upload.single("file"),
-  async (req, res, next) => {
-    const stockTransferRequestController = req.container.resolve(
-      "stockTransferRequestController"
-    );
-    await stockTransferRequestController.dispatchWarehouseRestockRequestWithFile(
-      req,
-      res,
-      next
-    );
-  }
-);
 
 /**
  * @swagger
@@ -496,59 +353,6 @@ router.get(
     );
 
     await stockTransferRequestController.getStockTransferRequestById(
-      req,
-      res,
-      next
-    );
-  }
-);
-
-/**
- * @swagger
- * /stock-transfer-requests/{id}/approve-restock:
- *   patch:
- *     summary: Duyệt yêu cầu bổ sung kho (Parts Coordinator - Company)
- *     description: |-
- *       Parts Coordinator của hãng duyệt yêu cầu bổ sung kho từ Service Center.
- *       Chỉ áp dụng cho request đang ở trạng thái `PENDING_APPROVAL` và `requestType` là `WAREHOUSE_RESTOCK`.
- *       Sau khi duyệt thành công, hệ thống sẽ reserve stock từ kho hãng.
- *       Server phát sự kiện socket `stock_transfer_request_approved`
- *       tới phòng `parts_coordinator_service_center_{serviceCenterId}`.
- *     tags: [StockTransferRequest]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *         description: ID của yêu cầu chuyển kho
- *         example: "880e8400-e29b-41d4-a716-446655440004"
- *     responses:
- *       200:
- *         description: Duyệt thành công và reserve stock
- *       404:
- *         description: Không tìm thấy request
- *       409:
- *         description: Conflict - Trạng thái không phù hợp hoặc không đủ tồn kho
- *       401:
- *         description: Chưa xác thực
- *       403:
- *         description: Không có quyền (chỉ Parts Coordinator Company)
- */
-router.patch(
-  "/:id/approve-restock",
-  authentication,
-  authorizationByRole(["parts_coordinator_company"]),
-  attachCompanyContext,
-  async (req, res, next) => {
-    const stockTransferRequestController = req.container.resolve(
-      "stockTransferRequestController"
-    );
-
-    await stockTransferRequestController.approveWarehouseRestockRequest(
       req,
       res,
       next

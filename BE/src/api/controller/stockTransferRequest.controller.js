@@ -1,81 +1,8 @@
-import xlsx from "xlsx";
-
 class StockTransferRequestController {
   #stockTransferRequestService;
   constructor({ stockTransferRequestService }) {
     this.#stockTransferRequestService = stockTransferRequestService;
   }
-
-  createWarehouseRestockRequest = async (req, res, next) => {
-    const { requestingWarehouseId, items } = req.body;
-    const { userId } = req.user;
-    const { companyId } = req;
-
-    const newStockTransferRequest =
-      await this.#stockTransferRequestService.createWarehouseRestockRequest({
-        requestingWarehouseId,
-        items,
-        requestedByUserId: userId,
-        companyId,
-      });
-
-    res.status(201).json({
-      status: "success",
-      data: {
-        stockTransferRequest: newStockTransferRequest,
-      },
-    });
-  };
-
-  dispatchWarehouseRestockRequestWithFile = async (req, res, next) => {
-    if (!req.file) {
-      return res.status(400).json({ message: "No file uploaded." });
-    }
-
-    const { id } = req.params;
-    const { userId: dispatchedByUserId, roleName } = req.user;
-    const { companyId } = req;
-
-    try {
-      const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const data = xlsx.utils.sheet_to_json(worksheet, {
-        header: 0,
-        defval: null,
-      });
-
-      const componentsBySku = data.slice(1).reduce((acc, row) => {
-        const sku = row[0];
-        const serialNumber = row[1];
-        if (sku && serialNumber) {
-          if (!acc[sku]) {
-            acc[sku] = [];
-          }
-          acc[sku].push({ serialNumber });
-        }
-        return acc;
-      }, {});
-
-      const result =
-        await this.#stockTransferRequestService.dispatchWarehouseRestockRequestWithFile(
-          {
-            requestId: id,
-            componentsBySku,
-            dispatchedByUserId,
-            roleName,
-            companyId,
-          }
-        );
-
-      res.status(200).json({
-        status: "success",
-        data: result,
-      });
-    } catch (error) {
-      next(error);
-    }
-  };
 
   createStockTransferRequest = async (req, res, next) => {
     const { requestingWarehouseId, items, caselineIds } = req.body;
@@ -144,27 +71,6 @@ class StockTransferRequestController {
       status: "success",
       data: {
         stockTransferRequest,
-      },
-    });
-  };
-
-  approveWarehouseRestockRequest = async (req, res, next) => {
-    const { id } = req.params;
-    const { userId, roleName } = req.user;
-    const { companyId } = req;
-
-    const approvedStockTransferRequest =
-      await this.#stockTransferRequestService.approveWarehouseRestockRequest({
-        id,
-        roleName,
-        companyId,
-        approvedByUserId: userId,
-      });
-
-    res.status(200).json({
-      status: "success",
-      data: {
-        stockTransferRequest: approvedStockTransferRequest,
       },
     });
   };
