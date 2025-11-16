@@ -42,6 +42,60 @@ class UserRepository {
     return users.map((user) => user.toJSON());
   }
 
+  async findAndCountAll(filters = {}) {
+    const {
+      roleId,
+      serviceCenterId,
+      companyId,
+      limit,
+      offset,
+      ...restFilters
+    } = filters;
+
+    const whereCondition = { ...restFilters };
+
+    if (roleId) {
+      whereCondition.roleId = roleId;
+    }
+    if (serviceCenterId) {
+      whereCondition.serviceCenterId = serviceCenterId;
+    }
+    if (companyId) {
+      whereCondition.companyId = companyId;
+    }
+
+    const { count, rows } = await User.findAndCountAll({
+      where: whereCondition,
+      attributes: {
+        exclude: ["password"],
+      },
+      include: [
+        {
+          model: Role,
+          as: "role",
+          attributes: ["roleId", "roleName"],
+        },
+        {
+          model: ServiceCenter,
+          as: "serviceCenter",
+          attributes: ["serviceCenterId", "name"],
+          required: !!serviceCenterId,
+        },
+        {
+          model: VehicleCompany,
+          as: "vehicleCompany",
+          attributes: ["vehicleCompanyId", "name"],
+          required: !!companyId,
+        },
+      ],
+      limit,
+      offset,
+      distinct: true,
+    });
+
+    return { count, rows: rows.map((row) => row.toJSON()) };
+  }
+
   async getAllTechnicians({ status, serviceCenterId }) {
     const today = dayjs().format("YYYY-MM-DD");
 
