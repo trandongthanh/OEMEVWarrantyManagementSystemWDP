@@ -1106,35 +1106,43 @@ export default function GuestChatWidget({
                         exit={{ opacity: 0, y: -10 }}
                         className="flex justify-start"
                       >
-                        <div className="bg-white/5 border border-white/10 rounded-2xl px-5 py-4 backdrop-blur-sm">
-                          <div className="flex gap-1.5">
-                            <motion.div
-                              animate={{ y: [0, -6, 0] }}
-                              transition={{
-                                repeat: Infinity,
-                                duration: 0.6,
-                                delay: 0,
-                              }}
-                              className="w-2 h-2 bg-gray-400 rounded-full"
-                            />
-                            <motion.div
-                              animate={{ y: [0, -6, 0] }}
-                              transition={{
-                                repeat: Infinity,
-                                duration: 0.6,
-                                delay: 0.2,
-                              }}
-                              className="w-2 h-2 bg-gray-400 rounded-full"
-                            />
-                            <motion.div
-                              animate={{ y: [0, -6, 0] }}
-                              transition={{
-                                repeat: Infinity,
-                                duration: 0.6,
-                                delay: 0.4,
-                              }}
-                              className="w-2 h-2 bg-gray-400 rounded-full"
-                            />
+                        <div className="flex flex-col gap-1">
+                          <p className="text-xs text-gray-400 ml-2 font-medium">
+                            Support is typing...
+                          </p>
+                          <div className="bg-white/5 border border-white/10 rounded-2xl px-5 py-4 backdrop-blur-sm">
+                            <div className="flex gap-1.5">
+                              <motion.div
+                                key="typing-dot-1"
+                                animate={{ y: [0, -6, 0] }}
+                                transition={{
+                                  repeat: Infinity,
+                                  duration: 0.6,
+                                  delay: 0,
+                                }}
+                                className="w-2 h-2 bg-gray-400 rounded-full"
+                              />
+                              <motion.div
+                                key="typing-dot-2"
+                                animate={{ y: [0, -6, 0] }}
+                                transition={{
+                                  repeat: Infinity,
+                                  duration: 0.6,
+                                  delay: 0.2,
+                                }}
+                                className="w-2 h-2 bg-gray-400 rounded-full"
+                              />
+                              <motion.div
+                                key="typing-dot-3"
+                                animate={{ y: [0, -6, 0] }}
+                                transition={{
+                                  repeat: Infinity,
+                                  duration: 0.6,
+                                  delay: 0.4,
+                                }}
+                                className="w-2 h-2 bg-gray-400 rounded-full"
+                              />
+                            </div>
                           </div>
                         </div>
                       </motion.div>

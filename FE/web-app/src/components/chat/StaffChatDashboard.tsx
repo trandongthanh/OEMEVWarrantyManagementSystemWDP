@@ -271,17 +271,14 @@ export default function StaffChatDashboard({
     });
 
     // Listen for typing indicator
-    socket.on("userTyping", (data: { conversationId: string }) => {
-      // Only process typing for the current active conversation
-      if (data.conversationId === activeConversation.conversationId) {
-        setIsTyping(true);
-        if (typingTimeoutRef.current) {
-          clearTimeout(typingTimeoutRef.current);
-        }
-        typingTimeoutRef.current = setTimeout(() => {
-          setIsTyping(false);
-        }, 3000);
+    socket.on("userTyping", () => {
+      setIsTyping(true);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
       }
+      typingTimeoutRef.current = setTimeout(() => {
+        setIsTyping(false);
+      }, 3000);
     });
 
     // Listen for guest leaving
@@ -330,9 +327,12 @@ export default function StaffChatDashboard({
     try {
       const msgs = await getConversationMessages(conversationId);
       // Normalize senderType to lowercase for frontend consistency
+      // Backend sends createdAt but frontend expects sentAt
       const normalizedMsgs = msgs.map((msg) => ({
         ...msg,
         senderType: msg.senderType.toLowerCase() as "guest" | "staff",
+        sentAt:
+          (msg as unknown as { createdAt?: string }).createdAt || msg.sentAt,
       }));
       setMessages(normalizedMsgs);
     } catch (err) {
@@ -911,35 +911,43 @@ export default function StaffChatDashboard({
                     exit={{ opacity: 0 }}
                     className="flex justify-start"
                   >
-                    <div className="bg-white border border-gray-200 rounded-2xl px-5 py-3 shadow-sm">
-                      <div className="flex gap-1.5">
-                        <motion.div
-                          animate={{ y: [0, -5, 0] }}
-                          transition={{
-                            repeat: Infinity,
-                            duration: 0.6,
-                            delay: 0,
-                          }}
-                          className="w-2 h-2 bg-gray-400 rounded-full"
-                        />
-                        <motion.div
-                          animate={{ y: [0, -5, 0] }}
-                          transition={{
-                            repeat: Infinity,
-                            duration: 0.6,
-                            delay: 0.2,
-                          }}
-                          className="w-2 h-2 bg-gray-400 rounded-full"
-                        />
-                        <motion.div
-                          animate={{ y: [0, -5, 0] }}
-                          transition={{
-                            repeat: Infinity,
-                            duration: 0.6,
-                            delay: 0.4,
-                          }}
-                          className="w-2 h-2 bg-gray-400 rounded-full"
-                        />
+                    <div className="flex flex-col gap-1">
+                      <p className="text-xs text-gray-500 ml-2 font-medium">
+                        Guest is typing...
+                      </p>
+                      <div className="bg-white border border-gray-200 rounded-2xl px-5 py-3 shadow-sm">
+                        <div className="flex gap-1.5">
+                          <motion.div
+                            key="typing-dot-1"
+                            animate={{ y: [0, -5, 0] }}
+                            transition={{
+                              repeat: Infinity,
+                              duration: 0.6,
+                              delay: 0,
+                            }}
+                            className="w-2 h-2 bg-gray-400 rounded-full"
+                          />
+                          <motion.div
+                            key="typing-dot-2"
+                            animate={{ y: [0, -5, 0] }}
+                            transition={{
+                              repeat: Infinity,
+                              duration: 0.6,
+                              delay: 0.2,
+                            }}
+                            className="w-2 h-2 bg-gray-400 rounded-full"
+                          />
+                          <motion.div
+                            key="typing-dot-3"
+                            animate={{ y: [0, -5, 0] }}
+                            transition={{
+                              repeat: Infinity,
+                              duration: 0.6,
+                              delay: 0.4,
+                            }}
+                            className="w-2 h-2 bg-gray-400 rounded-full"
+                          />
+                        </div>
                       </div>
                     </div>
                   </motion.div>
