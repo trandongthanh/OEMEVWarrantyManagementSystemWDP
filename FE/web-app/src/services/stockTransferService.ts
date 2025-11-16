@@ -316,26 +316,6 @@ class StockTransferService {
     }
   }
 
-  /**
-   * Create warehouse restock request
-   * POST /stock-transfer-requests/warehouse-restock
-   *
-   * @role parts_coordinator_service_center
-   */
-  async createWarehouseRestock(
-    data: CreateStockTransferRequest
-  ): Promise<CreateStockTransferResponse> {
-    try {
-      const response = await apiClient.post(
-        "/stock-transfer-requests/warehouse-restock",
-        data
-      );
-      return response.data;
-    } catch (error) {
-      console.error("Error creating warehouse restock request:", error);
-      throw error;
-    }
-  }
 }
 
 const stockTransferService = new StockTransferService();
