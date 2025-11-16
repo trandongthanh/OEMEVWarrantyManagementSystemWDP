@@ -7,7 +7,7 @@ import { Home, UserPlus } from "lucide-react";
 import { authService } from "@/services";
 import { useRoleProtection } from "@/hooks/useRoleProtection";
 import { Sidebar, DashboardHeader } from "@/components/dashboard";
-import { CreateUserAccount } from "@/components/dashboard/managerdashboard/CreateUserAccount";
+import { AdminCreateUserAccount  } from "@/components/dashboard/admindashboard";
 
 interface CurrentUser {
   userId: string;
@@ -39,7 +39,7 @@ export default function AdminDashboard() {
   const renderContent = () => {
     switch (activeNav) {
       case "create-user":
-        return <CreateUserAccount />;
+        return <AdminCreateUserAccount />;
 
       case "dashboard":
         return (
