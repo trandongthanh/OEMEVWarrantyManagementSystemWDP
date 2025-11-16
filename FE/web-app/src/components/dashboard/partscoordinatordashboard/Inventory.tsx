@@ -9,10 +9,12 @@ import {
   ArrowUpDown,
   Boxes,
   Loader,
+  Upload,
 } from "lucide-react";
 
 import { warehouseService } from "@/services/warehouseService";
 import { usePolling } from "@/hooks/usePolling";
+import InventoryBulkUpload from "./InventoryBulkUpload";
 
 interface Component {
   id: string;
@@ -30,6 +32,7 @@ export default function Inventory() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [loading, setLoading] = useState(false);
   const [stockFilter, setStockFilter] = useState<"all" | "low" | "out">("all");
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
 
   const { isPolling } = usePolling(
     async () => {
@@ -125,6 +128,13 @@ export default function Inventory() {
         </div>
 
         <div className="flex gap-3">
+          <button
+            onClick={() => setShowBulkUpload(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium shadow-sm"
+          >
+            <Upload className="w-5 h-5" />
+            Bulk Import
+          </button>
           {isPolling && (
             <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -336,6 +346,16 @@ export default function Inventory() {
           </tbody>
         </table>
       </div>
+
+      {/* Bulk Upload Modal */}
+      <InventoryBulkUpload
+        isOpen={showBulkUpload}
+        onClose={() => setShowBulkUpload(false)}
+        onSuccess={() => {
+          setShowBulkUpload(false);
+          fetchComponents(); // Refresh inventory list
+        }}
+      />
     </div>
   );
 }

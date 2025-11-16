@@ -7,7 +7,7 @@ import { Building2, Boxes, ArrowLeftRight, Car, Shield } from "lucide-react";
 import { authService } from "@/services";
 import { useRoleProtection } from "@/hooks/useRoleProtection";
 import { Sidebar, DashboardHeader } from "@/components/dashboard";
-import { InventoryDashboard } from "@/components/inventory";
+import InventoryDashboard from "@/components/dashboard/companydashboard/InventoryDashboard";
 import MostUsedComponents from "@/components/dashboard/MostUsedComponents";
 import CompanyDashboardOverview from "@/components/dashboard/companydashboard/CompanyDashboardOverview";
 import StockTransferRequestManager from "@/components/dashboard/companydashboard/StockTransferRequestManager";

@@ -5,23 +5,33 @@ import inventoryService, {
   InventorySummary,
 } from "@/services/inventoryService";
 
-import { Package, Building2, Lock, CheckCircle, Loader } from "lucide-react";
+import {
+  Package,
+  Building2,
+  Lock,
+  CheckCircle,
+  Loader,
+  Upload,
+} from "lucide-react";
+import InventoryBulkUpload from "@/components/dashboard/partscoordinatordashboard/InventoryBulkUpload";
 
 export default function InventoryDashboard() {
   const [data, setData] = useState<InventorySummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
+
+  const fetchData = async () => {
+    try {
+      const res = await inventoryService.getInventorySummary();
+      setData(res);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function fetchData() {
-      try {
-        const res = await inventoryService.getInventorySummary();
-        setData(res);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    }
     fetchData();
   }, []);
 
@@ -58,6 +68,13 @@ export default function InventoryDashboard() {
             All warehouses across the company
           </p>
         </div>
+        <button
+          onClick={() => setShowBulkUpload(true)}
+          className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium shadow-sm"
+        >
+          <Upload className="w-5 h-5" />
+          Bulk Import
+        </button>
       </div>
 
       {/* Summary Stats */}
@@ -191,6 +208,16 @@ export default function InventoryDashboard() {
           )}
         </div>
       </div>
+
+      {/* Bulk Upload Modal */}
+      <InventoryBulkUpload
+        isOpen={showBulkUpload}
+        onClose={() => setShowBulkUpload(false)}
+        onSuccess={() => {
+          setShowBulkUpload(false);
+          fetchData(); // Refresh inventory summary
+        }}
+      />
     </div>
   );
 }

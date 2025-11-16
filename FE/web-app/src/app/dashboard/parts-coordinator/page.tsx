@@ -18,6 +18,7 @@ import { ComponentReturnList } from "@/components/dashboard/partscoordinatordash
 import { StockHistoryList } from "@/components/dashboard/partscoordinatordashboard/StockHistoryList";
 import { AdjustmentList } from "@/components/dashboard/partscoordinatordashboard/AdjustmentList";
 import { CreateAdjustmentModal } from "@/components/dashboard/partscoordinatordashboard/CreateAdjustmentModal";
+import InventoryBulkUpload from "@/components/dashboard/partscoordinatordashboard/InventoryBulkUpload";
 import ComponentReservationQueue from "@/components/dashboard/partscoordinatordashboard/ComponentReservationQueue";
 import { ComponentPickupList } from "@/components/dashboard/partscoordinatordashboard/ComponentPickupList";
 import { StockTransferReceiving } from "@/components/dashboard/partscoordinatordashboard/StockTransferReceiving";
@@ -43,6 +44,7 @@ export default function PartsCoordinatorDashboard() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
   const [showCreateAdjustment, setShowCreateAdjustment] = useState(false);
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
 
   const [warehouseId, setWarehouseId] = useState("");
   const [warehouseName, setWarehouseName] = useState("Warehouse");
@@ -114,12 +116,22 @@ export default function PartsCoordinatorDashboard() {
           <>
             <AdjustmentList
               onCreateClick={() => setShowCreateAdjustment(true)}
+              onBulkUploadClick={() => setShowBulkUpload(true)}
             />
 
             <CreateAdjustmentModal
               isOpen={showCreateAdjustment}
               onClose={() => setShowCreateAdjustment(false)}
               warehouseId={warehouseId}
+            />
+
+            <InventoryBulkUpload
+              isOpen={showBulkUpload}
+              onClose={() => setShowBulkUpload(false)}
+              onSuccess={() => {
+                setShowBulkUpload(false);
+                // Optionally reload adjustments list
+              }}
             />
           </>
         );

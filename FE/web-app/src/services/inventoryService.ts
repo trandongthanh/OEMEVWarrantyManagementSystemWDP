@@ -169,9 +169,7 @@ export interface CreateAdjustmentOUT {
   components: { serialNumber: string }[];
 }
 
-export type CreateAdjustmentRequest =
-  | CreateAdjustmentIN
-  | CreateAdjustmentOUT;
+export type CreateAdjustmentRequest = CreateAdjustmentIN | CreateAdjustmentOUT;
 
 // ============================================================
 // ⭐ NEW: MOST USED TYPE COMPONENTS
@@ -317,14 +315,72 @@ export async function getMostUsedTypeComponents(
   items: MostUsedTypeComponentItem[];
   pagination: { totalItems: number; totalPages: number; currentPage: number };
 }> {
-  const response = await apiClient.get(
-    "/inventory/most-used-type-components",
+  const response = await apiClient.get("/inventory/most-used-type-components", {
+    params: cleanParams(params ?? {}),
+  });
+
+  return response.data.data;
+}
+
+// ============================================================
+// ⭐ BULK ADJUSTMENT IMPORT
+// ============================================================
+
+/**
+ * Download bulk adjustment import template
+ */
+export async function downloadBulkAdjustmentTemplate(): Promise<Blob> {
+  const response = await apiClient.get("/inventory/adjustments/import", {
+    params: { template: "true" },
+    responseType: "blob",
+  });
+
+  return response.data;
+}
+
+/**
+ * Bulk create inventory adjustments from Excel file
+ */
+export async function bulkCreateAdjustments(data: {
+  file: File;
+  warehouseId: string;
+  adjustmentType: "IN";
+  reason: string;
+  note?: string;
+}): Promise<{
+  data: {
+    summary: {
+      total: number;
+      successful: number;
+      failed: number;
+    };
+    errors?: Array<{
+      row: number;
+      sku?: string;
+      error: string;
+    }>;
+  };
+}> {
+  const formData = new FormData();
+  formData.append("file", data.file);
+  formData.append("warehouseId", data.warehouseId);
+  formData.append("adjustmentType", data.adjustmentType);
+  formData.append("reason", data.reason);
+  if (data.note) {
+    formData.append("note", data.note);
+  }
+
+  const response = await apiClient.post(
+    "/inventory/adjustments/import",
+    formData,
     {
-      params: cleanParams(params ?? {}),
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
     }
   );
 
-  return response.data.data;
+  return response.data;
 }
 
 // ============================================================
@@ -341,7 +397,9 @@ const inventoryService = {
   getAdjustmentById,
   createAdjustment,
   getStockHistory,
-  getMostUsedTypeComponents, // ⭐ NEW EXPORT
+  getMostUsedTypeComponents,
+  downloadBulkAdjustmentTemplate, // ⭐ NEW
+  bulkCreateAdjustments, // ⭐ NEW
 };
 
 export default inventoryService;
