@@ -1176,7 +1176,6 @@ class StockTransferRequestService {
         const components = componentsBySku[sku];
         const quantity = components.length;
 
-        // 1. Perform OUT adjustment from OEM warehouse
         const oemStock = await this.#warehouseRepository.findStockBySku(
           sku,
           oemWarehouseId,
@@ -1189,10 +1188,8 @@ class StockTransferRequestService {
           );
         }
 
-        // Use the internal #performAdjustment logic for OUT from OEM
         const oemAdjustmentResult =
           await this.#inventoryService._performAdjustment({
-            // Accessing private method for reuse
             stockId: oemStock.stockId,
             adjustmentType: "OUT",
             reason: `Dispatch for Stock Transfer Request ${requestId}`,
@@ -1211,8 +1208,6 @@ class StockTransferRequestService {
           }))
         );
 
-        // 2. Perform IN adjustment to Service Center warehouse
-        // First, find or create stock in the target service center warehouse
         let scStock =
           await this.#warehouseRepository.findStockByWarehouseAndTypeComponent(
             {
@@ -1227,23 +1222,21 @@ class StockTransferRequestService {
             {
               warehouseId: targetServiceCenterWarehouseId,
               typeComponentId: oemStock.typeComponentId,
-              quantityInStock: 0, // Will be updated by adjustment
+              quantityInStock: 0,
               quantityReserved: 0,
             },
             transaction
           );
         }
 
-        // Use the internal #performAdjustment logic for IN to Service Center
         const scAdjustmentResult =
           await this.#inventoryService._performAdjustment({
-            // Accessing private method for reuse
             stockId: scStock.stockId,
             adjustmentType: "IN",
             reason: `Received from Stock Transfer Request ${requestId}`,
             note: `Received for request ${requestId}`,
             components,
-            adjustedByUserId: dispatchedByUserId, // Assuming same user dispatches and "receives" for this automated step
+            adjustedByUserId: dispatchedByUserId,
             roleName,
             companyId,
             transaction,
@@ -1255,7 +1248,7 @@ class StockTransferRequestService {
         await this.#stockTransferRequestRepository.updateStockTransferRequestStatus(
           {
             requestId,
-            status: "SHIPPED", // Or RECEIVED, depending on desired flow. SHIPPED implies it's on its way.
+            status: "SHIPPED",
             shippedAt: formatUTCtzHCM(dayjs()),
           },
           transaction
@@ -1277,12 +1270,11 @@ class StockTransferRequestService {
 
     const { updatedRequest, stockUpdates = [], requestWithDetails } = rawResult;
 
-    // Notify the requesting service center
     const roomNameServiceCenterStaff = `service_center_staff_${serviceCenterRequest}`;
     const roomNameServiceCenterManager = `service_center_manager_${serviceCenterRequest}`;
     const roomNamePartsCoordinatorServiceCenter = `parts_coordinator_service_center_${serviceCenterRequest}`;
 
-    const eventName = "stock_transfer_request_shipped"; // Or received, if status is RECEIVED
+    const eventName = "stock_transfer_request_shipped";
     const data = { requestId, requestWithDetails };
 
     this.#notificationService.sendToRooms(

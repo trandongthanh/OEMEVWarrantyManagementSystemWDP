@@ -116,10 +116,26 @@ export async function startAnonymousChat(
   email?: string
 ): Promise<GuestChatSession> {
   try {
+    // Validate guest ID length before sending (max 24 chars)
+    if (guestId && guestId.length > 24) {
+      console.warn("Guest ID too long, regenerating:", guestId.length, "chars");
+      // Clear the bad ID from localStorage and generate a new one
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("guestChatId");
+      }
+      guestId = getOrCreateGuestId();
+    }
+
     const payload: StartChatRequest = {
       serviceCenterId,
       ...(email ? { email } : { guestId }),
     };
+
+    console.log(
+      "Starting chat with guest ID:",
+      guestId,
+      `(${guestId?.length || 0} chars)`
+    );
 
     const response = await apiClient.post<StartChatResponse>(
       "/chats/start-anonymous-chat",
@@ -286,19 +302,38 @@ export async function closeConversation(conversationId: string): Promise<void> {
 
 /**
  * Generate a unique guest ID (stored in localStorage)
+ * Format: g_{base36_timestamp}_{random} - max 24 chars
  */
 export function getOrCreateGuestId(): string {
   const GUEST_ID_KEY = "guestChatId";
 
   if (typeof window === "undefined") {
-    return `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // Ultra-short: 8-char timestamp + 5-char random = ~16 chars total
+    const timestamp = Date.now().toString(36).slice(-8);
+    const random = Math.random().toString(36).substr(2, 5);
+    return `g_${timestamp}_${random}`;
   }
 
   let guestId = localStorage.getItem(GUEST_ID_KEY);
 
+  // Clear old guest ID if it's too long (from previous implementation)
+  if (guestId && guestId.length > 24) {
+    console.log("Clearing old guest ID (too long):", guestId.length, "chars");
+    localStorage.removeItem(GUEST_ID_KEY);
+    guestId = null;
+  }
+
   if (!guestId) {
-    guestId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // Ultra-short: 8-char timestamp + 5-char random = ~16 chars total
+    const timestamp = Date.now().toString(36).slice(-8);
+    const random = Math.random().toString(36).substr(2, 5);
+    guestId = `g_${timestamp}_${random}`;
     localStorage.setItem(GUEST_ID_KEY, guestId);
+    console.log(
+      "Generated new guest ID:",
+      guestId,
+      `(${guestId.length} chars)`
+    );
   }
 
   return guestId;

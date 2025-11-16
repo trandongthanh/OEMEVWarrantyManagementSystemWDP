@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  attachCompanyContext,
   authentication,
   authorizationByRole,
   validate,
