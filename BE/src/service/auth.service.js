@@ -88,6 +88,7 @@ class AuthService {
 
     const newUser = await db.sequelize.transaction(async (transaction) => {
       const existingRole = await this.#roleRepository.findById(roleId);
+
       if (!existingRole) {
         throw new BadRequestError("Invalid roleId");
       }
@@ -99,16 +100,25 @@ class AuthService {
         "service_center_manager",
       ];
 
-      const companyRoles = ["emv_staff", "parts_coordinator_company", "emv_admin"];
+      const companyRoles = [
+        "emv_staff",
+        "parts_coordinator_company",
+        "emv_admin",
+      ];
 
-      if (serviceCenterId && !serviceCenterRoles.includes(existingRole.roleName)) {
+      if (
+        serviceCenterId &&
+        !serviceCenterRoles.includes(existingRole.roleName)
+      ) {
         throw new BadRequestError(
           "Service center users can only create users with service center roles."
         );
       }
 
       if (vehicleCompanyId && !companyRoles.includes(existingRole.roleName)) {
-        throw new BadRequestError("Company users can only create users with company roles.");
+        throw new BadRequestError(
+          "Company users can only create users with company roles."
+        );
       }
 
       const existingEmployeeCodes =

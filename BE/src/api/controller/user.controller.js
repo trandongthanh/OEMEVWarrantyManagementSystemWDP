@@ -3,6 +3,28 @@ class UserController {
     this.userService = userService;
   }
 
+  getAllUsers = async (req, res, next) => {
+    const filters = req.query;
+    const currentUser = req.user;
+
+    const result = await this.userService.getAllUsers({
+      filters,
+      currentUser,
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        users: result.users,
+      },
+      pagination: {
+        totalItems: result.totalItems,
+        currentPage: result.currentPage,
+        totalPages: result.totalPages,
+      },
+    });
+  };
+
   getTechnicians = async (req, res, next) => {
     const { serviceCenterId } = req.user;
     const { status } = req.query;
