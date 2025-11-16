@@ -46,7 +46,6 @@ export default function PartsInventoryScreen() {
   const [isLoadingRecords, setIsLoadingRecords] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Tải danh sách xe
   const loadAvailableRecords = async () => {
     setIsLoadingRecords(true);
     try {
@@ -67,7 +66,6 @@ export default function PartsInventoryScreen() {
     }, [])
   );
 
-  // Tải linh kiện
   const loadComponents = async (recordId, category, currentSearch) => {
     if (!recordId) {
       setComponents([]);
@@ -80,20 +78,18 @@ export default function PartsInventoryScreen() {
     try {
       let results = [];
       if (category === "all" || category === "") {
-        // Tải song song TẤT CẢ danh mục
         const categoriesToFetch = COMPONENT_CATEGORIES.filter(
           (c) => c.value !== "all"
         ).map((c) => c.value);
 
         const promises = categoriesToFetch.map((cat) =>
           technicianService
-            .searchCompatibleComponents(recordId, cat, currentSearch) // Truyền search
+            .searchCompatibleComponents(recordId, cat, currentSearch) 
             .then((res) => res.data?.result || [])
         );
         const allResults = await Promise.all(promises);
         results = allResults.flat();
       } else {
-        // Tải 1 danh mục
         const response = await technicianService.searchCompatibleComponents(
           recordId,
           category,
@@ -111,14 +107,12 @@ export default function PartsInventoryScreen() {
     }
   };
 
-  // Tải lại components khi danh mục thay đổi
   useEffect(() => {
     if (currentRecordId && categoryFilter !== "") {
       loadComponents(currentRecordId, categoryFilter, searchQuery);
     }
   }, [currentRecordId, categoryFilter]);
 
-  // Lọc client-side khi search
   useEffect(() => {
     let filtered = [...components];
     if (searchQuery.trim()) {
@@ -142,7 +136,6 @@ export default function PartsInventoryScreen() {
     );
   }, [currentRecordId, categoryFilter, searchQuery]);
 
-  // Xử lý khi chọn xe
   const handleRecordSelection = (recordId) => {
     const record = availableRecords.find(
       (r) => r.vehicleProcessingRecordId === recordId
@@ -155,9 +148,9 @@ export default function PartsInventoryScreen() {
       });
       setComponents([]);
       setFilteredComponents([]);
-      setSearchQuery(""); // Xóa tìm kiếm cũ
-      setCategoryFilter(""); // Reset
-      setTimeout(() => setCategoryFilter("all"), 0); // Tự động trigger "All"
+      setSearchQuery(""); 
+      setCategoryFilter(""); 
+      setTimeout(() => setCategoryFilter("all"), 0); 
     } else {
       setCurrentRecordId(null);
       setCurrentVehicleInfo(null);
@@ -263,7 +256,6 @@ export default function PartsInventoryScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Info Banner */}
         <View style={styles.infoBox}>
           <Ionicons name="information-circle-outline" size={20} color="#1D4ED8" />
           <Text style={styles.infoText}>
@@ -273,7 +265,6 @@ export default function PartsInventoryScreen() {
           </Text>
         </View>
         
-        {/* Filters */}
         <View style={styles.filterSection}>
           <Text style={styles.label}>Chọn xe</Text>
           <View style={styles.pickerContainer}>
@@ -334,7 +325,6 @@ export default function PartsInventoryScreen() {
 
         {renderComponentList()}
         
-        {/* Info Cards */}
         <View style={styles.infoCardsContainer}>
           <InfoCard
             icon="search-outline"
@@ -349,7 +339,6 @@ export default function PartsInventoryScreen() {
         </View>
       </ScrollView>
 
-      {/* Modal Chi tiết Linh kiện */}
       <Modal
         visible={showDetailsModal}
         transparent={true}

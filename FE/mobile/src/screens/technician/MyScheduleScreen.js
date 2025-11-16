@@ -165,13 +165,7 @@ export default function MyScheduleScreen() {
   const renderWeekView = () => {
     const { startDate } = getDateRange();
     const weekStart = new Date(startDate);
-    const days = [];
-
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(weekStart);
-      date.setDate(weekStart.getDate() + i);
-      days.push(date);
-    }
+    const days = getDaysOfWeek(startDate);
 
     return (
       <View style={styles.weekContainer}>

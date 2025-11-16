@@ -47,7 +47,6 @@ export default function MyTasksScreen() {
     }
   };
 
-  // Thay thế usePolling bằng useFocusEffect
   useFocusEffect(
     useCallback(() => {
       loadTasks();
@@ -60,7 +59,6 @@ export default function MyTasksScreen() {
     setRefreshing(false);
   }, []);
 
-  // Lọc dữ liệu
   const filteredTasks = useMemo(() => {
     let filtered = [...tasks];
 
@@ -83,7 +81,6 @@ export default function MyTasksScreen() {
     return filtered;
   }, [tasks, searchQuery, statusFilter]);
 
-  // Cập nhật logic thống kê
   const stats = useMemo(() => {
     const today = new Date().toDateString();
     return {
@@ -100,7 +97,6 @@ export default function MyTasksScreen() {
   }, [tasks]);
 
   const handleTaskPress = (task) => {
-    // KTV chỉ xử lý case đầu tiên nếu có nhiều
     const firstCase = task.guaranteeCases?.[0];
     if (!firstCase) {
       console.warn("Task has no guarantee cases:", task.vin);
@@ -114,7 +110,6 @@ export default function MyTasksScreen() {
     });
   };
 
-  // Cập nhật giao diện Card
   const renderTaskItem = (task) => {
     const statusInfo = getStatusInfo(task.status);
     const checkInDate = new Date(task.checkInDate).toLocaleDateString();
@@ -183,7 +178,6 @@ export default function MyTasksScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Cập nhật Stats */}
         <View style={styles.statsContainer}>
           <View style={styles.statBox}>
             <Text style={styles.statNumber}>{stats.total}</Text>
@@ -219,7 +213,6 @@ export default function MyTasksScreen() {
               onChangeText={setSearchQuery}
             />
           </View>
-          {/* Status Filter (Simple) */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statusFilterScroll}>
             {['ALL', 'CHECKED_IN', 'IN_DIAGNOSIS', 'WAITING_FOR_PARTS', 'IN_REPAIR'].map((status) => (
               <TouchableOpacity
@@ -285,18 +278,18 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: "row",
-    flexWrap: "wrap", // Cho phép xuống hàng
+    flexWrap: "wrap", 
     justifyContent: "space-between",
     paddingHorizontal: 12,
     marginTop: 16,
   },
   statBox: {
-    width: "48%", // 2 cột
+    width: "48%",
     backgroundColor: "#FFFFFF",
     padding: 16,
     borderRadius: 12,
     marginHorizontal: "1%",
-    marginBottom: 8, // Thêm margin bottom
+    marginBottom: 8, 
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
@@ -313,7 +306,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#6B7280",
     marginTop: 4,
-    textAlign: "center", // Cho text dài
+    textAlign: "center", 
   },
   filterContainer: {
     paddingHorizontal: 16,
