@@ -330,7 +330,7 @@ export async function getMostUsedTypeComponents(
  * Download bulk adjustment import template
  */
 export async function downloadBulkAdjustmentTemplate(): Promise<Blob> {
-  const response = await apiClient.get("/inventory/adjustments/import", {
+  const response = await apiClient.get("/inventory/adjustments/import/template", {
     params: { template: "true" },
     responseType: "blob",
   });
