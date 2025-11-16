@@ -1,8 +1,13 @@
 import db from "../models/index.cjs";
 import { Op } from "sequelize";
 
-const { VehicleModel, Vehicle, VehicleProcessingRecord, GuaranteeCase, CaseLine } =
-  db;
+const {
+  VehicleModel,
+  Vehicle,
+  VehicleProcessingRecord,
+  GuaranteeCase,
+  CaseLine,
+} = db;
 
 class OemVehicleModelRepository {
   findBySku = async (sku, transaction = null, lock = null) => {
@@ -71,7 +76,12 @@ class OemVehicleModelRepository {
         "vehicleModelId",
         "vehicleModelName",
         [
-          db.sequelize.fn("COUNT", db.sequelize.col("vehicles.vehicleRecord.guaranteeCases.caseLines.id")),
+          db.sequelize.fn(
+            "COUNT",
+            db.sequelize.col(
+              "vehicles.vehicleRecord.guaranteeCases.caseLines.id"
+            )
+          ),
           "caseLineCount",
         ],
       ],
@@ -87,7 +97,9 @@ class OemVehicleModelRepository {
               as: "vehicleRecord",
               attributes: [],
               required: true,
-              where: Object.keys(dateFilter).length ? { checkInDate: dateFilter } : {},
+              where: Object.keys(dateFilter).length
+                ? { checkInDate: dateFilter }
+                : {},
               include: [
                 {
                   model: GuaranteeCase,
@@ -100,7 +112,7 @@ class OemVehicleModelRepository {
                       as: "caseLines",
                       attributes: [],
                       required: true,
-                      where: { warrantyStatus: "ELIGIBLE" }, 
+                      where: { warrantyStatus: "ELIGIBLE" },
                     },
                   ],
                 },
@@ -112,7 +124,10 @@ class OemVehicleModelRepository {
       where: {
         vehicleCompanyId: companyId,
       },
-      group: ["VehicleModel.vehicleModelId", "VehicleModel.vehicleModelName"],
+      group: [
+        "VehicleModel.vehicle_model_id",
+        "VehicleModel.vehicle_model_name",
+      ],
       order: [[db.sequelize.literal("caseLineCount"), "DESC"]],
       limit: limit,
       subQuery: false,

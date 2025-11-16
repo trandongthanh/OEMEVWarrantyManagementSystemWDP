@@ -216,7 +216,7 @@ class InventoryController {
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
       const data = xlsx.utils.sheet_to_json(worksheet, {
-        header: 0,
+        header: 1,
         defval: null,
       });
 
