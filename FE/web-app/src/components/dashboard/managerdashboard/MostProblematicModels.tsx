@@ -42,9 +42,7 @@ export function MostProblematicModels() {
     setError(null);
 
     try {
-      const params: { limit: number; startDate?: string; endDate?: string } = {
-        limit,
-      };
+      const params: { startDate?: string; endDate?: string } = {};
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
 
@@ -59,7 +57,7 @@ export function MostProblematicModels() {
     } finally {
       setLoading(false);
     }
-  }, [limit, startDate, endDate]);
+  }, [startDate, endDate]);
 
   useEffect(() => {
     fetchProblematicModels();
