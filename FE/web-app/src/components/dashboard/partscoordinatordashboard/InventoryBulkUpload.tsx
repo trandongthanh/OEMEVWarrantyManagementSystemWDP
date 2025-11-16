@@ -60,11 +60,28 @@ export default function InventoryBulkUpload({
   const warehouseId = providedWarehouseId || selectedWarehouseId;
 
   // Load warehouses if no warehouseId is provided (company coordinator case)
-  useEffect(() => {
-    if (isOpen && !providedWarehouseId) {
-      loadWarehouses();
-    }
-  }, [isOpen, providedWarehouseId]);
+// Reset data + load warehouses (nếu cần) mỗi khi mở modal
+useEffect(() => {
+  if (!isOpen) return;
+
+  // Reset states
+  setSelectedFile(null);
+  setUploadResult(null);
+  setReason("");
+  setNote("");
+  setSelectedWarehouseId("");
+
+  // Reset input file trong DOM
+  if (fileInputRef.current) {
+    fileInputRef.current.value = "";
+  }
+
+  // Chỉ load warehouses nếu user không có providedWarehouseId
+  if (!providedWarehouseId) {
+    loadWarehouses();
+  }
+}, [isOpen, providedWarehouseId]);
+
 
   const loadWarehouses = async () => {
     try {
@@ -141,6 +158,7 @@ export default function InventoryBulkUpload({
 
     try {
       setUploading(true);
+
       const result = await inventoryService.bulkCreateAdjustments({
         file: selectedFile,
         warehouseId,
@@ -151,14 +169,22 @@ export default function InventoryBulkUpload({
 
       setUploadResult(result.data);
 
-      if (result.data.summary.failed === 0) {
-        toast.success(
-          `Successfully created ${result.data.summary.successful} inventory adjustments!`
-        );
-        onSuccess?.();
+      const summary = result.data?.summary;
+
+      if (summary) {
+        if (summary.failed === 0) {
+          toast.success(
+            `Successfully created ${summary.successful} inventory adjustments!`
+          );
+          onSuccess?.();
+        } else {
+          toast.warning(
+            `Created ${summary.successful} adjustments, ${summary.failed} failed`
+          );
+        }
       } else {
-        toast.warning(
-          `Created ${result.data.summary.successful} adjustments, ${result.data.summary.failed} failed`
+        toast.error(
+          "Upload completed but response format is invalid (missing summary)"
         );
       }
     } catch (error: unknown) {
@@ -423,25 +449,27 @@ export default function InventoryBulkUpload({
                   <div className="p-4 bg-gray-50 rounded-lg">
                     <p className="text-xs text-gray-600 mb-1">Total</p>
                     <p className="text-2xl font-bold text-gray-900">
-                      {uploadResult.summary.total}
+                      {uploadResult?.summary?.total ?? 0}
                     </p>
                   </div>
+
                   <div className="p-4 bg-green-50 rounded-lg">
                     <p className="text-xs text-green-600 mb-1 flex items-center gap-1">
                       <CheckCircle className="w-3 h-3" />
                       Success
                     </p>
                     <p className="text-2xl font-bold text-green-900">
-                      {uploadResult.summary.successful}
+                      {uploadResult?.summary?.successful ?? 0}
                     </p>
                   </div>
+
                   <div className="p-4 bg-red-50 rounded-lg">
                     <p className="text-xs text-red-600 mb-1 flex items-center gap-1">
                       <XCircle className="w-3 h-3" />
                       Failed
                     </p>
                     <p className="text-2xl font-bold text-red-900">
-                      {uploadResult.summary.failed}
+                      {uploadResult?.summary?.failed ?? 0}
                     </p>
                   </div>
                 </div>
