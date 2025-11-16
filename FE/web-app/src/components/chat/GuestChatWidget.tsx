@@ -1106,11 +1106,11 @@ export default function GuestChatWidget({
                         exit={{ opacity: 0, y: -10 }}
                         className="flex justify-start"
                       >
-                        <div className="flex flex-col gap-1">
-                          <p className="text-xs text-gray-400 ml-2 font-medium">
+                        <div className="inline-flex flex-col gap-1">
+                          <p className="text-xs text-gray-400 font-medium whitespace-nowrap">
                             Support is typing...
                           </p>
-                          <div className="bg-white/5 border border-white/10 rounded-2xl px-5 py-4 backdrop-blur-sm">
+                          <div className="bg-white/5 border border-white/10 rounded-2xl px-5 py-4 backdrop-blur-sm w-fit">
                             <div className="flex gap-1.5">
                               <motion.div
                                 key="typing-dot-1"
