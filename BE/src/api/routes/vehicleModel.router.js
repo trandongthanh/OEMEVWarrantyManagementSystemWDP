@@ -58,8 +58,8 @@ const router = express.Router();
 router.get(
   "/statistics/most-problematic",
   authentication,
-  authorizationByRole(["service_center_center"]),
-  attachCompanyContext(),
+  authorizationByRole(["service_center_manager", "emv_admin"]),
+  attachCompanyContext,
   validate(getMostProblematicModelsSchema, "query"),
   async (req, res, next) => {
     const oemVehicleModelController = req.container.resolve(
