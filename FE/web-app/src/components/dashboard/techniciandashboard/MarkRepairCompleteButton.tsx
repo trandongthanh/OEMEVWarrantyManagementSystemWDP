@@ -11,6 +11,7 @@ import {
 import { useState, useRef } from "react";
 import caseLineService from "@/services/caseLineService";
 import { motion, AnimatePresence } from "framer-motion";
+import { uploadToCloudinary } from "@/lib/cloudinary";
 
 interface MarkRepairCompleteButtonProps {
   caseLineId: string;
@@ -94,19 +95,12 @@ export function MarkRepairCompleteButton({
     setIsSubmitting(true);
 
     try {
-      // Upload images first
+      // Upload images to Cloudinary first
       const imageUrls: string[] = [];
 
       for (const file of imageFiles) {
-        const formData = new FormData();
-        formData.append("file", file);
-
-        // TODO: Replace with your actual image upload endpoint
-        // const uploadResponse = await apiClient.post('/upload/image', formData);
-        // imageUrls.push(uploadResponse.data.url);
-
-        // For now, using placeholder - replace with actual upload
-        imageUrls.push(`/uploads/installation/${file.name}`);
+        const cloudinaryUrl = await uploadToCloudinary(file);
+        imageUrls.push(cloudinaryUrl);
       }
 
       await caseLineService.markRepairComplete(caseLineId, imageUrls);
