@@ -601,7 +601,7 @@ class CaseLineRepository {
 
       group: [
         "CaseLine.typeComponentId",
-        "typeComponent.type_component_id",
+        "typeComponent.typeComponentId",
         "typeComponent.name",
         "typeComponent.sku",
         "typeComponent.category",
