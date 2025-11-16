@@ -18,7 +18,8 @@ import {
   ProcessingRecord,
   userService,
   Technician,
-} from "@/services";
+} from "@/services/index";
+import { toast } from "sonner";
 import { Pagination } from "@/components/ui";
 import { LucideIcon } from "lucide-react";
 
@@ -148,9 +149,10 @@ export function ManagerCasesList({}: ManagerCasesListProps) {
       setSelectedRecord(null);
       setSelectedTechnician("");
       fetchRecords(); // Refresh list
+      toast.success("Technician assigned successfully");
     } catch (error) {
       console.error("Error assigning technician:", error);
-      alert("Failed to assign technician. Please try again.");
+      toast.error("Failed to assign technician. Please try again.");
     } finally {
       setAssigning(false);
     }

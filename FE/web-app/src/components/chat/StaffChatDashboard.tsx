@@ -23,6 +23,7 @@ import {
 } from "@/services/chatService";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { decodeFileFromContent } from "@/lib/fileMessageUtils";
+import { toast } from "sonner";
 
 // Lazy-load socket functions to prevent chunk 153 bundling
 const getSocketFunctions = async () => {
@@ -373,7 +374,7 @@ export default function StaffChatDashboard({
     if (!socket || !socket.connected) {
       console.error("[Staff] Socket not connected! Reinitializing...");
       initializeChatSocket(authToken || undefined).catch(console.error);
-      alert("Connection lost. Please try again in a moment.");
+      toast.warning("Connection lost. Please try again in a moment.");
       return;
     }
 
@@ -408,7 +409,7 @@ export default function StaffChatDashboard({
           console.log("[Staff] Message send response:", response);
           if (!response.success) {
             console.error("[Staff] Failed to send message:", response.error);
-            alert("Failed to send message: " + response.error);
+            toast.error("Failed to send message: " + response.error);
           }
         }
       );
@@ -459,7 +460,7 @@ export default function StaffChatDashboard({
     if (file) {
       // Check file size (limit to 10MB)
       if (file.size > 10 * 1024 * 1024) {
-        alert("File size must be less than 10MB");
+        toast.error("File size must be less than 10MB");
         return;
       }
       setSelectedFile(file);

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Shield, Plus, Loader2 } from "lucide-react";
 import warrantyComponentService from "@/services/warrantyComponentService";
+import { toast } from "sonner";
 
 /**
  * Warranty Component Configuration
@@ -42,7 +43,7 @@ function CreateWarrantyComponentModal({
       !formData.coverageDurationMonths ||
       !formData.coverageMileage
     ) {
-      alert("Please fill in all required fields");
+      toast.error("Please fill in all required fields");
       return;
     }
 
@@ -56,7 +57,7 @@ function CreateWarrantyComponentModal({
           coverageMileage: parseInt(formData.coverageMileage),
         }
       );
-      alert("Warranty component created successfully!");
+      toast.success("Warranty component created successfully!");
       onSuccess();
       onClose();
       setFormData({
@@ -67,7 +68,7 @@ function CreateWarrantyComponentModal({
       });
     } catch (error) {
       console.error("Error creating warranty component:", error);
-      alert("Failed to create warranty component");
+      toast.error("Failed to create warranty component");
     } finally {
       setLoading(false);
     }
