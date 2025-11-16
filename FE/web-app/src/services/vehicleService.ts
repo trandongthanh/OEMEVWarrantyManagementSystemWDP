@@ -13,11 +13,12 @@ export interface VehicleComponent {
   componentId: string;
   serialNumber: string;
   status:
-    | "IN_WAREHOUSE"
+    | "IN_STOCK"
     | "RESERVED"
     | "IN_TRANSIT"
-    | "WITH_TECHNICIAN"
-    | "INSTALLED";
+    | "PICKED_UP"
+    | "INSTALLED"
+    | "REMOVED";
   vehicleVin: string;
   installedAt: string;
   currentHolderId?: string;
@@ -211,18 +212,19 @@ export const registerVehicleOwner = async (
  * including component details and installation dates.
  *
  * @param vin - Vehicle Identification Number
- * @param status - Optional filter by component status (ALL, IN_WAREHOUSE, RESERVED, IN_TRANSIT, WITH_TECHNICIAN, INSTALLED, RETURNED)
+ * @param status - Optional filter by component status (ALL, IN_STOCK, RESERVED, IN_TRANSIT, PICKED_UP, INSTALLED, REMOVED)
  * @returns List of components installed on the vehicle
  */
 export const getVehicleComponents = async (
   vin: string,
   status:
     | "ALL"
-    | "IN_WAREHOUSE"
+    | "IN_STOCK"
     | "RESERVED"
     | "IN_TRANSIT"
-    | "WITH_TECHNICIAN"
-    | "INSTALLED" = "ALL"
+    | "PICKED_UP"
+    | "INSTALLED"
+    | "REMOVED" = "ALL"
 ): Promise<VehicleComponentsResponse> => {
   try {
     const response = await apiClient.get(`/vehicles/${vin}/components`, {

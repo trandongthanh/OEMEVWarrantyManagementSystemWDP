@@ -117,7 +117,7 @@ export const getWarehouses = async (
  */
 export const getWarehouseComponents = async (
   warehouseId: string,
-  status?: "ALL" | "IN_WAREHOUSE" | "RESERVED" | "ALLOCATED"
+  status?: "ALL" | "RESERVED" | "ALLOCATED"
 ): Promise<ComponentsResponse> => {
   try {
     const response = await apiClient.get<{

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import apiClient from "@/lib/apiClient";
+import MostUsedComponents from "../MostUsedComponents";
 
 interface DashboardStats {
   totalTransferRequests: number;
@@ -225,6 +226,15 @@ export default function EMVStaffDashboardOverview({
             <p className="text-sm text-gray-400">Additional features</p>
           </div>
         </div>
+      </motion.div>
+
+      {/* Most Used Components */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+      >
+        <MostUsedComponents limit={10} showDateFilter={true} />
       </motion.div>
     </div>
   );

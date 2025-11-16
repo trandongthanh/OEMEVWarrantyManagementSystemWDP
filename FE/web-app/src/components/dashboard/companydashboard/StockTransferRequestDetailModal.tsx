@@ -79,26 +79,7 @@ interface StockTransferRequestDetail {
     typeComponentId: string;
     quantityRequested: number;
     quantityApproved?: number;
-    component?: {
-      typeComponentId: string;
-      name: string;
-      sku?: string;
-      price?: number;
-      category?: string;
-      makeBrand?: string;
-    };
-    caseline?: {
-      id: string;
-      guaranteeCaseId: string;
-      guaranteeCase?: {
-        guaranteeCaseId: string;
-        vehicleProcessingRecordId: string;
-        vehicleProcessingRecord?: {
-          vehicleProcessingRecordId: string;
-          vin: string;
-        };
-      };
-    };
+    caselineId?: string | null;
   }>;
 }
 
@@ -455,10 +436,10 @@ export default function StockTransferRequestDetailModal({
                           className="hover:bg-gray-100"
                         >
                           <td className="px-4 py-3 text-sm text-gray-900">
-                            {item.component?.name || "Unknown"}
+                            {item.typeComponentId?.substring(0, 8) || "Unknown"}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-600 font-mono">
-                            {item.component?.sku || "N/A"}
+                            {item.typeComponentId || "N/A"}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-900 text-right font-medium">
                             {item.quantityRequested}

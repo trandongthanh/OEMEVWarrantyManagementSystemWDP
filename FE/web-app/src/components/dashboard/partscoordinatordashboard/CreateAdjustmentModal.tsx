@@ -34,6 +34,7 @@ export default function CreateAdjustmentModal({
     setSerials([""]);
 
     loadStockList();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   const loadStockList = async () => {
@@ -120,11 +121,10 @@ export default function CreateAdjustmentModal({
   return (
     <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-white w-full max-w-lg rounded-xl shadow-xl border border-gray-200">
-        {/* ✅ HEADER — màu theo tab */}
+        {/* HEADER */}
         <div className="px-6 py-4 border-b flex justify-between items-start">
           <div>
             <div className="flex items-center gap-2">
-              {/* Icon đổi màu */}
               <span
                 className={`text-lg ${
                   tab === "IN" ? "text-blue-600" : "text-red-600"
@@ -133,7 +133,6 @@ export default function CreateAdjustmentModal({
                 ➜
               </span>
 
-              {/* Title đổi màu */}
               <h2
                 className={`text-lg font-semibold ${
                   tab === "IN" ? "text-blue-700" : "text-red-700"
@@ -143,7 +142,6 @@ export default function CreateAdjustmentModal({
               </h2>
             </div>
 
-            {/* Subtitle */}
             <p className="text-sm text-gray-500 mt-1">
               {tab === "IN"
                 ? "Add new components into warehouse inventory"
@@ -151,7 +149,6 @@ export default function CreateAdjustmentModal({
             </p>
           </div>
 
-          {/* Close */}
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 text-xl leading-none"
@@ -173,8 +170,7 @@ export default function CreateAdjustmentModal({
                     tab === t
                       ? "bg-white shadow text-blue-600"
                       : "text-gray-600"
-                  }
-                `}
+                  }`}
               >
                 {t === "IN" ? "Adjustment IN" : "Adjustment OUT"}
               </button>
@@ -207,7 +203,7 @@ export default function CreateAdjustmentModal({
           <div className="space-y-1">
             <label className="text-sm font-medium text-black">Reason *</label>
             <input
-              className="w-full border border-black rounded-lg px-3 py-2 bg-white placeholder-black"
+              className="w-full border border-black rounded-lg px-3 py-2 bg-white text-black placeholder-black"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Enter reason"
@@ -218,7 +214,7 @@ export default function CreateAdjustmentModal({
           <div className="space-y-1">
             <label className="text-sm font-medium text-black">Note</label>
             <textarea
-              className="w-full border border-black rounded-lg px-3 py-2 bg-white placeholder-black"
+              className="w-full border border-black rounded-lg px-3 py-2 bg-white text-black placeholder-black"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Optional note..."
@@ -235,7 +231,7 @@ export default function CreateAdjustmentModal({
               {serials.map((s, i) => (
                 <div key={i} className="flex gap-2 items-center">
                   <input
-                    className="flex-1 border border-black rounded-lg px-3 py-2 bg-white placeholder-black"
+                    className="flex-1 border border-black rounded-lg px-3 py-2 bg-white text-black placeholder-black"
                     value={s}
                     placeholder="Serial Number"
                     onChange={(e) => updateSerial(i, e.target.value)}
@@ -243,6 +239,7 @@ export default function CreateAdjustmentModal({
 
                   {serials.length > 1 && (
                     <button
+                      type="button"
                       onClick={() => removeSerial(i)}
                       className="px-3 text-red-500 hover:text-red-700"
                     >
@@ -253,6 +250,7 @@ export default function CreateAdjustmentModal({
               ))}
 
               <button
+                type="button"
                 onClick={() => setSerials([...serials, ""])}
                 className="text-sm text-blue-600 font-medium hover:underline"
               >
@@ -271,7 +269,7 @@ export default function CreateAdjustmentModal({
               {serials.map((s, i) => (
                 <div key={i} className="flex gap-2 items-center">
                   <input
-                    className="flex-1 border border-black rounded-lg px-3 py-2 bg-white placeholder-black"
+                    className="flex-1 border border-black rounded-lg px-3 py-2 bg-white text-black placeholder-black"
                     value={s}
                     placeholder="Serial Number"
                     onChange={(e) => updateSerial(i, e.target.value)}
@@ -279,6 +277,7 @@ export default function CreateAdjustmentModal({
 
                   {serials.length > 1 && (
                     <button
+                      type="button"
                       onClick={() => removeSerial(i)}
                       className="px-3 text-red-500 hover:text-red-700"
                     >
@@ -289,6 +288,7 @@ export default function CreateAdjustmentModal({
               ))}
 
               <button
+                type="button"
                 onClick={() => setSerials([...serials, ""])}
                 className="text-sm text-red-600 font-medium hover:underline"
               >
@@ -319,4 +319,5 @@ export default function CreateAdjustmentModal({
     </div>
   );
 }
+
 export { CreateAdjustmentModal };

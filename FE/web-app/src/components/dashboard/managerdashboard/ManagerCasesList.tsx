@@ -161,10 +161,12 @@ export function ManagerCasesList({}: ManagerCasesListProps) {
         const matchesSearch =
           searchQuery === "" ||
           record.vin?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          record.vehicle?.licensePlate
-            ?.toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          record.vehicle?.owner?.fullName
+          (
+            record.vehicle &&
+            (typeof record.vehicle.model === "object"
+              ? record.vehicle.model?.name
+              : record.vehicle.model)
+          )
             ?.toLowerCase()
             .includes(searchQuery.toLowerCase());
 
@@ -264,9 +266,11 @@ export function ManagerCasesList({}: ManagerCasesListProps) {
                             {record.vin}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {typeof record.vehicle.model === "string"
-                              ? record.vehicle.model
-                              : record.vehicle.model?.name || "N/A"}
+                            {record.vehicle
+                              ? typeof record.vehicle.model === "string"
+                                ? record.vehicle.model
+                                : record.vehicle.model?.name || "N/A"
+                              : "N/A"}
                           </p>
                         </div>
 
@@ -277,7 +281,7 @@ export function ManagerCasesList({}: ManagerCasesListProps) {
                             <span className="text-xs text-gray-500">Owner</span>
                           </div>
                           <p className="text-sm font-medium text-gray-900">
-                            {record.vehicle.owner?.fullName || "N/A"}
+                            {record.vehicle?.owner?.fullName || "N/A"}
                           </p>
                         </div>
 

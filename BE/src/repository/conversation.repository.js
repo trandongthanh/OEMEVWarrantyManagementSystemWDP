@@ -91,10 +91,25 @@ class ConversationRepository {
     );
   };
 
-  getConversationsByStaffId = async (staffId, status = null, transaction = null) => {
-    const whereClause = { staffId: staffId };
-    if (status) {
-      whereClause.status = status;
+  getConversationsByStaffId = async (
+    staffId,
+    status = null,
+    transaction = null
+  ) => {
+    let whereClause;
+
+    // For UNASSIGNED status, show conversations with no staff assigned
+    // For other statuses (ACTIVE, CLOSED), show only conversations assigned to this staff
+    if (status === "UNASSIGNED") {
+      whereClause = {
+        staffId: null,
+        status: "UNASSIGNED",
+      };
+    } else {
+      whereClause = { staffId: staffId };
+      if (status) {
+        whereClause.status = status;
+      }
     }
 
     const conversations = await Conversation.findAll({

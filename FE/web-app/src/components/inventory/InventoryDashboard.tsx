@@ -5,25 +5,9 @@ import inventoryService, {
   InventorySummary,
 } from "@/services/inventoryService";
 
-import {
-  Package,
-  Building2,
-  Lock,
-  CheckCircle,
-  ArrowRight,
-  Send,
-  Loader,
-} from "lucide-react";
+import { Package, Building2, Lock, CheckCircle, Loader } from "lucide-react";
 
-interface Props {
-  onOpenAllocate: () => void;
-  onOpenTransfer: () => void;
-}
-
-export default function InventoryDashboard({
-  onOpenAllocate,
-  onOpenTransfer,
-}: Props) {
+export default function InventoryDashboard() {
   const [data, setData] = useState<InventorySummary[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -73,22 +57,6 @@ export default function InventoryDashboard({
           <p className="text-sm text-gray-500 mt-1">
             All warehouses across the company
           </p>
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={onOpenAllocate}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-700 hover:border-gray-300 hover:bg-gray-50 transition-all font-medium text-sm"
-          >
-            <Send className="w-4 h-4" />
-            Allocate
-          </button>
-          <button
-            onClick={onOpenTransfer}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-all font-medium text-sm"
-          >
-            <ArrowRight className="w-4 h-4" />
-            Transfer
-          </button>
         </div>
       </div>
 

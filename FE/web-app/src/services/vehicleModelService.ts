@@ -6,6 +6,7 @@ import apiClient from "@/lib/apiClient";
  *
  * ROLE-BASED ACCESS:
  * - parts_coordinator_company: Create, view vehicle models
+ * - emv_admin: View statistics and analytics
  */
 
 export interface VehicleModel {
@@ -49,6 +50,28 @@ export interface VehicleModelDetailResponse {
   };
 }
 
+export interface ProblematicModel {
+  vehicleModelId: string;
+  vehicleModelName: string;
+  sku: string;
+  totalIssues: number;
+  companyName?: string;
+  [key: string]: string | number | undefined;
+}
+
+export interface MostProblematicModelsParams {
+  limit?: number;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface MostProblematicModelsResponse {
+  status: string;
+  data: {
+    models: ProblematicModel[];
+  };
+}
+
 /**
  * Create a new vehicle model
  * POST /oem-vehicle-models
@@ -71,6 +94,26 @@ export async function createVehicleModel(
 }
 
 /**
+ * Get most problematic vehicle models (ranked by total issues)
+ * GET /oem-vehicle-models/statistics/most-problematic
+ * Role: emv_admin
+ */
+export async function getMostProblematicModels(
+  params: MostProblematicModelsParams = {}
+): Promise<{ models: ProblematicModel[] }> {
+  try {
+    const response = await apiClient.get<MostProblematicModelsResponse>(
+      "/oem-vehicle-models/statistics/most-problematic",
+      { params }
+    );
+    return response.data.data;
+  } catch (error) {
+    console.error("Error fetching problematic models:", error);
+    throw error;
+  }
+}
+
+/**
  * NOTE: There is NO GET endpoint for listing vehicle models in the backend.
  * Vehicle models can only be created, not listed through the API.
  * If you need to get vehicle models for dropdowns, you should:
@@ -81,6 +124,7 @@ export async function createVehicleModel(
 
 const vehicleModelService = {
   createVehicleModel,
+  getMostProblematicModels,
 };
 
 export default vehicleModelService;

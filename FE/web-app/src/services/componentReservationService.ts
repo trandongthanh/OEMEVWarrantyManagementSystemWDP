@@ -246,6 +246,9 @@ class ComponentReservationService {
    * - Reservation: PICKED_UP → INSTALLED
    * - Component: status → INSTALLED, links to vehicle VIN
    *
+   * Note: Backend does not accept installationImageUrls parameter.
+   * Images should be uploaded when marking repair complete via markRepairCompleted endpoint.
+   *
    * @role service_center_technician
    */
   async installComponent(

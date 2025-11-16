@@ -10,6 +10,7 @@ import {
   Activity,
 } from "lucide-react";
 import { Technician } from "@/services";
+import MostUsedComponents from "../MostUsedComponents";
 
 interface DashboardOverviewProps {
   technicians: Technician[];
@@ -201,6 +202,15 @@ export function DashboardOverview({ technicians }: DashboardOverviewProps) {
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                 <span className="text-xs text-gray-500">Online</span>
               </div>
+            </motion.div>
+
+            {/* Most Used Components */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4 }}
+            >
+              <MostUsedComponents limit={5} showDateFilter={false} />
             </motion.div>
           </div>
         </div>

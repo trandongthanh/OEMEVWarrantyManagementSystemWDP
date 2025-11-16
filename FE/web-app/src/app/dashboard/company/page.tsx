@@ -3,20 +3,12 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
-import {
-  Building2,
-  Boxes,
-  ArrowLeftRight,
-  Settings,
-  Car,
-  Shield,
-} from "lucide-react";
+import { Building2, Boxes, ArrowLeftRight, Car, Shield } from "lucide-react";
 import { authService } from "@/services";
 import { useRoleProtection } from "@/hooks/useRoleProtection";
 import { Sidebar, DashboardHeader } from "@/components/dashboard";
 import { InventoryDashboard } from "@/components/inventory";
-import AllocateComponentModal from "@/components/dashboard/partscoordinatordashboard/AllocationModal";
-import TransferComponentModal from "@/components/dashboard/partscoordinatordashboard/TransferModal";
+import MostUsedComponents from "@/components/dashboard/MostUsedComponents";
 import CompanyDashboardOverview from "@/components/dashboard/companydashboard/CompanyDashboardOverview";
 import StockTransferRequestManager from "@/components/dashboard/companydashboard/StockTransferRequestManager";
 import VehicleModelManagement from "@/components/dashboard/companydashboard/VehicleModelManagement";
@@ -40,8 +32,6 @@ export default function CompanyDashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-  const [showAllocateModal, setShowAllocateModal] = useState(false);
-  const [showTransferModal, setShowTransferModal] = useState(false);
 
   useEffect(() => {
     const userInfo = authService.getUserInfo();
@@ -68,7 +58,6 @@ export default function CompanyDashboard() {
     { id: "vehicles", icon: Car, label: "Vehicles" },
     { id: "vehicle-models", icon: Shield, label: "Vehicle Models" },
     { id: "warranty-config", icon: Shield, label: "Warranty Config" },
-    { id: "settings", icon: Settings, label: "Settings" },
   ];
 
   const renderContent = () => {
@@ -85,25 +74,13 @@ export default function CompanyDashboard() {
       case "inventory":
         return (
           <div className="flex-1 overflow-auto">
-            <div className="p-8">
-              <div className="space-y-6">
-                <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl border-2 border-blue-200 p-6 shadow-lg">
-                  <InventoryDashboard
-                    onOpenAllocate={() => setShowAllocateModal(true)}
-                    onOpenTransfer={() => setShowTransferModal(true)}
-                  />
-                </div>
-
-                {/* Modals */}
-                <AllocateComponentModal
-                  isOpen={showAllocateModal}
-                  onClose={() => setShowAllocateModal(false)}
-                />
-                <TransferComponentModal
-                  isOpen={showTransferModal}
-                  onClose={() => setShowTransferModal(false)}
-                />
+            <div className="p-8 space-y-6">
+              <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl border-2 border-blue-200 p-6 shadow-lg">
+                <InventoryDashboard />
               </div>
+
+              {/* Most Used Components Widget */}
+              <MostUsedComponents limit={10} showDateFilter={true} />
             </div>
           </div>
         );
@@ -147,21 +124,6 @@ export default function CompanyDashboard() {
           <div className="flex-1 overflow-auto">
             <div className="p-8">
               <WarrantyComponentConfig />
-            </div>
-          </div>
-        );
-
-      case "settings":
-        return (
-          <div className="flex-1 overflow-auto">
-            <div className="p-8">
-              <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                  <Settings className="w-5 h-5 text-gray-600" />
-                  Settings
-                </h2>
-                <p className="text-sm text-gray-500 mt-2">Coming soon...</p>
-              </div>
             </div>
           </div>
         );

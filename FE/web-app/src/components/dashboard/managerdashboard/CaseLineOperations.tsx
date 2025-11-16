@@ -297,7 +297,7 @@ export function CaseLineOperations() {
           userFriendlyMessage =
             `Database inconsistency detected: Stock shows available quantity, but individual component records are missing. This means:\n\n` +
             `• Stock table shows quantity available for "${componentName}"\n` +
-            `• But Component table has no individual items with status "IN_WAREHOUSE"\n\n` +
+            `• But Component table has no individual items with status "IN_STOCK"\n\n` +
             `Solution: Contact system administrator to run the database seeder script to populate Component records that match Stock quantities.\n\n` +
             `Technical details: ${errorMsg}`;
         } else if (errorMsg.includes("No component specified")) {

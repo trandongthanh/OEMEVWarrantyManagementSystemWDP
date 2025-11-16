@@ -1,9 +1,17 @@
 "use client";
 
-import { CheckCircle, AlertCircle, ArrowRight, X } from "lucide-react";
-import { useState } from "react";
+import {
+  CheckCircle,
+  AlertCircle,
+  ArrowRight,
+  X,
+  Upload,
+  Image as ImageIcon,
+} from "lucide-react";
+import { useState, useRef } from "react";
 import caseLineService from "@/services/caseLineService";
 import { motion, AnimatePresence } from "framer-motion";
+import { uploadToCloudinary } from "@/lib/cloudinary";
 
 interface MarkRepairCompleteButtonProps {
   caseLineId: string;
@@ -26,18 +34,78 @@ export function MarkRepairCompleteButton({
   const [error, setError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleOpenModal = () => {
     setShowConfirmModal(true);
+    setImageFiles([]);
+    setImagePreviews([]);
+    setError(null);
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+
+    if (files.length + imageFiles.length > 5) {
+      setError("Maximum 5 images allowed");
+      return;
+    }
+
+    // Validate file types and sizes
+    const validFiles = files.filter((file) => {
+      if (!file.type.startsWith("image/")) {
+        setError("Only image files are allowed");
+        return false;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        // 5MB
+        setError("Image size must be less than 5MB");
+        return false;
+      }
+      return true;
+    });
+
+    setImageFiles((prev) => [...prev, ...validFiles]);
+
+    // Generate previews
+    validFiles.forEach((file) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreviews((prev) => [...prev, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeImage = (index: number) => {
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleConfirmComplete = async () => {
-    setShowConfirmModal(false);
     setError(null);
+
+    if (imageFiles.length === 0) {
+      setError("Please upload at least one installation image");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      await caseLineService.markRepairComplete(caseLineId);
+      // Upload images to Cloudinary first
+      const imageUrls: string[] = [];
+
+      for (const file of imageFiles) {
+        const cloudinaryUrl = await uploadToCloudinary(file);
+        imageUrls.push(cloudinaryUrl);
+      }
+
+      await caseLineService.markRepairComplete(caseLineId, imageUrls);
+
+      setShowConfirmModal(false);
 
       if (showNextSteps && pendingRepairsCount > 0) {
         setShowSuccess(true);
@@ -70,13 +138,6 @@ export function MarkRepairCompleteButton({
         <CheckCircle className="w-4 h-4" />
         {isSubmitting ? "Marking..." : "Mark Complete"}
       </button>
-
-      {error && (
-        <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-          <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-red-600">{error}</p>
-        </div>
-      )}
 
       {showSuccess && pendingRepairsCount > 0 && (
         <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg flex items-start gap-2">
@@ -133,9 +194,70 @@ export function MarkRepairCompleteButton({
                   </p>
                 </div>
 
-                <p className="text-sm text-gray-700">
-                  Are you sure you want to mark this repair as complete?
-                </p>
+                {/* Installation Images Upload */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Installation Images * (Max 5 images, 5MB each)
+                  </label>
+                  <div className="space-y-3">
+                    {/* Upload Button */}
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors flex items-center justify-center gap-2 text-gray-600 hover:text-green-700"
+                    >
+                      <Upload className="w-5 h-5" />
+                      <span className="text-sm font-medium">
+                        Click to upload images
+                      </span>
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageSelect}
+                      className="hidden"
+                    />
+
+                    {/* Image Previews */}
+                    {imagePreviews.length > 0 && (
+                      <div className="grid grid-cols-3 gap-2">
+                        {imagePreviews.map((preview, index) => (
+                          <div key={index} className="relative group">
+                            <img
+                              src={preview}
+                              alt={`Installation ${index + 1}`}
+                              className="w-full h-24 object-cover rounded-lg border border-gray-200"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeImage(index)}
+                              className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                            <div className="absolute bottom-1 left-1 bg-black/60 text-white text-xs px-2 py-0.5 rounded">
+                              <ImageIcon className="w-3 h-3 inline mr-1" />
+                              {index + 1}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <p className="text-xs text-gray-500">
+                      {imageFiles.length} / 5 images uploaded
+                    </p>
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-600">{error}</p>
+                  </div>
+                )}
 
                 {pendingRepairsCount > 0 && (
                   <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">

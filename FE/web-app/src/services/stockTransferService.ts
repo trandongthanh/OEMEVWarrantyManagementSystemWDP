@@ -13,7 +13,8 @@ import apiClient from "@/lib/apiClient";
  */
 
 export interface StockTransferRequestItem {
-  typeComponentId: string;
+   typeComponentId?: string;  // ✔ optional
+  sku?: string;              // ✔ thêm sku cho warehouse restock
   quantityRequested: number;
   caselineId?: string;
 }
@@ -21,7 +22,7 @@ export interface StockTransferRequestItem {
 export interface CreateStockTransferRequest {
   requestingWarehouseId: string;
   items: StockTransferRequestItem[];
-  caselineIds?: string[]; // Optional, only needed when request is tied to specific caselines
+  caselineIds?: string[];
 }
 
 export interface StockTransferRequest {
@@ -52,11 +53,11 @@ export interface StockTransferRequest {
   estimatedDeliveryDate?: string | null;
   createdAt: string;
   updatedAt: string;
-  // Relations - supporting both API response formats
+
   requestingWarehouse?: {
     warehouseId?: string;
     warehouseName?: string;
-    name?: string; // Alternative field name from backend
+    name?: string;
     serviceCenterId?: string;
     vehicleCompanyId?: string;
   };
@@ -72,7 +73,7 @@ export interface StockTransferRequest {
   };
   items?: Array<{
     id?: string;
-    itemId?: string; // Alternative field name
+    itemId?: string;
     typeComponentId: string;
     quantityRequested: number;
     quantityApproved?: number;
@@ -91,7 +92,7 @@ export interface StockTransferRequestListResponse {
   status: "success";
   data: {
     requests?: StockTransferRequest[];
-    stockTransferRequests?: StockTransferRequest[]; // Alternative response format
+    stockTransferRequests?: StockTransferRequest[];
     pagination?: {
       total: number;
       page: number;
@@ -173,30 +174,18 @@ export interface TransferRequestDetailsResponse {
 }
 
 class StockTransferService {
-  /**
-   * Create a stock transfer request (Service Center Manager only)
-   * POST /stock-transfer-requests
-   *
-   * @role service_center_manager
-   */
   async createRequest(
     data: CreateStockTransferRequest
   ): Promise<CreateStockTransferResponse> {
     try {
       const response = await apiClient.post("/stock-transfer-requests", data);
       return response.data;
-    } catch (error: unknown) {
+    } catch (error) {
       console.error("Error creating stock transfer request:", error);
       throw error;
     }
   }
 
-  /**
-   * Get list of stock transfer requests
-   * GET /stock-transfer-requests
-   *
-   * @role service_center_manager, emv_staff, parts_coordinator_service_center, parts_coordinator_company
-   */
   async getRequests(params?: {
     page?: number;
     limit?: number;
@@ -217,18 +206,12 @@ class StockTransferService {
         },
       });
       return response.data;
-    } catch (error: unknown) {
+    } catch (error) {
       console.error("Error fetching stock transfer requests:", error);
       throw error;
     }
   }
 
-  /**
-   * Get stock transfer request details by ID
-   * GET /stock-transfer-requests/{requestId}
-   *
-   * @role service_center_manager, emv_staff, parts_coordinator_service_center, parts_coordinator_company
-   */
   async getRequestById(
     requestId: string
   ): Promise<StockTransferRequestDetailResponse> {
@@ -237,18 +220,12 @@ class StockTransferService {
         `/stock-transfer-requests/${requestId}`
       );
       return response.data;
-    } catch (error: unknown) {
+    } catch (error) {
       console.error("Error fetching stock transfer request details:", error);
       throw error;
     }
   }
 
-  /**
-   * Approve a stock transfer request (EMV Staff only)
-   * PATCH /stock-transfer-requests/{requestId}/approve
-   *
-   * @role emv_staff
-   */
   async approveRequest(
     requestId: string
   ): Promise<StockTransferRequestDetailResponse> {
@@ -257,18 +234,12 @@ class StockTransferService {
         `/stock-transfer-requests/${requestId}/approve`
       );
       return response.data;
-    } catch (error: unknown) {
+    } catch (error) {
       console.error("Error approving stock transfer request:", error);
       throw error;
     }
   }
 
-  /**
-   * Reject a stock transfer request (EMV Staff only)
-   * PATCH /stock-transfer-requests/{requestId}/reject
-   *
-   * @role emv_staff
-   */
   async rejectRequest(
     requestId: string,
     data: RejectStockTransferRequest
@@ -279,18 +250,12 @@ class StockTransferService {
         data
       );
       return response.data;
-    } catch (error: unknown) {
+    } catch (error) {
       console.error("Error rejecting stock transfer request:", error);
       throw error;
     }
   }
 
-  /**
-   * Ship a stock transfer request (Parts Coordinator Company only)
-   * PATCH /stock-transfer-requests/{requestId}/ship
-   *
-   * @role parts_coordinator_company
-   */
   async shipRequest(
     requestId: string,
     data: ShipStockTransferRequest
@@ -301,18 +266,12 @@ class StockTransferService {
         data
       );
       return response.data;
-    } catch (error: unknown) {
+    } catch (error) {
       console.error("Error shipping stock transfer request:", error);
       throw error;
     }
   }
 
-  /**
-   * Receive a stock transfer request (Parts Coordinator Service Center only)
-   * PATCH /stock-transfer-requests/{requestId}/receive
-   *
-   * @role parts_coordinator_service_center
-   */
   async receiveRequest(
     requestId: string
   ): Promise<StockTransferRequestDetailResponse> {
@@ -321,18 +280,12 @@ class StockTransferService {
         `/stock-transfer-requests/${requestId}/receive`
       );
       return response.data;
-    } catch (error: unknown) {
+    } catch (error) {
       console.error("Error receiving stock transfer request:", error);
       throw error;
     }
   }
 
-  /**
-   * Cancel a stock transfer request (Service Center Manager or EMV Staff)
-   * PATCH /stock-transfer-requests/{requestId}/cancel
-   *
-   * @role service_center_manager, emv_staff
-   */
   async cancelRequest(
     requestId: string,
     data: CancelStockTransferRequest
@@ -343,18 +296,12 @@ class StockTransferService {
         data
       );
       return response.data;
-    } catch (error: unknown) {
+    } catch (error) {
       console.error("Error cancelling stock transfer request:", error);
       throw error;
     }
   }
 
-  /**
-   * Get detailed transfer request information with full warehouse data
-   * GET /stock-transfer-requests/{requestId}/details
-   *
-   * @role service_center_manager, emv_staff, parts_coordinator_service_center, parts_coordinator_company
-   */
   async getTransferRequestDetails(
     requestId: string
   ): Promise<TransferRequestDetailsResponse> {
@@ -363,8 +310,29 @@ class StockTransferService {
         `/stock-transfer-requests/${requestId}/details`
       );
       return response.data;
-    } catch (error: unknown) {
+    } catch (error) {
       console.error("Error fetching transfer request details:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create warehouse restock request
+   * POST /stock-transfer-requests/warehouse-restock
+   *
+   * @role parts_coordinator_service_center
+   */
+  async createWarehouseRestock(
+    data: CreateStockTransferRequest
+  ): Promise<CreateStockTransferResponse> {
+    try {
+      const response = await apiClient.post(
+        "/stock-transfer-requests/warehouse-restock",
+        data
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error creating warehouse restock request:", error);
       throw error;
     }
   }

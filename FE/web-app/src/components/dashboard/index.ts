@@ -25,7 +25,7 @@ export {
   CreateStockTransferRequestModal,
   AllCaseLinesList,
   WarehouseOverview,
-  CreateUserAccount
+  CreateUserAccount,
 } from "./managerdashboard";
 
 // Technician Dashboard Components
@@ -40,5 +40,4 @@ export {
 export {
   DashboardOverview as PartsCoordinatorDashboardOverview,
   ComponentPickupList,
-  ComponentStatusManager,
 } from "./partscoordinatordashboard";

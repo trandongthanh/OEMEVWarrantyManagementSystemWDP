@@ -315,10 +315,14 @@ export function DashboardOverview({
                         </div>
                         <div>
                           <p className="font-medium text-gray-900 text-sm">
-                            {record.vehicle?.vin || "N/A"}
+                            {record.vehicle?.vin || record.vin || "N/A"}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {record.vehicle?.owner?.fullName || "No Owner"}
+                            {record.visitorInfo?.fullName ||
+                              (typeof record.vehicle?.model === "object"
+                                ? record.vehicle.model.name
+                                : record.vehicle?.model) ||
+                              "No visitor info"}
                           </p>
                         </div>
                       </div>

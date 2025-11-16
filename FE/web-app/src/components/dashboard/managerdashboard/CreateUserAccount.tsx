@@ -62,7 +62,9 @@ export function CreateUserAccount() {
 
   const [roles, setRoles] = useState<Role[]>([]);
   const [serviceCenters, setServiceCenters] = useState<ServiceCenter[]>([]);
-  const [vehicleCompanies, setVehicleCompanies] = useState<VehicleCompany[]>([]);
+  const [vehicleCompanies, setVehicleCompanies] = useState<VehicleCompany[]>(
+    []
+  );
   const [loading, setLoading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
@@ -75,10 +77,17 @@ export function CreateUserAccount() {
         const res = await apiClient.get("/roles", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const fetchedRoles: Role[] = res.data.data.map((r: any) => ({
-          roleId: r.roleId || r.id,
-          roleName: r.roleName || r.name,
-        }));
+        const fetchedRoles: Role[] = res.data.data.map(
+          (r: {
+            roleId?: string;
+            id?: string;
+            roleName?: string;
+            name?: string;
+          }) => ({
+            roleId: r.roleId || r.id || "",
+            roleName: r.roleName || r.name || "",
+          })
+        );
 
         if (currentUser.roleName === "service_center_manager") {
           const allowed = [
@@ -115,7 +124,8 @@ export function CreateUserAccount() {
 
     fetchRoles();
     fetchData();
-  }, [token, currentUser?.roleName]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   // ===== Handle Change =====
   const handleChange = (
@@ -150,7 +160,18 @@ export function CreateUserAccount() {
     setLoading(true);
 
     try {
-      const payload: any = {
+      const payload: {
+        username: string;
+        password: string;
+        email?: string;
+        phone?: string;
+        address?: string;
+        name?: string;
+        employeeCode: string;
+        roleId: string;
+        serviceCenterId?: string;
+        vehicleCompanyId?: string;
+      } = {
         username: formData.username,
         password: formData.password,
         email: formData.email || undefined,
@@ -202,26 +223,43 @@ export function CreateUserAccount() {
         serviceCenterId: "",
         vehicleCompanyId: "",
       });
-    } catch (err: any) {
-      console.error("❌ API Error:", err?.response?.data);
+    } catch (err: unknown) {
+      const error = err as {
+        response?: {
+          status?: number;
+          data?: { message?: string; errors?: string[] };
+        };
+      };
+      console.error("❌ API Error:", error?.response?.data);
 
-      const status = err?.response?.status;
-      const errorMsg = err?.response?.data?.message?.toLowerCase?.() || "";
-      const details = err?.response?.data?.errors;
+      const status = error?.response?.status;
+      const errorMsg = error?.response?.data?.message?.toLowerCase?.() || "";
+      const details = error?.response?.data?.errors;
 
       // ✅ Hiển thị chi tiết lỗi từ backend
       if (Array.isArray(details) && details.length > 0) {
         toast.error(`⚠️ ${details.join(", ")}`);
       } else if (errorMsg.includes("username")) {
-        toast.error("❌ Username already exists. Please choose another username.");
+        toast.error(
+          "❌ Username already exists. Please choose another username."
+        );
       } else if (errorMsg.includes("employeecode")) {
-        toast.error("❌ Employee Code already exists. Please use another code.");
+        toast.error(
+          "❌ Employee Code already exists. Please use another code."
+        );
       } else if (errorMsg.includes("validation")) {
         toast.error("⚠️ Validation error: Please check all required fields.");
       } else if (status === 409) {
-        toast.error(`⚠️ Conflict: ${err.response.data?.message || "Duplicate data."}`);
+        toast.error(
+          `⚠️ Conflict: ${error.response?.data?.message || "Duplicate data."}`
+        );
       } else if (status === 500) {
-        toast.error(`❌ Server error: ${err.response?.data?.message || "Something went wrong on the server."}`);
+        toast.error(
+          `❌ Server error: ${
+            error.response?.data?.message ||
+            "Something went wrong on the server."
+          }`
+        );
       } else {
         toast.error("❌ Unable to create account. Please check your input.");
       }
@@ -246,56 +284,68 @@ export function CreateUserAccount() {
     );
 
   return (
-    <div className="flex flex-col w-full min-h-screen bg-gray-50">
-      {/* Header Title Section */}
-      <div className="px-10 pt-6 pb-2">
-        <h1 className="text-2xl font-semibold text-gray-900">
-          Create User Account
-        </h1>
-        <p className="text-gray-500">
-          Manage employee accounts and assign roles for service centers or
-          companies.
-        </p>
-      </div>
+    <div className="flex-1 overflow-auto">
+      <div className="p-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-gray-900">
+            Create User Account
+          </h2>
+          <p className="text-gray-600 mt-1">
+            Manage employee accounts and assign roles for service centers or
+            companies
+          </p>
+        </div>
 
-      {/* Main Content */}
-      <div className="flex justify-center w-full px-10 pt-8 pb-40">
-        <div className="bg-white rounded-2xl shadow-sm p-6 sm:p-8 w-full max-w-6xl">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* User Information */}
-            <section>
-              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2 text-gray-900">
-                👤 User Information
+        {/* Form Card */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-8">
+          <form onSubmit={handleSubmit} className="space-y-8 max-w-5xl">
+            {/* User Information Section */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-6">
+                User Information
               </h3>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-6">
                 {[
-                  { label: "Username", name: "username", required: true, type: "text" },
-                  { label: "Password", name: "password", required: true, type: "password" },
+                  {
+                    label: "Username",
+                    name: "username",
+                    required: true,
+                    type: "text",
+                  },
+                  {
+                    label: "Password",
+                    name: "password",
+                    required: true,
+                    type: "password",
+                  },
                   { label: "Email", name: "email", type: "email" },
                   { label: "Phone", name: "phone", type: "text" },
                   { label: "Full Name", name: "name", type: "text" },
                   { label: "Address", name: "address", type: "text" },
                 ].map((field) => (
-                  <div key={field.name} className="max-w-[90%]">
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                  <div key={field.name}>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       {field.label}
-                      {field.required && <span className="text-red-500">*</span>}
+                      {field.required && (
+                        <span className="text-red-500 ml-1">*</span>
+                      )}
                     </label>
                     <input
                       name={field.name}
                       type={field.type}
-                      value={formData[field.name]}
+                      value={formData[field.name as keyof FormData]}
                       onChange={handleChange}
                       required={field.required}
-                      className="border border-gray-300 p-1.5 sm:p-2 rounded-lg w-full bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent text-gray-900"
                     />
                   </div>
                 ))}
 
-                <div className="col-span-2 max-w-[95%]">
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                    Employee Code<span className="text-red-500">*</span>
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Employee Code<span className="text-red-500 ml-1">*</span>
                   </label>
                   <input
                     name="employeeCode"
@@ -303,22 +353,22 @@ export function CreateUserAccount() {
                     value={formData.employeeCode}
                     onChange={handleChange}
                     required
-                    className="border border-gray-300 p-1.5 sm:p-2 rounded-lg w-full bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent text-gray-900"
                   />
                 </div>
               </div>
-            </section>
+            </div>
 
             {/* Role Section */}
-            <section>
-              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2 text-gray-900">
-                🏢 Role & Assignment
+            <div className="pt-6 border-t border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 mb-6">
+                Role & Assignment
               </h3>
-              <div className="grid grid-cols-2 gap-3">
-                {/* Role Dropdown with Animated Arrow */}
+              <div className="grid grid-cols-2 gap-6">
+                {/* Role Dropdown */}
                 <div className="relative">
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                    Role
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Role<span className="text-red-500 ml-1">*</span>
                   </label>
                   <div className="relative">
                     <select
@@ -328,7 +378,7 @@ export function CreateUserAccount() {
                       required
                       onFocus={() => setDropdownOpen(true)}
                       onBlur={() => setDropdownOpen(false)}
-                      className="border border-gray-300 p-1.5 sm:p-2 rounded-lg w-full bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none text-sm appearance-none"
+                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent text-gray-900 appearance-none"
                     >
                       <option value="">Select role</option>
                       {roles.map((r) => (
@@ -340,7 +390,7 @@ export function CreateUserAccount() {
 
                     {/* Animated arrow */}
                     <svg
-                      className={`absolute right-3 top-1/2 transform -translate-y-1/2 transition-transform duration-300 text-gray-500 w-4 h-4 ${
+                      className={`absolute right-3 top-1/2 transform -translate-y-1/2 transition-transform duration-300 text-gray-500 w-4 h-4 pointer-events-none ${
                         dropdownOpen ? "rotate-180" : "rotate-0"
                       }`}
                       fill="none"
@@ -356,15 +406,60 @@ export function CreateUserAccount() {
                     </svg>
                   </div>
                 </div>
+
+                {/* Service Center / Vehicle Company (for admin only) */}
+                {currentUser.roleName === "emv_admin" && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Service Center
+                      </label>
+                      <select
+                        name="serviceCenterId"
+                        value={formData.serviceCenterId}
+                        onChange={handleChange}
+                        disabled={!!formData.vehicleCompanyId}
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <option value="">Select service center</option>
+                        {serviceCenters.map((sc) => (
+                          <option key={sc.id} value={sc.id}>
+                            {sc.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Vehicle Company
+                      </label>
+                      <select
+                        name="vehicleCompanyId"
+                        value={formData.vehicleCompanyId}
+                        onChange={handleChange}
+                        disabled={!!formData.serviceCenterId}
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <option value="">Select vehicle company</option>
+                        {vehicleCompanies.map((vc) => (
+                          <option key={vc.id} value={vc.id}>
+                            {vc.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                )}
               </div>
-            </section>
+            </div>
 
             {/* Submit Button */}
-            <div className="flex justify-end pt-4">
+            <div className="flex justify-end pt-6 border-t border-gray-200">
               <button
                 type="submit"
                 disabled={loading}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg transition disabled:opacity-60"
+                className="px-6 py-2.5 bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? "Creating..." : "Create Account"}
               </button>

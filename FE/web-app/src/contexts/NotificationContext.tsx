@@ -101,6 +101,16 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
                   } else if (status === "PROCESSING") {
                     type = "case_updated";
                     priority = "medium";
+                    title = "Case Processing";
+                    message = `Vehicle ${vin} is being processed`;
+                  } else if (status === "READY_FOR_PICKUP") {
+                    type = "case_updated";
+                    priority = "high";
+                    title = "Vehicle Ready for Pickup";
+                    message = `Vehicle ${vin} repair completed and ready for pickup`;
+                  } else if (status === "PROCESSING") {
+                    type = "case_updated";
+                    priority = "medium";
                     title = "Case In Progress";
                     message = `Vehicle ${vin} is now being processed`;
                   } else if (status === "READY_FOR_PICKUP") {

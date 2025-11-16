@@ -37,7 +37,7 @@ export interface TypeComponentStock {
   availableQuantity: number;
 }
 
-// ✅ Raw API response structure for stock items
+// Raw API structure
 export interface StockItemFromAPI {
   stockId: string;
   warehouseId: string;
@@ -169,7 +169,19 @@ export interface CreateAdjustmentOUT {
   components: { serialNumber: string }[];
 }
 
-export type CreateAdjustmentRequest = CreateAdjustmentIN | CreateAdjustmentOUT;
+export type CreateAdjustmentRequest =
+  | CreateAdjustmentIN
+  | CreateAdjustmentOUT;
+
+// ============================================================
+// ⭐ NEW: MOST USED TYPE COMPONENTS
+// ============================================================
+
+export interface MostUsedTypeComponentItem {
+  typeComponentId: string;
+  typeComponentName: string;
+  totalUsed: number;
+}
 
 // ============================================================
 // ✅ HELPERS – CLEAN PARAMS
@@ -291,6 +303,31 @@ export async function getStockHistory(
 }
 
 // ============================================================
+// ⭐ NEW API — MOST USED TYPE COMPONENTS
+// ============================================================
+
+export async function getMostUsedTypeComponents(
+  params?: Partial<{
+    limit: number;
+    page: number;
+    startDate: string;
+    endDate: string;
+  }>
+): Promise<{
+  items: MostUsedTypeComponentItem[];
+  pagination: { totalItems: number; totalPages: number; currentPage: number };
+}> {
+  const response = await apiClient.get(
+    "/inventory/most-used-type-components",
+    {
+      params: cleanParams(params ?? {}),
+    }
+  );
+
+  return response.data.data;
+}
+
+// ============================================================
 // ✅ EXPORT
 // ============================================================
 
@@ -304,6 +341,7 @@ const inventoryService = {
   getAdjustmentById,
   createAdjustment,
   getStockHistory,
+  getMostUsedTypeComponents, // ⭐ NEW EXPORT
 };
 
 export default inventoryService;

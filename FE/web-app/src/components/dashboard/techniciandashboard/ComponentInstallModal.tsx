@@ -48,6 +48,8 @@ export function ComponentInstallModal({
     setIsSubmitting(true);
 
     try {
+      // Backend installComponent endpoint only accepts reservationId
+      // No support for installationImageUrls - images are added when marking repair complete
       await componentReservationService.installComponent(reservationId);
 
       onSuccess?.();
@@ -98,8 +100,8 @@ export function ComponentInstallModal({
                 <AlertCircle className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-blue-700">
                   Installing this component will link it to the vehicle and mark
-                  it as INSTALLED. The component serial number is automatically
-                  tracked from the reservation.
+                  it as INSTALLED. Installation images can be uploaded when
+                  marking the repair as complete.
                 </p>
               </div>
 

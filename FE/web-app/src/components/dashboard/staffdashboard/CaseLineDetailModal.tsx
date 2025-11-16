@@ -98,8 +98,7 @@ export function CaseLineDetailModal({
                 `⏳ Fetching details for case line: ${caseLineId}, case: ${guaranteeCaseId}`
               );
               const response = await caseLineService.getCaseLineById(
-                caseLineId,
-                guaranteeCaseId
+                caseLineId
               );
               console.log(
                 `✅ Received data for case line ${caseLineId}:`,
@@ -264,6 +263,16 @@ export function CaseLineDetailModal({
         label: "Rejected by Customer",
         className: "bg-red-100 text-red-800",
         icon: XCircle,
+      },
+      WAITING_FOR_PARTS: {
+        label: "Waiting for Parts",
+        className: "bg-orange-100 text-orange-800",
+        icon: Package,
+      },
+      PARTS_AVAILABLE: {
+        label: "Parts Available",
+        className: "bg-teal-100 text-teal-800",
+        icon: CheckSquare,
       },
       READY_FOR_REPAIR: {
         label: "Ready for Repair",

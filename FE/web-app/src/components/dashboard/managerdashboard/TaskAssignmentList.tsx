@@ -79,10 +79,16 @@ export default function TaskAssignmentList() {
   };
 
   const getTimelineEvents = (task: TaskAssignment) => {
-    const events = [
+    const events: Array<{
+      status: string;
+      timestamp: string | null;
+      label: string;
+      user: { userId: string; name: string } | null;
+      description: string;
+    }> = [
       {
         status: "ASSIGNED",
-        timestamp: task.assignedAt,
+        timestamp: task.assignedAt || null,
         label: "Task Assigned",
         user: task.technician
           ? { userId: task.technician.userId, name: task.technician.name }
@@ -185,7 +191,7 @@ export default function TaskAssignmentList() {
   };
 
   const getStatusBadge = (task: TaskAssignment) => {
-    let status = "PENDING";
+    let status: "PENDING" | "IN_PROGRESS" | "COMPLETED" = "PENDING";
     let label = "Pending";
 
     if (task.completedAt) {
@@ -197,8 +203,8 @@ export default function TaskAssignmentList() {
     }
 
     const styles: Record<
-      string,
-      { bg: string; text: string; icon: React.ElementType }
+      "PENDING" | "IN_PROGRESS" | "COMPLETED",
+      { bg: string; text: string; icon: typeof Clock }
     > = {
       PENDING: { bg: "bg-yellow-100", text: "text-yellow-700", icon: Clock },
       IN_PROGRESS: {

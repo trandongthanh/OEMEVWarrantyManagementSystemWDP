@@ -50,6 +50,18 @@ export function useRoleProtection(allowedRoles: string[]) {
           case "service_center_manager":
             router.push("/dashboard/manager");
             break;
+          case "emv_admin":
+            router.push("/dashboard/admin");
+            break;
+          case "emv_staff":
+            router.push("/dashboard/emv_staff");
+            break;
+          case "parts_coordinator_company":
+            router.push("/dashboard/company");
+            break;
+          case "parts_coordinator_service_center":
+            router.push("/dashboard/parts-coordinator");
+            break;
           default:
             router.push("/login");
         }

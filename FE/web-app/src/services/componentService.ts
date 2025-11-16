@@ -4,11 +4,12 @@ export interface Component {
   componentId: string;
   serialNumber: string;
   status:
-    | "IN_WAREHOUSE"
+    | "IN_STOCK"
     | "RESERVED"
     | "IN_TRANSIT"
-    | "WITH_TECHNICIAN"
-    | "INSTALLED";
+    | "PICKED_UP"
+    | "INSTALLED"
+    | "REMOVED";
   typeComponentId: string;
   warehouseId: string;
   createdAt: string;
@@ -28,11 +29,12 @@ export interface Component {
 
 export interface UpdateComponentStatusRequest {
   status:
-    | "IN_WAREHOUSE"
+    | "IN_STOCK"
     | "RESERVED"
     | "IN_TRANSIT"
-    | "WITH_TECHNICIAN"
-    | "INSTALLED";
+    | "PICKED_UP"
+    | "INSTALLED"
+    | "REMOVED";
   notes?: string;
 }
 

@@ -170,6 +170,9 @@ export default function GuestChatWidget({
       const normalizedMsgs = msgs.map((msg) => ({
         ...msg,
         senderType: msg.senderType.toLowerCase() as "guest" | "staff",
+        // Backend sends createdAt but frontend expects sentAt
+        sentAt:
+          (msg as unknown as { createdAt?: string }).createdAt || msg.sentAt,
       }));
       setMessages(normalizedMsgs);
     } catch (err) {
@@ -224,6 +227,10 @@ export default function GuestChatWidget({
             senderType: data.newMessage.senderType.toLowerCase() as
               | "guest"
               | "staff",
+            // Backend sends createdAt but frontend expects sentAt
+            sentAt:
+              (data.newMessage as unknown as { createdAt?: string })
+                .createdAt || data.newMessage.sentAt,
           };
           setMessages((prev) => [...prev, normalizedMessage]);
           setIsTyping(false);
@@ -327,6 +334,10 @@ export default function GuestChatWidget({
             senderType: data.newMessage.senderType.toLowerCase() as
               | "guest"
               | "staff",
+            // Backend sends createdAt but frontend expects sentAt
+            sentAt:
+              (data.newMessage as unknown as { createdAt?: string })
+                .createdAt || data.newMessage.sentAt,
           };
           setMessages((prev) => [...prev, normalizedMessage]);
           setIsTyping(false);
@@ -583,7 +594,9 @@ export default function GuestChatWidget({
   };
 
   const formatTime = (dateString: string) => {
+    if (!dateString) return "";
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "";
     return date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
@@ -951,31 +964,30 @@ export default function GuestChatWidget({
                                           </div>
                                         </div>
                                       ) : (
-                                        <div className="flex items-center gap-3 p-3 bg-blue-50/60 rounded-lg">
-                                          <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                                            <span className="text-blue-300">
-                                              📎
-                                            </span>
+                                        <div className="flex items-center gap-3 p-3 bg-white/90 dark:bg-gray-700/90 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm">
+                                          <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                                            <span className="text-xl">📎</span>
                                           </div>
-                                          <div className="flex-1">
-                                            <p className="text-sm font-medium">
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                                               {file.name}
                                             </p>
-                                            <p className="text-xs text-gray-500">
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">
                                               File attachment
                                             </p>
                                           </div>
-                                          {/* Only show download button for messages not from current user */}
-                                          {message.senderId !== guestId && (
-                                            <button
-                                              onClick={() =>
-                                                window.open(file.url, "_blank")
-                                              }
-                                              className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                                          {/* Download button - only show for staff messages */}
+                                          {message.senderType !== "guest" && (
+                                            <a
+                                              href={file.url}
+                                              download
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="p-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex-shrink-0 shadow-sm hover:shadow-md"
                                               title="Download file"
                                             >
-                                              <Download size={16} />
-                                            </button>
+                                              <Download size={18} />
+                                            </a>
                                           )}
                                         </div>
                                       )}
