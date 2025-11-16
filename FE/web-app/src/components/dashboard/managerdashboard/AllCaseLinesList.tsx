@@ -67,6 +67,11 @@ const statusConfig: Record<
     color: "bg-gray-100 text-gray-800 border-gray-200",
     icon: AlertCircle,
   },
+  REJECTED_BY_OEM: {
+    label: "Rejected by OEM",
+    color: "bg-red-100 text-red-800 border-red-200",
+    icon: XCircle,
+  },
 };
 
 export function AllCaseLinesList() {
@@ -169,6 +174,10 @@ export function AllCaseLinesList() {
                     Rejected by Customer
                   </option>
                   <option value="REJECTED_BY_TECH">Rejected by Tech</option>
+                  <option value="REJECTED_BY_OUT_OF_WARRANTY">
+                    Out of Warranty
+                  </option>
+                  <option value="REJECTED_BY_OEM">Rejected by OEM</option>
                 </select>
               </div>
 
@@ -322,6 +331,25 @@ export function AllCaseLinesList() {
                               </div>
                             </div>
                           </div>
+
+                          {/* Rejection Reason - Show for rejected case lines */}
+                          {(caseLine.status?.includes("REJECTED") ||
+                            caseLine.warrantyStatus === "INELIGIBLE") &&
+                            caseLine.rejectionReason && (
+                              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                <div className="flex items-start gap-2">
+                                  <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                                  <div className="flex-1">
+                                    <p className="text-xs font-semibold text-red-900 mb-1">
+                                      Rejection Reason:
+                                    </p>
+                                    <p className="text-sm text-red-700">
+                                      {caseLine.rejectionReason}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
 
                           {/* Evidence Images */}
                           {caseLine.evidenceImageUrls &&
