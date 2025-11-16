@@ -43,7 +43,7 @@ interface FormData {
   vehicleCompanyId: string;
 }
 
-export function ManagerCreateUserAccount () {
+export function AdminCreateUserAccount() {
   const currentUser = authService.getUserInfo() as UserInfo | null;
   const token = authService.getToken();
 
@@ -291,7 +291,7 @@ const fetchData = async () => {
         {/* Header */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900">
-          Manager Create User Account
+            Create User Account
           </h2>
           <p className="text-gray-600 mt-1">
             Manage employee accounts and assign roles for service centers or

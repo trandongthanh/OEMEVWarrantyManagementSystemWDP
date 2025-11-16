@@ -27,7 +27,7 @@ import {
   StockTransferRequestList,
   AllCaseLinesList,
   WarehouseOverview,
-  CreateUserAccount,
+  ManagerCreateUserAccount,
 } from "@/components/dashboard";
 import TaskAssignmentList from "@/components/dashboard/managerdashboard/TaskAssignmentList";
 import { ManagerCasesList } from "@/components/dashboard/managerdashboard/ManagerCasesList";
@@ -129,7 +129,7 @@ export default function ManagerDashboard() {
           />
         );
       case "create-user":
-        return <CreateUserAccount />;
+        return <ManagerCreateUserAccount />;
       default:
         return null;
     }
