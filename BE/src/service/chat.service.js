@@ -238,14 +238,13 @@ class ChatService {
       };
     }
 
-    // If guest ID is too long, hash it but keep it short (max 24 chars)
-    const fullHash = crypto
+    const hashedGuestId = crypto
       .createHash("sha256")
       .update(fallbackGuestId)
       .digest("hex");
 
     return {
-      normalizedGuestId: `h_${fullHash.substring(0, 20)}`, // h_ prefix + 20 chars = 22 chars
+      normalizedGuestId: hashedGuestId,
       normalizedEmail: null,
     };
   };
@@ -259,13 +258,10 @@ class ChatService {
       );
     }
 
-    // Use first 20 chars of SHA256 hash to keep guest_id short (max 24 chars)
-    const fullHash = crypto
+    return crypto
       .createHash("sha256")
       .update(email + GUEST_TOKEN_SECRET)
       .digest("hex");
-
-    return `e_${fullHash.substring(0, 20)}`; // e_ prefix + 20 chars = 22 chars total
   };
 }
 
