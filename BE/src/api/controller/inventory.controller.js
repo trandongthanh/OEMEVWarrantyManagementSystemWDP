@@ -168,41 +168,41 @@ class InventoryController {
     });
   };
 
-  createInventoryAdjustmentFromFile = async (req, res, next) => {
-    if (req.query?.template === "true") {
-      try {
-        const workbook = xlsx.utils.book_new();
+  getInventoryAdjustmentTemplate = async (req, res, next) => {
+    try {
+      const workbook = xlsx.utils.book_new();
 
-        const templateRows = [
-          ["SKU", "SERIAL_NUMBER"],
-          ["BRAKE_PAD_SKU", "SN-001"],
-          ["BRAKE_PAD_SKU", "SN-002"],
-          ["FILTER_SKU", "SN-003"],
-        ];
+      const templateRows = [
+        ["SKU", "SERIAL_NUMBER"],
+        ["BRAKE_PAD_SKU", "SN-001"],
+        ["BRAKE_PAD_SKU", "SN-002"],
+        ["FILTER_SKU", "SN-003"],
+      ];
 
-        const worksheet = xlsx.utils.aoa_to_sheet(templateRows);
-        xlsx.utils.book_append_sheet(workbook, worksheet, "Template");
+      const worksheet = xlsx.utils.aoa_to_sheet(templateRows);
+      xlsx.utils.book_append_sheet(workbook, worksheet, "Template");
 
-        const buffer = xlsx.write(workbook, {
-          type: "buffer",
-          bookType: "xlsx",
-        });
+      const buffer = xlsx.write(workbook, {
+        type: "buffer",
+        bookType: "xlsx",
+      });
 
-        res.setHeader(
-          "Content-Disposition",
-          "attachment; filename=inventory-adjustment-template.xlsx"
-        );
-        res.setHeader(
-          "Content-Type",
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        );
+      res.setHeader(
+        "Content-Disposition",
+        "attachment; filename=inventory-adjustment-template.xlsx"
+      );
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
 
-        return res.status(200).send(buffer);
-      } catch (error) {
-        return next(error);
-      }
+      return res.status(200).send(buffer);
+    } catch (error) {
+      return next(error);
     }
+  };
 
+  createInventoryAdjustmentFromFile = async (req, res, next) => {
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded." });
     }
