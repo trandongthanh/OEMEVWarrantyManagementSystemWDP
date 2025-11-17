@@ -1,31 +1,14 @@
 import api from "../api";
-import AsyncStorage from "@react-native-async-storage/async-storage"; 
 
 /**
  * Lấy các phiếu sửa chữa đã được gán cho kỹ thuật viên (người đã đăng nhập)
  * API: GET /processing-records
+ * * CẬP NHẬT: Đã đồng bộ với web. Bỏ tất cả logic params (page, limit, userId...).
+ * Backend sẽ tự động lọc dựa trên token của KTV.
  */
-const getAssignedRecords = async (filters = {}) => { 
+const getAssignedRecords = async () => { 
   try {
-    const serviceCenterId = await AsyncStorage.getItem("serviceCenterId");
-    const userId = await AsyncStorage.getItem("userId");
-    const userRole = await AsyncStorage.getItem("userRole");
-
-    const params = {
-      ...filters,
-      serviceCenterId, 
-      userId, 
-      roleName: userRole, 
-      
-      page: filters.page || 1,
-      limit: filters.limit || 20, 
-    };
-    
-    if (!params.serviceCenterId || !params.userId || !params.roleName) {
-      throw new Error("Thông tin KTV (serviceCenterId, userId, userRole) bị thiếu trong AsyncStorage.");
-    }
-
-    const response = await api.get("/processing-records", { params });
+    const response = await api.get("/processing-records");
     return response.data;
   } catch (error) {
     console.error("Lỗi khi lấy các phiếu được gán (getAssignedRecords):", error);

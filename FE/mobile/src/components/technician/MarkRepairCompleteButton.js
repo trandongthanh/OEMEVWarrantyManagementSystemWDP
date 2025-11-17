@@ -1,3 +1,4 @@
+// MarkRepairCompleteButton.js
 import React, { useState } from "react";
 import {
   TouchableOpacity,
@@ -8,9 +9,51 @@ import {
   Modal, 
   View, 
   Pressable, 
+  Image,
+  ScrollView,
+  Platform, // <-- THÊM
+  PermissionsAndroid, // <-- THÊM
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons"; 
-import { caseLineService } from "../../services/technician";
+import { launchImageLibrary } from "react-native-image-picker"; // <-- THÊM
+import { caseLineService, imageUploadService } from "../../services/technician"; // <-- THÊM
+
+// --- HÀM YÊU CẦU QUYỀN MỚI CHO ANDROID ---
+const requestGalleryPermission = async () => {
+  if (Platform.OS !== 'android') {
+    return true; // Không cần cho iOS
+  }
+  try {
+    // Thử quyền mới cho Android 13+
+    let granted = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES,
+      {
+        title: "Yêu cầu quyền truy cập Thư viện",
+        message: "Ứng dụng cần quyền truy cập ảnh của bạn để tải bằng chứng.",
+        buttonPositive: "Đồng ý",
+      }
+    );
+
+    // Nếu không được (Android < 13), thử quyền cũ
+    if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+      granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+        {
+          title: "Yêu cầu quyền truy cập Bộ nhớ",
+          message: "Ứng dụng cần quyền truy cập ảnh của bạn để tải bằng chứng.",
+          buttonPositive: "Đồng ý",
+        }
+      );
+    }
+    
+    return granted === PermissionsAndroid.RESULTS.GRANTED;
+    
+  } catch (err) {
+    console.warn(err);
+    return false;
+  }
+};
+// --- KẾT THÚC HÀM MỚI ---
 
 export default function MarkRepairCompleteButton({
   caseLineId,
@@ -24,18 +67,68 @@ export default function MarkRepairCompleteButton({
   const [error, setError] = useState(null); 
   const [showConfirmModal, setShowConfirmModal] = useState(false); 
   const [showSuccess, setShowSuccess] = useState(false); 
+  
+  // --- BẮT ĐẦU THAY ĐỔI ---
+  const [imageFiles, setImageFiles] = useState([]); 
+
+  const handleImageSelect = async () => { // Thêm async
+    // 1. Yêu cầu quyền
+    const hasPermission = await requestGalleryPermission();
+    if (!hasPermission) {
+      Alert.alert("Lỗi", "Bạn đã từ chối quyền truy cập thư viện ảnh.");
+      return;
+    }
+    
+    // 2. Mở thư viện nếu có quyền
+    launchImageLibrary({ mediaType: "photo", quality: 0.7, selectionLimit: 5 }, (response) => {
+      if (response.didCancel) {
+        console.log("User cancelled image picker");
+      } else if (response.errorCode) {
+        console.log("ImagePicker Error: ", response.errorMessage);
+      } else {
+        const newAssets = response.assets || [];
+        setImageFiles(prevImages => {
+          const combined = [...prevImages, ...newAssets];
+          if (combined.length > 5) {
+            Alert.alert("Lỗi", "Chỉ được tải lên tối đa 5 ảnh.");
+            return prevImages;
+          }
+          return combined;
+        });
+      }
+    });
+  };
+
+  const removeImage = (index) => {
+    setImageFiles(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleOpenModal = () => {
+    setImageFiles([]); 
+    setError(null);
     setShowConfirmModal(true); 
   };
 
   const handleConfirmComplete = async () => {
-    setShowConfirmModal(false);
     setError(null);
+    
+    if (imageFiles.length === 0) {
+      const errorMsg = "Vui lòng tải lên ít nhất 1 ảnh làm bằng chứng.";
+      setError(errorMsg);
+      Alert.alert("Lỗi", errorMsg);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      await caseLineService.markRepairComplete(caseLineId);
+      const imageUrls = [];
+      for (const file of imageFiles) {
+        const url = await imageUploadService.uploadImage(file);
+        imageUrls.push(url);
+      }
+      
+      await caseLineService.markRepairComplete(caseLineId, imageUrls); 
 
       if (showNextSteps && pendingRepairsCount > 0) {
         Alert.alert(
@@ -46,16 +139,20 @@ export default function MarkRepairCompleteButton({
       } else {
         onSuccess?.();
       }
+      
+      setShowConfirmModal(false); 
+
     } catch (err) {
       console.error("Failed to mark repair as complete:", err);
       const message =
-        err.response?.data?.message || "Failed to mark repair as complete";
+        err.response?.data?.message || "Không thể đánh dấu hoàn tất sửa chữa";
       setError(message);
       Alert.alert("Lỗi", message);
     } finally {
       setIsSubmitting(false);
     }
   };
+  // --- KẾT THÚC THAY ĐỔI ---
 
   return (
     <>
@@ -101,7 +198,8 @@ export default function MarkRepairCompleteButton({
                 <Ionicons name="close" size={24} color="#6B7280" />
               </TouchableOpacity>
             </View>
-            <View style={styles.modalBody}>
+            
+            <ScrollView style={styles.modalBodyScroll}>
               <View style={styles.infoBox}>
                 <Ionicons
                   name="alert-circle-outline"
@@ -113,9 +211,36 @@ export default function MarkRepairCompleteButton({
                   sửa chữa đã kết thúc.
                 </Text>
               </View>
-              <Text style={styles.confirmText}>
-                Bạn có chắc chắn muốn đánh dấu sửa chữa này là đã hoàn tất?
-              </Text>
+
+              <Text style={styles.label}>Ảnh bằng chứng lắp đặt *</Text>
+              <Text style={styles.labelSubText}>(Tối đa 5 ảnh)</Text>
+              <View style={styles.imageGrid}>
+                {imageFiles.map((img, idx) => (
+                  <View key={idx} style={styles.imagePreviewContainer}>
+                    <Image
+                      source={{ uri: img.uri }}
+                      style={styles.imagePreview}
+                    />
+                    <TouchableOpacity style={styles.removeImageButton} onPress={() => removeImage(idx)}>
+                      <Ionicons name="close-circle" size={24} color="#DC2626" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+              <TouchableOpacity
+                style={styles.uploadButton}
+                onPress={handleImageSelect}
+              >
+                <Ionicons name="camera-outline" size={20} color="#374151" />
+                <Text style={styles.uploadButtonText}>Chọn ảnh ({imageFiles.length}/5)</Text>
+              </TouchableOpacity>
+              
+              {error && (
+                <View style={styles.errorBox}>
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              )}
+
               {pendingRepairsCount > 0 && (
                 <View style={styles.pendingBox}>
                   <Text style={styles.pendingText}>
@@ -123,7 +248,8 @@ export default function MarkRepairCompleteButton({
                   </Text>
                 </View>
               )}
-            </View>
+            </ScrollView>
+            
             <View style={styles.modalFooter}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
@@ -168,7 +294,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     marginLeft: 8,
   },
-  // Modal Styles
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -203,6 +328,10 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: 4,
   },
+  modalBodyScroll: {
+    padding: 16,
+    maxHeight: 400, // Giới hạn chiều cao
+  },
   modalBody: {
     padding: 16,
   },
@@ -233,6 +362,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#FDE68A",
     marginTop: 16,
+    marginBottom: 8,
   },
   pendingText: {
     fontSize: 13,
@@ -271,5 +401,69 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#FFFFFF",
     marginLeft: 8,
+  },
+  
+  // --- STYLES MỚI CHO TẢI ẢNH ---
+  label: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#374151",
+    marginTop: 8,
+  },
+  labelSubText: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginBottom: 8,
+  },
+  imageGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginBottom: 8,
+  },
+  imagePreviewContainer: {
+    position: "relative",
+  },
+  imagePreview: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    margin: 4,
+  },
+  removeImageButton: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    borderRadius: 12,
+  },
+  uploadButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F3F4F6",
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    justifyContent: "center",
+    marginTop: 4,
+  },
+  uploadButtonText: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#374151",
+  },
+  errorBox: {
+    backgroundColor: "#FEF2F2",
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  errorText: {
+    color: "#DC2626",
+    textAlign: "center",
+    fontSize: 13,
   },
 });
