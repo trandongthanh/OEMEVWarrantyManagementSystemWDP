@@ -73,6 +73,7 @@ class ComponentReservationsController {
       await this.#componentReservationService.installComponent({
         reservationId,
         serviceCenterId,
+        userId,
       });
 
     res.status(200).json({

@@ -315,7 +315,7 @@ class CaseLineRepository {
 
   getVinById = async (caselineId, transaction = null, lock = null) => {
     const record = await CaseLine.findOne({
-      attributes: ["id"],
+      attributes: ["id", "repairTechId"],
       include: [
         {
           model: GuaranteeCase,
