@@ -11,10 +11,9 @@ import {
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import processingRecordService from "../../services/technician/processingRecordService";
+import { technicianService } from "../../services/technician"; 
 import ComponentsToInstall from "../../components/technician/ComponentsToInstall";
 import RepairsToComplete from "../../components/technician/RepairsToComplete";
-import ComponentsToPickup from "../../components/technician/ComponentsToPickup";
 import AvatarLogoutMenu from "../../components/technician/AvatarLogoutMenu"; 
 
 const getStatusStyles = (status) => {
@@ -43,15 +42,8 @@ const DashboardOverviewScreen = () => {
     setIsLoading(true);
     setError("");
     try {
-      const testStatus = "IN_DIAGNOSIS"; 
-      
-      const response = await processingRecordService.getAllRecords({
-        status: testStatus, 
-        page: 1,
-        limit: 20, 
-      });
-      
-      const allRecords = response.data?.data?.records || [];
+      const response = await technicianService.getAssignedRecords();
+      const allRecords = response.data?.records?.records || [];
       
       setProcessingRecords(allRecords);
       
@@ -81,6 +73,7 @@ const DashboardOverviewScreen = () => {
     ).length;
     const totalActive = processingRecords.length;
     const completed = 0;
+    
     return { totalCount: totalActive, activeCount: active, completedCount: completed };
   }, [processingRecords]);
 
@@ -131,7 +124,7 @@ const DashboardOverviewScreen = () => {
     return (
       <View style={styles.listContainer}>
         {processingRecords.map((record) => {
-          const recordId = record.vehicleProcessingRecordId;
+          const recordId = record.vehicleProcessingRecordId; 
           if (!recordId) return null;
 
           return (
@@ -265,8 +258,6 @@ const DashboardOverviewScreen = () => {
         </View>
 
         <View style={styles.actionItemsContainer}>
-          <ComponentsToPickup />
-          <View style={{ height: 16 }} />
           <ComponentsToInstall />
           <View style={{ height: 16 }} />
           <RepairsToComplete />

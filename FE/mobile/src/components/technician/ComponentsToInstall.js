@@ -1,3 +1,4 @@
+// ComponentsToInstall.js
 import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
@@ -9,31 +10,43 @@ import {
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import { caseLineService } from "../../services/technician";
+// --- THÊM IMPORT ---
+import { componentReservationService, caseLineService } from "../../services/technician";
 import ComponentInstallModal from "./ComponentInstallModal"; 
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function ComponentsToInstall() {
   const [components, setComponents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedComponent, setSelectedComponent] = useState(null);
 
+  // --- THÊM STATE MỚI ---
+  const [selectedForBulkInstall, setSelectedForBulkInstall] = useState(new Set());
+  const [isBulkInstalling, setIsBulkInstalling] = useState(false);
+  // --- KẾT THÚC THÊM STATE ---
+
+  // (Hàm này đã được cập nhật ở bước trước để lọc theo repairTechId)
   const loadComponentsToInstall = async () => {
     try {
       setLoading(true);
+      const userId = await AsyncStorage.getItem("userId");
+      if (!userId) {
+        Alert.alert("Lỗi", "Không tìm thấy ID kỹ thuật viên. Vui lòng đăng nhập lại.");
+        setLoading(false);
+        return;
+      }
       const response = await caseLineService.getCaseLinesList({
         status: "IN_REPAIR",
         limit: 50,
+        repairTechId: userId, 
       });
-
       const caseLines = response.data.caseLines || [];
-
       const componentsReady = caseLines.filter((cl) => {
         if (cl.reservations && cl.reservations.length > 0) {
           return cl.reservations.some((res) => res.status === "PICKED_UP");
         }
         return (cl.quantityReserved || 0) > 0;
       });
-
       setComponents(componentsReady);
     } catch (error) {
       console.error("Failed to load components to install:", error);
@@ -45,20 +58,22 @@ export default function ComponentsToInstall() {
 
   useFocusEffect(
     useCallback(() => {
+      // Xóa lựa chọn khi tab được focus lại
+      setSelectedForBulkInstall(new Set());
+      setIsBulkInstalling(false);
       loadComponentsToInstall();
     }, [])
   );
 
+  // (Hàm handleInstallClick và handleInstallSuccess không đổi)
   const handleInstallClick = (component) => {
     const reservation = component.reservations?.find(
       (res) => res.status === "PICKED_UP"
     );
-
     if (!reservation || !reservation.reservationId) {
       Alert.alert("Lỗi", "Không tìm thấy linh kiện đã lấy (reservation).");
       return;
     }
-
     setSelectedComponent({
       reservationId: reservation.reservationId,
       componentName: component.typeComponent?.name || "Component",
@@ -72,6 +87,74 @@ export default function ComponentsToInstall() {
     loadComponentsToInstall();
     Alert.alert("Thành công", "Linh kiện đã được lắp đặt.");
   };
+
+  // --- THÊM CÁC HÀM XỬ LÝ BULK ---
+  // (Logic giống hệt web)
+
+  // Lấy danh sách tất cả ID reservation đang hiển thị
+  const allReservationIds = useMemo(() => 
+    components.map(c => 
+      c.reservations?.find(r => r.status === "PICKED_UP")?.reservationId
+    ).filter(Boolean), 
+  [components]);
+
+  const toggleSelection = (reservationId) => {
+    if (!reservationId) return;
+    setSelectedForBulkInstall(prev => {
+      const newSelected = new Set(prev);
+      if (newSelected.has(reservationId)) {
+        newSelected.delete(reservationId);
+      } else {
+        newSelected.add(reservationId);
+      }
+      return newSelected;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedForBulkInstall.size === allReservationIds.length) {
+      setSelectedForBulkInstall(new Set());
+    } else {
+      setSelectedForBulkInstall(new Set(allReservationIds));
+    }
+  };
+
+  const handleBulkInstall = async () => {
+    if (selectedForBulkInstall.size === 0) {
+      Alert.alert("Lỗi", "Vui lòng chọn ít nhất một linh kiện.");
+      return;
+    }
+
+    setIsBulkInstalling(true);
+    let successCount = 0;
+    let errorCount = 0;
+    
+    const itemsToInstall = Array.from(selectedForBulkInstall);
+
+    for (const reservationId of itemsToInstall) {
+      try {
+        // Gọi API cho từng mục
+        await componentReservationService.installComponent(reservationId);
+        successCount++;
+      } catch (err) {
+        console.error(`Failed to install ${reservationId}:`, err);
+        errorCount++;
+      }
+    }
+
+    if (successCount > 0) {
+      Alert.alert("Thành công", `Đã lắp đặt thành công ${successCount} linh kiện.`);
+    }
+    if (errorCount > 0) {
+      Alert.alert("Lỗi", `Lắp đặt thất bại ${errorCount} linh kiện.`);
+    }
+    
+    setSelectedForBulkInstall(new Set());
+    setIsBulkInstalling(false);
+    loadComponentsToInstall(); // Tải lại danh sách
+  };
+  // --- KẾT THÚC HÀM XỬ LÝ BULK ---
+
 
   const renderContent = useMemo(() => {
     if (loading) {
@@ -96,55 +179,94 @@ export default function ComponentsToInstall() {
       <View style={styles.listContainer}>
         {components.map((component) => {
           const caseLineId = component.id || component.caseLineId;
+          
+          // --- CẬP NHẬT: Lấy ID và kiểm tra selected ---
+          const reservation = component.reservations?.find(
+            (res) => res.status === "PICKED_UP"
+          );
+          const reservationId = reservation?.reservationId || "";
+          const isSelected = selectedForBulkInstall.has(reservationId);
+          // --- KẾT THÚC CẬP NHẬT ---
+          
           const pickedUpCount =
             component.reservations?.filter(
               (res) => res.status === "PICKED_UP"
             ).length ||
             component.quantityReserved ||
             component.quantity;
+            
+          const warehouse = component.reservations?.[0]?.warehouse; 
 
           return (
-            <View key={caseLineId} style={styles.itemCard}>
-              <View style={styles.itemContent}>
-                <View style={styles.itemHeader}>
-                  <Ionicons name="build-outline" size={16} color="#5B21B6" />
-                  <Text style={styles.itemName}>
-                    {component.typeComponent?.name || "Component"}
-                  </Text>
-                </View>
+            // --- CẬP NHẬT: Thêm checkbox và style khi chọn ---
+            <TouchableOpacity 
+              key={caseLineId} 
+              style={[styles.itemCard, isSelected && styles.itemCardSelected]}
+              onPress={() => toggleSelection(reservationId)} // Nhấn vào thẻ để chọn
+            >
+              <View style={styles.itemRow}>
+                {/* Checkbox */}
+                <TouchableOpacity 
+                  style={styles.checkbox} 
+                  onPress={() => toggleSelection(reservationId)}
+                >
+                  <Ionicons 
+                    name={isSelected ? "checkbox" : "checkbox-outline"}
+                    size={24} 
+                    color={isSelected ? "#7C3AED" : "#9CA3AF"}
+                  />
+                </TouchableOpacity>
 
-                <View style={styles.itemMeta}>
-                  {component.diagnosisText && (
-                    <Text style={styles.metaText} numberOfLines={1}>
-                      <Text style={styles.metaLabel}>Chẩn đoán:</Text>{" "}
-                      {component.diagnosisText}
+                {/* Nội dung */}
+                <View style={styles.itemContent}>
+                  <View style={styles.itemHeader}>
+                    <Ionicons name="build-outline" size={16} color="#5B21B6" />
+                    <Text style={styles.itemName}>
+                      {component.typeComponent?.name || "Component"}
                     </Text>
-                  )}
-                  <Text style={styles.metaText}>
-                    <Text style={styles.metaLabel}>Số lượng:</Text> {pickedUpCount}
-                  </Text>
-                  <Text style={styles.metaText} ellipsizeMode="tail" numberOfLines={1}>
-                    <Text style={styles.metaLabel}>Case:</Text> {component.guaranteeCaseId}
+                  </View>
+                  <View style={styles.itemMeta}>
+                    {component.diagnosisText && (
+                      <Text style={styles.metaText} numberOfLines={1}>
+                        <Text style={styles.metaLabel}>Chẩn đoán:</Text>{" "}
+                        {component.diagnosisText}
+                      </Text>
+                    )}
+                    <Text style={styles.metaText}>
+                      <Text style={styles.metaLabel}>Số lượng:</Text> {pickedUpCount}
+                    </Text>
+                    {warehouse && (
+                      <Text style={styles.metaText} numberOfLines={1}>
+                        <Text style={styles.metaLabel}>Kho:</Text>{" "}
+                        {warehouse.name || warehouse.warehouseName || "N/A"}
+                      </Text>
+                    )}
+                    <Text style={styles.metaText} ellipsizeMode="tail" numberOfLines={1}>
+                      <Text style={styles.metaLabel}>Case:</Text> {component.guaranteeCaseId}
+                    </Text>
+                  </View>
+                  <Text style={styles.itemStatus}>
+                    Đã lấy, chờ lắp đặt
                   </Text>
                 </View>
-                <Text style={styles.itemStatus}>
-                  Đã lấy, chờ lắp đặt
-                </Text>
-              </View>
 
-              <TouchableOpacity
-                onPress={() => handleInstallClick(component)}
-                style={styles.installButton}
-              >
-                <Ionicons name="build-outline" size={16} color="#FFFFFF" /> 
-                <Text style={styles.installButtonText}>Lắp đặt</Text>
-              </TouchableOpacity>
-            </View>
+                {/* Nút cài đặt đơn lẻ */}
+                <TouchableOpacity
+                  onPress={() => handleInstallClick(component)}
+                  style={styles.installButton}
+                >
+                  <Ionicons name="build-outline" size={16} color="#FFFFFF" /> 
+                  <Text style={styles.installButtonText}>Lắp đặt</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+            // --- KẾT THÚC CẬP NHẬT ---
           );
         })}
       </View>
     );
-  }, [loading, components]);
+  // Cập nhật dependency
+  }, [loading, components, selectedForBulkInstall]); 
 
   return (
     <>
@@ -161,6 +283,44 @@ export default function ComponentsToInstall() {
             <Text style={styles.countText}>{components.length}</Text>
           </View>
         </View>
+
+        {/* --- THÊM THANH HÀNH ĐỘNG BULK --- */}
+        {components.length > 0 && (
+          <View style={styles.bulkActionContainer}>
+            <TouchableOpacity 
+              style={styles.selectAllButton}
+              onPress={toggleSelectAll}
+            >
+              <Ionicons 
+                name={selectedForBulkInstall.size === allReservationIds.length ? "checkbox" : "checkbox-outline"}
+                size={20} 
+                color="#4B5563"
+              />
+              <Text style={styles.selectAllText}>
+                Chọn tất cả ({selectedForBulkInstall.size})
+              </Text>
+            </TouchableOpacity>
+
+            {selectedForBulkInstall.size > 0 && (
+              <TouchableOpacity
+                style={[styles.bulkInstallButton, isBulkInstalling && styles.disabledButton]}
+                onPress={handleBulkInstall}
+                disabled={isBulkInstalling}
+              >
+                {isBulkInstalling ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Ionicons name="build" size={16} color="#FFFFFF" />
+                )}
+                <Text style={styles.bulkInstallButtonText}>
+                  Lắp đặt ({selectedForBulkInstall.size})
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+        {/* --- KẾT THÚC THANH HÀNH ĐỘNG BULK --- */}
+        
         {renderContent}
       </View>
 
@@ -172,7 +332,7 @@ export default function ComponentsToInstall() {
           reservationId={selectedComponent.reservationId}
           componentName={selectedComponent.componentName}
           vehicleVin={selectedComponent.vehicleVin}
-          componentSerial={selectedComponent.componentSerial} // Truyền prop mới
+          componentSerial={selectedComponent.componentSerial} 
         />
       )}
     </>
@@ -182,7 +342,7 @@ export default function ComponentsToInstall() {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 12, //
+    borderRadius: 12, 
     borderWidth: 1,
     borderColor: "#E5E7EB",
     padding: 16,
@@ -194,28 +354,28 @@ const styles = StyleSheet.create({
   },
   headerIconWrapper: {
     padding: 8,
-    backgroundColor: "#F3E8FF", //
+    backgroundColor: "#F3E8FF", 
     borderRadius: 8,
     marginRight: 12,
   },
   title: {
-    fontSize: 16, //
+    fontSize: 16, 
     fontWeight: "600",
     color: "#111827",
   },
   subtitle: {
-    fontSize: 12, //
+    fontSize: 12, 
     color: "#6B7280",
   },
   countBadge: {
-    backgroundColor: "#F3E8FF", //
+    backgroundColor: "#F3E8FF", 
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 12,
     marginLeft: "auto",
   },
   countText: {
-    color: "#5B21B6", //
+    color: "#5B21B6", 
     fontWeight: "600",
     fontSize: 14,
   },
@@ -223,7 +383,7 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F9FAFB", //
+    backgroundColor: "#F9FAFB", 
     borderRadius: 8,
   },
   loadingText: {
@@ -239,13 +399,27 @@ const styles = StyleSheet.create({
     maxHeight: 400,
   },
   itemCard: {
-    backgroundColor: "#F9FAFB", //
+    backgroundColor: "#F9FAFB", 
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "#E5E7EB",
-    padding: 12, //
+    padding: 12, 
     marginBottom: 8,
   },
+  // --- STYLE MỚI ---
+  itemCardSelected: {
+    backgroundColor: "#F3E8FF",
+    borderColor: "#A78BFA",
+  },
+  itemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  checkbox: {
+    padding: 8,
+    marginRight: 4,
+  },
+  // --- KẾT THÚC STYLE MỚI ---
   itemContent: {
     flex: 1,
     marginRight: 12,
@@ -256,22 +430,21 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   itemName: {
-    fontSize: 14, //
-    fontWeight: "500", //
+    fontSize: 14, 
+    fontWeight: "500", 
     color: "#111827",
     marginLeft: 6,
     flexShrink: 1,
   },
   itemMeta: {
-    //
     marginBottom: 4,
   },
   metaText: {
-    fontSize: 12, //
+    fontSize: 12, 
     color: "#4B5563",
     flexShrink: 1,
   },
-  metaLabel: { //
+  metaLabel: { 
     fontWeight: "500",
   },
   itemStatus: {
@@ -281,7 +454,7 @@ const styles = StyleSheet.create({
   },
   installButton: {
     flexDirection: "row",
-    backgroundColor: "#7C3AED", //
+    backgroundColor: "#7C3AED", 
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
@@ -293,4 +466,45 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     marginLeft: 6,
   },
+  
+  // --- STYLES MỚI CHO BULK ACTION ---
+  bulkActionContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  selectAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 8,
+  },
+  selectAllText: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#4B5563",
+  },
+  bulkInstallButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#5B21B6", // Màu tím đậm hơn
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  bulkInstallButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "500",
+    marginLeft: 8,
+  },
+  disabledButton: {
+    backgroundColor: "#A78BFA",
+  },
+  // --- KẾT THÚC STYLES MỚI ---
 });

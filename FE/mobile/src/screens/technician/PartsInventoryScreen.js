@@ -14,7 +14,7 @@ import {
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
-import processingRecordService from "../../services/technician/processingRecordService";
+import { technicianService, processingRecordService } from "../../services/technician";
 import AvatarLogoutMenu from "../../components/technician/AvatarLogoutMenu"; 
 
 const COMPONENT_CATEGORIES = [
@@ -33,15 +33,15 @@ const COMPONENT_CATEGORIES = [
 
 export default function PartsInventoryScreen() {
   const [components, setComponents] = useState([]);
-  const [filteredComponents, setFilteredComponents] = useState([]); //
+  const [filteredComponents, setFilteredComponents] = useState([]); 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState(""); //
+  const [categoryFilter, setCategoryFilter] = useState(""); 
   const [selectedComponent, setSelectedComponent] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [currentRecordId, setCurrentRecordId] = useState(null);
-  const [currentVehicleInfo, setCurrentVehicleInfo] = useState(null); //
+  const [currentVehicleInfo, setCurrentVehicleInfo] = useState(null); 
   const [availableRecords, setAvailableRecords] = useState([]);
   const [isLoadingRecords, setIsLoadingRecords] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -49,13 +49,8 @@ export default function PartsInventoryScreen() {
   const loadAvailableRecords = async () => {
     setIsLoadingRecords(true);
     try {
-      const response = await processingRecordService.getAllRecords({
-         page: 1,
-         limit: 100,
-      });
-      
-      const records = response.data?.data?.records || [];
-      
+      const response = await technicianService.getAssignedRecords();     
+      const records = response.data?.records?.records || [];    
       const activeStatuses = new Set([
         "CHECKED_IN", "IN_DIAGNOSIS", "WAITING_FOR_PARTS",
         "IN_REPAIR", "WAITING_CUSTOMER_APPROVAL", "PROCESSING", "READY_FOR_PICKUP"

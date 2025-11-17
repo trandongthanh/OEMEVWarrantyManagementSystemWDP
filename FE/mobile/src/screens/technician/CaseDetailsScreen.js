@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import { launchImageLibrary } from "react-native-image-picker"; //
+import * as ImagePicker from 'expo-image-picker';
 import { Picker } from "@react-native-picker/picker";
 
 import {
@@ -20,7 +20,7 @@ import {
   caseLineService,
   imageUploadService,
 } from "../../services/technician";
-import CompleteDiagnosisButton from "../../components/technician/CompleteDiagnosisButton"; //
+import CompleteDiagnosisButton from "../../components/technician/CompleteDiagnosisButton"; 
 
 const COMPONENT_CATEGORIES = [
   { value: "HIGH_VOLTAGE_BATTERY", label: "High Voltage Battery & BMS" },
@@ -54,16 +54,25 @@ const CaseLineForm = ({
     }
   };
 
-  const handleImagePicker = () => {
-    launchImageLibrary({ mediaType: "photo", quality: 0.7, selectionLimit: 5 }, (response) => {
-      if (response.didCancel) {
-        console.log("User cancelled image picker");
-      } else if (response.errorCode) {
-        console.log("ImagePicker Error: ", response.errorMessage);
-      } else {
-        onImageSelect(index, response.assets || []);
-      }
+  const handleImagePicker = async () => { 
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Lỗi', 'Quyền truy cập thư viện ảnh đã bị từ chối.');
+      return;
+    }
+
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true, 
+      selectionLimit: 5,
+      quality: 0.7,
     });
+
+    if (!result.canceled) {
+      onImageSelect(index, result.assets || []);
+    } else {
+      console.log("User cancelled image picker");
+    }
   };
 
   return (
@@ -126,7 +135,7 @@ const CaseLineForm = ({
           onCaseLineChange(index, "quantity", parseInt(val) || 0)
         }
         keyboardType="number-pad"
-        editable={!isReadOnly} //
+        editable={!isReadOnly} 
       />
 
       <Text style={styles.label}>Trạng thái bảo hành</Text>
@@ -150,7 +159,7 @@ const CaseLineForm = ({
           <Picker
             selectedValue={caseLine.warrantyStatus}
             onValueChange={handleWarrantyChange}
-            enabled={!isReadOnly} //
+            enabled={!isReadOnly} 
             style={styles.picker}
           >
             <Picker.Item label="Đủ điều kiện" value="ELIGIBLE" />
@@ -170,7 +179,7 @@ const CaseLineForm = ({
             }
             placeholder="Giải thích lý do từ chối bảo hành..."
             multiline
-            editable={!isReadOnly} //
+            editable={!isReadOnly} 
           />
         </>
       )}
@@ -199,8 +208,8 @@ const CaseLineForm = ({
           style={styles.uploadButton}
           onPress={handleImagePicker}
         >
-          <Ionicons name="camera-outline" size={20} color="#374151" />
-          <Text style={styles.uploadButtonText}>Tải ảnh lên</Text>
+          <Ionicons name="images-outline" size={20} color="#374151" />
+          <Text style={styles.uploadButtonText}>Tải ảnh từ thư viện</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -320,6 +329,7 @@ const ComponentSearch = ({
     </View>
   );
 };
+
 
 export default function CaseDetailsScreen() {
   const navigation = useNavigation();
@@ -462,9 +472,10 @@ export default function CaseDetailsScreen() {
   const handleImageSelect = (index, assets) => {
     const newImages = assets.map((a) => ({
       uri: a.uri,
-      type: a.type,
-      fileName: a.fileName,
+      type: a.mimeType || 'image/jpeg', 
+      fileName: a.fileName || a.uri.split('/').pop(), 
     }));
+    
     setDiagnosisImages(prev => {
       const updated = new Map(prev);
       const existing = updated.get(index) || [];
@@ -491,13 +502,13 @@ export default function CaseDetailsScreen() {
   const handleSelectComponent = (component) => {
     if (activeLineIndex !== null) {
       const newCaseLines = [...caseLines];
-      const isUnderWarranty = component.isUnderWarranty ?? false; //
+      const isUnderWarranty = component.isUnderWarranty ?? false; 
       newCaseLines[activeLineIndex] = {
         ...newCaseLines[activeLineIndex],
         typeComponentId: component.typeComponentId,
         componentName: component.name,
         isUnderWarranty: isUnderWarranty,
-        warrantyStatus: !isUnderWarranty ? "INELIGIBLE" : "ELIGIBLE",
+        warrantyStatus: !isUnderWarranty ? "INELIGIBLE" : newCaseLines[activeLineIndex].warrantyStatus,
       };
       setCaseLines(newCaseLines);
       setShowComponentSearch(false);
@@ -535,41 +546,41 @@ export default function CaseDetailsScreen() {
         }
       }
 
-      const hasExistingCaseLines = caseLines.some((line) => line.caseLineId);
+      const updatePromises = [];
+      const linesToCreate = [];
 
-      if (hasExistingCaseLines) {
-        const updatePromises = caseLines
-          .filter((line) => line.caseLineId)
-          .map((line, index) => {
-            const existingUrls = line.evidenceImageUrls || [];
-            const newUrls = uploadedImageUrls.get(index) || [];
-            const allUrls = [...existingUrls, ...newUrls];
+      caseLines.forEach((line, index) => {
+        const existingUrls = line.evidenceImageUrls || [];
+        const newUrls = uploadedImageUrls.get(index) || []; 
+        const allUrls = [...existingUrls, ...newUrls];
 
-            return caseLineService.updateCaseLine(line.caseLineId, {
-              caseId: caseId,
-              diagnosisText: line.diagnosisText,
-              correctionText: line.correctionText,
-              typeComponentId: line.typeComponentId || null,
-              quantity: line.quantity,
-              warrantyStatus: line.warrantyStatus,
-              rejectionReason: line.rejectionReason || null,
-              evidenceImageUrls: allUrls.length > 0 ? allUrls : undefined,
-            });
-          });
-        await Promise.all(updatePromises);
-      } else {
-        const caselinesToSend = caseLines.map((line, index) => ({
+        const payload = {
+          caseId: caseId, 
           diagnosisText: line.diagnosisText,
           correctionText: line.correctionText,
           typeComponentId: line.typeComponentId || null,
           quantity: line.quantity,
           warrantyStatus: line.warrantyStatus,
           rejectionReason: line.rejectionReason || null,
-          evidenceImageUrls: uploadedImageUrls.get(index) || undefined,
-        }));
+          evidenceImageUrls: allUrls.length > 0 ? allUrls : undefined,
+        };
 
+        if (line.caseLineId) {
+          updatePromises.push(
+            caseLineService.updateCaseLine(line.caseLineId, payload)
+          );
+        } else {
+          const { caseId: ignored, ...createPayload } = payload;
+          linesToCreate.push(createPayload);
+        }
+      });
+      
+      if (updatePromises.length > 0) {
+        await Promise.all(updatePromises);
+      }
+      if (linesToCreate.length > 0) {
         await technicianService.createCaseLines(caseId, {
-          caselines: caselinesToSend,
+          caselines: linesToCreate,
         });
       }
 
@@ -577,8 +588,8 @@ export default function CaseDetailsScreen() {
         "Thành công",
         "Đã lưu chẩn đoán. Bạn có thể hoàn tất chẩn đoán."
       );
-      setShowCompleteDiagnosis(true); //
-      setDiagnosisImages(new Map());
+      setShowCompleteDiagnosis(true); 
+      setDiagnosisImages(new Map()); 
     } catch (error) {
       console.error("Error saving case lines:", error);
       setErrorMessage(
@@ -690,6 +701,7 @@ export default function CaseDetailsScreen() {
         <View style={styles.footer}>
           <CompleteDiagnosisButton
             recordId={recordId}
+            caseLines={caseLines} 
             onSuccess={() => {
               navigation.goBack();
             }}
@@ -721,7 +733,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#FFFFFF",
-    paddingTop: 40, // An toàn cho status bar
+    paddingTop: 40, 
     paddingBottom: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
@@ -816,7 +828,7 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
   inputDisabled: {
-    backgroundColor: "#F3F4F6", //
+    backgroundColor: "#F3F4F6", 
     color: "#6B7280",
   },
   componentSearchRow: {
@@ -909,7 +921,7 @@ const styles = StyleSheet.create({
   footer: {
     backgroundColor: "#FFFFFF",
     padding: 16,
-    paddingBottom: 24, // An toàn cho status bar
+    paddingBottom: 24, 
     borderTopWidth: 1,
     borderTopColor: "#E5E7EB",
   },
@@ -935,7 +947,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     flex: 1,
     backgroundColor: "#F3F4F6",
-    paddingTop: 40, // An toàn cho status bar
+    paddingTop: 40, 
   },
   searchHeader: {
     flexDirection: "row",

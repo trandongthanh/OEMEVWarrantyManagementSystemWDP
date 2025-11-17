@@ -1,3 +1,4 @@
+// CompleteDiagnosisButton.js
 import React, { useState } from "react";
 import {
   TouchableOpacity,
@@ -17,15 +18,35 @@ export default function CompleteDiagnosisButton({
   onSuccess,
   disabled = false,
   onNavigateToInstall,
+  caseLines = [], // <-- THÊM PROP NÀY
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false); 
 
+  // --- CẬP NHẬT HÀM NÀY ---
   const handleCompleteDiagnosis = () => {
-    setShowConfirmModal(true);
+    // Logic validate giống hệt web
+    const draftCaseLines = caseLines.filter(
+      (cl) => cl.status === "DRAFT" || !cl.status
+    );
+    const missingDiagnosis = draftCaseLines.filter(
+      (cl) => !cl.diagnosisText || cl.diagnosisText.trim() === ""
+    );
+
+    if (missingDiagnosis.length > 0) {
+      const errorMsg = `Không thể hoàn tất: ${missingDiagnosis.length} hạng mục còn thiếu mô tả chẩn đoán. Vui lòng điền đầy đủ.`;
+      setError(errorMsg);
+      Alert.alert("Chưa hoàn tất chẩn đoán", errorMsg);
+      return; // Dừng lại, không mở modal
+    }
+    // --- KẾT THÚC LOGIC VALIDATE ---
+
+    setError(null); // Xóa lỗi cũ nếu có
+    setShowConfirmModal(true); // Chỉ mở modal nếu validate thành công
   };
+  // --- KẾT THÚC CẬP NHẬT ---
 
   const handleConfirmComplete = async () => {
     setShowConfirmModal(false);
@@ -77,6 +98,8 @@ export default function CompleteDiagnosisButton({
         </Text>
       </TouchableOpacity>
 
+      {/* (Phần Modal Confirm và Modal Success không thay đổi)
+      */}
       <Modal
         visible={showConfirmModal}
         transparent={true}

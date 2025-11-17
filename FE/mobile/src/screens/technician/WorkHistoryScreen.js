@@ -12,7 +12,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
-import processingRecordService from "../../services/technician/processingRecordService";
+import { technicianService } from "../../services/technician"; 
 import AvatarLogoutMenu from "../../components/technician/AvatarLogoutMenu"; 
 
 const statusConfig = {
@@ -51,13 +51,8 @@ export default function WorkHistoryScreen() {
   const loadHistory = async () => {
     setLoading(true);
     try {
-      const response = await processingRecordService.getAllRecords({
-        page: 1,
-        limit: 100,
-      });
-      
-      const recordsData = response.data?.data?.records || [];
-
+      const response = await technicianService.getAssignedRecords();
+      const recordsData = response.data?.records?.records || [];
       const completedTasks = recordsData.filter(
         (record) =>
           record.status === "COMPLETED" || record.status === "CANCELLED"
@@ -189,7 +184,6 @@ export default function WorkHistoryScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Cập nhật Stats */}
         <View style={styles.statsContainer}>
           <View style={styles.statBox}>
             <Text style={styles.statNumber}>{stats.total}</Text>
