@@ -300,7 +300,7 @@ class InventoryService {
     const result = { adjustment: newAdjustment, updatedStock, stock, quantity };
 
     if (roleName === "parts_coordinator_company" && companyId) {
-      this.#notificationService.sendToRoom(
+      await this.#notificationService.sendToRoom(
         `parts_coordinator_company_${companyId}`,
         "inventory_adjustment_created",
         {
@@ -312,7 +312,7 @@ class InventoryService {
         }
       );
     } else if (stock.warehouse?.serviceCenterId) {
-      this.#notificationService.sendToRoom(
+      await this.#notificationService.sendToRoom(
         `parts_coordinator_service_center_${stock.warehouse.serviceCenterId}`,
         "inventory_adjustment_created",
         {
@@ -599,13 +599,13 @@ class InventoryService {
     }
 
     for (const [roomName, items] of stocksByServiceCenter.entries()) {
-      this.#notificationService.sendToRoom(roomName, "low_stock_alert", {
+      await this.#notificationService.sendToRoom(roomName, "low_stock_alert", {
         stocks: items,
       });
     }
 
     for (const [roomName, items] of stocksByCompany.entries()) {
-      this.#notificationService.sendToRoom(roomName, "low_stock_alert", {
+      await this.#notificationService.sendToRoom(roomName, "low_stock_alert", {
         stocks: items,
       });
     }
