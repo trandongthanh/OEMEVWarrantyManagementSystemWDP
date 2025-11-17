@@ -79,7 +79,7 @@ class OemVehicleModelRepository {
           db.sequelize.fn(
             "COUNT",
             db.sequelize.col(
-              "vehicles.vehicleRecord.guaranteeCases.caseLines.id"
+              "vehicles->vehicleRecords->guaranteeCases->caseLines.id"
             )
           ),
           "caseLineCount",
@@ -94,7 +94,7 @@ class OemVehicleModelRepository {
           include: [
             {
               model: VehicleProcessingRecord,
-              as: "vehicleRecord",
+              as: "vehicleRecords",
               attributes: [],
               required: true,
               where: Object.keys(dateFilter).length

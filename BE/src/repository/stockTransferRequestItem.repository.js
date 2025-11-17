@@ -23,6 +23,14 @@ class StockTransferRequestItemRepository {
         {
           model: CaseLine,
           as: "caseline",
+          attributes: ["id", "status", "typeComponentId"],
+          required: false,
+        },
+        {
+          model: db.TypeComponent,
+          as: "component",
+          attributes: ["typeComponentId", "name", "sku", "category"],
+          required: true,
         },
       ],
       transaction,
