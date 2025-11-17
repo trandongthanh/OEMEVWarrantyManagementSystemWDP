@@ -190,7 +190,7 @@ class CaseLineRepository {
                 {
                   model: StockTransferRequest,
                   as: "stockTransferRequest",
-                  attributes: ["requestId", "requestingWarehouseId"],
+                  attributes: ["id", "requestingWarehouseId"],
                   required: false,
                   include: [
                     {
@@ -483,7 +483,7 @@ class CaseLineRepository {
                 {
                   model: StockTransferRequest,
                   as: "stockTransferRequest",
-                  attributes: ["requestId", "requestingWarehouseId"],
+                  attributes: ["id", "requestingWarehouseId"],
                   required: false,
                   include: [
                     {
