@@ -25,7 +25,8 @@ const COLORS = {
 export default function StaffMessageListScreen({ route }) {
   const navigation = useNavigation();
   const tokenParam = route?.params?.token;
-  // 🔍 Đảm bảo token là chuỗi JWT thật, không phải object
+
+  // 🔍 Đảm bảo token là string
   const token =
     typeof tokenParam === "object" && tokenParam?.token
       ? tokenParam.token
@@ -37,29 +38,41 @@ export default function StaffMessageListScreen({ route }) {
   const [counts, setCounts] = useState({ waiting: 0, active: 0, closed: 0 });
   const socketRef = useRef(null);
 
-  /** 🧠 Debug token */
-  useEffect(() => {
-    console.log("🧾 Token in StaffMessageListScreen:", token);
-    console.log("📄 Token type:", typeof token);
-  }, [token]);
+  /** -------------------------------------------------------
+   *  🔥 MAP FE FILTER → BACKEND STATUS
+   *  waiting  → UNASSIGNED
+   *  active   → ACTIVE
+   *  closed   → CLOSED
+   * ------------------------------------------------------*/
+  const mapFilterToBackendStatus = {
+    waiting: "UNASSIGNED",
+    active: "ACTIVE",
+    closed: "CLOSED",
+  };
 
   /** 🧩 Load danh sách hội thoại + đếm theo trạng thái */
   const loadMessages = async (status = "waiting") => {
     setLoading(true);
     try {
-      const upperStatus = status.toUpperCase();
-      const conversations = await getMyConversations(token, upperStatus);
+      const backendStatus = mapFilterToBackendStatus[status];
 
+      // Gọi API đúng status backend
+      const conversations = await getMyConversations(token, backendStatus);
+
+      // Lọc đúng
       const filtered = (conversations || []).filter(
-        (c) => c.status?.toUpperCase() === upperStatus
+        (c) => c.status?.toUpperCase() === backendStatus
       );
 
+      // Đếm đúng
       const waitingCount = conversations.filter(
-        (c) => c.status?.toUpperCase() === "WAITING"
+        (c) => c.status?.toUpperCase() === "UNASSIGNED"
       ).length;
+
       const activeCount = conversations.filter(
         (c) => c.status?.toUpperCase() === "ACTIVE"
       ).length;
+
       const closedCount = conversations.filter(
         (c) => c.status?.toUpperCase() === "CLOSED"
       ).length;
@@ -85,10 +98,10 @@ export default function StaffMessageListScreen({ route }) {
       return;
     }
 
-    // 🔹 Lần đầu load dữ liệu
+    // Lần đầu load dữ liệu
     loadMessages(filter);
 
-    // 🔹 Khởi tạo socket
+    // Init socket
     const socket = io(SOCKET_URL, {
       transports: ["websocket"],
       auth: { token },
@@ -106,6 +119,7 @@ export default function StaffMessageListScreen({ route }) {
       console.log("⚠️ Socket connect error:", err.message);
     });
 
+    // Nhận tin nhắn mới
     socket.on("newMessage", (msg) => {
       console.log("💬 New message:", msg);
       setMessages((prev) => {
@@ -131,13 +145,13 @@ export default function StaffMessageListScreen({ route }) {
     };
   }, [token]);
 
-  /** 🧩 Render giao diện */
+  /** 🧩 Render */
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <Text style={styles.header}>Messages</Text>
 
-        {/* Tabs lọc hội thoại */}
+        {/* Tabs lọc */}
         <ConversationFilterTabs
           filter={filter}
           counts={counts}
@@ -147,7 +161,7 @@ export default function StaffMessageListScreen({ route }) {
           }}
         />
 
-        {/* Danh sách hội thoại */}
+        {/* Danh sách */}
         {loading ? (
           <ActivityIndicator color={COLORS.accent} size="large" />
         ) : (
@@ -159,10 +173,10 @@ export default function StaffMessageListScreen({ route }) {
                 item={item}
                 onPress={() =>
                   navigation.navigate("StaffChatScreen", {
-                    conversationId: item.conversationId || item._id || item.id,
-                    token, // ✅ token luôn là chuỗi hợp lệ
+                    conversationId: item.id || item._id,
+                    token,
                     status: item.status,
-                    guest: item.guest || item.customer || null,
+                    guest: item.guest,
                   })
                 }
               />
@@ -179,7 +193,6 @@ export default function StaffMessageListScreen({ route }) {
   );
 }
 
-/* 🎨 Styles */
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.bg },
   container: { flex: 1, paddingHorizontal: 16, paddingTop: 10 },

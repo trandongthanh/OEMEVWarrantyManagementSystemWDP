@@ -1,4 +1,3 @@
-// src/services/processingRecordService.js
 import api from "./api"; // axios instance đã cấu hình baseURL + token
 
 // ✅ Lấy danh sách hồ sơ xử lý theo phân quyền
@@ -44,6 +43,22 @@ export const createProcessingRecord = async (payload) => {
   } catch (error) {
     console.error(
       "❌ Error creating processing record:",
+      error.response?.data || error
+    );
+    throw error;
+  }
+};
+
+// ✅ Giao hồ sơ cho kỹ thuật viên chính
+export const assignTechnicianToRecord = async (recordId, technicianId) => {
+  try {
+    const res = await api.patch(`/processing-records/${recordId}/assignment`, {
+      technicianId,
+    });
+    return res.data; // { status: "success", data: { assignedRecord } }
+  } catch (error) {
+    console.error(
+      "❌ Error assigning technician:",
       error.response?.data || error
     );
     throw error;

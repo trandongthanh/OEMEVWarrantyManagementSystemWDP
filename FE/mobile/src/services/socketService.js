@@ -3,7 +3,7 @@ import io from "socket.io-client";
 let socket = null;
 
 // ⚠️ Dùng IP LAN thật của máy backend (ipconfig → IPv4)
-const SOCKET_URL = "http://192.168.100.191:3000/chats"; // namespace /chats
+const SOCKET_URL = "http://26.21.78.79:3000/chats"; // namespace /chats
 
 // 🧩 1️⃣ Khởi tạo socket
 export const initSocket = (token) => {
