@@ -11,10 +11,11 @@ import {
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { technicianService } from "../../services/technician";
+import processingRecordService from "../../services/technician/processingRecordService";
 import ComponentsToInstall from "../../components/technician/ComponentsToInstall";
 import RepairsToComplete from "../../components/technician/RepairsToComplete";
+import ComponentsToPickup from "../../components/technician/ComponentsToPickup";
+import AvatarLogoutMenu from "../../components/technician/AvatarLogoutMenu"; 
 
 const getStatusStyles = (status) => {
   const statusColors = {
@@ -24,6 +25,9 @@ const getStatusStyles = (status) => {
     IN_REPAIR: { bg: "#F3E8FF", text: "#8B5CF6" },
     COMPLETED: { bg: "#F0FDF4", text: "#22C55E" },
     CANCELLED: { bg: "#FEF2F2", text: "#EF4444" },
+    WAITING_CUSTOMER_APPROVAL: { bg: "#EFF6FF", text: "#3B82F6" },
+    PROCESSING: { bg: "#F3E8FF", text: "#8B5CF6" },
+    READY_FOR_PICKUP: { bg: "#F0FDF4", text: "#22C55E" },
   };
   return statusColors[status] || { bg: "#F3F4F6", text: "#4B5563" };
 };
@@ -34,14 +38,23 @@ const DashboardOverviewScreen = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
-
+  
   const loadProcessingRecords = async () => {
     setIsLoading(true);
     setError("");
     try {
-      const response = await technicianService.getAssignedRecords();
-      const allRecords = response.data?.records?.records || [];
+      const testStatus = "IN_DIAGNOSIS"; 
+      
+      const response = await processingRecordService.getAllRecords({
+        status: testStatus, 
+        page: 1,
+        limit: 20, 
+      });
+      
+      const allRecords = response.data?.data?.records || [];
+      
       setProcessingRecords(allRecords);
+      
     } catch (err) {
       setError("Không thể tải danh sách phiếu sửa chữa.");
       console.error("Lỗi khi tải (loadProcessingRecords):", err);
@@ -62,40 +75,16 @@ const DashboardOverviewScreen = () => {
     await loadProcessingRecords();
   }, []);
 
-  const handleLogout = () => {
-    Alert.alert(
-      "Đăng xuất",
-      "Bạn có chắc chắn muốn đăng xuất?",
-      [
-        { text: "Hủy", style: "cancel" },
-        {
-          text: "Đăng xuất",
-          style: "destructive",
-          onPress: async () => {
-            await AsyncStorage.removeItem("authToken");
-            navigation.reset({
-              index: 0,
-              routes: [{ name: "Login" }],
-            });
-          },
-        },
-      ]
-    );
-  };
-
   const stats = useMemo(() => {
-    // Logic khớp với web
     const active = processingRecords.filter(
       (r) => r.status === "IN_DIAGNOSIS" || r.status === "IN_REPAIR"
     ).length;
-    const completed = processingRecords.filter(
-      (r) => r.status === "COMPLETED"
-    ).length;
-    return { activeCount: active, completedCount: completed };
+    const totalActive = processingRecords.length;
+    const completed = 0;
+    return { totalCount: totalActive, activeCount: active, completedCount: completed };
   }, [processingRecords]);
 
   const handleOpenCase = (vin, recordId, caseId) => {
-    //
     navigation.navigate("TasksTab", {
       screen: "CaseDetails",
       params: {
@@ -189,7 +178,6 @@ const DashboardOverviewScreen = () => {
                     Hồ sơ bảo hành ({record.guaranteeCases.length}):
                   </Text>
                   {record.guaranteeCases.map((guaranteeCase) => {
-                    // Logic xác định trạng thái nút
                     const hasDraft =
                       guaranteeCase.caseLines?.some(
                         (cl) => cl.status === "DRAFT"
@@ -240,61 +228,60 @@ const DashboardOverviewScreen = () => {
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Dashboard</Text>
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-          <Ionicons name="log-out-outline" size={28} color="#EF4444" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Stats */}
-      <View style={styles.statsContainer}>
-        <View style={[styles.statBox, { backgroundColor: "#DBEAFE" }]}>
-          <Text style={[styles.statNumber, { color: "#1E40AF" }]}>
-            {processingRecords.length}
-          </Text>
-          <Text style={[styles.statLabel, { color: "#1E3A8A" }]}>
-            Tổng cộng
-          </Text>
+    <>
+      <ScrollView
+        style={styles.container}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Dashboard</Text>
+          
+          <AvatarLogoutMenu />
         </View>
-        <View style={[styles.statBox, { backgroundColor: "#F3E8FF" }]}>
-          <Text style={[styles.statNumber, { color: "#5B21B6" }]}>
-            {stats.activeCount}
-          </Text>
-          <Text style={[styles.statLabel, { color: "#4C1D95" }]}>Active</Text>
+
+        <View style={styles.statsContainer}>
+          <View style={[styles.statBox, { backgroundColor: "#DBEAFE" }]}>
+            <Text style={[styles.statNumber, { color: "#1E40AF" }]}>
+              {stats.totalCount}
+            </Text>
+            <Text style={[styles.statLabel, { color: "#1E3A8A" }]}>
+              Tổng cộng
+            </Text>
+          </View>
+          <View style={[styles.statBox, { backgroundColor: "#F3E8FF" }]}>
+            <Text style={[styles.statNumber, { color: "#5B21B6" }]}>
+              {stats.activeCount}
+            </Text>
+            <Text style={[styles.statLabel, { color: "#4C1D95" }]}>Active</Text>
+          </View>
+          <View style={[styles.statBox, { backgroundColor: "#D1FAE5" }]}>
+            <Text style={[styles.statNumber, { color: "#065F46" }]}>
+              {stats.completedCount}
+            </Text>
+            <Text style={[styles.statLabel, { color: "#044229" }]}>Hoàn thành (Tuần)</Text>
+          </View>
         </View>
-        <View style={[styles.statBox, { backgroundColor: "#D1FAE5" }]}>
-          <Text style={[styles.statNumber, { color: "#065F46" }]}>
-            {stats.completedCount}
-          </Text>
-          <Text style={[styles.statLabel, { color: "#044229" }]}>Hoàn thành</Text>
+
+        <View style={styles.actionItemsContainer}>
+          <ComponentsToPickup />
+          <View style={{ height: 16 }} />
+          <ComponentsToInstall />
+          <View style={{ height: 16 }} />
+          <RepairsToComplete />
         </View>
-      </View>
 
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Phiếu sửa chữa được gán</Text>
-      </View>
-
-      {renderContent()}
-
-      {/* Action Items */}
-      <View style={styles.actionItemsContainer}>
-        <ComponentsToInstall />
-        <View style={{ height: 16 }} />
-        <RepairsToComplete />
-      </View>
-    </ScrollView>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Phiếu sửa chữa đang xử lý</Text>
+        </View>
+        {renderContent()}
+      </ScrollView>
+    </>
   );
 };
 
 // --- StyleSheet ---
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -302,8 +289,9 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: "#FFFFFF",
-    paddingVertical: 20,
+    paddingVertical: 12, 
     paddingHorizontal: 16,
+    paddingTop: 40, 
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
     flexDirection: "row",
@@ -315,10 +303,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#111827",
   },
-  logoutButton: {
-    padding: 8,
-  },
-  // Stats
   statsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -340,10 +324,13 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     marginTop: 4,
   },
-  // Section Header
+  actionItemsContainer: { 
+    padding: 16,
+    paddingTop: 16, 
+  },
   sectionHeader: {
     paddingHorizontal: 16,
-    marginTop: 24,
+    marginTop: 8, 
     marginBottom: 8,
   },
   sectionTitle: {
@@ -351,7 +338,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#111827",
   },
-  // Centered States
   centered: {
     flex: 1,
     justifyContent: "center",
@@ -395,9 +381,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: "center",
   },
-  // Record List
   listContainer: {
     paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   recordCard: {
     backgroundColor: "#FFFFFF",
@@ -447,7 +433,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#4B5563",
   },
-  // Case List
   caseListContainer: {
     borderTopWidth: 1,
     borderTopColor: "#E5E7EB",
@@ -482,9 +467,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     marginLeft: 8,
-  },
-  actionItemsContainer: {
-    padding: 16,
   },
 });
 
