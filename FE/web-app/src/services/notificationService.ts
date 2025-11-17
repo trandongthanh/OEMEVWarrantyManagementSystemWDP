@@ -30,12 +30,21 @@ export async function getNotifications(
   limit: number = 20
 ): Promise<NotificationResponse[]> {
   try {
+    console.log("🔍 Fetching notifications with params:", { page, limit });
+
     const response = await apiClient.get<GetNotificationsResponse>(
       "/notifications",
       {
         params: { page, limit },
       }
     );
+
+    console.log("📨 Notifications API response:", {
+      status: response.status,
+      count: response.data?.count,
+      rowsLength: response.data?.rows?.length,
+      fullResponse: response.data,
+    });
 
     // Handle empty or undefined response
     if (!response.data?.rows) {
