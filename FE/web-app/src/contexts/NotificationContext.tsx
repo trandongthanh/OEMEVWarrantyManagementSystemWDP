@@ -68,12 +68,82 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     const token = authService.getToken();
     if (!token) return;
 
+    // DEBUG: Log user info to verify serviceCenterId/companyId
+    const userInfo = authService.getUserInfo();
+    console.log("🔍 DEBUG - User Info when fetching notifications:", {
+      userId: userInfo?.userId,
+      username: userInfo?.username,
+      roleName: userInfo?.roleName,
+      companyId: userInfo?.companyId,
+      serviceCenterId: userInfo?.serviceCenterId,
+      fullUserInfo: userInfo,
+    });
+
+    // Calculate expected room names based on user info
+    // CRITICAL: Must match backend #getUserRooms() role names exactly
+    const expectedRooms: string[] = [];
+    if (userInfo?.userId) {
+      expectedRooms.push(`user_${userInfo.userId}`);
+    }
+
+    // Add role-based rooms matching backend logic
+    const roleName = userInfo?.roleName;
+    switch (roleName) {
+      case "emv_staff":
+        if (userInfo?.companyId) {
+          expectedRooms.push(`emv_staff_${userInfo.companyId}`);
+        }
+        break;
+      case "parts_coordinator_company":
+        if (userInfo?.companyId) {
+          expectedRooms.push(`parts_coordinator_company_${userInfo.companyId}`);
+        }
+        break;
+      case "service_center_manager":
+        if (userInfo?.serviceCenterId) {
+          expectedRooms.push(
+            `service_center_manager_${userInfo.serviceCenterId}`
+          );
+        }
+        break;
+      case "parts_coordinator_service_center":
+        if (userInfo?.serviceCenterId) {
+          expectedRooms.push(
+            `parts_coordinator_service_center_${userInfo.serviceCenterId}`
+          );
+        }
+        break;
+      case "service_center_staff":
+        if (userInfo?.serviceCenterId) {
+          expectedRooms.push(
+            `service_center_staff_${userInfo.serviceCenterId}`
+          );
+        }
+        break;
+      case "service_center_technician":
+        if (userInfo?.serviceCenterId) {
+          expectedRooms.push(
+            `service_center_technician_${userInfo.serviceCenterId}`
+          );
+        }
+        break;
+    }
+    console.log("🎯 DEBUG - Expected room names for this user:", expectedRooms);
+
     setIsLoading(true);
     fetchNotifications(1, 50)
       .then((backendNotifications) => {
         console.log("📥 Raw backend notifications response:", {
           count: backendNotifications.length,
           notifications: backendNotifications,
+        });
+        console.log("🔍 DEBUG - Notification room names from backend:", {
+          roomNames: backendNotifications.map((n) => n.roomName),
+          expectedRooms: expectedRooms,
+          match:
+            backendNotifications.length > 0
+              ? "Check if any backend roomNames match expectedRooms"
+              : "No notifications returned from backend",
         });
 
         // Convert backend format to frontend format
