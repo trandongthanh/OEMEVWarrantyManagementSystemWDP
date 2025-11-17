@@ -88,6 +88,12 @@ module.exports = (sequelize, DataTypes) => {
 
     shippedAt: { type: DataTypes.DATE, allowNull: true, field: "shipped_at" },
 
+    estimatedDeliveryDate: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: "estimated_delivery_date",
+    },
+
     receivedAt: { type: DataTypes.DATE, allowNull: true, field: "received_at" },
 
     rejectedAt: { type: DataTypes.DATE, allowNull: true, field: "rejected_at" },

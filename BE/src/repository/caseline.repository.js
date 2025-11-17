@@ -170,6 +170,14 @@ class CaseLineRepository {
               model: Component,
               as: "component",
               attributes: ["componentId", "serialNumber", "status"],
+
+              include: [
+                {
+                  model: db.Warehouse,
+                  as: "warehouse",
+                  attributes: ["warehouseId", "name", "address"],
+                },
+              ],
             },
           ],
         },
@@ -307,7 +315,7 @@ class CaseLineRepository {
 
   getVinById = async (caselineId, transaction = null, lock = null) => {
     const record = await CaseLine.findOne({
-      attributes: ["id"],
+      attributes: ["id", "repairTechId"],
       include: [
         {
           model: GuaranteeCase,

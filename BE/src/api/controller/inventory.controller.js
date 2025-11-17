@@ -174,9 +174,9 @@ class InventoryController {
 
       const templateRows = [
         ["SKU", "SERIAL_NUMBER"],
-        ["BRAKE_PAD_SKU", "SN-001"],
-        ["BRAKE_PAD_SKU", "SN-002"],
-        ["FILTER_SKU", "SN-003"],
+        ["BRAKE-PAD-CERAMIC", "SN-001"],
+        ["BRAKE-PAD-CERAMIC", "SN-002"],
+        ["FILTER-CABIN-HEPA", "SN-003"],
       ];
 
       const worksheet = xlsx.utils.aoa_to_sheet(templateRows);
@@ -215,14 +215,29 @@ class InventoryController {
       const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-      const data = xlsx.utils.sheet_to_json(worksheet, {
-        header: 0,
+      const rows = xlsx.utils.sheet_to_json(worksheet, {
+        header: 1,
         defval: null,
+        blankrows: false,
       });
 
-      const componentsBySku = data.slice(1).reduce((acc, row) => {
-        const sku = row[0];
-        const serialNumber = row[1];
+      if (rows.length <= 1) {
+        return res
+          .status(400)
+          .json({ message: "Uploaded file does not contain any data." });
+      }
+
+      const componentsBySku = rows.slice(1).reduce((acc, row) => {
+        const rawSku = row[0];
+        const rawSerialNumber = row[1];
+        const sku =
+          typeof rawSku === "string" ? rawSku.trim().toUpperCase() : rawSku;
+
+        const serialNumber =
+          typeof rawSerialNumber === "string"
+            ? rawSerialNumber.trim()
+            : rawSerialNumber;
+
         if (sku && serialNumber) {
           if (!acc[sku]) {
             acc[sku] = [];
@@ -232,6 +247,17 @@ class InventoryController {
         }
         return acc;
       }, {});
+
+      const totalComponents = Object.values(componentsBySku).reduce(
+        (sum, list) => sum + list.length,
+        0
+      );
+
+      if (totalComponents === 0) {
+        return res
+          .status(400)
+          .json({ message: "No valid SKU / serial number pairs were found." });
+      }
 
       const result = await this.#inventoryService.createBulkAdjustments({
         warehouseId,

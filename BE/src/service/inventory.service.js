@@ -139,6 +139,7 @@ class InventoryService {
       const adjustments = [];
       for (const sku in componentsBySku) {
         const components = componentsBySku[sku];
+
         const stock = await this.#warehouseRepository.findStockBySku(
           sku,
           warehouseId,
