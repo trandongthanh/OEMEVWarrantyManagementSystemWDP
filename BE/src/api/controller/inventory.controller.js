@@ -215,12 +215,19 @@ class InventoryController {
       const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-      const data = xlsx.utils.sheet_to_json(worksheet, {
+      const rows = xlsx.utils.sheet_to_json(worksheet, {
         header: 1,
         defval: null,
+        blankrows: false,
       });
 
-      const componentsBySku = data.slice(1).reduce((acc, row) => {
+      if (rows.length <= 1) {
+        return res
+          .status(400)
+          .json({ message: "Uploaded file does not contain any data." });
+      }
+
+      const componentsBySku = rows.slice(1).reduce((acc, row) => {
         const rawSku = row[0];
         const rawSerialNumber = row[1];
         const sku =
@@ -240,6 +247,17 @@ class InventoryController {
         }
         return acc;
       }, {});
+
+      const totalComponents = Object.values(componentsBySku).reduce(
+        (sum, list) => sum + list.length,
+        0
+      );
+
+      if (totalComponents === 0) {
+        return res
+          .status(400)
+          .json({ message: "No valid SKU / serial number pairs were found." });
+      }
 
       const result = await this.#inventoryService.createBulkAdjustments({
         warehouseId,
