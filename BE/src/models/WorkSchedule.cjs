@@ -22,15 +22,11 @@ module.exports = (sequelize, DataTypes) => {
       },
 
       status: {
-        type: DataTypes.ENUM(
-          "WORKING",
-          "DAY_OFF",
-          "LEAVE_REQUESTED",
-          "LEAVE_APPROVED"
-        ),
+        type: DataTypes.ENUM("AVAILABLE", "UNAVAILABLE"),
         allowNull: false,
-        defaultValue: "WORKING",
+        defaultValue: "AVAILABLE",
       },
+
       notes: {
         type: DataTypes.STRING,
         allowNull: true,

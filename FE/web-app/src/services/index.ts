@@ -1,6 +1,70 @@
 // Export services from this file
-// Add your service exports here, for example:
-// export { apiClient } from './api';
+export { default as authService } from "./authService";
+export type {
+  LoginCredentials,
+  LoginResponse,
+  DecodedToken,
+} from "./authService";
 
-// Placeholder
-export {};
+export { default as userService } from "./userService";
+export type { User, CreateUserData, Technician } from "./userService";
+
+export { default as warehouseService } from "./warehouseService";
+export type {
+  Warehouse,
+  Stock,
+  WarehouseQueryParams,
+} from "./warehouseService";
+
+export { default as customerService } from "./customerService";
+export type { Customer } from "./customerService";
+
+export { default as vehicleService } from "./vehicleService";
+
+export { default as claimService } from "./claimService";
+
+export { default as processingRecordService } from "./processingRecordService";
+export type {
+  ProcessingRecord,
+  ProcessingRecordListResponse,
+  CompatibleComponent,
+} from "./processingRecordService";
+
+export { default as caseLineService } from "./caseLineService";
+export type {
+  CaseLine,
+  CaseLineDetailResponse,
+  UpdateCaseLineData,
+  ApproveCaseLinesData,
+  AllocateStockResponse,
+  AssignTechnicianData,
+  GetCaseLinesListParams,
+  GetCaseLinesListResponse,
+  BulkUpdateStockQuantitiesData,
+  BulkUpdateStockQuantitiesResponse,
+} from "./caseLineService";
+
+export { default as stockTransferService } from "./stockTransferService";
+export type {
+  StockTransferRequest,
+  StockTransferRequestItem,
+  CreateStockTransferRequest,
+  StockTransferRequestListResponse,
+  StockTransferRequestDetailResponse,
+  RejectStockTransferRequest,
+  ShipStockTransferRequest,
+  CancelStockTransferRequest,
+} from "./stockTransferService";
+
+export { default as componentReservationService } from "./componentReservationService";
+export type {
+  ComponentReservation,
+  PickupResponse,
+  InstallComponentResponse,
+} from "./componentReservationService";
+
+export { default as technicianService } from "./technicianService";
+
+// NOTE: Chat service NOT exported here to prevent webpack bundling issues
+// Import directly from "@/services/chatService" when needed
+// This prevents socket.io code from being bundled into shared chunks

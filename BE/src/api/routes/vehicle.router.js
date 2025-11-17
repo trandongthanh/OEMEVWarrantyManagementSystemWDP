@@ -1,17 +1,111 @@
 import express from "express";
+import multer from "multer";
 import {
   attachCompanyContext,
   authentication,
   authorizationByRole,
+  validate,
 } from "../middleware/index.js";
+import {
+  assignOwnerToVehicleBodySchema,
+  assignOwnerToVehicleParamsSchema,
+} from "../../validators/assignOwnerToVehicle.validator.js";
+import {
+  findVehicleByVinWithWarrantyParamsSchema,
+  findVehicleByVinWithWarrantyPreviewBodySchema,
+  findVehicleByVinWithWarrantyPreviewParamsSchema,
+  findVehicleByVinWithWarrantyQuerySchema,
+} from "../../validators/findVehicleByVinWithWarranty.validator.js";
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
+
+/**
+ * @swagger
+ * /vehicles/bulk-create-template:
+ *   get:
+ *     summary: Tải file Excel mẫu để tạo xe hàng loạt
+ *     description: >-
+ *       Tải về một file Excel mẫu chứa các cột cần thiết (`vin`, `model_sku`, `date_of_manufacture`, `place_of_manufacture`)
+ *       để sử dụng cho việc tạo xe hàng loạt. Yêu cầu quyền `parts_coordinator_company`.
+ *     tags: [Vehicle]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: File Excel mẫu.
+ *         content:
+ *           application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       401:
+ *         description: Chưa xác thực.
+ *       403:
+ *         description: Không có quyền.
+ */
+router.get(
+  "/bulk-create-template",
+  authentication,
+  authorizationByRole(["parts_coordinator_company"]),
+  async (req, res, next) => {
+    const vehicleController = req.container.resolve("vehicleController");
+    await vehicleController.getBulkCreateTemplate(req, res, next);
+  }
+);
+
+/**
+ * @swagger
+ * /vehicles/bulk-create:
+ *   post:
+ *     summary: Tạo xe hàng loạt từ file Excel
+ *     description: >-
+ *       Tải lên file Excel để tạo hàng loạt xe mới trong hệ thống.
+ *       Chỉ người dùng có vai trò `parts_coordinator_company` mới có quyền thực hiện.
+ *     tags: [Vehicle]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: File Excel chứa dữ liệu các xe cần tạo.
+ *     responses:
+ *       201:
+ *         description: Quá trình tạo hàng loạt hoàn tất, trả về kết quả tóm tắt.
+ *       400:
+ *         description: Lỗi do file không hợp lệ, thiếu cột, hoặc dữ liệu sai định dạng.
+ *       401:
+ *         description: Chưa xác thực.
+ *       403:
+ *         description: Không có quyền.
+ */
+router.post(
+  "/bulk-create",
+  authentication,
+  authorizationByRole(["parts_coordinator_company"]),
+  attachCompanyContext,
+  upload.single("file"),
+  async (req, res, next) => {
+    const vehicleController = req.container.resolve("vehicleController");
+    await vehicleController.bulkCreateFromExcel(req, res, next);
+  }
+);
 
 /**
  * @swagger
  * /vehicles/{vin}:
  *   get:
- *     summary: Find vehicle by VIN
+ *     summary: Tìm kiếm xe theo số VIN
+ *     description: >-
+ *       Lấy thông tin chi tiết của một chiếc xe dựa trên số VIN.
+ *       Yêu cầu quyền `service_center_staff`.
  *     tags: [Vehicle]
  *     security:
  *       - BearerAuth: []
@@ -19,117 +113,17 @@ const router = express.Router();
  *       - in: path
  *         name: vin
  *         required: true
- *         schema:
- *           type: string
- *         description: Vehicle Identification Number
- *         example: "011HFDVNVUV302569"
+ *         schema: { type: string }
+ *         description: Số nhận dạng xe (VIN).
  *     responses:
  *       200:
- *         description: Vehicle found successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "success"
- *                 data:
- *                   type: object
- *                   properties:
- *                     vehicle:
- *                       type: object
- *                       properties:
- *                         vin:
- *                           type: string
- *                           example: "011HFDVNVUV302569"
- *                         dateOfManufacture:
- *                           type: string
- *                           format: date-time
- *                           example: "2020-07-28T23:09:59.000Z"
- *                         placeOfManufacture:
- *                           type: string
- *                           example: "Vietnam"
- *                         licensePlate:
- *                           type: string
- *                           example: "51F-987.65"
- *                         purchaseDate:
- *                           type: string
- *                           format: date-time
- *                           example: "2025-10-25T00:00:00.000Z"
- *                         owner:
- *                           type: object
- *                           properties:
- *                             id:
- *                               type: string
- *                               format: uuid
- *                               example: "c8196dc8-8f72-47ee-a773-16f9b554629a"
- *                             fullName:
- *                               type: string
- *                               example: "Trần Đông Thạnh"
- *                             email:
- *                               type: string
- *                               format: email
- *                               example: "thanh@email.com"
- *                             phone:
- *                               type: string
- *                               example: "12345678999"
- *                             address:
- *                               type: string
- *                               example: "123 Đường ABC, Quận 1, TP. HCM"
- *                             createdAt:
- *                               type: string
- *                               format: date-time
- *                               example: "2025-09-28T11:48:31.000Z"
- *                             updatedAt:
- *                               type: string
- *                               format: date-time
- *                               example: "2025-09-28T11:48:31.000Z"
- *                         model:
- *                           type: string
- *                           example: "Explorer"
- *                         company:
- *                           type: string
- *                           example: "Polestar"
- *       404:
- *         description: Vehicle not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "success"
- *                 message:
- *                   type: string
- *                   example: "Cannot find vehicle with this vin: 011HFDVNVUV302569"
+ *         description: Tìm thấy xe thành công.
  *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "Unauthorized"
+ *         description: Chưa xác thực.
  *       403:
- *         description: Forbidden - requires service_center_staff role
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "Access denied. Required role: service_center_staff"
+ *         description: Không có quyền.
+ *       404:
+ *         description: Không tìm thấy xe với số VIN đã cho.
  */
 router.get(
   "/:vin",
@@ -140,7 +134,7 @@ router.get(
   async (req, res, next) => {
     const vehicleController = req.container.resolve("vehicleController");
 
-    await vehicleController.findVehicleByVin(req, res, next);
+    await vehicleController.getVehicle(req, res, next);
   }
 );
 
@@ -148,7 +142,11 @@ router.get(
  * @swagger
  * /vehicles/{vin}:
  *   patch:
- *     summary: Register customer as vehicle owner
+ *     summary: Gán chủ sở hữu cho xe
+ *     description: >-
+ *       Đăng ký một khách hàng (mới hoặc đã có) làm chủ sở hữu cho một chiếc xe.
+ *       Nếu xe đã có chủ, hệ thống sẽ báo lỗi.
+ *       Yêu cầu quyền `service_center_staff`.
  *     tags: [Vehicle]
  *     security:
  *       - BearerAuth: []
@@ -156,201 +154,62 @@ router.get(
  *       - in: path
  *         name: vin
  *         required: true
- *         schema:
- *           type: string
- *         description: Vehicle Identification Number
- *         example: "011HFDVNVUV302569"
+ *         schema: { type: string }
+ *         description: Số nhận dạng xe (VIN).
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - dateOfManufacture
- *               - licensePlate
- *               - purchaseDate
+ *             oneOf:
+ *               - required: [customerId, dateOfManufacture, licensePlate, purchaseDate]
+ *               - required: [customer, dateOfManufacture, licensePlate, purchaseDate]
  *             properties:
  *               customerId:
  *                 type: string
  *                 format: uuid
- *                 description: Existing customer ID to register as owner (use this OR customer, not both)
- *                 example: "ccdd7f2c-7384-4f5e-bd07-30ee23955219"
+ *                 description: ID của khách hàng đã có trong hệ thống.
  *               customer:
  *                 type: object
- *                 description: New customer information (use this OR customerId, not both)
+ *                 description: Thông tin của khách hàng mới.
  *                 properties:
- *                   fullName:
- *                     type: string
- *                     example: "Nguyễn Thị C"
- *                   email:
- *                     type: string
- *                     format: email
- *                     example: "c.nguyen@email.com"
- *                   phone:
- *                     type: string
- *                     example: "0912345678"
- *                   address:
- *                     type: string
- *                     example: "123 Đường ABC, Quận 1, TP. HCM"
+ *                   fullName: { type: string }
+ *                   email: { type: string, format: email }
+ *                   phone: { type: string }
+ *                   address: { type: string }
  *               dateOfManufacture:
  *                 type: string
  *                 format: date-time
- *                 description: Date of manufacture
- *                 example: "2020-07-28T23:09:59.000Z"
+ *                 description: Ngày sản xuất xe.
  *               licensePlate:
  *                 type: string
- *                 description: Vehicle license plate
- *                 example: "51F-987.65"
+ *                 description: Biển số xe.
  *               purchaseDate:
  *                 type: string
  *                 format: date-time
- *                 description: Date of purchase (must be after dateOfManufacture)
- *                 example: "2025-10-25T00:00:00.000Z"
+ *                 description: Ngày khách hàng mua xe.
  *     responses:
  *       200:
- *         description: Owner registered successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "success"
- *                 data:
- *                   type: object
- *                   properties:
- *                     vehicle:
- *                       type: object
- *                       properties:
- *                         vin:
- *                           type: string
- *                           example: "011HFDVNVUV302569"
- *                         dateOfManufacture:
- *                           type: string
- *                           format: date-time
- *                           example: "2020-07-28T23:09:59.000Z"
- *                         placeOfManufacture:
- *                           type: string
- *                           example: "Vietnam"
- *                         licensePlate:
- *                           type: string
- *                           example: "51F-987.65"
- *                         purchaseDate:
- *                           type: string
- *                           format: date-time
- *                           example: "2025-10-25T00:00:00.000Z"
- *                         owner:
- *                           type: object
- *                           properties:
- *                             id:
- *                               type: string
- *                               format: uuid
- *                               example: "ccdd7f2c-7384-4f5e-bd07-30ee23955219"
- *                             fullName:
- *                               type: string
- *                               example: "Nguyễn Thị C"
- *                             email:
- *                               type: string
- *                               format: email
- *                               example: "c.nguyen@email.com"
- *                             phone:
- *                               type: string
- *                               example: "0912345678"
- *                             address:
- *                               type: string
- *                               example: "123 Đường ABC, Quận 1, TP. HCM"
- *                             createdAt:
- *                               type: string
- *                               format: date-time
- *                               example: "2025-09-25T10:37:01.000Z"
- *                             updatedAt:
- *                               type: string
- *                               format: date-time
- *                               example: "2025-09-25T10:37:01.000Z"
- *                         model:
- *                           type: string
- *                           example: "Explorer"
- *                         company:
- *                           type: string
- *                           example: "Polestar"
+ *         description: Gán chủ sở hữu thành công.
  *       400:
- *         description: Bad request - validation error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "licensePlate, purchaseDate, dateOfManufacture, customerId is required"
+ *         description: Dữ liệu không hợp lệ.
  *       404:
- *         description: Vehicle or customer not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "Vehicle or customer not found"
+ *         description: Không tìm thấy xe hoặc khách hàng.
  *       409:
- *         description: Conflict - vehicle already has owner
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "This vehicle has owner"
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "Unauthorized"
- *       403:
- *         description: Forbidden - requires service_center_staff role
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "Access denied. Required role: service_center_staff"
+ *         description: Xe này đã có chủ sở hữu.
  */
 router.patch(
   "/:vin",
   authentication,
   authorizationByRole(["service_center_staff"]),
   attachCompanyContext,
+  validate(assignOwnerToVehicleParamsSchema, "params"),
+  validate(assignOwnerToVehicleBodySchema, "body"),
 
   async (req, res, next) => {
     const vehicleController = req.container.resolve("vehicleController");
 
-    await vehicleController.registerCustomerForVehicle(req, res, next);
+    await vehicleController.assignOwnerToVehicle(req, res, next);
   }
 );
 
@@ -358,185 +217,49 @@ router.patch(
  * @swagger
  * /vehicles/{vin}/warranty:
  *   get:
- *     summary: Get vehicle warranty information
- *     tags: [Vehicle]
+ *     summary: Kiểm tra thông tin bảo hành của xe
+ *     description: >-
+ *       Lấy thông tin bảo hành chi tiết của xe dựa trên số VIN và số ODO hiện tại.
+ *       Có thể lọc theo các danh mục linh kiện cụ thể.
+ *       Yêu cầu quyền `service_center_staff`.
+ *     tags: [Vehicle, Warranty]
  *     security:
  *       - BearerAuth: []
  *     parameters:
  *       - in: path
  *         name: vin
  *         required: true
- *         schema:
- *           type: string
- *         description: Vehicle Identification Number
- *         example: "VIN-NEW-0"
+ *         schema: { type: string }
+ *         description: Số nhận dạng xe (VIN).
  *       - in: query
  *         name: odometer
  *         required: true
+ *         schema: { type: number }
+ *         description: Số ODO hiện tại của xe.
+ *       - in: query
+ *         name: categories
  *         schema:
- *           type: number
- *         description: Current odometer reading of the vehicle
- *         example: 123
+ *           type: array
+ *           items: { type: string }
+ *         style: form
+ *         explode: true
+ *         description: (Tùy chọn) Danh sách các danh mục linh kiện cần kiểm tra.
  *     responses:
  *       200:
- *         description: Vehicle warranty information retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "success"
- *                 data:
- *                   type: object
- *                   properties:
- *                     vehicle:
- *                       type: object
- *                       properties:
- *                         vin:
- *                           type: string
- *                           example: "VIN-NEW-0"
- *                         purchaseDate:
- *                           type: string
- *                           format: date-time
- *                           example: "2025-10-25T00:00:00.000Z"
- *                         currentOdometer:
- *                           type: number
- *                           example: 123
- *                         generalWarranty:
- *                           type: object
- *                           properties:
- *                             policy:
- *                               type: object
- *                               properties:
- *                                 durationMonths:
- *                                   type: integer
- *                                   example: 36
- *                                 mileageLimit:
- *                                   type: integer
- *                                   example: 100000
- *                             duration:
- *                               type: object
- *                               properties:
- *                                 status:
- *                                   type: boolean
- *                                   example: true
- *                                 endDate:
- *                                   type: string
- *                                   format: date-time
- *                                   example: "2028-10-25T00:00:00.000Z"
- *                                 remainingDays:
- *                                   type: integer
- *                                   example: 1095
- *                             mileage:
- *                               type: object
- *                               properties:
- *                                 status:
- *                                   type: string
- *                                   enum: [ACTIVE, INACTIVE]
- *                                   example: "ACTIVE"
- *                                 remainingMileage:
- *                                   type: integer
- *                                   example: 99877
- *                         componentWarranties:
- *                           type: array
- *                           items:
- *                             type: object
- *                             properties:
- *                               componentName:
- *                                 type: string
- *                                 example: "Battery Pack"
- *                               policy:
- *                                 type: object
- *                                 properties:
- *                                   durationMonths:
- *                                     type: integer
- *                                     example: 96
- *                                   mileageLimit:
- *                                     type: integer
- *                                     example: 160000
- *                               duration:
- *                                 type: object
- *                                 properties:
- *                                   status:
- *                                     type: string
- *                                     enum: [ACTIVE, INACTIVE]
- *                                     example: "ACTIVE"
- *                                   endDate:
- *                                     type: string
- *                                     format: date-time
- *                                     example: "2033-10-25T00:00:00.000Z"
- *                                   remainingDays:
- *                                     type: integer
- *                                     example: 2920
- *                               mileage:
- *                                 type: object
- *                                 properties:
- *                                   status:
- *                                     type: string
- *                                     enum: [ACTIVE, INACTIVE]
- *                                     example: "ACTIVE"
- *                                   remainingMileage:
- *                                     type: integer
- *                                     example: 159877
+ *         description: Lấy thông tin bảo hành thành công.
  *       400:
- *         description: Bad request - Missing odometer parameter
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "vin and companyId is required"
+ *         description: Thiếu tham số `odometer`.
  *       404:
- *         description: Vehicle not found or vehicle doesn't have owner
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "success"
- *                 message:
- *                   example: "Cannot check warranty for vehicle with this VIN: VIN-NEW-0 because this vehicle don't have owner"
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "Unauthorized"
- *       403:
- *         description: Forbidden - requires service_center_staff role
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "Access denied. Required role: service_center_staff"
+ *         description: Không tìm thấy xe hoặc xe chưa có chủ sở hữu.
  */
 router.get(
   "/:vin/warranty",
   authentication,
   authorizationByRole(["service_center_staff"]),
   attachCompanyContext,
+  validate(findVehicleByVinWithWarrantyParamsSchema, "params"),
+  validate(findVehicleByVinWithWarrantyQuerySchema, "query"),
+
   async (req, res, next) => {
     const vehicleController = req.container.resolve("vehicleController");
 
@@ -546,205 +269,154 @@ router.get(
 
 /**
  * @swagger
- * /vehicle/{vin}/warranty/preview:
+ * /vehicles/{vin}/warranty/preview:
  *   post:
- *     summary: Preview vehicle warranty information with custom purchase date
- *     description: Get warranty information preview for a vehicle with a specified purchase date and odometer reading
- *     tags: [Vehicle]
+ *     summary: Xem trước thông tin bảo hành của xe
+ *     description: >-
+ *       Xem trước thông tin bảo hành của xe với ngày mua và số ODO tùy chỉnh.
+ *       Hữu ích để tư vấn cho khách hàng trước khi chính thức đăng ký.
+ *       Yêu cầu quyền `service_center_staff`.
+ *     tags: [Vehicle, Warranty]
  *     security:
  *       - BearerAuth: []
  *     parameters:
  *       - in: path
  *         name: vin
  *         required: true
- *         schema:
- *           type: string
- *         description: Vehicle Identification Number
- *         example: "VIN-NEW-0"
+ *         schema: { type: string }
+ *         description: Số nhận dạng xe (VIN).
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - odometer
- *               - purchaseDate
+ *             required: [odometer, purchaseDate]
  *             properties:
  *               odometer:
  *                 type: number
  *                 minimum: 0
- *                 description: Current odometer reading of the vehicle
- *                 example: 123
+ *                 description: Số ODO giả định.
  *               purchaseDate:
  *                 type: string
  *                 format: date-time
- *                 description: Purchase date to preview warranty (must be after date of manufacture and not in future)
- *                 example: "2025-10-25T00:00:00.000Z"
+ *                 description: Ngày mua giả định.
+ *               categories:
+ *                 type: array
+ *                 items: { type: string }
+ *                 description: (Tùy chọn) Danh sách các danh mục linh kiện cần xem trước.
  *     responses:
  *       200:
- *         description: Vehicle warranty preview retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "success"
- *                 data:
- *                   type: object
- *                   properties:
- *                     vehicle:
- *                       type: object
- *                       properties:
- *                         vin:
- *                           type: string
- *                           example: "VIN-NEW-0"
- *                         purchaseDate:
- *                           type: string
- *                           format: date-time
- *                           example: "2025-10-25T00:00:00.000Z"
- *                         currentOdometer:
- *                           type: number
- *                           example: 123
- *                         generalWarranty:
- *                           type: object
- *                           properties:
- *                             policy:
- *                               type: object
- *                               properties:
- *                                 durationMonths:
- *                                   type: integer
- *                                   example: 36
- *                                 mileageLimit:
- *                                   type: integer
- *                                   example: 100000
- *                             duration:
- *                               type: object
- *                               properties:
- *                                 status:
- *                                   type: boolean
- *                                   example: true
- *                                 endDate:
- *                                   type: string
- *                                   format: date-time
- *                                   example: "2028-10-25T00:00:00.000Z"
- *                                 remainingDays:
- *                                   type: integer
- *                                   example: 1095
- *                             mileage:
- *                               type: object
- *                               properties:
- *                                 status:
- *                                   type: string
- *                                   enum: [ACTIVE, INACTIVE]
- *                                   example: "ACTIVE"
- *                                 remainingMileage:
- *                                   type: integer
- *                                   example: 99877
- *                         componentWarranties:
- *                           type: array
- *                           items:
- *                             type: object
- *                             properties:
- *                               componentName:
- *                                 type: string
- *                                 example: "Battery Pack"
- *                               policy:
- *                                 type: object
- *                                 properties:
- *                                   durationMonths:
- *                                     type: integer
- *                                     example: 96
- *                                   mileageLimit:
- *                                     type: integer
- *                                     example: 160000
- *                               duration:
- *                                 type: object
- *                                 properties:
- *                                   status:
- *                                     type: string
- *                                     enum: [ACTIVE, INACTIVE]
- *                                     example: "ACTIVE"
- *                                   endDate:
- *                                     type: string
- *                                     format: date-time
- *                                     example: "2033-10-25T00:00:00.000Z"
- *                                   remainingDays:
- *                                     type: integer
- *                                     example: 2920
- *                               mileage:
- *                                 type: object
- *                                 properties:
- *                                   status:
- *                                     type: string
- *                                     enum: [ACTIVE, INACTIVE]
- *                                     example: "ACTIVE"
- *                                   remainingMileage:
- *                                     type: integer
- *                                     example: 159877
+ *         description: Lấy thông tin xem trước thành công.
  *       400:
- *         description: Bad request - validation error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "vin, companyId, purchaseDate and odometer are required"
+ *         description: Dữ liệu không hợp lệ.
  *       404:
- *         description: Vehicle not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "success"
- *                 message:
- *                   example: "Cannot find vehicle with this VIN: VIN-NEW-0"
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "Unauthorized"
- *       403:
- *         description: Forbidden - requires service_center_staff role
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "Access denied. Required role: service_center_staff"
+ *         description: Không tìm thấy xe.
  */
 router.post(
   "/:vin/warranty/preview",
   authentication,
   authorizationByRole(["service_center_staff"]),
   attachCompanyContext,
+  validate(findVehicleByVinWithWarrantyPreviewParamsSchema, "params"),
+  validate(findVehicleByVinWithWarrantyPreviewBodySchema, "body"),
+
   async (req, res, next) => {
     const vehicleController = req.container.resolve("vehicleController");
 
     await vehicleController.findVehicleByVinWithWarrantyPreview(req, res, next);
+  }
+);
+
+/**
+ * @swagger
+ * /vehicles/{vin}/components:
+ *   get:
+ *     summary: Lấy danh sách linh kiện đã lắp trên xe
+ *     description: >-
+ *       Lấy danh sách tất cả các linh kiện đang được lắp đặt hoặc đã từng được lắp đặt trên xe,
+ *       kèm theo thông tin bảo hành của chúng.
+ *       Yêu cầu các quyền liên quan đến trung tâm dịch vụ.
+ *     tags: [Vehicle, Component]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: vin
+ *         required: true
+ *         schema: { type: string }
+ *         description: Số nhận dạng xe (VIN).
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [INSTALLED, REMOVED, DEFECTIVE, ALL], default: INSTALLED }
+ *         description: Lọc linh kiện theo trạng thái.
+ *     responses:
+ *       200:
+ *         description: Lấy danh sách linh kiện thành công.
+ *       404:
+ *         description: Không tìm thấy xe.
+ */
+router.get(
+  "/:vin/components",
+  authentication,
+  authorizationByRole([
+    "service_center_staff",
+    "service_center_manager",
+    "service_center_technician",
+  ]),
+  attachCompanyContext,
+  async (req, res, next) => {
+    const vehicleController = req.container.resolve("vehicleController");
+    await vehicleController.getVehicleComponents(req, res, next);
+  }
+);
+
+/**
+ * @swagger
+ * /vehicles/{vin}/service-history:
+ *   get:
+ *     summary: Lấy lịch sử dịch vụ và bảo hành của xe
+ *     description: >-
+ *       Lấy toàn bộ lịch sử dịch vụ của xe, bao gồm tất cả các hồ sơ xử lý,
+ *       các trường hợp bảo hành, và các sửa chữa đã thực hiện.
+ *       Yêu cầu các quyền liên quan đến trung tâm dịch vụ.
+ *     tags: [Vehicle, Service History]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: vin
+ *         required: true
+ *         schema: { type: string }
+ *         description: Số nhận dạng xe (VIN).
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, minimum: 1, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [CHECKED_IN, IN_DIAGNOSIS, WAITING_FOR_PARTS, PAID, IN_REPAIR, COMPLETED, CANCELLED] }
+ *         description: Lọc theo trạng thái của hồ sơ xử lý.
+ *     responses:
+ *       200:
+ *         description: Lấy lịch sử dịch vụ thành công.
+ *       404:
+ *         description: Không tìm thấy xe.
+ */
+router.get(
+  "/:vin/service-history",
+  authentication,
+  authorizationByRole([
+    "service_center_staff",
+    "service_center_manager",
+    "service_center_technician",
+  ]),
+  attachCompanyContext,
+  async (req, res, next) => {
+    const vehicleController = req.container.resolve("vehicleController");
+    await vehicleController.getServiceHistory(req, res, next);
   }
 );
 

@@ -2,11 +2,16 @@ import app from "./app.js";
 import db from "./src/models/index.cjs";
 import http from "http";
 import { configDotenv } from "dotenv";
-import { initializeScheduleGeneration } from "./src/scheduler/scheduleGenerator.js";
+import { initializeSocket } from "./src/socket/socket.js";
+import { setupContainer } from "./container.js";
 configDotenv();
 
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 3000;
 const server = http.createServer(app);
+
+const { io, notificationNamespace, chatNamespace } = initializeSocket(server);
+
+setupContainer({ io, notificationNamespace, chatNamespace });
 
 db.sequelize
   .authenticate()
@@ -15,8 +20,7 @@ db.sequelize
   // .sync({ force: true })
   .then(() => {
     console.log("Connect DB succesfull");
-    server.listen(PORT, () => {
-      initializeScheduleGeneration();
+    server.listen(PORT || 3000, () => {
       console.log(`Server is running on ${PORT}`);
     });
   })

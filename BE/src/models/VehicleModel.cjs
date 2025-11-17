@@ -8,11 +8,20 @@ module.exports = (sequelize, DataTypes) => {
         primaryKey: true,
         field: "vehicle_model_id",
       },
+
       vehicleModelName: {
         type: DataTypes.TEXT,
         allowNull: false,
         field: "vehicle_model_name",
       },
+
+      sku: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true,
+        field: "sku",
+      },
+
       yearOfLaunch: {
         type: DataTypes.DATE,
         allowNull: false,

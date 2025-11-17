@@ -1,65 +1,107 @@
 module.exports = (sequelize, DataTypes) => {
-  const CaseLine = sequelize.define("CaseLine", {
-    id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
-      primaryKey: true,
-      field: "id",
-    },
+  const CaseLine = sequelize.define(
+    "CaseLine",
+    {
+      id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true,
+        field: "id",
+      },
 
-    guaranteeCaseId: {
-      type: DataTypes.UUID,
-      allowNull: false,
-      field: "guarantee_case_id",
-    },
+      guaranteeCaseId: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        field: "guarantee_case_id",
+      },
 
-    techId: { type: DataTypes.UUID, allowNull: false, field: "tech_id" },
+      diagnosticTechId: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        field: "diagnostic_tech_id",
+      },
 
-    diagnosisText: {
-      type: DataTypes.TEXT,
-      allowNull: false,
-      field: "diagnosis_text",
-    },
+      repairTechId: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        field: "repair_tech_id",
+      },
 
-    correctionText: {
-      type: DataTypes.TEXT,
-      allowNull: false,
-      field: "correction_text",
-    },
+      diagnosisText: {
+        type: DataTypes.TEXT,
+        allowNull: false,
+        field: "diagnosis_text",
+      },
 
-    warrantyStatus: {
-      type: DataTypes.ENUM("PENDING_APPROVAL", "ELIGIBLE", "INELIGIBLE"),
-      allowNull: false,
-      defaultValue: "PENDING_APPROVAL",
-      field: "warranty_status",
-    },
+      correctionText: {
+        type: DataTypes.TEXT,
+        allowNull: false,
+        field: "correction_text",
+      },
 
-    componentId: {
-      type: DataTypes.UUID,
-      allowNull: true,
-      field: "component_id",
-    },
+      warrantyStatus: {
+        type: DataTypes.ENUM("ELIGIBLE", "INELIGIBLE"),
+        field: "warranty_status",
+      },
 
-    quantity: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 1,
-      field: "quantity",
-    },
+      typeComponentId: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        field: "type_component_id",
+      },
 
-    status: {
-      type: DataTypes.ENUM(
-        "pending_approval",
-        "waiting_for_parts",
-        "in_progress",
-        "completed",
-        "cancelled"
-      ),
-      allowNull: false,
-      defaultValue: "pending_approval",
-      field: "status",
+      quantity: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 1,
+        field: "quantity",
+      },
+
+      status: {
+        type: DataTypes.ENUM(
+          "DRAFT",
+          "PENDING_APPROVAL",
+          "CUSTOMER_APPROVED",
+          "REJECTED_BY_OUT_OF_WARRANTY",
+          "REJECTED_BY_TECH",
+          "REJECTED_BY_CUSTOMER",
+          "WAITING_FOR_PARTS",
+          "REJECTED_BY_OEM",
+          "READY_FOR_REPAIR",
+          "PARTS_AVAILABLE",
+          "IN_REPAIR",
+          "COMPLETED",
+          "CANCELLED"
+        ),
+        allowNull: false,
+        defaultValue: "DRAFT",
+        field: "status",
+      },
+
+      rejectionReason: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        field: "rejection_reason",
+      },
+
+      evidenceImageUrls: {
+        type: DataTypes.JSON,
+        allowNull: true,
+        defaultValue: [],
+        field: "evidence_image_urls",
+      },
+
+      installationImageUrls: {
+        type: DataTypes.JSON,
+        allowNull: true,
+        defaultValue: [],
+        field: "installation_image_urls",
+      },
     },
-  });
+    {
+      tableName: "case_line",
+    }
+  );
 
   CaseLine.associate = function (models) {
     CaseLine.belongsTo(models.GuaranteeCase, {
@@ -67,24 +109,34 @@ module.exports = (sequelize, DataTypes) => {
       as: "guaranteeCase",
     });
 
-    CaseLine.belongsTo(models.User, {
-      foreignKey: "tech_id",
-      as: "ownerTech",
-    });
-
     CaseLine.belongsTo(models.TypeComponent, {
-      foreignKey: "component_id",
+      foreignKey: "type_component_id",
       as: "typeComponent",
     });
 
-    // CaseLine.hasMany(models.TaskAssignment, {
-    //   foreignKey: "case_line_id",
-    //   as: "assignments",
-    // });
+    CaseLine.hasMany(models.TaskAssignment, {
+      foreignKey: "case_line_id",
+      as: "assignments",
+    });
+
+    CaseLine.belongsTo(models.User, {
+      foreignKey: "diagnostic_tech_id",
+      as: "diagnosticTechnician",
+    });
+
+    CaseLine.belongsTo(models.User, {
+      foreignKey: "repair_tech_id",
+      as: "repairTechnician",
+    });
 
     CaseLine.hasMany(models.ComponentReservation, {
       foreignKey: "case_line_id",
       as: "reservations",
+    });
+
+    CaseLine.belongsTo(models.RecallCampaign, {
+      foreignKey: "recall_campaign_id",
+      as: "recallCampaign",
     });
   };
 
