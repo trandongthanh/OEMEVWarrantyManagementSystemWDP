@@ -261,8 +261,6 @@ export const warehouseService = {
   getWarehouses,
   getWarehouseComponents,
   getComponents,
-  allocateComponent,
-  transferComponent,
 };
 
 export default warehouseService;

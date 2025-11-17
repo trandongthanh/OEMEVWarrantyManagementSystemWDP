@@ -36,6 +36,7 @@ interface CaseLine {
   warrantyStatus: string;
   status: string;
   evidenceImageUrls?: string[];
+  rejectionReason?: string;
 }
 
 export function CaseLineDetailModal({
@@ -261,6 +262,21 @@ export function CaseLineDetailModal({
       },
       REJECTED_BY_CUSTOMER: {
         label: "Rejected by Customer",
+        className: "bg-red-100 text-red-800",
+        icon: XCircle,
+      },
+      REJECTED_BY_TECH: {
+        label: "Rejected by Tech",
+        className: "bg-orange-100 text-orange-800",
+        icon: XCircle,
+      },
+      REJECTED_BY_OUT_OF_WARRANTY: {
+        label: "Out of Warranty",
+        className: "bg-gray-100 text-gray-800",
+        icon: AlertCircle,
+      },
+      REJECTED_BY_OEM: {
+        label: "Rejected by OEM",
         className: "bg-red-100 text-red-800",
         icon: XCircle,
       },
@@ -601,6 +617,27 @@ export function CaseLineDetailModal({
                             {caseLine.correctionText}
                           </p>
                         </div>
+
+                        {/* Rejection Reason - Show for all rejection statuses */}
+                        {(caseLine.status?.includes("REJECTED") ||
+                          caseLine.warrantyStatus === "INELIGIBLE") && (
+                          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                            <div className="flex items-start gap-2">
+                              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                              <div className="flex-1">
+                                <h5 className="text-sm font-semibold text-red-900 mb-1">
+                                  Rejection Reason
+                                </h5>
+                                <p className="text-sm text-red-700 leading-relaxed">
+                                  {caseLineDetails.get(caseLine.id)
+                                    ?.rejectionReason ||
+                                    caseLine.rejectionReason ||
+                                    "No reason provided"}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Workflow Timeline */}
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">

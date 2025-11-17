@@ -3,10 +3,11 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
-import { Home, TrendingDown, FileText, BarChart3 } from "lucide-react";
+import { Home, UserPlus } from "lucide-react";
 import { authService } from "@/services";
 import { useRoleProtection } from "@/hooks/useRoleProtection";
 import { Sidebar, DashboardHeader } from "@/components/dashboard";
+import { AdminCreateUserAccount  } from "@/components/dashboard/admindashboard";
 
 interface CurrentUser {
   userId: string;
@@ -32,16 +33,14 @@ export default function AdminDashboard() {
 
   const navItems = [
     { id: "dashboard", icon: Home, label: "Dashboard" },
-    {
-      id: "problematic-models",
-      icon: TrendingDown,
-      label: "Problematic Models",
-    },
-    { id: "analytics", icon: BarChart3, label: "Analytics" },
+    { id: "create-user", icon: UserPlus, label: "Create User Account" },
   ];
 
   const renderContent = () => {
     switch (activeNav) {
+      case "create-user":
+        return <AdminCreateUserAccount />;
+
       case "dashboard":
         return (
           <div className="p-8">
@@ -53,67 +52,33 @@ export default function AdminDashboard() {
                 Welcome back, EMV Administrator
               </p>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-3 bg-blue-100 rounded-xl">
-                      <BarChart3 className="w-6 h-6 text-blue-600" />
+              <div className="grid grid-cols-1 gap-6 max-w-2xl">
+                <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="p-4 bg-blue-50 rounded-xl">
+                      <UserPlus className="w-8 h-8 text-blue-600" />
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      System Analytics
-                    </h3>
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    View comprehensive system statistics and performance metrics
-                  </p>
-                </div>
-
-                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-3 bg-red-100 rounded-xl">
-                      <TrendingDown className="w-6 h-6 text-red-600" />
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-900">
+                        User Management
+                      </h3>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Create and manage user accounts across the system
+                      </p>
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      Vehicle Issues
-                    </h3>
                   </div>
-                  <p className="text-sm text-gray-600">
-                    Track and analyze problematic vehicle models
-                  </p>
-                </div>
-
-                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-3 bg-green-100 rounded-xl">
-                      <FileText className="w-6 h-6 text-green-600" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      Reports
-                    </h3>
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    Generate and export detailed system reports
-                  </p>
+                  <button
+                    onClick={() => setActiveNav("create-user")}
+                    className="mt-4 w-full px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg transition-colors"
+                  >
+                    Create User Account
+                  </button>
                 </div>
               </div>
             </div>
           </div>
         );
 
-      case "analytics":
-        return (
-          <div className="p-8">
-            <div className="max-w-7xl mx-auto">
-              <h1 className="text-2xl font-bold text-gray-900 mb-4">
-                System Analytics
-              </h1>
-              <div className="bg-white p-12 rounded-2xl border border-gray-200 text-center">
-                <BarChart3 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500">Analytics features coming soon</p>
-              </div>
-            </div>
-          </div>
-        );
       default:
         return null;
     }
@@ -127,7 +92,7 @@ export default function AdminDashboard() {
         activeNav={activeNav}
         onNavChange={setActiveNav}
         navItems={navItems}
-        brandIcon={FileText}
+        brandIcon={UserPlus}
         brandName="EMV Admin"
         brandSubtitle="System Administration"
         currentUser={currentUser}

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Car, Plus, Loader2 } from "lucide-react";
 import vehicleModelService from "@/services/vehicleModelService";
+import { toast } from "sonner";
 
 /**
  * Vehicle Model Management Component
@@ -39,20 +40,20 @@ function CreateVehicleModelModal({
       !formData.sku.trim() ||
       !formData.vehicleCompanyId.trim()
     ) {
-      alert("Please fill in all required fields");
+      toast.error("Please fill in all required fields");
       return;
     }
 
     try {
       setLoading(true);
       await vehicleModelService.createVehicleModel(formData);
-      alert("Vehicle model created successfully!");
+      toast.success("Vehicle model created successfully!");
       onSuccess();
       onClose();
       setFormData({ vehicleModelName: "", sku: "", vehicleCompanyId: "" });
     } catch (error) {
       console.error("Error creating vehicle model:", error);
-      alert("Failed to create vehicle model");
+      toast.error("Failed to create vehicle model");
     } finally {
       setLoading(false);
     }

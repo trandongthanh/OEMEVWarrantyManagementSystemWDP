@@ -23,6 +23,7 @@ import {
 } from "@/services/chatService";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { decodeFileFromContent } from "@/lib/fileMessageUtils";
+import { toast } from "sonner";
 
 // Lazy-load socket functions to prevent chunk 153 bundling
 const getSocketFunctions = async () => {
@@ -270,17 +271,14 @@ export default function StaffChatDashboard({
     });
 
     // Listen for typing indicator
-    socket.on("userTyping", (data: { conversationId: string }) => {
-      // Only process typing for the current active conversation
-      if (data.conversationId === activeConversation.conversationId) {
-        setIsTyping(true);
-        if (typingTimeoutRef.current) {
-          clearTimeout(typingTimeoutRef.current);
-        }
-        typingTimeoutRef.current = setTimeout(() => {
-          setIsTyping(false);
-        }, 3000);
+    socket.on("userTyping", () => {
+      setIsTyping(true);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
       }
+      typingTimeoutRef.current = setTimeout(() => {
+        setIsTyping(false);
+      }, 3000);
     });
 
     // Listen for guest leaving
@@ -329,9 +327,12 @@ export default function StaffChatDashboard({
     try {
       const msgs = await getConversationMessages(conversationId);
       // Normalize senderType to lowercase for frontend consistency
+      // Backend sends createdAt but frontend expects sentAt
       const normalizedMsgs = msgs.map((msg) => ({
         ...msg,
         senderType: msg.senderType.toLowerCase() as "guest" | "staff",
+        sentAt:
+          (msg as unknown as { createdAt?: string }).createdAt || msg.sentAt,
       }));
       setMessages(normalizedMsgs);
     } catch (err) {
@@ -373,7 +374,7 @@ export default function StaffChatDashboard({
     if (!socket || !socket.connected) {
       console.error("[Staff] Socket not connected! Reinitializing...");
       initializeChatSocket(authToken || undefined).catch(console.error);
-      alert("Connection lost. Please try again in a moment.");
+      toast.warning("Connection lost. Please try again in a moment.");
       return;
     }
 
@@ -408,7 +409,7 @@ export default function StaffChatDashboard({
           console.log("[Staff] Message send response:", response);
           if (!response.success) {
             console.error("[Staff] Failed to send message:", response.error);
-            alert("Failed to send message: " + response.error);
+            toast.error("Failed to send message: " + response.error);
           }
         }
       );
@@ -459,7 +460,7 @@ export default function StaffChatDashboard({
     if (file) {
       // Check file size (limit to 10MB)
       if (file.size > 10 * 1024 * 1024) {
-        alert("File size must be less than 10MB");
+        toast.error("File size must be less than 10MB");
         return;
       }
       setSelectedFile(file);
@@ -910,35 +911,43 @@ export default function StaffChatDashboard({
                     exit={{ opacity: 0 }}
                     className="flex justify-start"
                   >
-                    <div className="bg-white border border-gray-200 rounded-2xl px-5 py-3 shadow-sm">
-                      <div className="flex gap-1.5">
-                        <motion.div
-                          animate={{ y: [0, -5, 0] }}
-                          transition={{
-                            repeat: Infinity,
-                            duration: 0.6,
-                            delay: 0,
-                          }}
-                          className="w-2 h-2 bg-gray-400 rounded-full"
-                        />
-                        <motion.div
-                          animate={{ y: [0, -5, 0] }}
-                          transition={{
-                            repeat: Infinity,
-                            duration: 0.6,
-                            delay: 0.2,
-                          }}
-                          className="w-2 h-2 bg-gray-400 rounded-full"
-                        />
-                        <motion.div
-                          animate={{ y: [0, -5, 0] }}
-                          transition={{
-                            repeat: Infinity,
-                            duration: 0.6,
-                            delay: 0.4,
-                          }}
-                          className="w-2 h-2 bg-gray-400 rounded-full"
-                        />
+                    <div className="inline-flex flex-col gap-1">
+                      <p className="text-xs text-gray-500 font-medium whitespace-nowrap">
+                        Guest is typing...
+                      </p>
+                      <div className="bg-white border border-gray-200 rounded-2xl px-5 py-3 shadow-sm w-fit">
+                        <div className="flex gap-1.5">
+                          <motion.div
+                            key="typing-dot-1"
+                            animate={{ y: [0, -5, 0] }}
+                            transition={{
+                              repeat: Infinity,
+                              duration: 0.6,
+                              delay: 0,
+                            }}
+                            className="w-2 h-2 bg-gray-400 rounded-full"
+                          />
+                          <motion.div
+                            key="typing-dot-2"
+                            animate={{ y: [0, -5, 0] }}
+                            transition={{
+                              repeat: Infinity,
+                              duration: 0.6,
+                              delay: 0.2,
+                            }}
+                            className="w-2 h-2 bg-gray-400 rounded-full"
+                          />
+                          <motion.div
+                            key="typing-dot-3"
+                            animate={{ y: [0, -5, 0] }}
+                            transition={{
+                              repeat: Infinity,
+                              duration: 0.6,
+                              delay: 0.4,
+                            }}
+                            className="w-2 h-2 bg-gray-400 rounded-full"
+                          />
+                        </div>
                       </div>
                     </div>
                   </motion.div>

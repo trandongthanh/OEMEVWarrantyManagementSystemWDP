@@ -13,13 +13,18 @@ import {
   ClipboardList,
   Filter,
   Plus,
+  Upload,
 } from "lucide-react";
 
 interface AdjustmentListProps {
   onCreateClick?: () => void;
+  onBulkUploadClick?: () => void;
 }
 
-export default function AdjustmentList({ onCreateClick }: AdjustmentListProps) {
+export default function AdjustmentList({
+  onCreateClick,
+  onBulkUploadClick,
+}: AdjustmentListProps) {
   const [loading, setLoading] = useState(true);
 
   // ✅ LIST ADJUSTMENTS
@@ -122,15 +127,26 @@ export default function AdjustmentList({ onCreateClick }: AdjustmentListProps) {
                   View inventory adjustment records and details
                 </p>
               </div>
-              {onCreateClick && (
-                <button
-                  onClick={onCreateClick}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
-                >
-                  <Plus className="w-5 h-5" />
-                  Create Adjustment
-                </button>
-              )}
+              <div className="flex items-center gap-3">
+                {onBulkUploadClick && (
+                  <button
+                    onClick={onBulkUploadClick}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium shadow-sm"
+                  >
+                    <Upload className="w-5 h-5" />
+                    Bulk Import
+                  </button>
+                )}
+                {onCreateClick && (
+                  <button
+                    onClick={onCreateClick}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
+                  >
+                    <Plus className="w-5 h-5" />
+                    Create Adjustment
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 

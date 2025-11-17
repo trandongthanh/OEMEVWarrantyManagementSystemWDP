@@ -5,6 +5,7 @@ import inventoryService, {
   CreateAdjustmentRequest,
   StockItemFromAPI,
 } from "@/services/inventoryService";
+import { toast } from "sonner";
 
 export default function CreateAdjustmentModal({
   isOpen,
@@ -75,7 +76,10 @@ export default function CreateAdjustmentModal({
 
   const submit = async () => {
     const error = validate();
-    if (error) return alert(error);
+    if (error) {
+      toast.error(error);
+      return;
+    }
 
     try {
       setLoading(true);
@@ -106,11 +110,11 @@ export default function CreateAdjustmentModal({
 
       await inventoryService.createAdjustment(body);
 
-      alert("Adjustment created successfully!");
+      toast.success("Adjustment created successfully!");
       onClose();
     } catch (err) {
       console.error("Create adjustment failed:", err);
-      alert("Failed to create adjustment.");
+      toast.error("Failed to create adjustment.");
     } finally {
       setLoading(false);
     }

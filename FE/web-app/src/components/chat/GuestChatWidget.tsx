@@ -559,16 +559,94 @@ export default function GuestChatWidget({
     setConnectionStatus(conv.status === "ACTIVE" ? "active" : "closed");
     setResumeMode(false);
 
+    // Save session
+    saveGuestChatSession({
+      conversationId: conv.conversationId,
+      email: guestEmail.trim() || undefined,
+      status: conv.status === "ACTIVE" ? "active" : "closed",
+    });
+
     // Initialize socket
     await initializeSocket();
 
     // Load messages
     await loadMessages();
 
-    // Join room if active
+    // Set up socket listeners for active conversations
     if (conv.status === "ACTIVE" && conv.guest?.guestId) {
-      const { joinChatRoom } = await getSocketFunctions();
-      joinChatRoom(conv.conversationId, conv.guest.guestId, "guest");
+      const { getChatSocket, joinChatRoom } = await getSocketFunctions();
+      const socket = getChatSocket();
+
+      if (socket) {
+        console.log(
+          "[Guest] Setting up socket listeners for selected conversation"
+        );
+
+        // Clean up any existing listeners
+        socket.off("newMessage");
+        socket.off("userTyping");
+        socket.off("chatAccepted");
+        socket.off("conversationClosed");
+
+        // Listen for new messages
+        socket.on("newMessage", (data: { newMessage: Message }) => {
+          const normalizedMessage = {
+            ...data.newMessage,
+            senderType: data.newMessage.senderType.toLowerCase() as
+              | "guest"
+              | "staff",
+            sentAt:
+              (data.newMessage as unknown as { createdAt?: string })
+                .createdAt || data.newMessage.sentAt,
+          };
+          setMessages((prev) => [...prev, normalizedMessage]);
+          setIsTyping(false);
+        });
+
+        // Listen for typing indicator
+        socket.on("userTyping", () => {
+          setIsTyping(true);
+          if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+          }
+          typingTimeoutRef.current = setTimeout(() => {
+            setIsTyping(false);
+          }, 3000);
+        });
+
+        // Listen for conversation closed
+        socket.on(
+          "conversationClosed",
+          (data: { conversationId: string; closedBy: string }) => {
+            if (data.conversationId === conv.conversationId) {
+              setConnectionStatus("closed");
+              saveGuestChatSession({
+                conversationId: conv.conversationId,
+                email: guestEmail.trim() || undefined,
+                status: "closed",
+              });
+              setMessages((prev) => [
+                ...prev,
+                {
+                  messageId: `system-closed-${Date.now()}`,
+                  content: "This conversation has been closed by staff.",
+                  senderId: "system",
+                  senderType: "staff",
+                  senderName: "System",
+                  sentAt: new Date().toISOString(),
+                  isRead: true,
+                },
+              ]);
+            }
+          }
+        );
+
+        // Join the conversation room
+        await joinChatRoom(conv.conversationId, conv.guest.guestId, "guest");
+        console.log(
+          `[Guest] Joined selected conversation room: ${conv.conversationId}`
+        );
+      }
     }
   };
 
@@ -1028,35 +1106,43 @@ export default function GuestChatWidget({
                         exit={{ opacity: 0, y: -10 }}
                         className="flex justify-start"
                       >
-                        <div className="bg-white/5 border border-white/10 rounded-2xl px-5 py-4 backdrop-blur-sm">
-                          <div className="flex gap-1.5">
-                            <motion.div
-                              animate={{ y: [0, -6, 0] }}
-                              transition={{
-                                repeat: Infinity,
-                                duration: 0.6,
-                                delay: 0,
-                              }}
-                              className="w-2 h-2 bg-gray-400 rounded-full"
-                            />
-                            <motion.div
-                              animate={{ y: [0, -6, 0] }}
-                              transition={{
-                                repeat: Infinity,
-                                duration: 0.6,
-                                delay: 0.2,
-                              }}
-                              className="w-2 h-2 bg-gray-400 rounded-full"
-                            />
-                            <motion.div
-                              animate={{ y: [0, -6, 0] }}
-                              transition={{
-                                repeat: Infinity,
-                                duration: 0.6,
-                                delay: 0.4,
-                              }}
-                              className="w-2 h-2 bg-gray-400 rounded-full"
-                            />
+                        <div className="inline-flex flex-col gap-1">
+                          <p className="text-xs text-gray-400 font-medium whitespace-nowrap">
+                            Support is typing...
+                          </p>
+                          <div className="bg-white/5 border border-white/10 rounded-2xl px-5 py-4 backdrop-blur-sm w-fit">
+                            <div className="flex gap-1.5">
+                              <motion.div
+                                key="typing-dot-1"
+                                animate={{ y: [0, -6, 0] }}
+                                transition={{
+                                  repeat: Infinity,
+                                  duration: 0.6,
+                                  delay: 0,
+                                }}
+                                className="w-2 h-2 bg-gray-400 rounded-full"
+                              />
+                              <motion.div
+                                key="typing-dot-2"
+                                animate={{ y: [0, -6, 0] }}
+                                transition={{
+                                  repeat: Infinity,
+                                  duration: 0.6,
+                                  delay: 0.2,
+                                }}
+                                className="w-2 h-2 bg-gray-400 rounded-full"
+                              />
+                              <motion.div
+                                key="typing-dot-3"
+                                animate={{ y: [0, -6, 0] }}
+                                transition={{
+                                  repeat: Infinity,
+                                  duration: 0.6,
+                                  delay: 0.4,
+                                }}
+                                className="w-2 h-2 bg-gray-400 rounded-full"
+                              />
+                            </div>
                           </div>
                         </div>
                       </motion.div>

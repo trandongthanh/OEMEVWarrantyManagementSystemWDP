@@ -18,11 +18,11 @@ import { ComponentReturnList } from "@/components/dashboard/partscoordinatordash
 import { StockHistoryList } from "@/components/dashboard/partscoordinatordashboard/StockHistoryList";
 import { AdjustmentList } from "@/components/dashboard/partscoordinatordashboard/AdjustmentList";
 import { CreateAdjustmentModal } from "@/components/dashboard/partscoordinatordashboard/CreateAdjustmentModal";
+import InventoryBulkUpload from "@/components/dashboard/partscoordinatordashboard/InventoryBulkUpload";
 import ComponentReservationQueue from "@/components/dashboard/partscoordinatordashboard/ComponentReservationQueue";
 import { ComponentPickupList } from "@/components/dashboard/partscoordinatordashboard/ComponentPickupList";
 import { StockTransferReceiving } from "@/components/dashboard/partscoordinatordashboard/StockTransferReceiving";
 
-import RestockPage from "@/components/dashboard/partscoordinatordashboard/RestockPage";
 import { warehouseService } from "@/services/warehouseService";
 
 interface CurrentUser {
@@ -43,9 +43,9 @@ export default function PartsCoordinatorDashboard() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
   const [showCreateAdjustment, setShowCreateAdjustment] = useState(false);
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
 
   const [warehouseId, setWarehouseId] = useState("");
-  const [warehouseName, setWarehouseName] = useState("Warehouse");
 
   useEffect(() => {
     const userInfo = authService.getUserInfo();
@@ -59,7 +59,6 @@ export default function PartsCoordinatorDashboard() {
         const data = await warehouseService.getWarehouseInfo();
         if (data.warehouses.length > 0) {
           setWarehouseId(data.warehouses[0].warehouseId);
-          setWarehouseName(data.warehouses[0].name);
         }
       } catch (err) {
         console.error("Failed to load warehouse info:", err);
@@ -74,7 +73,6 @@ export default function PartsCoordinatorDashboard() {
   const navItems = [
     { id: "dashboard", icon: Home, label: "Dashboard" },
     { id: "inventory", icon: Boxes, label: "Inventory" },
-    { id: "restock", icon: Package, label: "Restock Requests" },
     { id: "adjustments", icon: Clock1, label: "Adjustments" },
     { id: "stock-history", icon: Clock1, label: "Stock History" },
     { id: "reservations", icon: Package, label: "Reservations" },
@@ -98,14 +96,6 @@ export default function PartsCoordinatorDashboard() {
           </div>
         );
 
-      case "restock":
-        return (
-          <RestockPage
-            warehouseId={warehouseId}
-            warehouseName={warehouseName}
-          />
-        );
-
       case "stock-history":
         return <StockHistoryList warehouseId={warehouseId} />;
 
@@ -114,12 +104,22 @@ export default function PartsCoordinatorDashboard() {
           <>
             <AdjustmentList
               onCreateClick={() => setShowCreateAdjustment(true)}
+              onBulkUploadClick={() => setShowBulkUpload(true)}
             />
 
             <CreateAdjustmentModal
               isOpen={showCreateAdjustment}
               onClose={() => setShowCreateAdjustment(false)}
               warehouseId={warehouseId}
+            />
+
+            <InventoryBulkUpload
+              isOpen={showBulkUpload}
+              onClose={() => setShowBulkUpload(false)}
+              onSuccess={() => {
+                setShowBulkUpload(false);
+                // Optionally reload adjustments list
+              }}
             />
           </>
         );

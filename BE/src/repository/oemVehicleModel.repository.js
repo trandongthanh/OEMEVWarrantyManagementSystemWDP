@@ -124,7 +124,10 @@ class OemVehicleModelRepository {
       where: {
         vehicleCompanyId: companyId,
       },
-      group: ["VehicleModel.vehicleModelId", "VehicleModel.vehicleModelName"],
+      group: [
+        "VehicleModel.vehicle_model_id",
+        "VehicleModel.vehicle_model_name",
+      ],
       order: [[db.sequelize.literal("caseLineCount"), "DESC"]],
       limit: limit,
       subQuery: false,

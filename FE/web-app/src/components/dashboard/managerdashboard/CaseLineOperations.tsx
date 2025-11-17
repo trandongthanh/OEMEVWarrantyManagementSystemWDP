@@ -92,6 +92,12 @@ const STATUS_CONFIG: Record<
     bgColor: "bg-gray-100",
     icon: XCircle,
   },
+  REJECTED_BY_OEM: {
+    label: "Rejected by OEM",
+    color: "text-red-700",
+    bgColor: "bg-red-100",
+    icon: XCircle,
+  },
   CANCELLED: {
     label: "Cancelled",
     color: "text-red-700",
@@ -951,6 +957,25 @@ export function CaseLineOperations() {
                               </p>
                             </div>
                           </div>
+
+                          {/* Rejection Reason - Show for rejected case lines */}
+                          {(caseLine.status?.includes("REJECTED") ||
+                            caseLine.warrantyStatus === "INELIGIBLE") &&
+                            caseLine.rejectionReason && (
+                              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                <div className="flex items-start gap-2">
+                                  <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                                  <div className="flex-1">
+                                    <p className="text-xs font-semibold text-red-900 mb-1">
+                                      REJECTION REASON
+                                    </p>
+                                    <p className="text-sm text-red-700">
+                                      {caseLine.rejectionReason}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
 
                           {/* Action Buttons */}
                           <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
