@@ -66,10 +66,11 @@ const updateCaseLine = async (caselineId, data) => {
  * Đánh dấu sửa chữa hoàn tất (Quan trọng cho Kỹ thuật viên)
  * API: PATCH /case-lines/{caselineId}/mark-repair-complete
  */
-const markRepairComplete = async (caselineId) => {
+const markRepairComplete = async (caselineId, installationImageUrls) => {
   try {
     const response = await api.patch(
-      `/case-lines/${caselineId}/mark-repair-complete` //
+      `/case-lines/${caselineId}/mark-repair-complete`,
+      { installationImageUrls }
     );
     return response.data;
   } catch (error) {

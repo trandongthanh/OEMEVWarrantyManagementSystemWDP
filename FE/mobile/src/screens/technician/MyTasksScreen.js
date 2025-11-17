@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import processingRecordService from "../../services/technician/processingRecordService";
+import { technicianService } from "../../services/technician";
 import AvatarLogoutMenu from "../../components/technician/AvatarLogoutMenu"; 
 
 const statusConfig = {
@@ -21,6 +21,9 @@ const statusConfig = {
   IN_REPAIR: { label: "In Repair", color: "#F97316", bg: "#FFF7ED", icon: "build-outline" },
   COMPLETED: { label: "Completed", color: "#22C55E", bg: "#F0FDF4", icon: "checkmark-done-outline" },
   CANCELLED: { label: "Cancelled", color: "#EF4444", bg: "#FEF2F2", icon: "close-circle-outline" },
+  WAITING_CUSTOMER_APPROVAL: { label: "Waiting Customer", color: "#3B82F6", bg: "#EFF6FF", icon: "help-circle-outline" },
+  PROCESSING: { label: "Processing", color: "#A855F7", bg: "#F3E8FF", icon: "sync-outline" },
+  READY_FOR_PICKUP: { label: "Ready for Pickup", color: "#22C55E", bg: "#F0FDF4", icon: "cube-outline" },
 };
 
 const getStatusInfo = (status) => {
@@ -33,18 +36,13 @@ export default function MyTasksScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL"); //
+  const [statusFilter, setStatusFilter] = useState("ALL"); 
 
   const loadTasks = async () => {
     setLoading(true);
     try {
-      const response = await processingRecordService.getAllRecords({
-        page: 1,
-        limit: 100, 
-      });
-
-      const allRecords = response.data?.data?.records || [];
-      
+      const response = await technicianService.getAssignedRecords();
+      const allRecords = response.data?.records?.records || [];
       const activeStatuses = new Set([
         "CHECKED_IN",
         "IN_DIAGNOSIS",
