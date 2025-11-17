@@ -486,13 +486,76 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         socket.on(
           "vehicleProcessingRecordStatusUpdated",
           (data: Record<string, unknown>) => {
-            console.log("📋 Vehicle processing record updated:", data);
-            const recordId = data.vehicleProcessingRecordId || data.id;
+            console.log(
+              "📋 Vehicle processing record updated - RAW DATA:",
+              JSON.stringify(data, null, 2)
+            );
+
+            const record = data.record as Record<string, unknown>;
+            const status =
+              (record?.status as string) || (data.status as string);
+            const vin = (record?.vin as string) || (data.vin as string);
+            const recordId =
+              (record?.vehicleProcessingRecordId as string) ||
+              (data.vehicleProcessingRecordId as string) ||
+              (data.id as string);
+
+            console.log(
+              "📋 Parsed values - status:",
+              status,
+              "vin:",
+              vin,
+              "recordId:",
+              recordId
+            );
+
+            // Determine notification details based on status
+            let title = "Case Status Updated";
+            let message = `Vehicle processing record has been updated`;
+            let priority: "low" | "medium" | "high" = "medium";
+
+            if (status === "WAITING_CUSTOMER_APPROVAL") {
+              title = "Case Awaiting Customer Approval";
+              message = vin
+                ? `Vehicle ${vin} diagnosis completed and awaiting customer approval`
+                : "Diagnosis completed and awaiting customer approval";
+              priority = "high";
+            } else if (status === "READY_FOR_PICKUP") {
+              title = "Vehicle Ready for Pickup";
+              message = vin
+                ? `Vehicle ${vin} repair completed and ready for pickup`
+                : "Vehicle repair completed and ready for pickup";
+              priority = "high";
+            } else if (status === "PROCESSING") {
+              title = "Case Processing";
+              message = vin
+                ? `Vehicle ${vin} is being processed`
+                : "Vehicle is being processed";
+              priority = "medium";
+            } else if (status === "CANCELLED") {
+              title = "Case Cancelled";
+              message = vin
+                ? `Vehicle ${vin} processing has been cancelled`
+                : "Vehicle processing has been cancelled";
+              priority = "medium";
+            } else if (vin) {
+              message = `Vehicle ${vin} status changed to ${status}`;
+            }
+
+            console.log(
+              "📋 Creating notification - title:",
+              title,
+              "message:",
+              message,
+              "priority:",
+              priority
+            );
+
             addNotification({
               type: "case_updated",
-              priority: "medium",
-              title: "Case Status Updated",
-              message: `Vehicle processing record has been updated`,
+              priority,
+              title,
+              message,
               timestamp: (data.sentAt as string) || new Date().toISOString(),
               data: {
                 ...data,
