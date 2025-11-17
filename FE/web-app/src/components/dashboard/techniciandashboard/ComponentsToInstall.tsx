@@ -322,20 +322,37 @@ export function ComponentsToInstall() {
                               <span className="font-medium">Case:</span>{" "}
                               {component.guaranteeCaseId}
                             </p>
-                            {/* Bug #4 Fix: Show warehouse info for repair techs */}
-                            {component.reservations &&
-                              component.reservations.length > 0 &&
-                              component.reservations[0].warehouse && (
-                                <p className="truncate">
-                                  <span className="font-medium">
-                                    Warehouse:
-                                  </span>{" "}
-                                  {component.reservations[0].warehouse.name ||
-                                    component.reservations[0].warehouse
-                                      .warehouseName ||
-                                    "N/A"}
-                                </p>
-                              )}
+                            {/* Show warehouse pickup location */}
+                            {(() => {
+                              const reservation = component.reservations?.find(
+                                (res) => res.status === "PICKED_UP"
+                              );
+                              if (!reservation?.component) return null;
+
+                              // Try to get warehouse from stockTransferRequest (requesting warehouse)
+                              const requestingWarehouse =
+                                reservation.component.stockTransferRequest
+                                  ?.requestingWarehouse;
+                              // Fallback to component's current warehouse
+                              const currentWarehouse =
+                                reservation.component.warehouse;
+                              const warehouse =
+                                requestingWarehouse || currentWarehouse;
+
+                              if (warehouse) {
+                                return (
+                                  <p className="truncate text-purple-600">
+                                    <span className="font-medium">
+                                      📍 Pickup at:
+                                    </span>{" "}
+                                    {warehouse.name}
+                                    {warehouse.address &&
+                                      ` - ${warehouse.address}`}
+                                  </p>
+                                );
+                              }
+                              return null;
+                            })()}
                             <p className="text-xs text-gray-500">
                               Status: {component.status} • Picked up, ready to
                               install
