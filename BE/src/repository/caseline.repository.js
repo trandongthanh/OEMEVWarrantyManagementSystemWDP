@@ -11,6 +11,7 @@ const {
   VehicleProcessingRecord,
   ServiceCenter,
   Warehouse,
+  StockTransferRequest,
 } = db;
 
 class CaseLineRepository {
@@ -462,7 +463,7 @@ class CaseLineRepository {
                   attributes: ["warehouseId", "name", "address"],
                 },
                 {
-                  model: db.StockTransferRequest,
+                  model: StockTransferRequest,
                   as: "stockTransferRequest",
                   attributes: ["requestId", "requestingWarehouseId"],
                   required: false,
