@@ -11,6 +11,7 @@ const {
   VehicleProcessingRecord,
   ServiceCenter,
   Warehouse,
+  StockTransferRequest
 } = db;
 
 class CaseLineRepository {
