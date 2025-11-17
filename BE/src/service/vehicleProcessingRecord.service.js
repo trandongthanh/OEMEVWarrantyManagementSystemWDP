@@ -852,6 +852,7 @@ class VehicleProcessingRecordService {
       const allCaseLines = guaranteeCases.flatMap(
         (guaranteeCase) => guaranteeCase.caseLines || []
       );
+
       const hasCaseLines = allCaseLines.length > 0;
       const allRejectedByTech =
         hasCaseLines &&
@@ -923,6 +924,7 @@ class VehicleProcessingRecordService {
             "REJECTED_BY_OUT_OF_WARRANTY",
             "REJECTED_BY_TECH",
           ];
+
           if (!validStatuses.includes(caseLine.status)) {
             throw new BadRequestError(
               `Case line ${caseLine.id} has invalid status ${
