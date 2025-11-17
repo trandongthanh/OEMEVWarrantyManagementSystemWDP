@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import type { ProcessingRecord } from "@/services/processingRecordService";
 import { useState, useEffect } from "react";
-import { WorkflowTimeline } from "../shared";
 import { caseLineService, type CaseLine as CaseLineType } from "@/services";
 
 interface CaseLineDetailModalProps {
@@ -654,96 +653,45 @@ export function CaseLineDetailModal({
                           </div>
                         )}
 
-                        {/* Workflow Timeline */}
+                        {/* Status Information */}
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                          <div className="flex items-center gap-2 mb-3">
-                            <Clock className="w-4 h-4 text-blue-600" />
-                            <h5 className="text-xs font-semibold text-gray-900 uppercase tracking-wide">
-                              Status Progression
-                            </h5>
-                          </div>
-                          <WorkflowTimeline
-                            events={(() => {
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Clock className="w-4 h-4 text-blue-600" />
+                              <h5 className="text-xs font-semibold text-gray-900 uppercase tracking-wide">
+                                Current Status
+                              </h5>
+                            </div>
+                            {(() => {
                               const detailedInfo = caseLineDetails.get(
                                 caseLine.id
                               );
-                              const currentStatus =
-                                caseLine.status || "PENDING_APPROVAL";
-                              const createdAt = (
-                                detailedInfo as { createdAt?: string }
-                              )?.createdAt;
                               const updatedAt = (
                                 detailedInfo as { updatedAt?: string }
                               )?.updatedAt;
 
-                              // Define workflow stages
-                              const stages = [
-                                {
-                                  status: "DRAFT",
-                                  label: "Draft",
-                                  description: "Initial diagnosis created",
-                                },
-                                {
-                                  status: "PENDING_APPROVAL",
-                                  label: "Pending Approval",
-                                  description:
-                                    "Awaiting customer approval for repair",
-                                },
-                                {
-                                  status: "CUSTOMER_APPROVED",
-                                  label: "Customer Approved",
-                                  description:
-                                    "Customer has approved the repair",
-                                },
-                                {
-                                  status: "WAITING_FOR_PARTS",
-                                  label: "Waiting for Parts",
-                                  description:
-                                    "Waiting for parts to be available",
-                                },
-                                {
-                                  status: "READY_FOR_REPAIR",
-                                  label: "Ready for Repair",
-                                  description:
-                                    "All parts available, ready to start",
-                                },
-                                {
-                                  status: "IN_REPAIR",
-                                  label: "In Repair",
-                                  description: "Repair work is underway",
-                                },
-                                {
-                                  status: "COMPLETED",
-                                  label: "Completed",
-                                  description:
-                                    "Repair completed and quality checked",
-                                },
-                              ];
-
-                              const currentIndex = stages.findIndex(
-                                (s) => s.status === currentStatus
-                              );
-
-                              return stages.map((stage, index) => ({
-                                status: stage.status,
-                                label: stage.label,
-                                description: stage.description,
-                                // Use createdAt for first stage if it's current or past, updatedAt for current stage, null otherwise
-                                timestamp:
-                                  index === 0 && createdAt && currentIndex >= 0
-                                    ? createdAt
-                                    : index === currentIndex && updatedAt
-                                    ? updatedAt
-                                    : index < currentIndex && createdAt
-                                    ? createdAt
-                                    : null,
-                              }));
+                              if (updatedAt) {
+                                return (
+                                  <span className="text-xs text-gray-600">
+                                    Updated:{" "}
+                                    {new Date(updatedAt).toLocaleString(
+                                      "en-US",
+                                      {
+                                        month: "short",
+                                        day: "numeric",
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      }
+                                    )}
+                                  </span>
+                                );
+                              }
+                              return null;
                             })()}
-                            currentStatus={
-                              caseLine.status || "PENDING_APPROVAL"
-                            }
-                            variant="horizontal"
-                          />
+                          </div>
+                          <div className="mt-2">
+                            {getCaseLineStatusBadge(caseLine.status)}
+                          </div>
                         </div>
 
                         {/* Quantity & Actions */}
