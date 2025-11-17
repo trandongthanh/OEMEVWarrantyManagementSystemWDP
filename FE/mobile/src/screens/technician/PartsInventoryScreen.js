@@ -14,9 +14,9 @@ import {
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
-import { technicianService } from "../../services/technician";
+import processingRecordService from "../../services/technician/processingRecordService";
+import AvatarLogoutMenu from "../../components/technician/AvatarLogoutMenu"; 
 
-//
 const COMPONENT_CATEGORIES = [
   { value: "all", label: "All Categories" },
   { value: "HIGH_VOLTAGE_BATTERY", label: "High Voltage Battery & BMS" },
@@ -49,9 +49,20 @@ export default function PartsInventoryScreen() {
   const loadAvailableRecords = async () => {
     setIsLoadingRecords(true);
     try {
-      const response = await technicianService.getAssignedRecords();
-      const records = response.data?.records?.records || [];
-      setAvailableRecords(records);
+      const response = await processingRecordService.getAllRecords({
+         page: 1,
+         limit: 100,
+      });
+      
+      const records = response.data?.data?.records || [];
+      
+      const activeStatuses = new Set([
+        "CHECKED_IN", "IN_DIAGNOSIS", "WAITING_FOR_PARTS",
+        "IN_REPAIR", "WAITING_CUSTOMER_APPROVAL", "PROCESSING", "READY_FOR_PICKUP"
+      ]);
+      const activeRecords = records.filter(r => activeStatuses.has(r.status));
+
+      setAvailableRecords(activeRecords);
     } catch (err) {
       console.error("Failed to load records:", err);
       setError("Không thể tải danh sách xe");
@@ -83,19 +94,19 @@ export default function PartsInventoryScreen() {
         ).map((c) => c.value);
 
         const promises = categoriesToFetch.map((cat) =>
-          technicianService
+          processingRecordService
             .searchCompatibleComponents(recordId, cat, currentSearch) 
-            .then((res) => res.data?.result || [])
+            .then((res) => res || []) 
         );
         const allResults = await Promise.all(promises);
         results = allResults.flat();
       } else {
-        const response = await technicianService.searchCompatibleComponents(
+        const response = await processingRecordService.searchCompatibleComponents(
           recordId,
           category,
           currentSearch
         );
-        results = response.data?.result || [];
+        results = response || [];
       }
       setComponents(results);
     } catch (err) {
@@ -248,6 +259,7 @@ export default function PartsInventoryScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Parts Inventory</Text>
+        <AvatarLogoutMenu />
       </View>
 
       <ScrollView
@@ -414,12 +426,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F4F6",
   },
   header: {
-    backgroundColor: "#FFFFFF",
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 12, 
+    paddingHorizontal: 16,
+    paddingTop: 40, 
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    alignItems: "center", 
+  },
   headerTitle: {
     fontSize: 28,
     fontWeight: "bold",

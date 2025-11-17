@@ -11,7 +11,8 @@ import {
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { technicianService } from "../../services/technician";
+import processingRecordService from "../../services/technician/processingRecordService";
+import AvatarLogoutMenu from "../../components/technician/AvatarLogoutMenu"; 
 
 const statusConfig = {
   CHECKED_IN: { label: "Checked In", color: "#3B82F6", bg: "#EFF6FF", icon: "checkmark-circle-outline" },
@@ -37,9 +38,26 @@ export default function MyTasksScreen() {
   const loadTasks = async () => {
     setLoading(true);
     try {
-      const response = await technicianService.getAssignedRecords();
-      const recordsData = response.data?.records?.records || [];
-      setTasks(recordsData);
+      const response = await processingRecordService.getAllRecords({
+        page: 1,
+        limit: 100, 
+      });
+
+      const allRecords = response.data?.data?.records || [];
+      
+      const activeStatuses = new Set([
+        "CHECKED_IN",
+        "IN_DIAGNOSIS",
+        "WAITING_FOR_PARTS",
+        "IN_REPAIR",
+        "WAITING_CUSTOMER_APPROVAL",
+        "PROCESSING",
+        "READY_FOR_PICKUP"
+      ]);
+      
+      const activeTasks = allRecords.filter(task => activeStatuses.has(task.status));
+
+      setTasks(activeTasks);
     } catch (err) {
       console.error("Failed to load tasks:", err);
     } finally {
@@ -170,6 +188,7 @@ export default function MyTasksScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>My Tasks</Text>
+        <AvatarLogoutMenu />
       </View>
 
       <ScrollView
@@ -262,12 +281,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F4F6",
   },
   header: {
-    backgroundColor: "#FFFFFF",
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 12, 
+    paddingHorizontal: 16,
+    paddingTop: 40, 
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    alignItems: "center", 
+  },
   headerTitle: {
     fontSize: 28,
     fontWeight: "bold",
