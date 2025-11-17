@@ -155,7 +155,7 @@ const VEHICLE_MODELS_DATA = [
   {
     key: "vfE34",
     vehicleModelName: "VF e34",
-    sku: "VFE34-STD-2021",
+    sku: "VF-E34-2021",
     yearOfLaunch: new Date("2021-12-01"),
     generalWarrantyDuration: 60,
     generalWarrantyMileage: 120000,
@@ -163,7 +163,7 @@ const VEHICLE_MODELS_DATA = [
   {
     key: "vf8",
     vehicleModelName: "VF 8",
-    sku: "VF8-STD-2022",
+    sku: "VF-8-2022",
     yearOfLaunch: new Date("2022-10-01"),
     generalWarrantyDuration: 120,
     generalWarrantyMileage: 200000,
@@ -171,7 +171,7 @@ const VEHICLE_MODELS_DATA = [
   {
     key: "vf9",
     vehicleModelName: "VF 9",
-    sku: "VF9-PLUS-2023",
+    sku: "VF-9-2023",
     yearOfLaunch: new Date("2023-03-01"),
     generalWarrantyDuration: 120,
     generalWarrantyMileage: 200000,
@@ -422,6 +422,7 @@ async function seedDatabase() {
       Vehicle,
       Stock,
       Component,
+      WorkSchedule,
     } = models;
 
     console.log("🌱 Bắt đầu seed dữ liệu thực tế...");
@@ -439,16 +440,15 @@ async function seedDatabase() {
 
     const vehicleModels = {};
     for (const data of VEHICLE_MODELS_DATA) {
-      const { key, ...modelDefaults } = data;
       const [record] = await VehicleModel.findOrCreate({
-        where: { vehicleModelName: modelDefaults.vehicleModelName },
+        where: { vehicleModelName: data.vehicleModelName },
         defaults: {
-          ...modelDefaults,
+          ...data,
           vehicleCompanyId: vehicleCompany.vehicleCompanyId,
         },
         transaction,
       });
-      vehicleModels[key] = record;
+      vehicleModels[data.key] = record;
     }
 
     const serviceCenters = {};
@@ -557,36 +557,42 @@ async function seedDatabase() {
       {
         username: "staff_hn1",
         name: "Nguyễn Văn An",
+        employeeCode: "VF-HN-ST001",
         role: "service_center_staff",
         serviceCenterId: serviceCenterHN.serviceCenterId,
       },
       {
         username: "staff_hn2",
         name: "Đỗ Thị Mai",
+        employeeCode: "VF-HN-ST002",
         role: "service_center_staff",
         serviceCenterId: serviceCenterHN.serviceCenterId,
       },
       {
         username: "tech_hn1",
         name: "Lê Văn Cường",
+        employeeCode: "VF-HN-TC001",
         role: "service_center_technician",
         serviceCenterId: serviceCenterHN.serviceCenterId,
       },
       {
         username: "tech_hn2",
         name: "Vũ Minh Tuấn",
+        employeeCode: "VF-HN-TC002",
         role: "service_center_technician",
         serviceCenterId: serviceCenterHN.serviceCenterId,
       },
       {
         username: "manager_hn",
         name: "Trần Thị Bình",
+        employeeCode: "VF-HN-MG001",
         role: "service_center_manager",
         serviceCenterId: serviceCenterHN.serviceCenterId,
       },
       {
         username: "parts_sc_hn1",
         name: "Hoàng Thị Em",
+        employeeCode: "VF-HN-PC001",
         role: "parts_coordinator_service_center",
         serviceCenterId: serviceCenterHN.serviceCenterId,
       },
@@ -595,36 +601,42 @@ async function seedDatabase() {
       {
         username: "staff_hcm1",
         name: "Võ Văn Khoa",
+        employeeCode: "VF-HCM-ST001",
         role: "service_center_staff",
         serviceCenterId: serviceCenterHCM.serviceCenterId,
       },
       {
         username: "staff_hcm2",
         name: "Phan Thị Lan",
+        employeeCode: "VF-HCM-ST002",
         role: "service_center_staff",
         serviceCenterId: serviceCenterHCM.serviceCenterId,
       },
       {
         username: "tech_hcm1",
         name: "Trương Văn Phong",
+        employeeCode: "VF-HCM-TC001",
         role: "service_center_technician",
         serviceCenterId: serviceCenterHCM.serviceCenterId,
       },
       {
         username: "tech_hcm2",
         name: "Huỳnh Văn Tài",
+        employeeCode: "VF-HCM-TC002",
         role: "service_center_technician",
         serviceCenterId: serviceCenterHCM.serviceCenterId,
       },
       {
         username: "manager_hcm",
         name: "Nguyễn Thị Xuân",
+        employeeCode: "VF-HCM-MG001",
         role: "service_center_manager",
         serviceCenterId: serviceCenterHCM.serviceCenterId,
       },
       {
         username: "parts_sc_hcm1",
         name: "Đặng Văn Minh",
+        employeeCode: "VF-HCM-PC001",
         role: "parts_coordinator_service_center",
         serviceCenterId: serviceCenterHCM.serviceCenterId,
       },
@@ -633,56 +645,94 @@ async function seedDatabase() {
       {
         username: "parts_company1",
         name: "Đặng Văn Phúc",
+        employeeCode: "VF-CO-PC001",
         role: "parts_coordinator_company",
         vehicleCompanyId: vehicleCompany.vehicleCompanyId,
       },
       {
         username: "parts_company2",
         name: "Cao Văn Sơn",
+        employeeCode: "VF-CO-PC002",
         role: "parts_coordinator_company",
         vehicleCompanyId: vehicleCompany.vehicleCompanyId,
       },
       {
         username: "emv_staff1",
         name: "Phạm Văn Dũng",
+        employeeCode: "VF-CO-EV001",
         role: "emv_staff",
         vehicleCompanyId: vehicleCompany.vehicleCompanyId,
       },
       {
         username: "emv_staff2",
         name: "Lê Thị Nga",
+        employeeCode: "VF-CO-EV002",
         role: "emv_staff",
         vehicleCompanyId: vehicleCompany.vehicleCompanyId,
       },
       {
         username: "admin",
         name: "Võ Thị Giang (Admin)",
+        employeeCode: "VF-CO-AD001",
         role: "emv_admin",
         vehicleCompanyId: vehicleCompany.vehicleCompanyId,
       },
     ];
 
-    for (const [index, user] of userPayload.entries()) {
-      const employeeCode = user.employeeCode
-        ? user.employeeCode
-        : `EMP${String(index + 1).padStart(4, "0")}`;
+    const createdUsers = [];
 
-      await User.findOrCreate({
+    for (const [index, user] of userPayload.entries()) {
+      const [userRecord] = await User.findOrCreate({
         where: { username: user.username },
         defaults: {
           username: user.username,
           password: hashedPassword,
           name: user.name,
+          employeeCode: user.employeeCode,
           email: `${user.username}@vinfast.vn`,
           phone: `0907${String(index + 1).padStart(4, "0")}`,
           address: user.serviceCenterId ? "Trung tâm dịch vụ" : "Trụ sở chính",
-          employeeCode,
           roleId: roles[user.role].roleId,
           serviceCenterId: user.serviceCenterId ?? null,
           vehicleCompanyId: user.vehicleCompanyId ?? null,
         },
         transaction,
       });
+      createdUsers.push(userRecord);
+    }
+
+    let createdWorkSchedules = 0;
+    const technicianRoleId = roles["service_center_technician"].roleId;
+    const technicians = createdUsers.filter(
+      (user) => user.roleId === technicianRoleId
+    );
+
+    const baseDate = new Date();
+    baseDate.setHours(0, 0, 0, 0);
+
+    for (const tech of technicians) {
+      for (let offset = 0; offset < 14; offset += 1) {
+        const workDate = new Date(baseDate);
+        workDate.setDate(baseDate.getDate() + offset);
+
+        const [schedule, created] = await WorkSchedule.findOrCreate({
+          where: {
+            technicianId: tech.userId,
+            workDate,
+          },
+          defaults: {
+            technicianId: tech.userId,
+            workDate,
+            status: offset % 7 === 6 ? "UNAVAILABLE" : "AVAILABLE",
+            notes: offset % 7 === 6 ? "Nghỉ cuối tuần" : null,
+          },
+          transaction,
+        });
+
+        if (created) {
+          createdWorkSchedules += 1;
+        }
+      }
     }
 
     const customers = {};
@@ -812,6 +862,7 @@ async function seedDatabase() {
     console.log("✅ Seed thành công.");
     console.log(`   • Components trong kho: ${createdComponentsInWarehouses}`);
     console.log(`   • Components đã lắp trên xe: ${installedComponents}`);
+    console.log(`   • Lịch làm việc mới tạo: ${createdWorkSchedules}`);
     console.log(
       "   • Mỗi Stock.quantityInStock đã khớp với số component IN_STOCK tương ứng."
     );

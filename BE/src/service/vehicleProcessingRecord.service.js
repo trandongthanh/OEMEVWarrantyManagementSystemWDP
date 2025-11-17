@@ -877,6 +877,11 @@ class VehicleProcessingRecordService {
             );
         }
 
+        await this.#taskAssignmentRepository.cancelDiagnosisTaskByRecordId(
+          { vehicleProcessingRecordId },
+          transaction
+        );
+
         const cancelledRecord =
           await this.#vehicleProcessingRecordRepository.updateStatus(
             {
@@ -936,6 +941,11 @@ class VehicleProcessingRecordService {
           },
           transaction
         );
+
+      await this.#taskAssignmentRepository.cancelDiagnosisTaskByRecordId(
+        { vehicleProcessingRecordId },
+        transaction
+      );
 
       const updatedGuaranteeCases = [];
 

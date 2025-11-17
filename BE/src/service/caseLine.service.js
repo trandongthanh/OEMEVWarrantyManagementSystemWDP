@@ -689,7 +689,7 @@ class CaseLineService {
           transaction
         );
 
-        const roomName = `service_center_staff_${serviceCenterId}`;
+        const roomName = `service_center_manager_${serviceCenterId}`;
         const eventName = "vehicleProcessingRecordStatusUpdated";
         const data = {
           vehicleProcessingRecordId,

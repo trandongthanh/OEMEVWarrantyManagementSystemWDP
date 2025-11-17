@@ -67,7 +67,6 @@ class StockTransferRequestRepository {
           model: User,
           as: "requester",
           attributes: ["userId", "name", "serviceCenterId"],
-
           required: true,
         },
         {
@@ -80,6 +79,30 @@ class StockTransferRequestRepository {
             "vehicleCompanyId",
           ],
           required: true,
+        },
+        {
+          model: User,
+          as: "approver",
+          attributes: ["userId", "name"],
+          required: false,
+        },
+        {
+          model: User,
+          as: "rejecter",
+          attributes: ["userId", "name"],
+          required: false,
+        },
+        {
+          model: User,
+          as: "canceller",
+          attributes: ["userId", "name"],
+          required: false,
+        },
+        {
+          model: User,
+          as: "receiver",
+          attributes: ["userId", "name"],
+          required: false,
         },
       ],
       order: [["createdAt", "DESC"]],
@@ -126,7 +149,6 @@ class StockTransferRequestRepository {
           model: User,
           as: "requester",
           attributes: ["userId", "name", "serviceCenterId"],
-
           required: true,
         },
         {
@@ -140,7 +162,30 @@ class StockTransferRequestRepository {
           ],
           required: true,
         },
-
+        {
+          model: User,
+          as: "approver",
+          attributes: ["userId", "name"],
+          required: false,
+        },
+        {
+          model: User,
+          as: "rejecter",
+          attributes: ["userId", "name"],
+          required: false,
+        },
+        {
+          model: User,
+          as: "canceller",
+          attributes: ["userId", "name"],
+          required: false,
+        },
+        {
+          model: User,
+          as: "receiver",
+          attributes: ["userId", "name"],
+          required: false,
+        },
         {
           model: StockTransferRequestItem,
           as: "items",
