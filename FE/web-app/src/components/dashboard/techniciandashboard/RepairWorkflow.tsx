@@ -26,12 +26,22 @@ interface ComponentWithReservation extends CaseLine {
     component?: {
       serialNumber: string;
       componentId: string;
-    };
-    warehouse?: {
-      warehouseId: string;
-      name?: string;
-      warehouseName?: string;
-      address?: string;
+      warehouseId?: string;
+      status?: string;
+      warehouse?: {
+        warehouseId: string;
+        name: string;
+        address?: string;
+      };
+      stockTransferRequest?: {
+        requestId: string;
+        requestingWarehouseId: string;
+        requestingWarehouse?: {
+          warehouseId: string;
+          name: string;
+          address?: string;
+        };
+      };
     };
   }>;
 }
@@ -634,16 +644,37 @@ export function RepairWorkflow() {
                               <div className="flex items-start gap-2">
                                 <Warehouse className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
                                 <div>
-                                  <p className="font-medium text-gray-900">
-                                    {res.warehouse?.name ||
-                                      res.warehouse?.warehouseName ||
-                                      "Warehouse information not available"}
-                                  </p>
-                                  {res.warehouse?.address && (
-                                    <p className="text-xs text-gray-600 mt-1">
-                                      📍 {res.warehouse.address}
-                                    </p>
-                                  )}
+                                  {(() => {
+                                    // Try to get warehouse from stockTransferRequest (requesting warehouse)
+                                    const requestingWarehouse =
+                                      res.component?.stockTransferRequest
+                                        ?.requestingWarehouse;
+                                    // Fallback to component's current warehouse
+                                    const currentWarehouse =
+                                      res.component?.warehouse;
+                                    const warehouse =
+                                      requestingWarehouse || currentWarehouse;
+
+                                    if (warehouse) {
+                                      return (
+                                        <>
+                                          <p className="font-medium text-gray-900">
+                                            {warehouse.name}
+                                          </p>
+                                          {warehouse.address && (
+                                            <p className="text-xs text-gray-600 mt-1">
+                                              📍 {warehouse.address}
+                                            </p>
+                                          )}
+                                        </>
+                                      );
+                                    }
+                                    return (
+                                      <p className="font-medium text-gray-500 italic">
+                                        Warehouse information not available
+                                      </p>
+                                    );
+                                  })()}
                                 </div>
                               </div>
                             </div>
