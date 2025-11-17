@@ -663,41 +663,82 @@ export function CaseLineDetailModal({
                             </h5>
                           </div>
                           <WorkflowTimeline
-                            events={[
-                              {
-                                status: "PENDING_APPROVAL",
-                                timestamp: null,
-                                label: "Pending Approval",
-                                description:
-                                  "Awaiting customer approval for repair",
-                              },
-                              {
-                                status: "CUSTOMER_APPROVED",
-                                timestamp: null,
-                                label: "Customer Approved",
-                                description: "Customer has approved the repair",
-                              },
-                              {
-                                status: "READY_FOR_REPAIR",
-                                timestamp: null,
-                                label: "Ready for Repair",
-                                description:
-                                  "All parts available, ready to start",
-                              },
-                              {
-                                status: "IN_PROGRESS",
-                                timestamp: null,
-                                label: "In Progress",
-                                description: "Repair work is underway",
-                              },
-                              {
-                                status: "COMPLETED",
-                                timestamp: null,
-                                label: "Completed",
-                                description:
-                                  "Repair completed and quality checked",
-                              },
-                            ]}
+                            events={(() => {
+                              const detailedInfo = caseLineDetails.get(
+                                caseLine.id
+                              );
+                              const currentStatus =
+                                caseLine.status || "PENDING_APPROVAL";
+                              const createdAt = (
+                                detailedInfo as { createdAt?: string }
+                              )?.createdAt;
+                              const updatedAt = (
+                                detailedInfo as { updatedAt?: string }
+                              )?.updatedAt;
+
+                              // Define workflow stages
+                              const stages = [
+                                {
+                                  status: "DRAFT",
+                                  label: "Draft",
+                                  description: "Initial diagnosis created",
+                                },
+                                {
+                                  status: "PENDING_APPROVAL",
+                                  label: "Pending Approval",
+                                  description:
+                                    "Awaiting customer approval for repair",
+                                },
+                                {
+                                  status: "CUSTOMER_APPROVED",
+                                  label: "Customer Approved",
+                                  description:
+                                    "Customer has approved the repair",
+                                },
+                                {
+                                  status: "WAITING_FOR_PARTS",
+                                  label: "Waiting for Parts",
+                                  description:
+                                    "Waiting for parts to be available",
+                                },
+                                {
+                                  status: "READY_FOR_REPAIR",
+                                  label: "Ready for Repair",
+                                  description:
+                                    "All parts available, ready to start",
+                                },
+                                {
+                                  status: "IN_REPAIR",
+                                  label: "In Repair",
+                                  description: "Repair work is underway",
+                                },
+                                {
+                                  status: "COMPLETED",
+                                  label: "Completed",
+                                  description:
+                                    "Repair completed and quality checked",
+                                },
+                              ];
+
+                              const currentIndex = stages.findIndex(
+                                (s) => s.status === currentStatus
+                              );
+
+                              return stages.map((stage, index) => ({
+                                status: stage.status,
+                                label: stage.label,
+                                description: stage.description,
+                                // Use createdAt for first stage if it's current or past, updatedAt for current stage, null otherwise
+                                timestamp:
+                                  index === 0 && createdAt && currentIndex >= 0
+                                    ? createdAt
+                                    : index === currentIndex && updatedAt
+                                    ? updatedAt
+                                    : index < currentIndex && createdAt
+                                    ? createdAt
+                                    : null,
+                              }));
+                            })()}
                             currentStatus={
                               caseLine.status || "PENDING_APPROVAL"
                             }
