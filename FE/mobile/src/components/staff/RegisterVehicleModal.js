@@ -65,27 +65,43 @@ export default function RegisterVehicleModal({
   }, [visible, prefillInfo, customer]);
 
   const handleRegister = async () => {
-    if (!licensePlate || !purchaseDate) {
+    if (!licensePlate || !purchaseDate || !manufactureDate) {
       setError("Please fill in all required fields.");
       return;
     }
 
     setLoading(true);
     setError("");
+
+    // Build customer payload
+    let customerPayload = {};
+
+    if (customer?.id) {
+      // Existing customer (GUID)
+      customerPayload.customerId = customer.id;
+    } else {
+      // New customer
+      customerPayload.customer = {
+        fullName,
+        email,
+        phone,
+        address,
+      };
+    }
+
     try {
-      const data = await registerVehicleOwner(
+      await registerVehicleOwner(
         vin,
-        customer?.id || null,
         purchaseDate,
         licensePlate,
-        manufactureDate
+        manufactureDate,
+        customerPayload
       );
-      console.log("✅ Vehicle registered:", data);
-      alert("✅ Vehicle registered successfully!");
+
+      alert("Vehicle registered!");
       onClose();
     } catch (err) {
-      console.error("❌ Register error:", err);
-      setError(err.response?.data?.message || "Registration failed.");
+      setError(err.response?.data?.message || "Error registering vehicle.");
     } finally {
       setLoading(false);
     }

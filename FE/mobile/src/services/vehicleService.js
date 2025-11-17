@@ -23,18 +23,30 @@ export const getVehicleByVin = async (vin) => {
  */
 export const registerVehicleOwner = async (
   vin,
-  customerId,
   purchaseDate,
   licensePlate,
-  dateOfManufacture
+  manufactureDate,
+  customerPayload
 ) => {
+  // Convert date to ISO
+  const toISO = (d) => {
+    if (!d) return undefined;
+    const parsed = new Date(d);
+    if (isNaN(parsed.getTime())) return undefined;
+    return parsed.toISOString();
+  };
+
   try {
-    const res = await api.patch(`/vehicles/${vin}`, {
-      customerId,
-      purchaseDate,
-      licensePlate,
-      dateOfManufacture,
-    });
+    const payload = {
+      purchaseDate: toISO(purchaseDate),
+      licensePlate: licensePlate,
+      dateOfManufacture: toISO(manufactureDate),
+      ...customerPayload, // thêm customerId hoặc customer (object)
+    };
+
+    console.log("🔥 FINAL PAYLOAD (Swagger):", payload);
+
+    const res = await api.patch(`/vehicles/${vin}`, payload);
     return res.data;
   } catch (error) {
     console.error(

@@ -11,8 +11,12 @@ import {
   Platform,
   Dimensions,
 } from "react-native";
+
 import { Ionicons } from "@expo/vector-icons";
 import { createProcessingRecord } from "../../services/processingRecordService";
+
+import OTPSendModal from "../../screens/staff/components/OTPSendModal";
+import OTPVerifyModal from "../../screens/staff/components/OTPVerifyModal";
 
 const COLORS = {
   bg: "#0B0F14",
@@ -22,16 +26,7 @@ const COLORS = {
   textMuted: "#9AA7B5",
   accent: "#3B82F6",
   danger: "#EF4444",
-  warningBg: "#2C1A1A",
 };
-
-const RELATIONSHIP_OPTIONS = [
-  "Owner",
-  "Family Member",
-  "Mechanic",
-  "Friend",
-  "Other",
-];
 
 const { height } = Dimensions.get("window");
 
@@ -39,84 +34,91 @@ export default function CreateProcessingRecordForm({
   visible,
   vin,
   odometer,
+  ownerFullName,
+  ownerEmail,
+  ownerPhone,
+  ownerAddress,
   onClose,
 }) {
-  const [visitorName, setVisitorName] = useState("");
-  const [visitorPhone, setVisitorPhone] = useState("");
-  const [relationship, setRelationship] = useState("");
   const [note, setNote] = useState("");
   const [cases, setCases] = useState([{ contentGuarantee: "" }]);
   const [loading, setLoading] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
   const [alertBox, setAlertBox] = useState(null);
 
+  const [showSendOtpModal, setShowSendOtpModal] = useState(false);
+  const [showVerifyOtpModal, setShowVerifyOtpModal] = useState(false);
+  const [otpEmail, setOtpEmail] = useState(ownerEmail || "");
+
+  // RESET
   useEffect(() => {
     if (visible) {
-      setVisitorName("");
-      setVisitorPhone("");
-      setRelationship("");
       setNote("");
       setCases([{ contentGuarantee: "" }]);
       setAlertBox(null);
     }
   }, [visible]);
 
-  const handleAddCase = () => setCases([...cases, { contentGuarantee: "" }]);
-  const handleRemoveCase = (i) =>
-    setCases((prev) => prev.filter((_, index) => index !== i));
+  const addCase = () => setCases([...cases, { contentGuarantee: "" }]);
 
-  const handleCaseChange = (text, i) => {
-    const updated = [...cases];
-    updated[i].contentGuarantee = text;
-    setCases(updated);
+  const removeCase = (i) =>
+    setCases((prev) => prev.filter((_, idx) => idx !== i));
+
+  const updateCase = (text, i) => {
+    const list = [...cases];
+    list[i].contentGuarantee = text;
+    setCases(list);
   };
 
-  const handleSubmit = async () => {
-    setAlertBox(null);
+  // ====================== SUBMIT ======================
+  const handleSubmitPressed = () => {
+    setOtpEmail(ownerEmail);
+    setShowSendOtpModal(true);
+  };
 
-    if (!vin || !odometer) {
-      setAlertBox({
-        type: "error",
-        title: "Missing Information",
-        message: "VIN and Odometer are required.",
-      });
-      return;
-    }
+  const handleOtpSent = (emailReturned) => {
+    setOtpEmail(emailReturned);
+    setShowSendOtpModal(false);
+    setShowVerifyOtpModal(true);
+  };
 
-    const validCases = cases.filter(
-      (c) => c.contentGuarantee && c.contentGuarantee.trim() !== ""
-    );
-    if (validCases.length === 0) {
-      setAlertBox({
-        type: "error",
-        title: "Missing Cases",
-        message: "Please add at least one valid case.",
-      });
-      return;
-    }
+  const handleOtpVerified = async () => {
+    setShowVerifyOtpModal(false);
+    await actuallyCreateProcessingRecord();
+  };
+
+  // ====================== CREATE RECORD ======================
+  const actuallyCreateProcessingRecord = async () => {
+    setLoading(true);
+
+    const validCases = cases.filter((c) => c.contentGuarantee.trim() !== "");
+
+    // ⭐ FIX: chuẩn BE không cho note rỗng → gửi undefined
+    const finalNote = note.trim().length === 0 ? undefined : note.trim();
+
+    // ⭐ FIX: Backend không cho visitorInfo.address → xoá field này
+    const payload = {
+      vin,
+      odometer: parseInt(odometer),
+      visitorInfo: {
+        fullName: ownerFullName,
+        email: ownerEmail,
+        phone: ownerPhone,
+        relationship: "Owner",
+        note: finalNote,
+      },
+      guaranteeCases: validCases,
+    };
 
     try {
-      setLoading(true);
-      const payload = {
-        vin,
-        odometer: parseInt(odometer),
-        visitorInfo: {
-          fullName: visitorName || "Unknown visitor",
-          phone: visitorPhone || "N/A",
-          relationship: relationship || "N/A",
-          note,
-        },
-        guaranteeCases: validCases,
-      };
-
       const res = await createProcessingRecord(payload);
 
       if (res.status === "success") {
         setAlertBox({
           type: "success",
-          title: "✅ Record Created",
+          title: "Record Created",
           message: "Processing record created successfully.",
         });
+
         setTimeout(() => onClose(true), 1200);
       } else {
         setAlertBox({
@@ -125,299 +127,198 @@ export default function CreateProcessingRecordForm({
           message: res.message || "Failed to create record.",
         });
       }
-    } catch (error) {
-      console.error("❌ Error creating record:", error);
-
-      if (
-        error.response &&
-        error.response.status === 409 &&
-        error.response.data?.message?.includes("already has an active record")
-      ) {
-        setAlertBox({
-          type: "warning",
-          title: "⚠️ Active Record Exists",
-          message:
-            "This vehicle already has an active processing record. Please complete or close it first.",
-        });
-      } else if (error.response?.data?.message) {
-        setAlertBox({
-          type: "error",
-          title: "Error",
-          message: error.response.data.message,
-        });
-      } else {
-        setAlertBox({
-          type: "error",
-          title: "Error",
-          message: "An unexpected error occurred while creating record.",
-        });
-      }
+    } catch (err) {
+      console.log("❌ Error creating record:", err);
+      setAlertBox({
+        type: "error",
+        title: "Server Error",
+        message: err?.message || "Failed to create record.",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const renderAlertBox = () => {
+  // ====================== ALERT BOX ======================
+  const renderAlert = () => {
     if (!alertBox) return null;
 
-    let boxColor = COLORS.border;
+    let borderColor = COLORS.border;
     let bgColor = COLORS.surface;
-    if (alertBox.type === "warning") {
-      boxColor = COLORS.danger;
-      bgColor = COLORS.warningBg;
-    } else if (alertBox.type === "error") {
-      boxColor = COLORS.danger;
+
+    if (alertBox.type === "error") {
+      borderColor = COLORS.danger;
       bgColor = "#2A0E0E";
-    } else if (alertBox.type === "success") {
-      boxColor = "#22C55E";
+    }
+
+    if (alertBox.type === "success") {
+      borderColor = "#22C55E";
       bgColor = "#0E2415";
     }
 
     return (
       <View
-        style={[
-          styles.alertBox,
-          { borderColor: boxColor, backgroundColor: bgColor },
-        ]}
+        style={[styles.alertBox, { borderColor, backgroundColor: bgColor }]}
       >
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          {alertBox.type === "warning" && (
-            <Ionicons name="warning-outline" size={18} color={COLORS.danger} />
-          )}
-          {alertBox.type === "error" && (
-            <Ionicons
-              name="close-circle-outline"
-              size={18}
-              color={COLORS.danger}
-            />
-          )}
-          {alertBox.type === "success" && (
-            <Ionicons
-              name="checkmark-circle-outline"
-              size={18}
-              color="#22C55E"
-            />
-          )}
-          <Text
-            style={[
-              styles.alertTitle,
-              {
-                color: alertBox.type === "success" ? "#22C55E" : COLORS.danger,
-              },
-            ]}
-          >
-            {alertBox.title}
-          </Text>
-        </View>
-        <Text style={styles.alertMessage}>{alertBox.message}</Text>
+        <Text style={styles.alertTitle}>{alertBox.title}</Text>
+        <Text style={styles.alertMsg}>{alertBox.message}</Text>
       </View>
     );
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade">
-      <View style={styles.overlay} />
+    <>
+      {/* MAIN FORM */}
+      <Modal visible={visible} transparent animationType="fade">
+        <View style={styles.overlay} />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.centeredView}
-      >
-        <View style={[styles.modalBox, { maxHeight: height * 0.95 }]}>
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 30 }}
-          >
-            <Text style={styles.title}>Create Processing Record</Text>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.center}
+        >
+          <View style={[styles.modalBox, { maxHeight: height * 0.95 }]}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.title}>Create Processing Record</Text>
 
-            {renderAlertBox()}
+              {renderAlert()}
 
-            {/* VIN */}
-            <View style={styles.inputGroup}>
               <Text style={styles.label}>VIN</Text>
               <TextInput
-                value={vin || ""}
+                style={[styles.input, styles.readonly]}
+                value={vin}
                 editable={false}
-                style={[styles.input, { color: COLORS.textMuted }]}
               />
-            </View>
 
-            {/* ODO */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Odometer (km)</Text>
+              <Text style={styles.label}>Odometer</Text>
               <TextInput
-                value={odometer ? `${odometer}` : ""}
+                style={[styles.input, styles.readonly]}
+                value={`${odometer}`}
                 editable={false}
-                style={[styles.input, { color: COLORS.textMuted }]}
               />
-            </View>
 
-            {/* Visitor Info */}
-            <Text style={styles.sectionLabel}>Visitor Information</Text>
-            <TextInput
-              value={visitorName}
-              onChangeText={setVisitorName}
-              placeholder="Visitor Full Name"
-              placeholderTextColor={COLORS.textMuted}
-              style={styles.input}
-            />
-            <TextInput
-              value={visitorPhone}
-              onChangeText={setVisitorPhone}
-              placeholder="Visitor Phone"
-              keyboardType="phone-pad"
-              placeholderTextColor={COLORS.textMuted}
-              style={styles.input}
-            />
+              <Text style={styles.section}>Owner Information</Text>
 
-            {/* Relationship dropdown */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Relationship to Owner</Text>
-              <TouchableOpacity
-                style={styles.dropdownSelector}
-                onPress={() => setShowDropdown(true)}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={{
-                    color: relationship ? COLORS.text : COLORS.textMuted,
-                    fontSize: 14,
-                  }}
-                >
-                  {relationship || "Select relationship..."}
-                </Text>
-                <Ionicons
-                  name="chevron-down"
-                  size={18}
-                  color={COLORS.textMuted}
-                />
-              </TouchableOpacity>
-            </View>
+              <TextInput
+                style={[styles.input, styles.readonly]}
+                value={ownerFullName}
+                editable={false}
+              />
 
-            {/* Notes */}
-            <TextInput
-              value={note}
-              onChangeText={setNote}
-              placeholder="Additional Notes"
-              placeholderTextColor={COLORS.textMuted}
-              multiline
-              style={[styles.input, { height: 70, textAlignVertical: "top" }]}
-            />
+              <TextInput
+                style={[styles.input, styles.readonly]}
+                value={ownerEmail}
+                editable={false}
+              />
 
-            {/* Guarantee Cases */}
-            <View style={styles.sectionRow}>
-              <Text style={styles.sectionLabel}>Guarantee Cases *</Text>
-              <TouchableOpacity onPress={handleAddCase} activeOpacity={0.6}>
-                <Ionicons
-                  name="add-circle-outline"
-                  size={24}
-                  color={COLORS.accent}
-                />
-              </TouchableOpacity>
-            </View>
+              <TextInput
+                style={[styles.input, styles.readonly]}
+                value={ownerPhone}
+                editable={false}
+              />
 
-            {cases.map((item, index) => (
-              <View key={index} style={styles.caseBox}>
-                <View style={styles.caseHeader}>
-                  <Text style={styles.caseTitle}>Case {index + 1}</Text>
-                  {cases.length > 1 && (
-                    <TouchableOpacity
-                      onPress={() => handleRemoveCase(index)}
-                      style={styles.trashBtn}
-                    >
-                      <Ionicons
-                        name="trash-outline"
-                        size={18}
-                        color={COLORS.danger}
-                      />
-                    </TouchableOpacity>
-                  )}
-                </View>
-                <TextInput
-                  value={item.contentGuarantee}
-                  onChangeText={(text) => handleCaseChange(text, index)}
-                  placeholder="Describe the issue..."
-                  placeholderTextColor={COLORS.textMuted}
-                  multiline
-                  style={[
-                    styles.input,
-                    { height: 90, textAlignVertical: "top", flex: 1 },
-                  ]}
-                />
+              <Text style={styles.section}>Additional Notes</Text>
+              <TextInput
+                style={[styles.input, { height: 70 }]}
+                placeholder="Write a note..."
+                placeholderTextColor={COLORS.textMuted}
+                multiline
+                value={note}
+                onChangeText={setNote}
+              />
+
+              <View style={styles.row}>
+                <Text style={styles.section}>Guarantee Cases *</Text>
+                <TouchableOpacity onPress={addCase}>
+                  <Ionicons
+                    name="add-circle-outline"
+                    size={24}
+                    color={COLORS.accent}
+                  />
+                </TouchableOpacity>
               </View>
-            ))}
 
-            {/* ✅ Buttons Row */}
-            <View style={styles.buttonRow}>
-              <TouchableOpacity
-                style={[styles.cancelBtn, loading && { opacity: 0.6 }]}
-                onPress={() => onClose(false)}
-                disabled={loading}
-              >
-                <Text style={styles.cancelText}>Cancel</Text>
-              </TouchableOpacity>
+              {cases.map((item, idx) => (
+                <View key={idx} style={styles.caseBox}>
+                  <View style={styles.caseHeader}>
+                    <Text style={styles.caseTitle}>Case {idx + 1}</Text>
 
-              <TouchableOpacity
-                style={[styles.submitBtn, loading && { opacity: 0.6 }]}
-                onPress={handleSubmit}
-                disabled={loading}
-              >
-                <Text style={styles.submitText}>
-                  {loading ? "Creating..." : "Submit Record"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
+                    {cases.length > 1 && (
+                      <TouchableOpacity onPress={() => removeCase(idx)}>
+                        <Ionicons
+                          name="trash-outline"
+                          size={18}
+                          color={COLORS.danger}
+                        />
+                      </TouchableOpacity>
+                    )}
+                  </View>
 
-      {/* Dropdown Modal */}
-      <Modal visible={showDropdown} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.dropdownOverlay}
-          onPress={() => setShowDropdown(false)}
-          activeOpacity={1}
-        />
-        <View style={styles.dropdownBox}>
-          {RELATIONSHIP_OPTIONS.map((option) => (
-            <TouchableOpacity
-              key={option}
-              style={styles.dropdownItem}
-              onPress={() => {
-                setRelationship(option);
-                setShowDropdown(false);
-              }}
-            >
-              <Text
-                style={{
-                  color: relationship === option ? COLORS.accent : COLORS.text,
-                  fontWeight: relationship === option ? "700" : "400",
-                }}
-              >
-                {option}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+                  <TextInput
+                    style={[styles.input, { height: 90 }]}
+                    placeholder="Describe issue..."
+                    placeholderTextColor={COLORS.textMuted}
+                    multiline
+                    value={item.contentGuarantee}
+                    onChangeText={(t) => updateCase(t, idx)}
+                  />
+                </View>
+              ))}
+
+              <View style={styles.row}>
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() => onClose(false)}
+                >
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.submitBtn}
+                  onPress={handleSubmitPressed}
+                >
+                  <Text style={styles.submitText}>Submit</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
-    </Modal>
+
+      {/* SEND OTP */}
+      <OTPSendModal
+        visible={showSendOtpModal}
+        defaultEmail={otpEmail}
+        vin={vin} // ⭐ TRUYỀN VIN
+        onSent={handleOtpSent}
+        onClose={() => setShowSendOtpModal(false)}
+      />
+
+      <OTPVerifyModal
+        visible={showVerifyOtpModal}
+        vin={vin} // ⭐ TRUYỀN VIN
+        email={otpEmail}
+        onVerified={handleOtpVerified}
+        onClose={() => setShowVerifyOtpModal(false)}
+      />
+    </>
   );
 }
 
+// ===================== STYLES =====================
 const styles = StyleSheet.create({
   overlay: {
     position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
+    width: "100%",
+    height: "100%",
     backgroundColor: "rgba(0,0,0,0.65)",
   },
-  centeredView: {
+
+  center: {
     flex: 1,
     justifyContent: "center",
-    alignItems: "center",
     paddingHorizontal: 12,
   },
+
   modalBox: {
     width: "100%",
     backgroundColor: COLORS.surface,
@@ -426,6 +327,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
+
   title: {
     color: COLORS.text,
     fontSize: 17,
@@ -433,85 +335,75 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     textAlign: "center",
   },
-  alertBox: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 12,
-  },
-  alertTitle: { fontWeight: "700", fontSize: 15 },
-  alertMessage: {
-    color: COLORS.textMuted,
-    fontSize: 13,
-    marginTop: 4,
-    marginLeft: 2,
-  },
-  sectionLabel: {
+
+  section: {
     color: COLORS.accent,
     fontWeight: "700",
     fontSize: 15,
-  },
-  sectionRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     marginTop: 12,
-    marginBottom: 6,
   },
-  inputGroup: { marginBottom: 10 },
-  label: { color: COLORS.textMuted, marginBottom: 4, fontSize: 13 },
+
+  label: {
+    color: COLORS.textMuted,
+    marginBottom: 6,
+    marginTop: 10,
+  },
+
   input: {
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 8,
-    color: COLORS.text,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 14,
     backgroundColor: COLORS.bg,
+    padding: 10,
+    color: COLORS.text,
+    borderRadius: 8,
     marginBottom: 10,
   },
-  dropdownSelector: {
+
+  readonly: {
+    color: COLORS.textMuted,
+  },
+
+  row: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    backgroundColor: COLORS.bg,
+    marginBottom: 10,
   },
+
   caseBox: {
+    backgroundColor: COLORS.bg,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 10,
-    backgroundColor: COLORS.bg,
     padding: 8,
     marginBottom: 12,
   },
+
   caseHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
+    marginBottom: 6,
   },
+
   caseTitle: {
     color: COLORS.textMuted,
     fontSize: 13,
-    fontWeight: "600",
   },
-  trashBtn: {
-    backgroundColor: "rgba(239,68,68,0.1)",
-    padding: 4,
-    borderRadius: 6,
+
+  submitBtn: {
+    flex: 1,
+    backgroundColor: COLORS.accent,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: "center",
+    marginLeft: 8,
   },
-  buttonRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 10,
-    marginTop: 14,
+
+  submitText: {
+    color: "#fff",
+    fontWeight: "700",
   },
+
   cancelBtn: {
     flex: 1,
     borderWidth: 1,
@@ -519,42 +411,32 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: "center",
-    backgroundColor: "#1A1111", // giống hình bạn gửi
+    marginRight: 8,
+    backgroundColor: "#1A1111",
   },
+
   cancelText: {
     color: COLORS.danger,
     fontWeight: "700",
-    fontSize: 15,
+    marginTop: 6,
+    textAlign: "center",
   },
-  submitBtn: {
-    flex: 1,
-    backgroundColor: COLORS.accent,
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  submitText: { color: "#fff", fontSize: 15, fontWeight: "700" },
-  dropdownOverlay: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "rgba(0,0,0,0.6)",
-  },
-  dropdownBox: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 10,
-    padding: 10,
-    width: "70%",
+
+  alertBox: {
     borderWidth: 1,
-    borderColor: COLORS.border,
-    alignSelf: "center",
-    marginTop: "60%",
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
   },
-  dropdownItem: {
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+
+  alertTitle: {
+    fontWeight: "700",
+    fontSize: 15,
+    color: COLORS.text,
+  },
+
+  alertMsg: {
+    color: COLORS.textMuted,
+    marginTop: 4,
   },
 });
