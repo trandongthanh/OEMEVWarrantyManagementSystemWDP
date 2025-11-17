@@ -32,7 +32,6 @@ export function MostProblematicModels() {
   const [models, setModels] = useState<ProblematicModel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [limit, setLimit] = useState(10);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "bar" | "pie">("bar");
@@ -45,6 +44,8 @@ export function MostProblematicModels() {
       const params: { startDate?: string; endDate?: string } = {};
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
+
+      console.log("Fetching problematic models with params:", params);
 
       const response = await vehicleModelService.getMostProblematicModels(
         params
@@ -102,7 +103,7 @@ export function MostProblematicModels() {
           <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200">
             <AlertTriangle className="w-4 h-4 text-red-500" />
             <p className="text-sm font-semibold text-red-600">
-              {data.totalIssues} issues
+              {data.caseLineCount} issues
             </p>
           </div>
         </div>
@@ -131,24 +132,7 @@ export function MostProblematicModels() {
             <h3 className="font-semibold text-gray-900">Filters</h3>
           </div>
 
-          <div className="grid grid-cols-4 gap-4">
-            {/* Limit */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Top Models
-              </label>
-              <select
-                value={limit}
-                onChange={(e) => setLimit(Number(e.target.value))}
-                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent text-gray-900"
-              >
-                <option value={5}>Top 5</option>
-                <option value={10}>Top 10</option>
-                <option value={15}>Top 15</option>
-                <option value={20}>Top 20</option>
-              </select>
-            </div>
-
+          <div className="grid grid-cols-3 gap-4">
             {/* Start Date */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -258,7 +242,7 @@ export function MostProblematicModels() {
                       />
                       <YAxis tick={{ fill: "#6b7280", fontSize: 12 }} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="totalIssues" radius={[10, 10, 0, 0]}>
+                      <Bar dataKey="caseLineCount" radius={[10, 10, 0, 0]}>
                         {models.map((_, index) => (
                           <Cell
                             key={`cell-${index}`}
@@ -281,7 +265,7 @@ export function MostProblematicModels() {
                     <RePieChart>
                       <Pie
                         data={models}
-                        dataKey="totalIssues"
+                        dataKey="caseLineCount"
                         nameKey="vehicleModelName"
                         cx="50%"
                         cy="50%"
@@ -348,7 +332,7 @@ export function MostProblematicModels() {
                         <div className="flex items-center gap-2 px-4 py-2 bg-red-100 rounded-lg">
                           <AlertTriangle className="w-4 h-4 text-red-600" />
                           <span className="font-semibold text-red-700">
-                            {model.totalIssues} issues
+                            {model.caseLineCount} issues
                           </span>
                         </div>
                       </motion.div>

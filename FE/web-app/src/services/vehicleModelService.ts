@@ -53,8 +53,8 @@ export interface VehicleModelDetailResponse {
 export interface ProblematicModel {
   vehicleModelId: string;
   vehicleModelName: string;
-  sku: string;
-  totalIssues: number;
+  caseLineCount: number;
+  sku?: string;
   companyName?: string;
   [key: string]: string | number | undefined;
 }
@@ -67,9 +67,7 @@ export interface MostProblematicModelsParams {
 
 export interface MostProblematicModelsResponse {
   status: string;
-  data: {
-    models: ProblematicModel[];
-  };
+  data: ProblematicModel[];
 }
 
 /**
@@ -106,7 +104,7 @@ export async function getMostProblematicModels(
       "/oem-vehicle-models/statistics/most-problematic",
       { params }
     );
-    return response.data.data;
+    return { models: response.data.data };
   } catch (error) {
     console.error("Error fetching problematic models:", error);
     throw error;
