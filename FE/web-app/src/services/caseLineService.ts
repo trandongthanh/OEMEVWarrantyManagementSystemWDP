@@ -45,6 +45,16 @@ export interface CaseLine {
     reservationId: string;
     quantity: number;
     status: string;
+    component?: {
+      serialNumber: string;
+      componentId: string;
+    };
+    warehouse?: {
+      warehouseId: string;
+      name?: string;
+      warehouseName?: string;
+      address?: string;
+    };
   }>;
 }
 

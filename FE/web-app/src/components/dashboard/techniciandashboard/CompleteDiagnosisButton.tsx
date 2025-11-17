@@ -10,6 +10,7 @@ interface CompleteDiagnosisButtonProps {
   disabled?: boolean;
   userRole?: string;
   onNavigateToInstall?: () => void; // Optional callback to navigate to install components
+  caseLines?: Array<{ diagnosisText?: string; status?: string }>; // For validation
 }
 
 export function CompleteDiagnosisButton({
@@ -18,6 +19,7 @@ export function CompleteDiagnosisButton({
   disabled = false,
   userRole,
   onNavigateToInstall,
+  caseLines = [],
 }: CompleteDiagnosisButtonProps) {
   // Backend only allows service_center_manager and service_center_staff
   const canCompleteDiagnosis = userRole
@@ -29,6 +31,22 @@ export function CompleteDiagnosisButton({
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const handleCompleteDiagnosis = () => {
+    // Bug #2 Fix: Validate all DRAFT case lines have diagnosisText
+    const draftCaseLines = caseLines.filter(
+      (cl) => cl.status === "DRAFT" || !cl.status
+    );
+    const missingDiagnosis = draftCaseLines.filter(
+      (cl) => !cl.diagnosisText || cl.diagnosisText.trim() === ""
+    );
+
+    if (missingDiagnosis.length > 0) {
+      setError(
+        `Cannot complete diagnosis: ${missingDiagnosis.length} case line(s) are missing diagnosis text. Please provide diagnosis for all case lines before completing.`
+      );
+      return;
+    }
+
+    setError(null);
     setShowConfirmModal(true);
   };
 

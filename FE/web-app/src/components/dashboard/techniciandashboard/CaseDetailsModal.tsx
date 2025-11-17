@@ -242,7 +242,7 @@ export function CaseDetailsModal({
                       `⏳ Fetching detailed data for case line: ${cl.id}`
                     );
                     const detailResponse =
-                      await caseLineService.getCaseLineById(cl.id, caseId);
+                      await caseLineService.getCaseLineById(cl.idcaseId);
                     const detailedData = detailResponse.data.caseLine;
                     console.log(
                       `✅ Received detailed data for case line ${cl.id}:`,
@@ -1413,6 +1413,7 @@ export function CaseDetailsModal({
               {showCompleteDiagnosisButton && recordId && (
                 <CompleteDiagnosisButton
                   recordId={recordId}
+                  caseLines={caseLines}
                   onNavigateToInstall={onNavigateToInstall}
                   onSuccess={() => {
                     onSuccess?.();
