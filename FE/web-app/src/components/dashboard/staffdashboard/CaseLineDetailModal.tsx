@@ -250,6 +250,11 @@ export function CaseLineDetailModal({
       string,
       { label: string; className: string; icon: typeof Clock }
     > = {
+      DRAFT: {
+        label: "Draft",
+        className: "bg-gray-100 text-gray-800",
+        icon: FileText,
+      },
       PENDING_APPROVAL: {
         label: "Pending Approval",
         className: "bg-yellow-100 text-yellow-800",
@@ -295,6 +300,11 @@ export function CaseLineDetailModal({
         className: "bg-purple-100 text-purple-800",
         icon: Wrench,
       },
+      IN_REPAIR: {
+        label: "In Repair",
+        className: "bg-indigo-100 text-indigo-800",
+        icon: Wrench,
+      },
       IN_PROGRESS: {
         label: "In Progress",
         className: "bg-indigo-100 text-indigo-800",
@@ -304,6 +314,11 @@ export function CaseLineDetailModal({
         label: "Completed",
         className: "bg-green-100 text-green-800",
         icon: CheckCircle,
+      },
+      CANCELLED: {
+        label: "Cancelled",
+        className: "bg-red-100 text-red-800",
+        icon: XCircle,
       },
     };
 

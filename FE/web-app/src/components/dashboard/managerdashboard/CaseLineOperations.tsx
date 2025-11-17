@@ -26,6 +26,7 @@ import caseLineService from "@/services/caseLineService";
 import userService from "@/services/userService";
 import warehouseService from "@/services/warehouseService";
 import { Pagination } from "@/components/ui";
+import { toast } from "sonner";
 
 // Status configuration with modern styling
 const STATUS_CONFIG: Record<
@@ -55,6 +56,12 @@ const STATUS_CONFIG: Record<
     color: "text-yellow-700",
     bgColor: "bg-yellow-100",
     icon: AlertTriangle,
+  },
+  PARTS_AVAILABLE: {
+    label: "Part Available",
+    color: "text-teal-700",
+    bgColor: "bg-teal-100",
+    icon: CheckCircle,
   },
   READY_FOR_REPAIR: {
     label: "Ready",
@@ -275,6 +282,7 @@ export function CaseLineOperations() {
       setSuccessMessage(
         `✓ Stock allocated successfully! Reserved ${reservedQty} component(s).`
       );
+      toast.success(`Stock allocated! Reserved ${reservedQty} component(s)`);
 
       await fetchCaseLines();
     } catch (error: any) {
@@ -319,6 +327,7 @@ export function CaseLineOperations() {
       }
 
       setErrorMessage(userFriendlyMessage);
+      toast.error("Failed to allocate stock");
     }
   };
 
@@ -361,15 +370,17 @@ export function CaseLineOperations() {
       );
 
       setSuccessMessage("✓ Technician assigned successfully!");
+      toast.success("Technician assigned successfully!");
       setShowTechnicianModal(false);
       setSelectedCaseLineForAssignment(null);
 
       await fetchCaseLines();
     } catch (error: any) {
       console.error("Error assigning technician:", error);
-      setErrorMessage(
-        error?.response?.data?.message || "Failed to assign technician"
-      );
+      const errorMsg =
+        error?.response?.data?.message || "Failed to assign technician";
+      setErrorMessage(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
@@ -471,26 +482,33 @@ export function CaseLineOperations() {
       }
 
       if (successCount > 0) {
-        setSuccessMessage(
-          `✓ Allocated stock for ${successCount} case line${
+        const msg = `✓ Allocated stock for ${successCount} case line${
+          successCount !== 1 ? "s" : ""
+        }!${failedCount > 0 ? ` ${failedCount} failed.` : ""}`;
+        setSuccessMessage(msg);
+        toast.success(
+          `Allocated stock for ${successCount} case line${
             successCount !== 1 ? "s" : ""
-          }!${failedCount > 0 ? ` ${failedCount} failed.` : ""}`
+          }!`
         );
       }
 
       if (failedCount > 0 && successCount === 0) {
         setErrorMessage(`All allocations failed: ${errors.join("; ")}`);
+        toast.error("All stock allocations failed");
       } else if (failedCount > 0) {
         setErrorMessage(`Some failed: ${errors.join("; ")}`);
+        toast.warning(`${failedCount} allocation(s) failed`);
       }
 
       setSelectedCaseLineIds(new Set());
       await fetchCaseLines();
     } catch (error: any) {
       console.error("Error bulk allocating stock:", error);
-      setErrorMessage(
-        error?.response?.data?.message || "Failed to bulk allocate stock"
-      );
+      const errorMsg =
+        error?.response?.data?.message || "Failed to bulk allocate stock";
+      setErrorMessage(errorMsg);
+      toast.error("Bulk allocation failed");
     } finally {
       setBulkAllocating(false);
     }
@@ -802,7 +820,10 @@ export function CaseLineOperations() {
                   const statusConfig =
                     STATUS_CONFIG[caseLine.status] || STATUS_CONFIG.DRAFT;
                   const StatusIcon = statusConfig.icon;
-                  const isApproved = caseLine.status === "CUSTOMER_APPROVED";
+                  const isApproved =
+                    caseLine.status === "CUSTOMER_APPROVED" ||
+                    caseLine.status === "WAITING_FOR_PARTS" ||
+                    caseLine.status === "PARTS_AVAILABLE";
                   const isSelected = selectedCaseLineIds.has(caseLine.id);
                   const quantityReserved = getQuantityReserved(caseLine);
                   const isFullyReserved =

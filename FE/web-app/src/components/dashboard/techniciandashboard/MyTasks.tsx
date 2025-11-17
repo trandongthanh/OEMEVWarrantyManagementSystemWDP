@@ -15,6 +15,8 @@ import {
   Car,
   User,
   X,
+  Package,
+  PackageCheck,
 } from "lucide-react";
 import technicianService, {
   TechnicianProcessingRecord,
@@ -293,38 +295,25 @@ export function MyTasks() {
                     whileHover={{ scale: 1.01 }}
                     className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-lg transition-all cursor-pointer"
                   >
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex-1">
-                        {/* VIN and Model */}
-                        <div className="flex items-center gap-3 mb-2">
-                          <Car className="w-5 h-5 text-gray-400" />
+                    {/* Header: VIN, Model, and Status Badge */}
+                    <div className="flex items-start justify-between mb-4 pb-4 border-b border-gray-100">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <Car className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
                           <h3 className="text-lg font-semibold text-gray-900">
                             {task.vehicle.model.name}
                           </h3>
-                          <span className="text-sm text-gray-500">
-                            ({task.vin})
-                          </span>
+                          <p className="text-sm text-gray-500">
+                            VIN: {task.vin}
+                          </p>
                         </div>
-
-                        {/* Guarantee Cases */}
-                        {task.guaranteeCases &&
-                          task.guaranteeCases.length > 0 && (
-                            <div className="ml-8 space-y-1">
-                              {task.guaranteeCases.map((gc) => (
-                                <p
-                                  key={gc.guaranteeCaseId}
-                                  className="text-sm text-gray-600"
-                                >
-                                  • {gc.contentGuarantee}
-                                </p>
-                              ))}
-                            </div>
-                          )}
                       </div>
 
                       {/* Status Badge */}
                       <div
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl ${statusInfo.bgColor}`}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${statusInfo.bgColor}`}
                       >
                         <StatusIcon className={`w-4 h-4 ${statusInfo.color}`} />
                         <span
@@ -335,8 +324,122 @@ export function MyTasks() {
                       </div>
                     </div>
 
-                    {/* Meta Information */}
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-4 border-t border-gray-100">
+                    {/* Guarantee Cases Section */}
+                    {task.guaranteeCases && task.guaranteeCases.length > 0 && (
+                      <div className="space-y-3 mb-4">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                          Work Items ({task.guaranteeCases.length})
+                        </p>
+                        {task.guaranteeCases.map((gc) => {
+                          // Count case lines by status for context
+                          const caseLineStats = {
+                            waitingForParts:
+                              gc.caseLines?.filter(
+                                (cl) => cl.status === "WAITING_FOR_PARTS"
+                              ).length || 0,
+                            partsAvailable:
+                              gc.caseLines?.filter(
+                                (cl) => cl.status === "PARTS_AVAILABLE"
+                              ).length || 0,
+                            readyForRepair:
+                              gc.caseLines?.filter(
+                                (cl) => cl.status === "READY_FOR_REPAIR"
+                              ).length || 0,
+                            inRepair:
+                              gc.caseLines?.filter(
+                                (cl) => cl.status === "IN_REPAIR"
+                              ).length || 0,
+                            completed:
+                              gc.caseLines?.filter(
+                                (cl) => cl.status === "COMPLETED"
+                              ).length || 0,
+                          };
+
+                          const hasCaseLineDetails =
+                            gc.caseLines && gc.caseLines.length > 0;
+                          const totalCaseLines = gc.caseLines?.length || 0;
+
+                          return (
+                            <div
+                              key={gc.guaranteeCaseId}
+                              className="bg-gray-50 rounded-lg p-3 space-y-2"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <p className="text-sm font-medium text-gray-900 flex-1">
+                                  {gc.contentGuarantee}
+                                </p>
+                                {hasCaseLineDetails && (
+                                  <span className="text-xs text-gray-500 bg-white px-2 py-0.5 rounded flex-shrink-0">
+                                    {totalCaseLines} item
+                                    {totalCaseLines > 1 ? "s" : ""}
+                                  </span>
+                                )}
+                              </div>
+                              {hasCaseLineDetails && (
+                                <div className="flex flex-wrap gap-2">
+                                  {caseLineStats.waitingForParts > 0 && (
+                                    <div className="group relative">
+                                      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-orange-200 rounded text-orange-700 text-xs">
+                                        <Package className="w-3.5 h-3.5" />
+                                        <span className="font-medium">
+                                          {caseLineStats.waitingForParts}{" "}
+                                          waiting for parts
+                                        </span>
+                                      </div>
+                                      <div className="absolute bottom-full left-0 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                                        Stock transfer request in progress
+                                      </div>
+                                    </div>
+                                  )}
+                                  {caseLineStats.partsAvailable > 0 && (
+                                    <div className="group relative">
+                                      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-green-200 rounded text-green-700 text-xs">
+                                        <PackageCheck className="w-3.5 h-3.5" />
+                                        <span className="font-medium">
+                                          {caseLineStats.partsAvailable} parts
+                                          available
+                                        </span>
+                                      </div>
+                                      <div className="absolute bottom-full left-0 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                                        Parts received and ready to use
+                                      </div>
+                                    </div>
+                                  )}
+                                  {caseLineStats.readyForRepair > 0 && (
+                                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-purple-200 rounded text-purple-700 text-xs">
+                                      <Wrench className="w-3.5 h-3.5" />
+                                      <span className="font-medium">
+                                        {caseLineStats.readyForRepair} ready to
+                                        repair
+                                      </span>
+                                    </div>
+                                  )}
+                                  {caseLineStats.inRepair > 0 && (
+                                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 border border-blue-200 rounded text-blue-700 text-xs">
+                                      <Wrench className="w-3.5 h-3.5 animate-pulse" />
+                                      <span className="font-medium">
+                                        {caseLineStats.inRepair} in progress
+                                      </span>
+                                    </div>
+                                  )}
+                                  {caseLineStats.completed > 0 && (
+                                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-gray-200 rounded text-gray-600 text-xs">
+                                      <CheckCircle className="w-3.5 h-3.5" />
+                                      <span className="font-medium">
+                                        {caseLineStats.completed} completed
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Meta Information Footer */}
+                    <div className="grid grid-cols-3 gap-4 pt-3 border-t border-gray-100">
                       {/* Check-in Date */}
                       <div className="flex items-center gap-2">
                         <Calendar className="w-4 h-4 text-gray-400" />

@@ -20,10 +20,13 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { WorkflowTimeline } from "@/components/shared/WorkflowTimeline";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function TaskAssignmentList() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<TaskAssignment[]>([]);
+  const [filteredTasks, setFilteredTasks] = useState<TaskAssignment[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
@@ -38,6 +41,25 @@ export default function TaskAssignmentList() {
   useEffect(() => {
     loadTasks(1);
   }, []);
+
+  // Filter tasks on client-side for technicians
+  useEffect(() => {
+    if (!tasks.length) {
+      setFilteredTasks([]);
+      return;
+    }
+
+    // If user is a technician, filter to show only their tasks
+    if (user?.roleName === "service_center_technician" && user?.userId) {
+      const myTasks = tasks.filter(
+        (task) => task.technician?.userId === user.userId
+      );
+      setFilteredTasks(myTasks);
+    } else {
+      // Managers and staff see all tasks
+      setFilteredTasks(tasks);
+    }
+  }, [tasks, user]);
 
   const loadTasks = async (page: number) => {
     try {
@@ -78,6 +100,41 @@ export default function TaskAssignmentList() {
     }
   };
 
+  // Helper function to get case lines for DIAGNOSIS tasks
+  const getDiagnosisCaseLines = (task: TaskAssignment) => {
+    if (task.taskType !== "DIAGNOSIS" || !task.vehicleProcessingRecord) {
+      return [];
+    }
+
+    const guaranteeCases = (
+      task.vehicleProcessingRecord as Record<string, unknown>
+    )?.guaranteeCases;
+    if (!guaranteeCases || !Array.isArray(guaranteeCases)) {
+      return [];
+    }
+
+    // Get all case lines from all guarantee cases for this vehicle
+    const allCaseLines = guaranteeCases.flatMap(
+      (gc: Record<string, unknown>) =>
+        (gc.caseLines as Record<string, unknown>[]) || []
+    );
+
+    // Filter to case lines created by this technician
+    return allCaseLines.filter(
+      (cl: Record<string, unknown>) => cl.diagnosticTechId === task.technicianId
+    );
+  };
+
+  // Helper function to check if diagnosis task is completed
+  const isDiagnosisCompleted = (task: TaskAssignment) => {
+    if (task.taskType !== "DIAGNOSIS") return false;
+    const caseLines = getDiagnosisCaseLines(task);
+    return (
+      caseLines.length > 0 &&
+      caseLines.some((cl: Record<string, unknown>) => cl.diagnosisText)
+    );
+  };
+
   const getTimelineEvents = (task: TaskAssignment) => {
     const events: Array<{
       status: string;
@@ -99,20 +156,14 @@ export default function TaskAssignmentList() {
       },
     ];
 
-    // Add processing record status if available
+    // Add vehicle check-in event if processing record exists
     if (task.vehicleProcessingRecord) {
       events.push({
-        status: "PROCESSING",
-        timestamp:
-          task.vehicleProcessingRecord.status === "PROCESSING"
-            ? (task.assignedAt as string)
-            : null,
-        label: "Vehicle Processing",
+        status: "CHECKED_IN",
+        timestamp: task.assignedAt as string, // Use assignment time as check-in proxy
+        label: "Vehicle Check-In",
         user: null,
-        description: `Status: ${task.vehicleProcessingRecord.status?.replace(
-          /_/g,
-          " "
-        )}`,
+        description: `VIN: ${task.vehicleProcessingRecord.vin}`,
       });
     }
 
@@ -121,7 +172,9 @@ export default function TaskAssignmentList() {
       if (task.caseLine.diagnosisText) {
         events.push({
           status: "DIAGNOSED",
-          timestamp: task.caseLine.status ? (task.createdAt as string) : null,
+          timestamp: task.caseLine.diagnosisText
+            ? (task.createdAt as string)
+            : null,
           label: "Diagnosis Complete",
           user: task.technician
             ? { userId: task.technician.userId, name: task.technician.name }
@@ -129,17 +182,74 @@ export default function TaskAssignmentList() {
           description: task.caseLine.diagnosisText?.substring(0, 50) + "...",
         });
       }
+    } else if (task.taskType === "DIAGNOSIS") {
+      // For DIAGNOSIS tasks, check case lines from vehicle processing record
+      const diagnosisCaseLines = getDiagnosisCaseLines(task);
+      if (diagnosisCaseLines.length > 0) {
+        const firstCaseLine = diagnosisCaseLines[0];
+        if (firstCaseLine.diagnosisText) {
+          events.push({
+            status: "DIAGNOSED",
+            timestamp: task.updatedAt as string,
+            label: "Diagnosis Complete",
+            user: task.technician
+              ? { userId: task.technician.userId, name: task.technician.name }
+              : null,
+            description: `${diagnosisCaseLines.length} issue(s) diagnosed`,
+          });
 
+          // Check if any case line has been approved
+          const hasApproved = diagnosisCaseLines.some(
+            (cl: Record<string, unknown>) =>
+              cl.status === "CUSTOMER_APPROVED" ||
+              cl.status === "WAITING_FOR_PARTS" ||
+              cl.status === "PARTS_AVAILABLE" ||
+              cl.status === "READY_FOR_REPAIR" ||
+              cl.status === "IN_REPAIR" ||
+              cl.status === "COMPLETED"
+          );
+
+          if (hasApproved) {
+            // Get the most recent approval timestamp
+            const approvedCaseLine = diagnosisCaseLines.find(
+              (cl: Record<string, unknown>) =>
+                cl.status === "CUSTOMER_APPROVED" ||
+                cl.status === "WAITING_FOR_PARTS" ||
+                cl.status === "PARTS_AVAILABLE" ||
+                cl.status === "READY_FOR_REPAIR" ||
+                cl.status === "IN_REPAIR" ||
+                cl.status === "COMPLETED"
+            );
+
+            events.push({
+              status: "APPROVED",
+              timestamp:
+                (approvedCaseLine?.updatedAt as string) ||
+                (task.updatedAt as string),
+              label: "Customer Approved",
+              user: null,
+              description: "Customer approved the diagnosis and repair plan",
+            });
+          }
+        }
+      }
+    }
+
+    // Add approval and repair events
+    if (task.caseLine) {
       if (
         task.caseLine.status === "CUSTOMER_APPROVED" ||
+        task.caseLine.status === "WAITING_FOR_PARTS" ||
+        task.caseLine.status === "PARTS_AVAILABLE" ||
+        task.caseLine.status === "READY_FOR_REPAIR" ||
+        task.caseLine.status === "IN_REPAIR" ||
         task.caseLine.status === "COMPLETED"
       ) {
         events.push({
           status: "APPROVED",
-          timestamp:
-            task.caseLine.status === "CUSTOMER_APPROVED"
-              ? (task.updatedAt as string)
-              : null,
+          timestamp: (task.caseLine as Record<string, unknown>).updatedAt
+            ? ((task.caseLine as Record<string, unknown>).updatedAt as string)
+            : (task.updatedAt as string),
           label: "Customer Approved",
           user: null,
           description: "Customer approved the repair work",
@@ -151,7 +261,7 @@ export default function TaskAssignmentList() {
           status: "REPAIRED",
           timestamp:
             task.caseLine.status === "COMPLETED"
-              ? (task.updatedAt as string)
+              ? ((task.caseLine as Record<string, unknown>).updatedAt as string)
               : null,
           label: "Repair Complete",
           user: task.technician
@@ -163,50 +273,173 @@ export default function TaskAssignmentList() {
     }
 
     // Add completion event
+    const completionTimestamp =
+      task.completedAt ||
+      (task.caseLine?.status === "COMPLETED"
+        ? ((task.caseLine as Record<string, unknown>).updatedAt as string)
+        : null) ||
+      (task.vehicleProcessingRecord?.status === "COMPLETED" ||
+      task.vehicleProcessingRecord?.status === "READY_FOR_PICKUP"
+        ? (task.updatedAt as string)
+        : null);
+
     events.push({
       status: "COMPLETED",
-      timestamp: task.completedAt || null,
+      timestamp: completionTimestamp,
       label: "Task Completed",
       user:
-        task.completedAt && task.technician
+        completionTimestamp && task.technician
           ? { userId: task.technician.userId, name: task.technician.name }
           : null,
-      description: task.completedAt
+      description: completionTimestamp
         ? "Task successfully completed"
         : "Awaiting completion",
     });
+
+    // Add vehicle ready for pickup if applicable
+    if (
+      task.vehicleProcessingRecord?.status === "READY_FOR_PICKUP" ||
+      task.vehicleProcessingRecord?.status === "COMPLETED"
+    ) {
+      events.push({
+        status: "READY_FOR_PICKUP",
+        timestamp:
+          task.vehicleProcessingRecord.status === "READY_FOR_PICKUP" ||
+          task.vehicleProcessingRecord.status === "COMPLETED"
+            ? (task.updatedAt as string)
+            : null,
+        label: "Ready for Pickup",
+        user: null,
+        description: "Vehicle repair completed and ready for customer pickup",
+      });
+    }
 
     return events;
   };
 
   const getTaskStatus = (task: TaskAssignment): string => {
     if (task.completedAt) return "COMPLETED";
+
+    // For DIAGNOSIS tasks without direct case line, check vehicle processing record
+    if (task.taskType === "DIAGNOSIS" && !task.caseLine) {
+      const diagnosisCompleted = isDiagnosisCompleted(task);
+      if (diagnosisCompleted) {
+        return "WAITING"; // Diagnosis done, waiting for approval
+      }
+      // Check if vehicle processing record is completed
+      if (task.vehicleProcessingRecord?.status === "COMPLETED") {
+        return "COMPLETED";
+      }
+    }
+
+    // Check case line status first (most accurate)
+    if (task.caseLine) {
+      const status = task.caseLine.status;
+
+      // COMPLETED status takes priority
+      if (status === "COMPLETED") return "COMPLETED";
+
+      // For DIAGNOSIS tasks
+      if (task.taskType === "DIAGNOSIS") {
+        if (
+          task.caseLine.diagnosisText &&
+          (status === "PENDING_APPROVAL" || status === "CUSTOMER_APPROVED")
+        ) {
+          return "WAITING"; // Diagnosis done, waiting for approval/next step
+        }
+      }
+
+      // For REPAIR tasks
+      if (task.taskType === "REPAIR") {
+        if (status === "WAITING_FOR_PARTS") return "BLOCKED";
+        if (status === "PARTS_AVAILABLE" || status === "READY_FOR_REPAIR")
+          return "READY";
+        if (status === "IN_REPAIR") return "IN_PROGRESS";
+      }
+    }
+
+    // Fallback to task assignment status
     if (task.isActive) return "IN_PROGRESS";
+
     return "PENDING";
   };
 
   const getFilteredTasks = () => {
-    if (!statusFilter) return tasks;
-    return tasks.filter((task) => getTaskStatus(task) === statusFilter);
+    // First filter by technician (if applicable), then by status filter
+    const baseTasks = filteredTasks;
+    if (!statusFilter) return baseTasks;
+    return baseTasks.filter((task) => getTaskStatus(task) === statusFilter);
   };
 
   const getStatusBadge = (task: TaskAssignment) => {
-    let status: "PENDING" | "IN_PROGRESS" | "COMPLETED" = "PENDING";
-    let label = "Pending";
+    let status:
+      | "PENDING"
+      | "IN_PROGRESS"
+      | "COMPLETED"
+      | "WAITING"
+      | "BLOCKED"
+      | "READY" = "PENDING";
+    let label = "Not Started";
 
     if (task.completedAt) {
       status = "COMPLETED";
       label = "Completed";
+    } else if (task.caseLine?.status === "COMPLETED") {
+      // Case line completed
+      status = "COMPLETED";
+      label = "Completed";
+    } else if (task.taskType === "DIAGNOSIS") {
+      // Check if diagnosis was completed via vehicle processing record
+      const diagnosisCompleted = isDiagnosisCompleted(task);
+      if (diagnosisCompleted) {
+        status = "WAITING";
+        label = "Awaiting Approval";
+      } else if (
+        task.vehicleProcessingRecord?.status === "COMPLETED" ||
+        task.vehicleProcessingRecord?.status === "READY_FOR_PICKUP"
+      ) {
+        status = "COMPLETED";
+        label = "Completed";
+      } else if (task.caseLine?.diagnosisText) {
+        status = "WAITING";
+        label = "Awaiting Approval";
+      } else if (task.isActive) {
+        status = "IN_PROGRESS";
+        label = "In Progress";
+      }
+    } else if (task.taskType === "REPAIR" && task.caseLine) {
+      // Repair tasks
+      const caseLineStatus = task.caseLine.status;
+      if (caseLineStatus === "WAITING_FOR_PARTS") {
+        status = "BLOCKED";
+        label = "Waiting for Parts";
+      } else if (
+        caseLineStatus === "PARTS_AVAILABLE" ||
+        caseLineStatus === "READY_FOR_REPAIR"
+      ) {
+        status = "READY";
+        label = "Ready to Start";
+      } else if (caseLineStatus === "IN_REPAIR") {
+        status = "IN_PROGRESS";
+        label = "In Repair";
+      }
     } else if (task.isActive) {
       status = "IN_PROGRESS";
       label = "In Progress";
     }
 
     const styles: Record<
-      "PENDING" | "IN_PROGRESS" | "COMPLETED",
+      "PENDING" | "IN_PROGRESS" | "COMPLETED" | "WAITING" | "BLOCKED" | "READY",
       { bg: string; text: string; icon: typeof Clock }
     > = {
-      PENDING: { bg: "bg-yellow-100", text: "text-yellow-700", icon: Clock },
+      PENDING: { bg: "bg-gray-100", text: "text-gray-700", icon: Clock },
+      WAITING: { bg: "bg-yellow-100", text: "text-yellow-700", icon: Clock },
+      BLOCKED: {
+        bg: "bg-orange-100",
+        text: "text-orange-700",
+        icon: AlertCircle,
+      },
+      READY: { bg: "bg-teal-100", text: "text-teal-700", icon: CheckCircle2 },
       IN_PROGRESS: {
         bg: "bg-blue-100",
         text: "text-blue-700",
@@ -266,10 +499,12 @@ export default function TaskAssignmentList() {
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
                 <option value="">All Status</option>
-                <option value="PENDING">Pending</option>
+                <option value="PENDING">Not Started</option>
+                <option value="WAITING">Awaiting Approval</option>
+                <option value="BLOCKED">Waiting for Parts</option>
+                <option value="READY">Ready to Start</option>
                 <option value="IN_PROGRESS">In Progress</option>
                 <option value="COMPLETED">Completed</option>
-                <option value="CANCELLED">Cancelled</option>
               </select>
             </div>
           </div>
@@ -498,10 +733,21 @@ export default function TaskAssignmentList() {
                               <WorkflowTimeline
                                 events={getTimelineEvents(task)}
                                 currentStatus={
-                                  task.completedAt
+                                  task.vehicleProcessingRecord?.status ===
+                                    "READY_FOR_PICKUP" ||
+                                  task.vehicleProcessingRecord?.status ===
+                                    "COMPLETED"
+                                    ? "READY_FOR_PICKUP"
+                                    : task.completedAt
                                     ? "COMPLETED"
+                                    : task.caseLine?.status === "COMPLETED"
+                                    ? "COMPLETED"
+                                    : isDiagnosisCompleted(task)
+                                    ? "APPROVED"
+                                    : task.caseLine?.diagnosisText
+                                    ? "DIAGNOSED"
                                     : task.isActive
-                                    ? "IN_PROGRESS"
+                                    ? "ASSIGNED"
                                     : "PENDING"
                                 }
                                 variant="horizontal"
@@ -516,7 +762,7 @@ export default function TaskAssignmentList() {
                             <div className="flex items-center justify-between">
                               <div>
                                 <p className="text-xs font-medium text-blue-700 mb-1">
-                                  Processing Record Status
+                                  Vehicle Status
                                 </p>
                                 <p className="text-sm font-semibold text-blue-900">
                                   {task.vehicleProcessingRecord.status?.replace(
@@ -537,6 +783,82 @@ export default function TaskAssignmentList() {
                                 </p>
                               )}
                             </div>
+                          </div>
+                        )}
+
+                        {/* Case Line Status - Important for Managers */}
+                        {task.caseLine && task.caseLine.status && (
+                          <div
+                            className={`mb-4 p-3 rounded-lg border ${
+                              task.caseLine.status === "WAITING_FOR_PARTS"
+                                ? "bg-orange-50 border-orange-200"
+                                : task.caseLine.status === "PARTS_AVAILABLE"
+                                ? "bg-green-50 border-green-200"
+                                : task.caseLine.status === "READY_FOR_REPAIR"
+                                ? "bg-purple-50 border-purple-200"
+                                : task.caseLine.status === "IN_REPAIR"
+                                ? "bg-blue-50 border-blue-200"
+                                : "bg-gray-50 border-gray-200"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div
+                                className={`w-2 h-2 rounded-full ${
+                                  task.caseLine.status === "WAITING_FOR_PARTS"
+                                    ? "bg-orange-500 animate-pulse"
+                                    : task.caseLine.status === "PARTS_AVAILABLE"
+                                    ? "bg-green-500"
+                                    : task.caseLine.status ===
+                                      "READY_FOR_REPAIR"
+                                    ? "bg-purple-500"
+                                    : task.caseLine.status === "IN_REPAIR"
+                                    ? "bg-blue-500 animate-pulse"
+                                    : "bg-gray-500"
+                                }`}
+                              />
+                              <p
+                                className={`text-xs font-medium mb-1 ${
+                                  task.caseLine.status === "WAITING_FOR_PARTS"
+                                    ? "text-orange-700"
+                                    : task.caseLine.status === "PARTS_AVAILABLE"
+                                    ? "text-green-700"
+                                    : task.caseLine.status ===
+                                      "READY_FOR_REPAIR"
+                                    ? "text-purple-700"
+                                    : task.caseLine.status === "IN_REPAIR"
+                                    ? "text-blue-700"
+                                    : "text-gray-700"
+                                }`}
+                              >
+                                Work Item Status
+                              </p>
+                            </div>
+                            <p
+                              className={`text-sm font-semibold ml-4 ${
+                                task.caseLine.status === "WAITING_FOR_PARTS"
+                                  ? "text-orange-900"
+                                  : task.caseLine.status === "PARTS_AVAILABLE"
+                                  ? "text-green-900"
+                                  : task.caseLine.status === "READY_FOR_REPAIR"
+                                  ? "text-purple-900"
+                                  : task.caseLine.status === "IN_REPAIR"
+                                  ? "text-blue-900"
+                                  : "text-gray-900"
+                              }`}
+                            >
+                              {task.caseLine.status.replace(/_/g, " ")}
+                            </p>
+                            {task.caseLine.status === "WAITING_FOR_PARTS" && (
+                              <p className="text-xs text-orange-600 ml-4 mt-1">
+                                ⚠️ Parts transfer request in progress -
+                                technician cannot proceed yet
+                              </p>
+                            )}
+                            {task.caseLine.status === "PARTS_AVAILABLE" && (
+                              <p className="text-xs text-green-600 ml-4 mt-1">
+                                ✓ Parts received - technician can start repair
+                              </p>
+                            )}
                           </div>
                         )}
 

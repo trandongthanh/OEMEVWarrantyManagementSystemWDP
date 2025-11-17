@@ -699,6 +699,120 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
           });
         });
 
+        // Task assignment created
+        socket.on("taskAssignmentCreated", (data: Record<string, unknown>) => {
+          console.log("📋 Task assignment created:", data);
+          const taskType = data.taskType as string;
+          const taskId = data.taskAssignmentId || data.id;
+
+          addNotification({
+            type: "case_assigned",
+            priority: "high",
+            title: `New ${
+              taskType === "DIAGNOSIS" ? "Diagnosis" : "Repair"
+            } Task`,
+            message: `You have been assigned a new ${taskType?.toLowerCase()} task`,
+            timestamp: (data.sentAt as string) || new Date().toISOString(),
+            data: {
+              ...data,
+              navigationAction: "tasks",
+              taskId,
+            },
+          });
+        });
+
+        // Recall campaign notification
+        socket.on(
+          "recallCampaignNotification",
+          (data: Record<string, unknown>) => {
+            console.log("🚨 Recall campaign notification:", data);
+            const campaignId = data.campaignId || data.id;
+
+            addNotification({
+              type: "system_alert",
+              priority: "high",
+              title: "Recall Campaign Alert",
+              message:
+                (data.message as string) ||
+                "New recall campaign requires attention",
+              timestamp: (data.sentAt as string) || new Date().toISOString(),
+              data: {
+                ...data,
+                navigationAction: "recalls",
+                campaignId,
+              },
+            });
+          }
+        );
+
+        // Recall notification dispatched
+        socket.on(
+          "recallNotificationDispatched",
+          (data: Record<string, unknown>) => {
+            console.log("📢 Recall notification dispatched:", data);
+            const campaignId = data.campaignId || data.id;
+
+            addNotification({
+              type: "system_alert",
+              priority: "high",
+              title: "Recall Campaign",
+              message:
+                (data.message as string) || "Important recall information",
+              timestamp: (data.sentAt as string) || new Date().toISOString(),
+              data: {
+                ...data,
+                navigationAction: "recalls",
+                campaignId,
+              },
+            });
+          }
+        );
+
+        // New vehicle processing record created
+        socket.on(
+          "new_record_notification",
+          (data: Record<string, unknown>) => {
+            console.log("🚗 New vehicle record created:", data);
+            const recordId = data.vehicleProcessingRecordId || data.id;
+
+            addNotification({
+              type: "case_updated",
+              priority: "medium",
+              title: "New Vehicle Check-In",
+              message: "A new vehicle has been checked in for service",
+              timestamp: (data.sentAt as string) || new Date().toISOString(),
+              data: {
+                ...data,
+                navigationAction: "cases",
+                navigationId: String(recordId),
+              },
+            });
+          }
+        );
+
+        // New task assignment notification
+        socket.on(
+          "new_task_assignment_notification",
+          (data: Record<string, unknown>) => {
+            console.log("📋 New task assignment notification:", data);
+            const taskId = data.taskAssignmentId || data.id;
+
+            addNotification({
+              type: "case_assigned",
+              priority: "high",
+              title: "Task Assignment",
+              message:
+                (data.message as string) || "You have a new task assignment",
+              timestamp: (data.sentAt as string) || new Date().toISOString(),
+              data: {
+                ...data,
+                navigationAction: "tasks",
+                taskId,
+              },
+            });
+          }
+        );
+
         console.log("✅ All notification socket listeners attached");
       } catch (error) {
         console.error("❌ Failed to initialize notification socket:", error);
