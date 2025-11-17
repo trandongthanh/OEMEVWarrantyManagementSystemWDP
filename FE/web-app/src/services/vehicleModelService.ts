@@ -114,17 +114,27 @@ export async function getMostProblematicModels(
 }
 
 /**
- * NOTE: There is NO GET endpoint for listing vehicle models in the backend.
- * Vehicle models can only be created, not listed through the API.
- * If you need to get vehicle models for dropdowns, you should:
- * 1. Request backend team to add GET /oem-vehicle-models endpoint, OR
- * 2. Store created vehicle model IDs locally after creation, OR
- * 3. Get vehicle models indirectly through other endpoints that include them
+ * Get all vehicle models for the current company
+ * GET /oem-vehicle-models
+ * Role: parts_coordinator_company, service_center_manager, emv_admin
  */
+export async function getVehicleModels(): Promise<VehicleModel[]> {
+  try {
+    const response = await apiClient.get<{
+      status: string;
+      data: VehicleModel[];
+    }>("/oem-vehicle-models");
+    return response.data.data;
+  } catch (error) {
+    console.error("Error fetching vehicle models:", error);
+    throw error;
+  }
+}
 
 const vehicleModelService = {
   createVehicleModel,
   getMostProblematicModels,
+  getVehicleModels,
 };
 
 export default vehicleModelService;

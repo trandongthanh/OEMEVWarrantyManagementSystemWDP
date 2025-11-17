@@ -1,4 +1,5 @@
 import apiClient from "@/lib/apiClient";
+import * as authService from "./authService";
 
 /**
  * Component Reservation Service
@@ -255,8 +256,15 @@ class ComponentReservationService {
     reservationId: string
   ): Promise<InstallComponentResponse> {
     try {
+      // Get userId from auth token
+      const user = authService.getCurrentUser();
+      if (!user?.userId) {
+        throw new Error("User not authenticated");
+      }
+
       const response = await apiClient.patch(
-        `/reservations/${reservationId}/installComponent`
+        `/reservations/${reservationId}/installComponent`,
+        { userId: user.userId }
       );
       return response.data;
     } catch (error: unknown) {

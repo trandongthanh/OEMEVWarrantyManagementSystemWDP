@@ -11,6 +11,8 @@ import {
   Wrench,
   TrendingUp,
   Activity,
+  Package,
+  PackageCheck,
 } from "lucide-react";
 import technicianService, {
   TechnicianProcessingRecord,
@@ -106,6 +108,8 @@ export function DashboardOverview() {
     const statusColors: Record<string, string> = {
       CHECKED_IN: "bg-blue-100 text-blue-700",
       IN_DIAGNOSIS: "bg-yellow-100 text-yellow-700",
+      PROCESSING: "bg-yellow-100 text-yellow-700",
+      WAITING_CUSTOMER_APPROVAL: "bg-teal-100 text-teal-700",
       WAITING_FOR_PARTS: "bg-orange-100 text-orange-700",
       IN_REPAIR: "bg-purple-100 text-purple-700",
       COMPLETED: "bg-green-100 text-green-700",
@@ -274,6 +278,31 @@ export function DashboardOverview() {
                                     guaranteeCase.caseLines.length > 0 &&
                                     !hasDraftCaseLines; // Has case lines but none are DRAFT
 
+                                  // Count case lines by status for technician context
+                                  const caseLineStats = {
+                                    waitingForParts:
+                                      guaranteeCase.caseLines?.filter(
+                                        (cl) =>
+                                          cl.status === "WAITING_FOR_PARTS"
+                                      ).length || 0,
+                                    partsAvailable:
+                                      guaranteeCase.caseLines?.filter(
+                                        (cl) => cl.status === "PARTS_AVAILABLE"
+                                      ).length || 0,
+                                    readyForRepair:
+                                      guaranteeCase.caseLines?.filter(
+                                        (cl) => cl.status === "READY_FOR_REPAIR"
+                                      ).length || 0,
+                                    inRepair:
+                                      guaranteeCase.caseLines?.filter(
+                                        (cl) => cl.status === "IN_REPAIR"
+                                      ).length || 0,
+                                    completed:
+                                      guaranteeCase.caseLines?.filter(
+                                        (cl) => cl.status === "COMPLETED"
+                                      ).length || 0,
+                                  };
+
                                   // Determine button text, color, and hover effect based on status
                                   let buttonText = "Add diagnosis →";
                                   let buttonColor = "text-blue-600";
@@ -306,12 +335,12 @@ export function DashboardOverview() {
                                       disabled={!recordId}
                                       className={`w-full p-3 bg-white border border-gray-200 rounded-lg ${hoverColor} transition-all text-left disabled:cursor-not-allowed disabled:opacity-60`}
                                     >
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex-1">
-                                          <p className="text-sm font-medium text-gray-900">
+                                      <div className="flex items-start justify-between gap-3">
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-sm font-medium text-gray-900 truncate">
                                             {guaranteeCase.contentGuarantee}
                                           </p>
-                                          <p className="text-xs text-gray-500">
+                                          <p className="text-xs text-gray-500 mt-1">
                                             Status:{" "}
                                             <span
                                               className={`font-medium ${
@@ -330,9 +359,98 @@ export function DashboardOverview() {
                                                   )}
                                             </span>
                                           </p>
+
+                                          {/* Case Line Status Indicators - Inline for better context */}
+                                          {guaranteeCase.caseLines &&
+                                            guaranteeCase.caseLines.length >
+                                              0 && (
+                                              <div className="mt-2 flex flex-wrap gap-1.5">
+                                                {caseLineStats.waitingForParts >
+                                                  0 && (
+                                                  <div className="group relative">
+                                                    <div className="flex items-center gap-1 px-2 py-0.5 bg-orange-50 border border-orange-200 rounded text-orange-700">
+                                                      <Package className="w-3 h-3" />
+                                                      <span className="text-xs font-medium">
+                                                        {
+                                                          caseLineStats.waitingForParts
+                                                        }{" "}
+                                                        waiting for parts
+                                                      </span>
+                                                    </div>
+                                                    <div className="absolute bottom-full left-0 mb-1 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                                                      {
+                                                        caseLineStats.waitingForParts
+                                                      }{" "}
+                                                      case line
+                                                      {caseLineStats.waitingForParts >
+                                                      1
+                                                        ? "s"
+                                                        : ""}{" "}
+                                                      waiting for parts transfer
+                                                    </div>
+                                                  </div>
+                                                )}
+                                                {caseLineStats.partsAvailable >
+                                                  0 && (
+                                                  <div className="group relative">
+                                                    <div className="flex items-center gap-1 px-2 py-0.5 bg-green-50 border border-green-200 rounded text-green-700">
+                                                      <PackageCheck className="w-3 h-3" />
+                                                      <span className="text-xs font-medium">
+                                                        {
+                                                          caseLineStats.partsAvailable
+                                                        }{" "}
+                                                        ready
+                                                      </span>
+                                                    </div>
+                                                    <div className="absolute bottom-full left-0 mb-1 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                                                      {
+                                                        caseLineStats.partsAvailable
+                                                      }{" "}
+                                                      case line
+                                                      {caseLineStats.partsAvailable >
+                                                      1
+                                                        ? "s"
+                                                        : ""}{" "}
+                                                      with parts available
+                                                    </div>
+                                                  </div>
+                                                )}
+                                                {caseLineStats.readyForRepair >
+                                                  0 && (
+                                                  <div className="flex items-center gap-1 px-2 py-0.5 bg-purple-50 border border-purple-200 rounded text-purple-700">
+                                                    <Wrench className="w-3 h-3" />
+                                                    <span className="text-xs font-medium">
+                                                      {
+                                                        caseLineStats.readyForRepair
+                                                      }{" "}
+                                                      ready
+                                                    </span>
+                                                  </div>
+                                                )}
+                                                {caseLineStats.inRepair > 0 && (
+                                                  <div className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 border border-blue-200 rounded text-blue-700">
+                                                    <Wrench className="w-3 h-3 animate-pulse" />
+                                                    <span className="text-xs font-medium">
+                                                      {caseLineStats.inRepair}{" "}
+                                                      active
+                                                    </span>
+                                                  </div>
+                                                )}
+                                                {caseLineStats.completed >
+                                                  0 && (
+                                                  <div className="flex items-center gap-1 px-2 py-0.5 bg-gray-50 border border-gray-200 rounded text-gray-600">
+                                                    <CheckCircle className="w-3 h-3" />
+                                                    <span className="text-xs font-medium">
+                                                      {caseLineStats.completed}{" "}
+                                                      done
+                                                    </span>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            )}
                                         </div>
                                         <div
-                                          className={`text-xs font-medium ${buttonColor}`}
+                                          className={`flex-shrink-0 text-xs font-medium ${buttonColor}`}
                                         >
                                           {buttonText}
                                         </div>

@@ -86,6 +86,7 @@ export default function CompanyDashboard() {
         );
 
       case "transfer-requests":
+      case "stock-transfers": // Support both nav IDs for notification compatibility
         return (
           <div className="flex-1 overflow-auto">
             <div className="p-8">

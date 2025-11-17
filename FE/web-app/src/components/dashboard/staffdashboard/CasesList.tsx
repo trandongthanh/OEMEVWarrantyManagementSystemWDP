@@ -45,17 +45,23 @@ const statusConfig: Record<
     bgColor: "bg-purple-100",
     icon: Clock,
   },
-  WAITING_FOR_PARTS: {
-    label: "Waiting for Parts",
+  WAITING_CUSTOMER_APPROVAL: {
+    label: "Waiting Customer Approval",
     color: "text-yellow-700",
     bgColor: "bg-yellow-100",
-    icon: AlertCircle,
-  },
-  IN_REPAIR: {
-    label: "In Repair",
-    color: "text-orange-700",
-    bgColor: "bg-orange-100",
     icon: Clock,
+  },
+  PROCESSING: {
+    label: "Processing",
+    color: "text-indigo-700",
+    bgColor: "bg-indigo-100",
+    icon: Clock,
+  },
+  READY_FOR_PICKUP: {
+    label: "Ready for Pickup",
+    color: "text-teal-700",
+    bgColor: "bg-teal-100",
+    icon: CheckCircle,
   },
   COMPLETED: {
     label: "Completed",
@@ -68,12 +74,6 @@ const statusConfig: Record<
     color: "text-red-700",
     bgColor: "bg-red-100",
     icon: AlertCircle,
-  },
-  PAID: {
-    label: "Paid",
-    color: "text-emerald-700",
-    bgColor: "bg-emerald-100",
-    icon: CheckCircle,
   },
 };
 
