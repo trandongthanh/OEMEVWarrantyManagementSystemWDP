@@ -19,6 +19,7 @@ import technicianService, {
 } from "@/services/technicianService";
 import { CaseDetailsModal } from "./CaseDetailsModal";
 import { ComponentsToInstall } from "./ComponentsToInstall";
+import { ComponentsToPickup } from "./ComponentsToPickup";
 import { RepairsToComplete } from "./RepairsToComplete";
 import { usePolling } from "@/hooks/usePolling";
 import { CompleteDiagnosisButton } from "./CompleteDiagnosisButton";
@@ -566,16 +567,27 @@ export function DashboardOverview() {
                 <span className="text-xs text-gray-500">Active</span>
               </div>
             </motion.div>
+
+            {/* Components to Pickup - In the right sidebar */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4 }}
+            >
+              <ComponentsToPickup />
+            </motion.div>
           </div>
         </div>
 
-        {/* Action Items Section - Full Width Below */}
-        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Components to Install */}
-          <ComponentsToInstall />
+        {/* Action Items Section - Install & Complete in 2 columns - Full Width Below */}
+        <div className="mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Components to Install */}
+            <ComponentsToInstall />
 
-          {/* Repairs to Complete */}
-          <RepairsToComplete />
+            {/* Repairs to Complete */}
+            <RepairsToComplete />
+          </div>
         </div>
 
         {/* Case Details Modal */}

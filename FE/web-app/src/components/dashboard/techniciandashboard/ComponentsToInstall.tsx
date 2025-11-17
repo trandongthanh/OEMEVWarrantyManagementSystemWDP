@@ -322,20 +322,26 @@ export function ComponentsToInstall() {
                               <span className="font-medium">Case:</span>{" "}
                               {component.guaranteeCaseId}
                             </p>
-                            {/* Bug #4 Fix: Show warehouse info for repair techs */}
-                            {component.reservations &&
-                              component.reservations.length > 0 &&
-                              component.reservations[0].warehouse && (
-                                <p className="truncate">
+                            {/* Show pickup status and location */}
+                            {(() => {
+                              const reservation = component.reservations?.find(
+                                (res) => res.status === "PICKED_UP"
+                              );
+                              if (!reservation?.component) return null;
+
+                              const serialNumber =
+                                reservation.component.serialNumber;
+
+                              return (
+                                <p className="truncate text-green-600">
                                   <span className="font-medium">
-                                    Warehouse:
+                                    ✓ Ready to install:
                                   </span>{" "}
-                                  {component.reservations[0].warehouse.name ||
-                                    component.reservations[0].warehouse
-                                      .warehouseName ||
-                                    "N/A"}
+                                  {serialNumber} (Picked up by Parts
+                                  Coordinator)
                                 </p>
-                              )}
+                              );
+                            })()}
                             <p className="text-xs text-gray-500">
                               Status: {component.status} • Picked up, ready to
                               install
