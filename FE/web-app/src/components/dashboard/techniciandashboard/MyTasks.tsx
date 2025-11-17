@@ -478,6 +478,9 @@ export function MyTasks() {
                                             />
                                             <span className="font-medium">
                                               {count}{" "}
+                                              {count === 1
+                                                ? "caseline"
+                                                : "caselines"}{" "}
                                               {config.label.toLowerCase()}
                                             </span>
                                           </div>
