@@ -26,7 +26,8 @@ export default function WarrantyInfoModal({
   visible,
   warranty,
   vehicle,
-  odometer, // ✅ nhận từ VehicleInfoModal
+  odometer,
+  owner, // ✅ nhận từ VehicleInfoModal
   onClose,
   onRefreshAfterCreate,
 }) {
@@ -287,7 +288,11 @@ export default function WarrantyInfoModal({
       <CreateProcessingRecordForm
         visible={showCreateForm}
         vin={vehicle?.vin}
-        odometer={odometer} // ✅ truyền ODO sang form
+        odometer={odometer}
+        ownerFullName={owner?.fullName}
+        ownerEmail={owner?.email}
+        ownerPhone={owner?.phone}
+        ownerAddress={owner?.address}
         onClose={(refresh) => {
           setShowCreateForm(false);
           if (refresh && onRefreshAfterCreate) onRefreshAfterCreate();

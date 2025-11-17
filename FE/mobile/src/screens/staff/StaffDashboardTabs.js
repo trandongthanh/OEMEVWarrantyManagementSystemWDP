@@ -1,14 +1,18 @@
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import StaffVehicleSearch from "./StaffVehicleSearch";
-import StaffCaseListScreen from "./StaffCaseListScreen"; // ✅ Thêm mới
+import StaffCaseListScreen from "./StaffCaseListScreen";
 import StaffMessageListScreen from "./StaffMessageListScreen";
 import StaffInfoScreen from "./StaffInfoScreen";
 import { Ionicons } from "@expo/vector-icons";
 
 const Tab = createBottomTabNavigator();
 
-export default function StaffDashboardTabs() {
+export default function StaffDashboardTabs({ route }) {
+  // ✅ Nhận token từ LoginScreen
+  const token = route?.params?.token;
+  console.log("🔑 Token received in StaffDashboardTabs:", token);
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -35,7 +39,7 @@ export default function StaffDashboardTabs() {
               iconName = "home-outline";
               break;
             case "Cases":
-              iconName = "briefcase-outline"; // ✅ biểu tượng cho case
+              iconName = "briefcase-outline";
               break;
             case "Messages":
               iconName = "chatbubbles-outline";
@@ -51,10 +55,11 @@ export default function StaffDashboardTabs() {
         },
       })}
     >
-      {/* 🏠 Home Tab (Search Vehicle) */}
+      {/* 🏠 Home Tab */}
       <Tab.Screen
         name="Home"
         component={StaffVehicleSearch}
+        initialParams={{ token }}
         options={{ title: "Home" }}
       />
 
@@ -62,6 +67,7 @@ export default function StaffDashboardTabs() {
       <Tab.Screen
         name="Cases"
         component={StaffCaseListScreen}
+        initialParams={{ token }}
         options={{ title: "Cases" }}
       />
 
@@ -69,6 +75,7 @@ export default function StaffDashboardTabs() {
       <Tab.Screen
         name="Messages"
         component={StaffMessageListScreen}
+        initialParams={{ token }}
         options={{ title: "Messages" }}
       />
 
@@ -76,6 +83,7 @@ export default function StaffDashboardTabs() {
       <Tab.Screen
         name="StaffInfo"
         component={StaffInfoScreen}
+        initialParams={{ token }}
         options={{ title: "My Info" }}
       />
     </Tab.Navigator>

@@ -2,7 +2,7 @@ import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 
-// 🧩 Import các màn hình của Manager
+// 🧩 Import các màn hình Manager
 import ManagerDashboardHome from "./ManagerDashboardHome";
 import ManagerCustomersScreen from "./ManagerCustomersScreen";
 import ManagerCaseLinesScreen from "./ManagerCaseLinesScreen";
@@ -11,7 +11,11 @@ import ManagerInfoScreen from "./ManagerInfoScreen";
 
 const Tab = createBottomTabNavigator();
 
-export default function ManagerDashboardTabs() {
+export default function ManagerDashboardTabs({ route }) {
+  // ✅ Nhận token từ LoginScreen
+  const token = route?.params?.token;
+  console.log("🔑 Token received in ManagerDashboardTabs:", token);
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -32,7 +36,6 @@ export default function ManagerDashboardTabs() {
         },
         tabBarIcon: ({ color, size }) => {
           let iconName;
-
           switch (route.name) {
             case "Dashboard":
               iconName = "home-outline";
@@ -52,7 +55,6 @@ export default function ManagerDashboardTabs() {
             default:
               iconName = "ellipse-outline";
           }
-
           return <Ionicons name={iconName} size={size} color={color} />;
         },
       })}
@@ -61,6 +63,7 @@ export default function ManagerDashboardTabs() {
       <Tab.Screen
         name="Dashboard"
         component={ManagerDashboardHome}
+        initialParams={{ token }}
         options={{ title: "Dashboard" }}
       />
 
@@ -68,6 +71,7 @@ export default function ManagerDashboardTabs() {
       <Tab.Screen
         name="Customers"
         component={ManagerCustomersScreen}
+        initialParams={{ token }}
         options={{ title: "Customers" }}
       />
 
@@ -75,6 +79,7 @@ export default function ManagerDashboardTabs() {
       <Tab.Screen
         name="CaseLines"
         component={ManagerCaseLinesScreen}
+        initialParams={{ token }}
         options={{ title: "Case Lines" }}
       />
 
@@ -82,6 +87,7 @@ export default function ManagerDashboardTabs() {
       <Tab.Screen
         name="TaskAssignment"
         component={ManagerTaskAssignmentScreen}
+        initialParams={{ token }}
         options={{ title: "Task Assignment" }}
       />
 
@@ -89,6 +95,7 @@ export default function ManagerDashboardTabs() {
       <Tab.Screen
         name="MyInfo"
         component={ManagerInfoScreen}
+        initialParams={{ token }}
         options={{ title: "My Info" }}
       />
     </Tab.Navigator>

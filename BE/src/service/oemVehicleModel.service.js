@@ -71,6 +71,18 @@ class OemVehicleModelService {
 
     return results;
   };
+
+  getAllVehicleModels = async ({ companyId }) => {
+    if (!companyId) {
+      throw new NotFoundError("Company context is required");
+    }
+
+    const models = await this.#oemVehicleModelRepository.findAllByCompanyId({
+      companyId,
+    });
+
+    return models;
+  };
 }
 
 export default OemVehicleModelService;

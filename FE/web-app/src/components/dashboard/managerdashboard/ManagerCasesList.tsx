@@ -188,7 +188,7 @@ export function ManagerCasesList({}: ManagerCasesListProps) {
       <div className="p-8">
         {/* Header */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900">Task Assignment</h2>
+          <h2 className="text-2xl font-bold text-gray-900">Assign Technicians</h2>
           <p className="text-gray-600 mt-1">
             Assign technicians to processing records
           </p>
@@ -334,7 +334,13 @@ export function ManagerCasesList({}: ManagerCasesListProps) {
                       {/* Assign Button */}
                       <button
                         onClick={() => handleAssignClick(record)}
-                        className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2"
+                        disabled={record.status === "COMPLETED"}
+                        className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400"
+                        title={
+                          record.status === "COMPLETED"
+                            ? "Cannot reassign completed records"
+                            : undefined
+                        }
                       >
                         <UserCheck className="w-4 h-4" />
                         {record.mainTechnician ? "Reassign" : "Assign"}

@@ -13,7 +13,7 @@ import { getMyConversations } from "../../services/chatService";
 import ConversationCard from "./components/ConversationCard";
 import ConversationFilterTabs from "./components/ConversationFilterTabs";
 
-const SOCKET_URL = "http://10.0.2.2:3000";
+const SOCKET_URL = "http://10.0.2.2:3000"; // ⚙️ Backend local server
 
 const COLORS = {
   bg: "#0B0F14",
@@ -24,30 +24,55 @@ const COLORS = {
 
 export default function StaffMessageListScreen({ route }) {
   const navigation = useNavigation();
-  const token = route?.params?.token;
+  const tokenParam = route?.params?.token;
+
+  // 🔍 Đảm bảo token là string
+  const token =
+    typeof tokenParam === "object" && tokenParam?.token
+      ? tokenParam.token
+      : tokenParam;
+
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState([]);
   const [filter, setFilter] = useState("waiting");
   const [counts, setCounts] = useState({ waiting: 0, active: 0, closed: 0 });
   const socketRef = useRef(null);
 
-  /** 🧩 Load danh sách hội thoại và đếm số lượng theo trạng thái */
+  /** -------------------------------------------------------
+   *  🔥 MAP FE FILTER → BACKEND STATUS
+   *  waiting  → UNASSIGNED
+   *  active   → ACTIVE
+   *  closed   → CLOSED
+   * ------------------------------------------------------*/
+  const mapFilterToBackendStatus = {
+    waiting: "UNASSIGNED",
+    active: "ACTIVE",
+    closed: "CLOSED",
+  };
+
+  /** 🧩 Load danh sách hội thoại + đếm theo trạng thái */
   const loadMessages = async (status = "waiting") => {
     setLoading(true);
     try {
-      const upperStatus = status.toUpperCase();
-      const conversations = await getMyConversations(token, upperStatus);
+      const backendStatus = mapFilterToBackendStatus[status];
 
+      // Gọi API đúng status backend
+      const conversations = await getMyConversations(token, backendStatus);
+
+      // Lọc đúng
       const filtered = (conversations || []).filter(
-        (c) => c.status?.toUpperCase() === upperStatus
+        (c) => c.status?.toUpperCase() === backendStatus
       );
 
+      // Đếm đúng
       const waitingCount = conversations.filter(
-        (c) => c.status?.toUpperCase() === "WAITING"
+        (c) => c.status?.toUpperCase() === "UNASSIGNED"
       ).length;
+
       const activeCount = conversations.filter(
         (c) => c.status?.toUpperCase() === "ACTIVE"
       ).length;
+
       const closedCount = conversations.filter(
         (c) => c.status?.toUpperCase() === "CLOSED"
       ).length;
@@ -66,18 +91,36 @@ export default function StaffMessageListScreen({ route }) {
     }
   };
 
-  /** 🧩 Kết nối socket & load ban đầu */
+  /** 🧩 Kết nối socket + load ban đầu */
   useEffect(() => {
-    if (!token) return;
+    if (!token || typeof token !== "string") {
+      console.warn("⚠️ Token invalid, cannot connect socket:", token);
+      return;
+    }
 
+    // Lần đầu load dữ liệu
     loadMessages(filter);
 
-    socketRef.current = io(SOCKET_URL, {
+    // Init socket
+    const socket = io(SOCKET_URL, {
       transports: ["websocket"],
       auth: { token },
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+    });
+    socketRef.current = socket;
+
+    socket.on("connect", () => {
+      console.log("🟢 Socket connected:", socket.id);
     });
 
-    socketRef.current.on("newMessage", (msg) => {
+    socket.on("connect_error", (err) => {
+      console.log("⚠️ Socket connect error:", err.message);
+    });
+
+    // Nhận tin nhắn mới
+    socket.on("newMessage", (msg) => {
       console.log("💬 New message:", msg);
       setMessages((prev) => {
         const updated = [...prev];
@@ -93,7 +136,13 @@ export default function StaffMessageListScreen({ route }) {
       });
     });
 
-    return () => socketRef.current?.disconnect();
+    socket.on("disconnect", () => console.log("🔴 Socket disconnected"));
+
+    return () => {
+      console.log("🧹 Closing socket connection...");
+      socket.disconnect();
+      socketRef.current = null;
+    };
   }, [token]);
 
   /** 🧩 Render */
@@ -102,7 +151,7 @@ export default function StaffMessageListScreen({ route }) {
       <View style={styles.container}>
         <Text style={styles.header}>Messages</Text>
 
-        {/* Bộ lọc trạng thái */}
+        {/* Tabs lọc */}
         <ConversationFilterTabs
           filter={filter}
           counts={counts}
@@ -112,7 +161,7 @@ export default function StaffMessageListScreen({ route }) {
           }}
         />
 
-        {/* Danh sách hội thoại */}
+        {/* Danh sách */}
         {loading ? (
           <ActivityIndicator color={COLORS.accent} size="large" />
         ) : (
@@ -124,9 +173,10 @@ export default function StaffMessageListScreen({ route }) {
                 item={item}
                 onPress={() =>
                   navigation.navigate("StaffChatScreen", {
-                    conversationId: item.conversationId || item._id || item.id,
+                    conversationId: item.id || item._id,
                     token,
-                    status: item.status, // ✅ truyền status sang màn chat
+                    status: item.status,
+                    guest: item.guest,
                   })
                 }
               />

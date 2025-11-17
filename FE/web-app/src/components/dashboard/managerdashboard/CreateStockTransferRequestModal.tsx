@@ -91,13 +91,27 @@ export function CreateStockTransferRequestModal({
 
       setLoadingCaseLines(true);
       try {
-        const response = await caseLineService.getCaseLinesList({
-          status: "CUSTOMER_APPROVED",
-          page: 1,
-          limit: 100,
-        });
+        // Bug #7 Fix: Fetch both CUSTOMER_APPROVED and REJECTED_BY_OEM case lines
+        // This allows creating new stock requests after OEM rejection
+        const [approvedResponse, rejectedResponse] = await Promise.all([
+          caseLineService.getCaseLinesList({
+            status: "CUSTOMER_APPROVED",
+            page: 1,
+            limit: 100,
+          }),
+          caseLineService.getCaseLinesList({
+            status: "REJECTED_BY_OEM",
+            page: 1,
+            limit: 100,
+          }),
+        ]);
 
-        const caseLinesWithComponents = response.data.caseLines.filter(
+        const allCaseLines = [
+          ...(approvedResponse.data.caseLines || []),
+          ...(rejectedResponse.data.caseLines || []),
+        ];
+
+        const caseLinesWithComponents = allCaseLines.filter(
           (cl) => cl.typeComponentId && cl.quantity
         );
 
@@ -292,8 +306,7 @@ export function CreateStockTransferRequestModal({
     } catch (err: any) {
       console.error("Failed to create stock transfer request:", err);
       setError(
-        err.response?.data?.message ||
-          "Failed to create stock transfer request"
+        err.response?.data?.message || "Failed to create stock transfer request"
       );
     } finally {
       setIsSubmitting(false);
@@ -361,7 +374,7 @@ export function CreateStockTransferRequestModal({
                 >
                   <option value="">-- Select warehouse --</option>
                   {warehouses.map((w) => (
-                    <option key={w.id} value={w.id}>
+                    <option key={w.warehouseId} value={w.warehouseId}>
                       {w.name}
                     </option>
                   ))}
@@ -515,7 +528,7 @@ export function CreateStockTransferRequestModal({
                             parseInt(e.target.value) || 1
                           )
                         }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         required
                       />
                     </div>

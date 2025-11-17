@@ -276,11 +276,25 @@ export default function AdjustmentList({
                     <strong>ID:</strong> {selectedAdjustment.adjustmentId}
                   </p>
                   <p>
-                    <strong>Warehouse:</strong> {selectedAdjustment.warehouseId}
+                    <strong>Warehouse:</strong>{" "}
+                    {selectedAdjustment.stock?.warehouse?.name ||
+                      selectedAdjustment.warehouseId}
+                  </p>
+                  <p>
+                    <strong>Stock ID:</strong>{" "}
+                    {selectedAdjustment.stockId || "—"}
+                  </p>
+                  <p>
+                    <strong>Component:</strong>{" "}
+                    {selectedAdjustment.stock?.typeComponent?.name || "—"}
+                  </p>
+                  <p>
+                    <strong>Quantity:</strong>{" "}
+                    {selectedAdjustment.quantity || "—"}
                   </p>
                   <p>
                     <strong>Adjusted By:</strong>{" "}
-                    {selectedAdjustment.adjustedBy?.name}
+                    {selectedAdjustment.adjustedBy?.name || "—"}
                   </p>
                   <p>
                     <strong>Type:</strong> {selectedAdjustment.adjustmentType}
@@ -292,37 +306,48 @@ export default function AdjustmentList({
                     <strong>Note:</strong> {selectedAdjustment.note || "—"}
                   </p>
                   <p>
-                    <strong>Created:</strong>{" "}
-                    {new Date(selectedAdjustment.createdAt).toLocaleString()}
+                    <strong>Adjusted At:</strong>{" "}
+                    {selectedAdjustment.adjustedAt
+                      ? new Date(selectedAdjustment.adjustedAt).toLocaleString()
+                      : selectedAdjustment.createdAt
+                      ? new Date(selectedAdjustment.createdAt).toLocaleString()
+                      : "—"}
                   </p>
                 </div>
 
-                <h4 className="font-semibold mb-2">Affected Items</h4>
-                <div className="max-h-64 overflow-auto border rounded-lg">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b text-gray-600">
-                        <th className="py-2">Serial</th>
-                        <th className="py-2">Old Status</th>
-                        <th className="py-2">New Status</th>
-                        <th className="py-2">Δ</th>
-                      </tr>
-                    </thead>
+                {selectedAdjustment.items &&
+                  selectedAdjustment.items.length > 0 && (
+                    <>
+                      <h4 className="font-semibold mb-2">Affected Items</h4>
+                      <div className="max-h-64 overflow-auto border rounded-lg">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b text-gray-600">
+                              <th className="py-2">Serial</th>
+                              <th className="py-2">Old Status</th>
+                              <th className="py-2">New Status</th>
+                              <th className="py-2">Δ</th>
+                            </tr>
+                          </thead>
 
-                    <tbody>
-                      {selectedAdjustment.items.map((item, idx) => (
-                        <tr key={idx} className="border-b">
-                          <td className="py-2">{item.serialNumber}</td>
-                          <td className="py-2">{item.oldStatus}</td>
-                          <td className="py-2">{item.newStatus}</td>
-                          <td className="py-2">
-                            {item.delta > 0 ? `+${item.delta}` : item.delta}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                          <tbody>
+                            {selectedAdjustment.items.map((item, idx) => (
+                              <tr key={idx} className="border-b">
+                                <td className="py-2">{item.serialNumber}</td>
+                                <td className="py-2">{item.oldStatus}</td>
+                                <td className="py-2">{item.newStatus}</td>
+                                <td className="py-2">
+                                  {item.delta > 0
+                                    ? `+${item.delta}`
+                                    : item.delta}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
 
                 <button
                   onClick={closeDetail}

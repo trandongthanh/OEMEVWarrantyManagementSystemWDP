@@ -129,9 +129,9 @@ class NotificationService {
           roomSet.add(`service_center_staff_${serviceCenterId}`);
         }
         break;
-      case "technician":
+      case "service_center_technician":
         if (serviceCenterId) {
-          roomSet.add(`technician_service_center_${serviceCenterId}`);
+          roomSet.add(`service_center_technician_${serviceCenterId}`);
         }
         break;
       default:

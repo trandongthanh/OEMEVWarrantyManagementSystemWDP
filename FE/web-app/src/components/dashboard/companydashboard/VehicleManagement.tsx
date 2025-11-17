@@ -1,9 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Car, Upload, Info } from "lucide-react";
+import { Car, Upload, Info, Loader2, Package } from "lucide-react";
 import VehicleBulkUpload from "./VehicleBulkUpload";
+import vehicleModelService, {
+  VehicleModel,
+} from "@/services/vehicleModelService";
+import { toast } from "sonner";
 
 /**
  * Vehicle Management Component
@@ -13,6 +17,29 @@ import VehicleBulkUpload from "./VehicleBulkUpload";
  */
 export default function VehicleManagement() {
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [vehicleModels, setVehicleModels] = useState<VehicleModel[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchVehicleModels();
+  }, []);
+
+  const fetchVehicleModels = async () => {
+    try {
+      setLoading(true);
+      const models = await vehicleModelService.getVehicleModels();
+      setVehicleModels(models);
+    } catch (error) {
+      console.error("Error fetching vehicle models:", error);
+      toast.error("Failed to load vehicle models");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUploadSuccess = () => {
+    fetchVehicleModels();
+  };
 
   return (
     <div className="flex-1 overflow-auto">
@@ -89,6 +116,65 @@ export default function VehicleManagement() {
                 </div>
               </div>
 
+              {/* Vehicle Models List */}
+              <div className="bg-white border border-gray-200 rounded-xl">
+                <div className="p-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Package className="w-5 h-5 text-blue-600" />
+                    Vehicle Models ({vehicleModels.length})
+                  </h3>
+                </div>
+                <div className="p-4">
+                  {loading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                    </div>
+                  ) : vehicleModels.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">
+                      <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                      <p>No vehicle models found</p>
+                      <p className="text-sm mt-1">
+                        Create your first vehicle model to get started
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {vehicleModels.map((model) => (
+                        <div
+                          key={model.vehicleModelId}
+                          className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-sm transition-all"
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <Car className="w-4 h-4 text-blue-600" />
+                              </div>
+                              <div>
+                                <h4 className="font-semibold text-gray-900">
+                                  {model.vehicleModelName}
+                                </h4>
+                                <p className="text-xs text-gray-500">
+                                  SKU: {model.sku}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                          {model.warrantyComponents &&
+                            model.warrantyComponents.length > 0 && (
+                              <div className="mt-2 pt-2 border-t border-gray-100">
+                                <p className="text-xs text-gray-600">
+                                  {model.warrantyComponents.length} warranty
+                                  component(s)
+                                </p>
+                              </div>
+                            )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Quick Actions */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <button
@@ -159,10 +245,7 @@ export default function VehicleManagement() {
       <VehicleBulkUpload
         isOpen={showUploadModal}
         onClose={() => setShowUploadModal(false)}
-        onSuccess={() => {
-          // Refresh vehicle list when available
-          console.log("Vehicles uploaded successfully");
-        }}
+        onSuccess={handleUploadSuccess}
       />
     </div>
   );

@@ -722,7 +722,8 @@ class StockTransferRequestService {
       await this.#caselineRepository.bulkUpdateStatusByIds(
         {
           caseLineIds: caselineIds,
-          status: "REJECTED_BY_OEM",
+          status: "CUSTOMER_APPROVED",
+          rejectionReason: rejectionReason ?? null,
         },
         transaction
       );
@@ -750,7 +751,7 @@ class StockTransferRequestService {
       const roomNameServiceCenterManager = `service_center_manager_${requesterServiceCenterId}`;
 
       const eventName = "stock_transfer_request_rejected";
-      const data = { requestId };
+      const data = { requestId, rejectionReason };
 
       this.#notificationService.sendToRooms(
         [roomNameServiceCenterStaff, roomNameServiceCenterManager],

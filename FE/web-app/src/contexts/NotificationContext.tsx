@@ -486,13 +486,76 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         socket.on(
           "vehicleProcessingRecordStatusUpdated",
           (data: Record<string, unknown>) => {
-            console.log("📋 Vehicle processing record updated:", data);
-            const recordId = data.vehicleProcessingRecordId || data.id;
+            console.log(
+              "📋 Vehicle processing record updated - RAW DATA:",
+              JSON.stringify(data, null, 2)
+            );
+
+            const record = data.record as Record<string, unknown>;
+            const status =
+              (record?.status as string) || (data.status as string);
+            const vin = (record?.vin as string) || (data.vin as string);
+            const recordId =
+              (record?.vehicleProcessingRecordId as string) ||
+              (data.vehicleProcessingRecordId as string) ||
+              (data.id as string);
+
+            console.log(
+              "📋 Parsed values - status:",
+              status,
+              "vin:",
+              vin,
+              "recordId:",
+              recordId
+            );
+
+            // Determine notification details based on status
+            let title = "Case Status Updated";
+            let message = `Vehicle processing record has been updated`;
+            let priority: "low" | "medium" | "high" = "medium";
+
+            if (status === "WAITING_CUSTOMER_APPROVAL") {
+              title = "Case Awaiting Customer Approval";
+              message = vin
+                ? `Vehicle ${vin} diagnosis completed and awaiting customer approval`
+                : "Diagnosis completed and awaiting customer approval";
+              priority = "high";
+            } else if (status === "READY_FOR_PICKUP") {
+              title = "Vehicle Ready for Pickup";
+              message = vin
+                ? `Vehicle ${vin} repair completed and ready for pickup`
+                : "Vehicle repair completed and ready for pickup";
+              priority = "high";
+            } else if (status === "PROCESSING") {
+              title = "Case Processing";
+              message = vin
+                ? `Vehicle ${vin} is being processed`
+                : "Vehicle is being processed";
+              priority = "medium";
+            } else if (status === "CANCELLED") {
+              title = "Case Cancelled";
+              message = vin
+                ? `Vehicle ${vin} processing has been cancelled`
+                : "Vehicle processing has been cancelled";
+              priority = "medium";
+            } else if (vin) {
+              message = `Vehicle ${vin} status changed to ${status}`;
+            }
+
+            console.log(
+              "📋 Creating notification - title:",
+              title,
+              "message:",
+              message,
+              "priority:",
+              priority
+            );
+
             addNotification({
               type: "case_updated",
-              priority: "medium",
-              title: "Case Status Updated",
-              message: `Vehicle processing record has been updated`,
+              priority,
+              title,
+              message,
               timestamp: (data.sentAt as string) || new Date().toISOString(),
               data: {
                 ...data,
@@ -698,6 +761,120 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
             },
           });
         });
+
+        // Task assignment created
+        socket.on("taskAssignmentCreated", (data: Record<string, unknown>) => {
+          console.log("📋 Task assignment created:", data);
+          const taskType = data.taskType as string;
+          const taskId = data.taskAssignmentId || data.id;
+
+          addNotification({
+            type: "case_assigned",
+            priority: "high",
+            title: `New ${
+              taskType === "DIAGNOSIS" ? "Diagnosis" : "Repair"
+            } Task`,
+            message: `You have been assigned a new ${taskType?.toLowerCase()} task`,
+            timestamp: (data.sentAt as string) || new Date().toISOString(),
+            data: {
+              ...data,
+              navigationAction: "tasks",
+              taskId,
+            },
+          });
+        });
+
+        // Recall campaign notification
+        socket.on(
+          "recallCampaignNotification",
+          (data: Record<string, unknown>) => {
+            console.log("🚨 Recall campaign notification:", data);
+            const campaignId = data.campaignId || data.id;
+
+            addNotification({
+              type: "system_alert",
+              priority: "high",
+              title: "Recall Campaign Alert",
+              message:
+                (data.message as string) ||
+                "New recall campaign requires attention",
+              timestamp: (data.sentAt as string) || new Date().toISOString(),
+              data: {
+                ...data,
+                navigationAction: "recalls",
+                campaignId,
+              },
+            });
+          }
+        );
+
+        // Recall notification dispatched
+        socket.on(
+          "recallNotificationDispatched",
+          (data: Record<string, unknown>) => {
+            console.log("📢 Recall notification dispatched:", data);
+            const campaignId = data.campaignId || data.id;
+
+            addNotification({
+              type: "system_alert",
+              priority: "high",
+              title: "Recall Campaign",
+              message:
+                (data.message as string) || "Important recall information",
+              timestamp: (data.sentAt as string) || new Date().toISOString(),
+              data: {
+                ...data,
+                navigationAction: "recalls",
+                campaignId,
+              },
+            });
+          }
+        );
+
+        // New vehicle processing record created
+        socket.on(
+          "new_record_notification",
+          (data: Record<string, unknown>) => {
+            console.log("🚗 New vehicle record created:", data);
+            const recordId = data.vehicleProcessingRecordId || data.id;
+
+            addNotification({
+              type: "case_updated",
+              priority: "medium",
+              title: "New Vehicle Check-In",
+              message: "A new vehicle has been checked in for service",
+              timestamp: (data.sentAt as string) || new Date().toISOString(),
+              data: {
+                ...data,
+                navigationAction: "cases",
+                navigationId: String(recordId),
+              },
+            });
+          }
+        );
+
+        // New task assignment notification
+        socket.on(
+          "new_task_assignment_notification",
+          (data: Record<string, unknown>) => {
+            console.log("📋 New task assignment notification:", data);
+            const taskId = data.taskAssignmentId || data.id;
+
+            addNotification({
+              type: "case_assigned",
+              priority: "high",
+              title: "Task Assignment",
+              message:
+                (data.message as string) || "You have a new task assignment",
+              timestamp: (data.sentAt as string) || new Date().toISOString(),
+              data: {
+                ...data,
+                navigationAction: "tasks",
+                taskId,
+              },
+            });
+          }
+        );
 
         console.log("✅ All notification socket listeners attached");
       } catch (error) {

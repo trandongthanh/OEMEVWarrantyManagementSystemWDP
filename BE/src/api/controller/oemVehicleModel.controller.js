@@ -4,6 +4,19 @@ class OemVehicleModelController {
     this.#oemVehicleModelService = oemVehicleModelService;
   }
 
+  getAllVehicleModels = async (req, res) => {
+    const { companyId } = req;
+
+    const models = await this.#oemVehicleModelService.getAllVehicleModels({
+      companyId,
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: models,
+    });
+  };
+
   createVehicleModel = async (req, res) => {
     const {
       vehicleModelName,

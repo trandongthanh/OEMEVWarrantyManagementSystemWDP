@@ -72,22 +72,25 @@ class CaseLineRepository {
   };
 
   bulkUpdateStatusByIds = async (
-    { caseLineIds, status },
+    { caseLineIds, status, rejectionReason },
     transaction = null,
     lock = null
   ) => {
-    const [numberOfAffectedRows] = await CaseLine.update(
-      { status: status },
-      {
-        where: {
-          id: {
-            [Op.in]: caseLineIds,
-          },
+    const updatePayload = { status: status };
+
+    if (rejectionReason !== undefined) {
+      updatePayload.rejectionReason = rejectionReason;
+    }
+
+    const [numberOfAffectedRows] = await CaseLine.update(updatePayload, {
+      where: {
+        id: {
+          [Op.in]: caseLineIds,
         },
-        transaction: transaction,
-        lock: lock,
-      }
-    );
+      },
+      transaction: transaction,
+      lock: lock,
+    });
 
     if (numberOfAffectedRows <= 0) {
       return [];
@@ -608,7 +611,7 @@ class CaseLineRepository {
       ],
 
       group: [
-        "CaseLine.typeComponentId",
+        "CaseLine.type_component_id",
         "typeComponent.type_component_id",
         "typeComponent.name",
         "typeComponent.sku",

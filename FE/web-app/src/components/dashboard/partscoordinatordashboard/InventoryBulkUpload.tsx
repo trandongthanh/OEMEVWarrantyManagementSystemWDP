@@ -33,6 +33,7 @@ export default function InventoryBulkUpload({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
+  const [adjustmentType, setAdjustmentType] = useState<"IN" | "OUT">("IN");
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState(false);
@@ -68,6 +69,7 @@ export default function InventoryBulkUpload({
     setSelectedFile(null);
     setUploadResult(null);
     setUploadSuccess(false);
+    setAdjustmentType("IN");
     setReason("");
     setNote("");
     setSelectedWarehouseId("");
@@ -162,7 +164,7 @@ export default function InventoryBulkUpload({
       const result = await inventoryService.bulkCreateAdjustments({
         file: selectedFile,
         warehouseId,
-        adjustmentType: "IN",
+        adjustmentType: adjustmentType,
         reason: reason.trim(),
         note: note.trim() || undefined,
       });
@@ -187,25 +189,58 @@ export default function InventoryBulkUpload({
       if (summary.failed === 0) {
         // Show success animation
         setUploadSuccess(true);
-        toast.success(
-          `Successfully imported ${totalComponents} components across ${totalSuccessful} SKU(s)!`
-        );
-        onSuccess?.();
-        // Close modal after showing success animation
+
+        // Show success toast after a brief delay to let animation play
         setTimeout(() => {
-          onClose();
-        }, 3000);
+          toast.success(
+            `Successfully imported ${totalComponents} components across ${totalSuccessful} SKU(s)!`,
+            {
+              duration: 3000,
+            }
+          );
+        }, 500);
+
+        // Trigger onSuccess callback
+        onSuccess?.();
+
+        // Close modal after showing success animation (2.5 seconds for animation)
+        setTimeout(() => {
+          handleClose();
+        }, 2500);
       } else {
+        // Partial success - show warning and keep modal open
         toast.warning(
-          `Created ${summary.successful} adjustments, ${summary.failed} failed`
+          `Created ${summary.successful} adjustments, ${summary.failed} failed. Please review errors below.`,
+          {
+            duration: 5000,
+          }
         );
       }
     } catch (error: unknown) {
       console.error("Error uploading adjustments:", error);
       const err = error as { response?: { data?: { message?: string } } };
-      toast.error(
-        err.response?.data?.message || "Failed to upload adjustments"
-      );
+
+      // Show detailed error message
+      const errorMessage =
+        err.response?.data?.message || "Failed to upload adjustments";
+      toast.error(errorMessage, {
+        duration: 5000,
+      });
+
+      // Set error state in upload result
+      setUploadResult({
+        summary: {
+          total: 0,
+          successful: 0,
+          failed: 1,
+        },
+        errors: [
+          {
+            row: 0,
+            error: errorMessage,
+          },
+        ],
+      });
     } finally {
       setUploading(false);
     }
@@ -216,6 +251,7 @@ export default function InventoryBulkUpload({
       setSelectedFile(null);
       setUploadResult(null);
       setUploadSuccess(false);
+      setAdjustmentType("IN");
       setReason("");
       setNote("");
       setSelectedWarehouseId("");
@@ -352,16 +388,64 @@ export default function InventoryBulkUpload({
               </div>
             )}
 
+            {/* Adjustment Type Selector */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Adjustment Type <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setAdjustmentType("IN")}
+                  disabled={uploading}
+                  className={`px-4 py-3 rounded-xl font-medium transition-all ${
+                    adjustmentType === "IN"
+                      ? "bg-green-600 text-white shadow-lg"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  } disabled:opacity-50`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <Upload className="w-4 h-4" />
+                    Add Stock (IN)
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdjustmentType("OUT")}
+                  disabled={uploading}
+                  className={`px-4 py-3 rounded-xl font-medium transition-all ${
+                    adjustmentType === "OUT"
+                      ? "bg-red-600 text-white shadow-lg"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  } disabled:opacity-50`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <Download className="w-4 h-4" />
+                    Remove Stock (OUT)
+                  </div>
+                </button>
+              </div>
+              <p className="text-xs text-gray-500">
+                {adjustmentType === "IN"
+                  ? "Adds components to inventory (e.g., new shipment, returns)"
+                  : "Removes components from inventory (e.g., damaged, lost, scrapped)"}
+              </p>
+            </div>
+
             {/* Reason Input */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
-                Reason for Stock Import <span className="text-red-500">*</span>
+                Reason for Adjustment <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="e.g., New supplier shipment, Restocking from warehouse"
+                placeholder={
+                  adjustmentType === "IN"
+                    ? "e.g., New supplier shipment, Customer return"
+                    : "e.g., Damaged goods, Lost inventory, Quality issue"
+                }
                 disabled={uploading}
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:bg-gray-50 text-black"
               />

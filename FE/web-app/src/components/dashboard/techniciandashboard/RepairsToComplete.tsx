@@ -7,6 +7,7 @@ import caseLineService, { CaseLine } from "@/services/caseLineService";
 import { toast } from "sonner";
 import { usePolling } from "@/hooks/usePolling";
 import { MarkRepairCompleteButton } from "./MarkRepairCompleteButton";
+import { getCurrentUser } from "@/services/authService";
 
 export function RepairsToComplete() {
   const [caseLines, setCaseLines] = useState<CaseLine[]>([]);
@@ -15,8 +16,10 @@ export function RepairsToComplete() {
   // Real-time polling for repairs to complete
   usePolling(
     async () => {
+      const currentUser = getCurrentUser();
       const response = await caseLineService.getCaseLinesList({
         status: "IN_REPAIR",
+        repairTechId: currentUser?.userId,
       });
       const inRepairLines = response.data?.caseLines || [];
       setCaseLines(inRepairLines);
@@ -38,8 +41,10 @@ export function RepairsToComplete() {
   const fetchInRepairCaseLines = async () => {
     setLoading(true);
     try {
+      const currentUser = getCurrentUser();
       const response = await caseLineService.getCaseLinesList({
         status: "IN_REPAIR",
+        repairTechId: currentUser?.userId,
       });
 
       if (response.data?.caseLines) {
@@ -98,7 +103,7 @@ export function RepairsToComplete() {
 
       {caseLines.length === 0 ? (
         <div className="text-center py-8 bg-gray-50 rounded-lg">
-          <CheckCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+          <CheckCircle className="w-10 h-10 text-gray-300 mx-auto mb-2" />
           <p className="text-gray-500 text-sm">No repairs pending completion</p>
           <p className="text-gray-400 text-xs mt-1">
             Case lines in IN_REPAIR status will appear here
