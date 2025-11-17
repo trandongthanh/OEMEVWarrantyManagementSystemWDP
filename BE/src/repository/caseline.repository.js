@@ -442,7 +442,7 @@ class CaseLineRepository {
         {
           model: ComponentReservation,
           as: "reservations",
-          attributes: ["reservationId", "status", "componentId", "warehouseId"],
+          attributes: ["reservationId", "status", "componentId"],
           required: false,
           include: [
             {
