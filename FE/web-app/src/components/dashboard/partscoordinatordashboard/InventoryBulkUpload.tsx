@@ -189,25 +189,58 @@ export default function InventoryBulkUpload({
       if (summary.failed === 0) {
         // Show success animation
         setUploadSuccess(true);
-        toast.success(
-          `Successfully imported ${totalComponents} components across ${totalSuccessful} SKU(s)!`
-        );
-        onSuccess?.();
-        // Close modal after showing success animation
+
+        // Show success toast after a brief delay to let animation play
         setTimeout(() => {
-          onClose();
-        }, 3000);
+          toast.success(
+            `Successfully imported ${totalComponents} components across ${totalSuccessful} SKU(s)!`,
+            {
+              duration: 3000,
+            }
+          );
+        }, 500);
+
+        // Trigger onSuccess callback
+        onSuccess?.();
+
+        // Close modal after showing success animation (2.5 seconds for animation)
+        setTimeout(() => {
+          handleClose();
+        }, 2500);
       } else {
+        // Partial success - show warning and keep modal open
         toast.warning(
-          `Created ${summary.successful} adjustments, ${summary.failed} failed`
+          `Created ${summary.successful} adjustments, ${summary.failed} failed. Please review errors below.`,
+          {
+            duration: 5000,
+          }
         );
       }
     } catch (error: unknown) {
       console.error("Error uploading adjustments:", error);
       const err = error as { response?: { data?: { message?: string } } };
-      toast.error(
-        err.response?.data?.message || "Failed to upload adjustments"
-      );
+
+      // Show detailed error message
+      const errorMessage =
+        err.response?.data?.message || "Failed to upload adjustments";
+      toast.error(errorMessage, {
+        duration: 5000,
+      });
+
+      // Set error state in upload result
+      setUploadResult({
+        summary: {
+          total: 0,
+          successful: 0,
+          failed: 1,
+        },
+        errors: [
+          {
+            row: 0,
+            error: errorMessage,
+          },
+        ],
+      });
     } finally {
       setUploading(false);
     }
