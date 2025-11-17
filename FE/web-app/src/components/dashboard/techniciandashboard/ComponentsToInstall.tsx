@@ -322,36 +322,25 @@ export function ComponentsToInstall() {
                               <span className="font-medium">Case:</span>{" "}
                               {component.guaranteeCaseId}
                             </p>
-                            {/* Show warehouse pickup location */}
+                            {/* Show pickup status and location */}
                             {(() => {
                               const reservation = component.reservations?.find(
                                 (res) => res.status === "PICKED_UP"
                               );
                               if (!reservation?.component) return null;
 
-                              // Try to get warehouse from stockTransferRequest (requesting warehouse)
-                              const requestingWarehouse =
-                                reservation.component.stockTransferRequest
-                                  ?.requestingWarehouse;
-                              // Fallback to component's current warehouse
-                              const currentWarehouse =
-                                reservation.component.warehouse;
-                              const warehouse =
-                                requestingWarehouse || currentWarehouse;
+                              const serialNumber =
+                                reservation.component.serialNumber;
 
-                              if (warehouse) {
-                                return (
-                                  <p className="truncate text-purple-600">
-                                    <span className="font-medium">
-                                      📍 Pickup at:
-                                    </span>{" "}
-                                    {warehouse.name}
-                                    {warehouse.address &&
-                                      ` - ${warehouse.address}`}
-                                  </p>
-                                );
-                              }
-                              return null;
+                              return (
+                                <p className="truncate text-green-600">
+                                  <span className="font-medium">
+                                    ✓ Ready to install:
+                                  </span>{" "}
+                                  {serialNumber} (Picked up by Parts
+                                  Coordinator)
+                                </p>
+                              );
                             })()}
                             <p className="text-xs text-gray-500">
                               Status: {component.status} • Picked up, ready to
