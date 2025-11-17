@@ -174,9 +174,9 @@ class InventoryController {
 
       const templateRows = [
         ["SKU", "SERIAL_NUMBER"],
-        ["BRAKE_PAD_SKU", "SN-001"],
-        ["BRAKE_PAD_SKU", "SN-002"],
-        ["FILTER_SKU", "SN-003"],
+        ["BRAKE-PAD-CERAMIC", "SN-001"],
+        ["BRAKE-PAD-CERAMIC", "SN-002"],
+        ["FILTER-CABIN-HEPA", "SN-003"],
       ];
 
       const worksheet = xlsx.utils.aoa_to_sheet(templateRows);
@@ -221,8 +221,16 @@ class InventoryController {
       });
 
       const componentsBySku = data.slice(1).reduce((acc, row) => {
-        const sku = row[0];
-        const serialNumber = row[1];
+        const rawSku = row[0];
+        const rawSerialNumber = row[1];
+        const sku =
+          typeof rawSku === "string" ? rawSku.trim().toUpperCase() : rawSku;
+
+        const serialNumber =
+          typeof rawSerialNumber === "string"
+            ? rawSerialNumber.trim()
+            : rawSerialNumber;
+
         if (sku && serialNumber) {
           if (!acc[sku]) {
             acc[sku] = [];
