@@ -21,6 +21,7 @@ import { CaseDetailsModal } from "./CaseDetailsModal";
 import { ComponentsToInstall } from "./ComponentsToInstall";
 import { RepairsToComplete } from "./RepairsToComplete";
 import { usePolling } from "@/hooks/usePolling";
+import { CompleteDiagnosisButton } from "./CompleteDiagnosisButton";
 
 export function DashboardOverview() {
   const [processingRecords, setProcessingRecords] = useState<
@@ -131,10 +132,6 @@ export function DashboardOverview() {
 
   const handleCloseModal = () => {
     setSelectedCase(null);
-  };
-
-  const handleSuccess = () => {
-    loadProcessingRecords(); // Refresh the list after successful save
   };
 
   return (
@@ -459,6 +456,41 @@ export function DashboardOverview() {
                                   );
                                 })}
                               </div>
+
+                              {/* Complete Diagnosis Button - Only show if ALL guarantee cases have been diagnosed */}
+                              {record.status === "IN_DIAGNOSIS" &&
+                                record.guaranteeCases.every(
+                                  (gc) =>
+                                    gc.caseLines &&
+                                    gc.caseLines.length > 0 &&
+                                    gc.caseLines.some(
+                                      (cl) =>
+                                        cl.diagnosisText &&
+                                        cl.diagnosisText.trim() !== ""
+                                    )
+                                ) &&
+                                recordId && (
+                                  <div className="mt-3 pt-3 border-t border-gray-200">
+                                    <CompleteDiagnosisButton
+                                      recordId={recordId}
+                                      onSuccess={() => {
+                                        loadProcessingRecords();
+                                      }}
+                                      onNavigateToInstall={() => {
+                                        const componentsSection =
+                                          document.querySelector(
+                                            '[data-section="components-to-install"]'
+                                          );
+                                        if (componentsSection) {
+                                          componentsSection.scrollIntoView({
+                                            behavior: "smooth",
+                                            block: "start",
+                                          });
+                                        }
+                                      }}
+                                    />
+                                  </div>
+                                )}
                             </div>
                           )}
                       </div>
@@ -554,20 +586,6 @@ export function DashboardOverview() {
             vin={selectedCase.vin}
             recordId={selectedCase.recordId}
             caseId={selectedCase.caseId}
-            onNavigateToInstall={() => {
-              handleCloseModal();
-              // Scroll to ComponentsToInstall section
-              const componentsSection = document.querySelector(
-                '[data-section="components-to-install"]'
-              );
-              if (componentsSection) {
-                componentsSection.scrollIntoView({
-                  behavior: "smooth",
-                  block: "start",
-                });
-              }
-            }}
-            onSuccess={handleSuccess}
           />
         )}
       </div>

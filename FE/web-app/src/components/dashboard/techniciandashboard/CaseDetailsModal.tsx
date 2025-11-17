@@ -23,7 +23,6 @@ import technicianService, {
   CompatibleComponent,
 } from "@/services/technicianService";
 import caseLineService from "@/services/caseLineService";
-import { CompleteDiagnosisButton } from "./CompleteDiagnosisButton";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 
 interface CaseDetailsModalProps {
@@ -33,8 +32,6 @@ interface CaseDetailsModalProps {
   recordId: string; // Processing record ID for API calls
   caseId?: string; // Optional - may not exist for new diagnoses
   caseLineId?: string; // If provided, modal will be in edit mode
-  onSuccess?: () => void;
-  onNavigateToInstall?: () => void; // Optional callback to navigate to install components
 }
 
 interface CaseLineForm extends CaseLineInput {
@@ -78,8 +75,6 @@ export function CaseDetailsModal({
   recordId,
   caseId,
   caseLineId, // Edit mode if provided
-  onSuccess,
-  onNavigateToInstall,
 }: CaseDetailsModalProps) {
   const isEditMode = !!caseLineId;
 
@@ -111,8 +106,6 @@ export function CaseDetailsModal({
   const [activeLineIndex, setActiveLineIndex] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  const [showCompleteDiagnosisButton, setShowCompleteDiagnosisButton] =
-    useState(false);
   const [actualCaseId, setActualCaseId] = useState<string | undefined>(caseId);
   const [isReadOnly, setIsReadOnly] = useState(false); // True if case lines are not in DRAFT status
   const [diagnosisImages, setDiagnosisImages] = useState<
@@ -180,11 +173,10 @@ export function CaseDetailsModal({
 
           // Show Complete Diagnosis button if in DRAFT status (edit mode)
           if (isDraft && recordId) {
-            console.log("✅ Setting showCompleteDiagnosisButton to true");
-            setShowCompleteDiagnosisButton(true);
+            console.log("✅ Case line is in DRAFT status");
           } else {
             console.log(
-              "❌ NOT showing Complete Diagnosis button - isDraft:",
+              "❌ Case line not in DRAFT - isDraft:",
               isDraft,
               "recordId:",
               recordId
@@ -242,7 +234,7 @@ export function CaseDetailsModal({
                       `⏳ Fetching detailed data for case line: ${cl.id}`
                     );
                     const detailResponse =
-                      await caseLineService.getCaseLineById(cl.idcaseId);
+                      await caseLineService.getCaseLineById(cl.id);
                     const detailedData = detailResponse.data.caseLine;
                     console.log(
                       `✅ Received detailed data for case line ${cl.id}:`,
@@ -330,8 +322,7 @@ export function CaseDetailsModal({
               );
 
               if (allDraft && recordId) {
-                console.log("✅ Showing Complete Diagnosis button");
-                setShowCompleteDiagnosisButton(true);
+                console.log("✅ All case lines in DRAFT status");
                 setIsReadOnly(false); // Allow editing
               } else {
                 console.log("❌ Case lines not all DRAFT, read-only mode");
@@ -643,7 +634,6 @@ export function CaseDetailsModal({
         setSuccessMessage(
           `${updatePromises.length} case line(s) updated successfully!`
         );
-        setShowCompleteDiagnosisButton(true); // Show complete diagnosis button after update
       } else {
         // Create mode - create new case lines
         console.log("✨ Creating new case lines...");
@@ -712,7 +702,6 @@ export function CaseDetailsModal({
         }
 
         setSuccessMessage("Case lines created successfully!");
-        setShowCompleteDiagnosisButton(true); // Show complete diagnosis button after creation
       }
 
       // Don't close modal automatically - let user click Complete Diagnosis button
@@ -1407,23 +1396,8 @@ export function CaseDetailsModal({
           </div>
 
           {/* Footer */}
-          <div className="p-6 border-t border-gray-200 flex items-center justify-between gap-3">
-            {/* Left side - Complete Diagnosis Button (shown after successful save) */}
-            <div>
-              {showCompleteDiagnosisButton && recordId && (
-                <CompleteDiagnosisButton
-                  recordId={recordId}
-                  caseLines={caseLines}
-                  onNavigateToInstall={onNavigateToInstall}
-                  onSuccess={() => {
-                    onSuccess?.();
-                    onClose();
-                  }}
-                />
-              )}
-            </div>
-
-            {/* Right side - Cancel and Save buttons */}
+          <div className="p-6 border-t border-gray-200 flex items-center justify-end gap-3">
+            {/* Cancel and Save buttons */}
             <div className="flex items-center gap-3">
               <button
                 onClick={onClose}
