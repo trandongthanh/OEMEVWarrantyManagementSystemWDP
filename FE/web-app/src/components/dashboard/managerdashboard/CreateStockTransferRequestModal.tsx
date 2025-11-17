@@ -91,13 +91,27 @@ export function CreateStockTransferRequestModal({
 
       setLoadingCaseLines(true);
       try {
-        const response = await caseLineService.getCaseLinesList({
-          status: "CUSTOMER_APPROVED",
-          page: 1,
-          limit: 100,
-        });
+        // Bug #7 Fix: Fetch both CUSTOMER_APPROVED and REJECTED_BY_OEM case lines
+        // This allows creating new stock requests after OEM rejection
+        const [approvedResponse, rejectedResponse] = await Promise.all([
+          caseLineService.getCaseLinesList({
+            status: "CUSTOMER_APPROVED",
+            page: 1,
+            limit: 100,
+          }),
+          caseLineService.getCaseLinesList({
+            status: "REJECTED_BY_OEM",
+            page: 1,
+            limit: 100,
+          }),
+        ]);
 
-        const caseLinesWithComponents = response.data.caseLines.filter(
+        const allCaseLines = [
+          ...(approvedResponse.data.caseLines || []),
+          ...(rejectedResponse.data.caseLines || []),
+        ];
+
+        const caseLinesWithComponents = allCaseLines.filter(
           (cl) => cl.typeComponentId && cl.quantity
         );
 

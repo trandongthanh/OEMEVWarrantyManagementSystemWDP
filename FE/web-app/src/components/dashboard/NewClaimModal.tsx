@@ -178,42 +178,55 @@ export function NewClaimModal({
     setError("");
 
     try {
-      // Check warranty status
-      const warranty = await vehicleService.checkVehicleWarranty(
-        vehicleData.vin,
-        parseInt(odometer)
-      );
+      // Bug #1 Fix: Check if vehicle has purchaseDate. If yes, use it directly.
+      // If no purchaseDate, require preview with manual entry.
+      if (vehicleData.purchaseDate) {
+        // Vehicle has purchase date - use it directly for warranty check
+        const warranty = await vehicleService.checkVehicleWarranty(
+          vehicleData.vin,
+          parseInt(odometer)
+        );
 
-      // Transform the response to include warranty status check
-      const warrantyData = warranty.data.vehicle;
-      const isGeneralWarrantyActive =
-        warrantyData.generalWarranty.duration.status === true ||
-        warrantyData.generalWarranty.duration.status === "ACTIVE";
-      const isGeneralMileageValid =
-        warrantyData.generalWarranty.mileage.status === "ACTIVE";
+        // Transform the response to include warranty status check
+        const warrantyData = warranty.data.vehicle;
+        const isGeneralWarrantyActive =
+          warrantyData.generalWarranty.duration.status === true ||
+          warrantyData.generalWarranty.duration.status === "ACTIVE";
+        const isGeneralMileageValid =
+          warrantyData.generalWarranty.mileage.status === "ACTIVE";
 
-      setWarrantyInfo({
-        ...warrantyData,
-        isUnderWarranty: isGeneralWarrantyActive && isGeneralMileageValid,
-        message:
-          isGeneralWarrantyActive && isGeneralMileageValid
-            ? `Vehicle is covered under warranty. General warranty expires on ${new Date(
-                warrantyData.generalWarranty.duration.endDate
-              ).toLocaleDateString()} with ${warrantyData.generalWarranty.mileage.remainingMileage.toLocaleString()} km remaining.`
-            : "Vehicle is no longer covered under the general warranty policy.",
-      });
-
-      // Auto-populate visitor info from customer data if available
-      if (customerData && !visitorInfo.fullName && !visitorInfo.phone) {
-        setVisitorInfo({
-          fullName: customerData.fullName || "",
-          phone: customerData.phone || "",
-          relationship: "Owner",
-          note: "",
+        // Bug #7 Fix: Allow continuing even if warranty expired/rejected
+        // Backend will handle warranty status validation - frontend should not block
+        setWarrantyInfo({
+          ...warrantyData,
+          isUnderWarranty: isGeneralWarrantyActive && isGeneralMileageValid,
+          message:
+            isGeneralWarrantyActive && isGeneralMileageValid
+              ? `Vehicle is covered under warranty. General warranty expires on ${new Date(
+                  warrantyData.generalWarranty.duration.endDate
+                ).toLocaleDateString()} with ${warrantyData.generalWarranty.mileage.remainingMileage.toLocaleString()} km remaining.`
+              : "Vehicle warranty has expired, but you can still create a service record. Warranty coverage will be evaluated per component.",
+          isPreview: false,
         });
-      }
 
-      setStep("claim");
+        // Auto-populate visitor info from customer data if available
+        if (customerData && !visitorInfo.fullName && !visitorInfo.phone) {
+          setVisitorInfo({
+            fullName: customerData.fullName || "",
+            phone: customerData.phone || "",
+            relationship: "Owner",
+            note: "",
+          });
+        }
+
+        setStep("claim");
+      } else {
+        // Vehicle has NO purchase date - redirect to preview step to enter it
+        setStep("preview");
+        setError(
+          "This vehicle doesn't have a purchase date on record. Please enter it below to preview warranty coverage."
+        );
+      }
     } catch (err: any) {
       setError(
         err.response?.data?.message || "Failed to check warranty status"
