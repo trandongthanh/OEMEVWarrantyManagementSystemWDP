@@ -195,21 +195,40 @@ export function CaseLineDetailModal({
 
   const handleBulkApprove = () => {
     if (selectedCaseLines.size > 0 && onApproveCaseLines) {
-      onApproveCaseLines(Array.from(selectedCaseLines));
+      // Filter to only include PENDING_APPROVAL case lines
+      const validIds = Array.from(selectedCaseLines).filter((id) => {
+        const caseLine = allCaseLines.find((cl) => cl.id === id);
+        return caseLine?.status === "PENDING_APPROVAL";
+      });
+      if (validIds.length > 0) {
+        onApproveCaseLines(validIds);
+      }
       setSelectedCaseLines(new Set()); // Clear selection after action
     }
   };
 
   const handleBulkReject = () => {
     if (selectedCaseLines.size > 0 && onRejectCaseLines) {
-      onRejectCaseLines(Array.from(selectedCaseLines));
+      // Filter to only include PENDING_APPROVAL case lines
+      const validIds = Array.from(selectedCaseLines).filter((id) => {
+        const caseLine = allCaseLines.find((cl) => cl.id === id);
+        return caseLine?.status === "PENDING_APPROVAL";
+      });
+      if (validIds.length > 0) {
+        onRejectCaseLines(validIds);
+      }
       setSelectedCaseLines(new Set()); // Clear selection after action
     }
   };
 
   const selectAll = () => {
-    const allIds = new Set(allCaseLines.map((cl) => cl.id));
-    setSelectedCaseLines(allIds);
+    // Only select PENDING_APPROVAL case lines
+    const pendingIds = new Set(
+      allCaseLines
+        .filter((cl) => cl.status === "PENDING_APPROVAL")
+        .map((cl) => cl.id)
+    );
+    setSelectedCaseLines(pendingIds);
   };
 
   const clearSelection = () => {

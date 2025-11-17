@@ -33,6 +33,12 @@ const statusConfig: Record<
   string,
   { label: string; color: string; bgColor: string; icon: any }
 > = {
+  DRAFT: {
+    label: "Draft",
+    color: "text-gray-700",
+    bgColor: "bg-gray-100",
+    icon: FileText,
+  },
   CHECKED_IN: {
     label: "Checked In",
     color: "text-blue-700",
@@ -422,6 +428,9 @@ export function CasesList({ onViewDetails }: CasesListProps) {
 
                           if (totalLines > 0) {
                             // Count case lines by status
+                            const draft = caseLines.filter(
+                              (cl) => cl.status === "DRAFT"
+                            ).length;
                             const pendingApproval = caseLines.filter(
                               (cl) => cl.status === "PENDING_APPROVAL"
                             ).length;
@@ -459,7 +468,18 @@ export function CasesList({ onViewDetails }: CasesListProps) {
                               "bg-gray-900 text-white hover:bg-gray-800";
                             let statusBadge = null;
 
-                            if (pendingApproval > 0) {
+                            if (draft === totalLines) {
+                              buttonText = `View ${totalLines} Case Line${
+                                totalLines !== 1 ? "s" : ""
+                              }`;
+                              buttonStyle =
+                                "bg-gray-600 text-white hover:bg-gray-700";
+                              statusBadge = (
+                                <span className="px-2 py-0.5 bg-gray-200 text-gray-800 rounded text-xs font-semibold">
+                                  All Draft
+                                </span>
+                              );
+                            } else if (pendingApproval > 0) {
                               buttonText = `Review ${totalLines} Case Line${
                                 totalLines !== 1 ? "s" : ""
                               }`;
