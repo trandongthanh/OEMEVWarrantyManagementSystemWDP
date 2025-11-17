@@ -10,6 +10,7 @@ const {
   Component,
   VehicleProcessingRecord,
   ServiceCenter,
+  Warehouse,
 } = db;
 
 class CaseLineRepository {
@@ -441,8 +442,20 @@ class CaseLineRepository {
         {
           model: ComponentReservation,
           as: "reservations",
-          attributes: ["reservationId", "status"],
+          attributes: ["reservationId", "status", "componentId", "warehouseId"],
           required: false,
+          include: [
+            {
+              model: Component,
+              as: "component",
+              attributes: ["componentId", "serialNumber"],
+            },
+            {
+              model: Warehouse,
+              as: "warehouse",
+              attributes: ["warehouseId", "name", "address"],
+            },
+          ],
         },
       ],
       limit,
