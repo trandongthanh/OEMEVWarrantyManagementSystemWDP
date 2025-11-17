@@ -49,6 +49,17 @@ class OemVehicleModelRepository {
     return record ? record.toJSON() : null;
   };
 
+  findAllByCompanyId = async ({ companyId }) => {
+    const records = await VehicleModel.findAll({
+      where: {
+        vehicleCompanyId: companyId,
+      },
+      order: [["vehicleModelName", "ASC"]],
+    });
+
+    return records.map((record) => record.toJSON());
+  };
+
   createVehicleModel = async (vehicleModelData, transaction = null) => {
     const record = await VehicleModel.create(vehicleModelData, {
       transaction: transaction,
