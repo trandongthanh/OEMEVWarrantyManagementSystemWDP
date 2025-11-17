@@ -8,6 +8,7 @@ import ManagerDashboardTabs from "../screens/manager/ManagerDashboardTabs";
 import StaffDashboardTabs from "../screens/staff/StaffDashboardTabs";
 import TechnicianDashboard from "../screens/TechnicianDashboard";
 import StaffChatScreen from "../screens/staff/StaffChatScreen"; // 👈 thêm vào đây
+import TrackingTokenScreen from "../screens/track/TrackingTokenScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -60,6 +61,14 @@ export default function AppNavigator() {
           component={TechnicianDashboard}
           options={{
             title: "Technician Dashboard",
+          }}
+        />
+        <Stack.Screen
+          name="TrackingToken"
+          component={TrackingTokenScreen}
+          options={{
+            headerShown: true,
+            title: "Track Vehicle",
           }}
         />
       </Stack.Navigator>
