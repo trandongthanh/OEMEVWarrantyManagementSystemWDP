@@ -17,6 +17,10 @@ import {
   X,
   Package,
   PackageCheck,
+  FileText,
+  XCircle,
+  CheckCheck,
+  UserCheck,
 } from "lucide-react";
 import technicianService, {
   TechnicianProcessingRecord,
@@ -66,6 +70,92 @@ const statusConfig: Record<
     color: "text-red-700",
     bgColor: "bg-red-100",
     icon: X,
+  },
+};
+
+// Caseline status configuration
+const caselineStatusConfig: Record<
+  string,
+  {
+    label: string;
+    color: string;
+    bgColor: string;
+    borderColor: string;
+    icon: React.ComponentType<{ className?: string }>;
+    description: string;
+  }
+> = {
+  DRAFT: {
+    label: "Draft",
+    color: "text-gray-600",
+    bgColor: "bg-gray-50",
+    borderColor: "border-gray-200",
+    icon: FileText,
+    description: "Case line is in draft state",
+  },
+  PENDING_APPROVAL: {
+    label: "Pending Approval",
+    color: "text-yellow-600",
+    bgColor: "bg-yellow-50",
+    borderColor: "border-yellow-200",
+    icon: Clock,
+    description: "Awaiting manager approval",
+  },
+  CUSTOMER_APPROVED: {
+    label: "Customer Approved",
+    color: "text-green-600",
+    bgColor: "bg-green-50",
+    borderColor: "border-green-200",
+    icon: UserCheck,
+    description: "Customer has approved this repair",
+  },
+  WAITING_FOR_PARTS: {
+    label: "Waiting for Parts",
+    color: "text-orange-600",
+    bgColor: "bg-orange-50",
+    borderColor: "border-orange-200",
+    icon: Package,
+    description: "Stock transfer request in progress",
+  },
+  PARTS_AVAILABLE: {
+    label: "Parts Available",
+    color: "text-green-600",
+    bgColor: "bg-green-50",
+    borderColor: "border-green-200",
+    icon: PackageCheck,
+    description: "Parts received and ready to use",
+  },
+  READY_FOR_REPAIR: {
+    label: "Ready for Repair",
+    color: "text-purple-600",
+    bgColor: "bg-purple-50",
+    borderColor: "border-purple-200",
+    icon: Wrench,
+    description: "Ready to start repair work",
+  },
+  IN_REPAIR: {
+    label: "In Repair",
+    color: "text-blue-600",
+    bgColor: "bg-blue-50",
+    borderColor: "border-blue-200",
+    icon: Wrench,
+    description: "Currently being repaired",
+  },
+  COMPLETED: {
+    label: "Completed",
+    color: "text-green-600",
+    bgColor: "bg-green-50",
+    borderColor: "border-green-200",
+    icon: CheckCheck,
+    description: "Repair work completed",
+  },
+  REJECTED: {
+    label: "Rejected",
+    color: "text-red-600",
+    bgColor: "bg-red-50",
+    borderColor: "border-red-200",
+    icon: XCircle,
+    description: "Rejected by manager or technician",
   },
 };
 
@@ -331,29 +421,14 @@ export function MyTasks() {
                           Work Items ({task.guaranteeCases.length})
                         </p>
                         {task.guaranteeCases.map((gc) => {
-                          // Count case lines by status for context
-                          const caseLineStats = {
-                            waitingForParts:
-                              gc.caseLines?.filter(
-                                (cl) => cl.status === "WAITING_FOR_PARTS"
-                              ).length || 0,
-                            partsAvailable:
-                              gc.caseLines?.filter(
-                                (cl) => cl.status === "PARTS_AVAILABLE"
-                              ).length || 0,
-                            readyForRepair:
-                              gc.caseLines?.filter(
-                                (cl) => cl.status === "READY_FOR_REPAIR"
-                              ).length || 0,
-                            inRepair:
-                              gc.caseLines?.filter(
-                                (cl) => cl.status === "IN_REPAIR"
-                              ).length || 0,
-                            completed:
-                              gc.caseLines?.filter(
-                                (cl) => cl.status === "COMPLETED"
-                              ).length || 0,
-                          };
+                          // Group case lines by status using the config
+                          const caseLinesByStatus =
+                            gc.caseLines?.reduce((acc, cl) => {
+                              const status = cl.status || "DRAFT";
+                              if (!acc[status]) acc[status] = [];
+                              acc[status].push(cl);
+                              return acc;
+                            }, {} as Record<string, typeof gc.caseLines>) || {};
 
                           const hasCaseLineDetails =
                             gc.caseLines && gc.caseLines.length > 0;
@@ -377,58 +452,41 @@ export function MyTasks() {
                               </div>
                               {hasCaseLineDetails && (
                                 <div className="flex flex-wrap gap-2">
-                                  {caseLineStats.waitingForParts > 0 && (
-                                    <div className="group relative">
-                                      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-orange-200 rounded text-orange-700 text-xs">
-                                        <Package className="w-3.5 h-3.5" />
-                                        <span className="font-medium">
-                                          {caseLineStats.waitingForParts}{" "}
-                                          waiting for parts
-                                        </span>
-                                      </div>
-                                      <div className="absolute bottom-full left-0 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                                        Stock transfer request in progress
-                                      </div>
-                                    </div>
-                                  )}
-                                  {caseLineStats.partsAvailable > 0 && (
-                                    <div className="group relative">
-                                      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-green-200 rounded text-green-700 text-xs">
-                                        <PackageCheck className="w-3.5 h-3.5" />
-                                        <span className="font-medium">
-                                          {caseLineStats.partsAvailable} parts
-                                          available
-                                        </span>
-                                      </div>
-                                      <div className="absolute bottom-full left-0 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                                        Parts received and ready to use
-                                      </div>
-                                    </div>
-                                  )}
-                                  {caseLineStats.readyForRepair > 0 && (
-                                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-purple-200 rounded text-purple-700 text-xs">
-                                      <Wrench className="w-3.5 h-3.5" />
-                                      <span className="font-medium">
-                                        {caseLineStats.readyForRepair} ready to
-                                        repair
-                                      </span>
-                                    </div>
-                                  )}
-                                  {caseLineStats.inRepair > 0 && (
-                                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 border border-blue-200 rounded text-blue-700 text-xs">
-                                      <Wrench className="w-3.5 h-3.5 animate-pulse" />
-                                      <span className="font-medium">
-                                        {caseLineStats.inRepair} in progress
-                                      </span>
-                                    </div>
-                                  )}
-                                  {caseLineStats.completed > 0 && (
-                                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-gray-200 rounded text-gray-600 text-xs">
-                                      <CheckCircle className="w-3.5 h-3.5" />
-                                      <span className="font-medium">
-                                        {caseLineStats.completed} completed
-                                      </span>
-                                    </div>
+                                  {Object.entries(caseLinesByStatus).map(
+                                    ([status, caselines]) => {
+                                      const config =
+                                        caselineStatusConfig[status];
+                                      if (!config) return null;
+
+                                      const StatusIcon = config.icon;
+                                      const count = caselines.length;
+
+                                      return (
+                                        <div
+                                          key={status}
+                                          className="group relative"
+                                        >
+                                          <div
+                                            className={`flex items-center gap-1.5 px-2.5 py-1 bg-white border ${config.borderColor} rounded ${config.color} text-xs`}
+                                          >
+                                            <StatusIcon
+                                              className={`w-3.5 h-3.5 ${
+                                                status === "IN_REPAIR"
+                                                  ? "animate-pulse"
+                                                  : ""
+                                              }`}
+                                            />
+                                            <span className="font-medium">
+                                              {count}{" "}
+                                              {config.label.toLowerCase()}
+                                            </span>
+                                          </div>
+                                          <div className="absolute bottom-full left-0 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                                            {config.description}
+                                          </div>
+                                        </div>
+                                      );
+                                    }
                                   )}
                                 </div>
                               )}
