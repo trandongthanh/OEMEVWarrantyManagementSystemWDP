@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import type { ProcessingRecord } from "@/services/processingRecordService";
 import { useState, useEffect } from "react";
-import { WorkflowTimeline } from "../shared";
 import { caseLineService, type CaseLine as CaseLineType } from "@/services";
 
 interface CaseLineDetailModalProps {
@@ -654,55 +653,45 @@ export function CaseLineDetailModal({
                           </div>
                         )}
 
-                        {/* Workflow Timeline */}
+                        {/* Status Information */}
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                          <div className="flex items-center gap-2 mb-3">
-                            <Clock className="w-4 h-4 text-blue-600" />
-                            <h5 className="text-xs font-semibold text-gray-900 uppercase tracking-wide">
-                              Status Progression
-                            </h5>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Clock className="w-4 h-4 text-blue-600" />
+                              <h5 className="text-xs font-semibold text-gray-900 uppercase tracking-wide">
+                                Current Status
+                              </h5>
+                            </div>
+                            {(() => {
+                              const detailedInfo = caseLineDetails.get(
+                                caseLine.id
+                              );
+                              const updatedAt = (
+                                detailedInfo as { updatedAt?: string }
+                              )?.updatedAt;
+
+                              if (updatedAt) {
+                                return (
+                                  <span className="text-xs text-gray-600">
+                                    Updated:{" "}
+                                    {new Date(updatedAt).toLocaleString(
+                                      "en-US",
+                                      {
+                                        month: "short",
+                                        day: "numeric",
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      }
+                                    )}
+                                  </span>
+                                );
+                              }
+                              return null;
+                            })()}
                           </div>
-                          <WorkflowTimeline
-                            events={[
-                              {
-                                status: "PENDING_APPROVAL",
-                                timestamp: null,
-                                label: "Pending Approval",
-                                description:
-                                  "Awaiting customer approval for repair",
-                              },
-                              {
-                                status: "CUSTOMER_APPROVED",
-                                timestamp: null,
-                                label: "Customer Approved",
-                                description: "Customer has approved the repair",
-                              },
-                              {
-                                status: "READY_FOR_REPAIR",
-                                timestamp: null,
-                                label: "Ready for Repair",
-                                description:
-                                  "All parts available, ready to start",
-                              },
-                              {
-                                status: "IN_PROGRESS",
-                                timestamp: null,
-                                label: "In Progress",
-                                description: "Repair work is underway",
-                              },
-                              {
-                                status: "COMPLETED",
-                                timestamp: null,
-                                label: "Completed",
-                                description:
-                                  "Repair completed and quality checked",
-                              },
-                            ]}
-                            currentStatus={
-                              caseLine.status || "PENDING_APPROVAL"
-                            }
-                            variant="horizontal"
-                          />
+                          <div className="mt-2">
+                            {getCaseLineStatusBadge(caseLine.status)}
+                          </div>
                         </div>
 
                         {/* Quantity & Actions */}
