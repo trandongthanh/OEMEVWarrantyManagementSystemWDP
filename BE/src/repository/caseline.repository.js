@@ -11,7 +11,7 @@ const {
   VehicleProcessingRecord,
   ServiceCenter,
   Warehouse,
-  StockTransferRequest
+  StockTransferRequest,
 } = db;
 
 class CaseLineRepository {
@@ -168,19 +168,37 @@ class CaseLineRepository {
         {
           model: ComponentReservation,
           as: "reservations",
-          attributes: ["reservationId", "caseLineId", "status"],
-
+          attributes: ["reservationId", "caseLineId", "status", "componentId"],
+          required: false,
           include: [
             {
               model: Component,
               as: "component",
-              attributes: ["componentId", "serialNumber", "status"],
-
+              attributes: [
+                "componentId",
+                "serialNumber",
+                "warehouseId",
+                "status",
+                "requestId",
+              ],
               include: [
                 {
-                  model: db.Warehouse,
+                  model: Warehouse,
                   as: "warehouse",
                   attributes: ["warehouseId", "name", "address"],
+                },
+                {
+                  model: StockTransferRequest,
+                  as: "stockTransferRequest",
+                  attributes: ["requestId", "requestingWarehouseId"],
+                  required: false,
+                  include: [
+                    {
+                      model: Warehouse,
+                      as: "requestingWarehouse",
+                      attributes: ["warehouseId", "name", "address"],
+                    },
+                  ],
                 },
               ],
             },
