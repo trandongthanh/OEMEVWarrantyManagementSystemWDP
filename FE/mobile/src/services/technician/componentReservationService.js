@@ -18,14 +18,14 @@ const getComponentReservations = async (params) => {
 };
 
 /**
- * Lấy (pickup) linh kiện từ kho (Dành cho Điều phối viên kho)
+ * Lấy (pickup) linh kiện từ kho (Dành cho Kỹ thuật viên)
  * API: PATCH /reservations/pickup
+ * CẬP NHẬT: Gửi một mảng reservationIds. BE sẽ tự lấy techId từ token.
  */
-const pickupComponents = async (reservationIds, pickedUpByTechId) => {
+const pickupComponents = async (reservationIds) => {
   try {
-    const response = await api.patch(`/reservations/pickup`, { //
+    const response = await api.patch(`/reservations/pickup`, {
       reservationIds,
-      pickedUpByTechId,
     });
     return response.data;
   } catch (error) {
@@ -37,13 +37,11 @@ const pickupComponents = async (reservationIds, pickedUpByTechId) => {
 /**
  * Lắp đặt linh kiện lên xe (Quan trọng cho Kỹ thuật viên)
  * API: PATCH /reservations/{reservationId}/installComponent
- *
- * CẬP NHẬT: Hàm này chỉ cần reservationId.
  */
 const installComponent = async (reservationId) => {
   try {
     const response = await api.patch(
-      `/reservations/${reservationId}/installComponent` //
+      `/reservations/${reservationId}/installComponent`
     );
     return response.data;
   } catch (error) {
@@ -58,7 +56,7 @@ const installComponent = async (reservationId) => {
  */
 const getReservationById = async (reservationId) => {
   try {
-    const response = await api.get(`/reservations/${reservationId}`); //
+    const response = await api.get(`/reservations/${reservationId}`);
     return response.data;
   } catch (error) {
     console.error(
@@ -72,8 +70,8 @@ const getReservationById = async (reservationId) => {
 // Đóng gói các hàm thành một đối tượng service để export
 const componentReservationService = {
   getComponentReservations,
-  pickupComponents, // KTV có thể không dùng, nhưng để đây
-  installComponent, // Hàm quan trọng cho KTV
+  pickupComponents, 
+  installComponent,
   getReservationById,
 };
 

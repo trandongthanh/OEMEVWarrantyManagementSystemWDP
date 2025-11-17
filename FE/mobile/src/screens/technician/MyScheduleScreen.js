@@ -13,6 +13,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { workScheduleService } from "../../services/technician";
+import AvatarLogoutMenu from "../../components/technician/AvatarLogoutMenu"; 
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -281,6 +282,7 @@ export default function MyScheduleScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>My Schedule</Text>
+        <AvatarLogoutMenu />
       </View>
 
       <View style={styles.controlsContainer}>
@@ -354,12 +356,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F4F6",
   },
   header: {
-    backgroundColor: "#FFFFFF",
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 12, 
+    paddingHorizontal: 16,
+    paddingTop: 40, 
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    alignItems: "center", 
+  },
   headerTitle: {
     fontSize: 28,
     fontWeight: "bold",

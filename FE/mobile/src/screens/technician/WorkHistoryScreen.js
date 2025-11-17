@@ -12,7 +12,8 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
-import { technicianService } from "../../services/technician";
+import processingRecordService from "../../services/technician/processingRecordService";
+import AvatarLogoutMenu from "../../components/technician/AvatarLogoutMenu"; 
 
 const statusConfig = {
   COMPLETED: {
@@ -50,8 +51,13 @@ export default function WorkHistoryScreen() {
   const loadHistory = async () => {
     setLoading(true);
     try {
-      const response = await technicianService.getAssignedRecords();
-      const recordsData = response.data?.records?.records || [];
+      const response = await processingRecordService.getAllRecords({
+        page: 1,
+        limit: 100,
+      });
+      
+      const recordsData = response.data?.data?.records || [];
+
       const completedTasks = recordsData.filter(
         (record) =>
           record.status === "COMPLETED" || record.status === "CANCELLED"
@@ -174,6 +180,7 @@ export default function WorkHistoryScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Work History</Text>
+        <AvatarLogoutMenu />
       </View>
 
       <ScrollView
@@ -257,12 +264,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F4F6",
   },
   header: {
-    backgroundColor: "#FFFFFF",
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 12, 
+    paddingHorizontal: 16,
+    paddingTop: 40, 
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    alignItems: "center", 
+  },
   headerTitle: {
     fontSize: 28,
     fontWeight: "bold",

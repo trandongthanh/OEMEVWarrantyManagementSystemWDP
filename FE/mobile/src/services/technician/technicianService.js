@@ -1,11 +1,31 @@
 import api from "../api";
+import AsyncStorage from "@react-native-async-storage/async-storage"; 
+
 /**
  * Lấy các phiếu sửa chữa đã được gán cho kỹ thuật viên (người đã đăng nhập)
  * API: GET /processing-records
  */
-const getAssignedRecords = async () => {
+const getAssignedRecords = async (filters = {}) => { 
   try {
-    const response = await api.get("/processing-records");
+    const serviceCenterId = await AsyncStorage.getItem("serviceCenterId");
+    const userId = await AsyncStorage.getItem("userId");
+    const userRole = await AsyncStorage.getItem("userRole");
+
+    const params = {
+      ...filters,
+      serviceCenterId, 
+      userId, 
+      roleName: userRole, 
+      
+      page: filters.page || 1,
+      limit: filters.limit || 20, 
+    };
+    
+    if (!params.serviceCenterId || !params.userId || !params.roleName) {
+      throw new Error("Thông tin KTV (serviceCenterId, userId, userRole) bị thiếu trong AsyncStorage.");
+    }
+
+    const response = await api.get("/processing-records", { params });
     return response.data;
   } catch (error) {
     console.error("Lỗi khi lấy các phiếu được gán (getAssignedRecords):", error);
@@ -33,7 +53,6 @@ const getRecordDetails = async (recordId) => {
  */
 const createCaseLines = async (caseId, data) => {
   try {
-    // data có dạng { caselines: [...] }
     const response = await api.post(
       `/guarantee-cases/${caseId}/case-lines`,
       data
@@ -88,7 +107,7 @@ const updateCaseLine = async (caseLineId, data) => {
 const updateStockQuantities = async (caseId, caselines) => {
   try {
     const response = await api.post(`/guarantee-cases/${caseId}`, {
-      caselines, // data có dạng { caselines: [{ id, componentId, quantity }] }
+      caselines,
     });
     return response.data;
   } catch (error) {
@@ -97,7 +116,6 @@ const updateStockQuantities = async (caseId, caselines) => {
   }
 };
 
-// Đóng gói các hàm thành một đối tượng service để export
 const technicianService = {
   getAssignedRecords,
   getRecordDetails,
