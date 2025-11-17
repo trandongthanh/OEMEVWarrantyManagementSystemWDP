@@ -284,6 +284,35 @@ export function CaseLineOperations() {
       );
       toast.success(`Stock allocated! Reserved ${reservedQty} component(s)`);
 
+      // Auto-assign diagnostic tech as repair tech after successful allocation
+      // This handles both flows:
+      // 1. CUSTOMER_APPROVED → READY_FOR_REPAIR (stock available immediately)
+      // 2. PARTS_AVAILABLE → READY_FOR_REPAIR (after stock transfer received)
+      try {
+        const diagnosticTechId =
+          caseLine.diagnosticTechId || caseLine.diagnosticTechnician?.userId;
+        const newStatus = response.data.formattedCaselineStatus?.[0]?.status;
+
+        if (diagnosticTechId && newStatus === "READY_FOR_REPAIR") {
+          console.log(
+            "Auto-assigning diagnostic tech as repair tech:",
+            diagnosticTechId
+          );
+
+          await caseLineService.assignTechnicianToRepair(
+            caseLine.guaranteeCaseId,
+            caseLineId,
+            { technicianId: diagnosticTechId }
+          );
+
+          toast.success("✓ Diagnostic technician auto-assigned for repair");
+        }
+      } catch (assignError: any) {
+        console.warn("Auto-assignment failed (non-critical):", assignError);
+        // Don't show error to user since stock allocation succeeded
+        // They can manually assign if needed
+      }
+
       await fetchCaseLines();
     } catch (error: any) {
       console.error("Error allocating stock:", error);
@@ -458,6 +487,24 @@ export function CaseLineOperations() {
             caseLineId
           );
           successCount++;
+
+          // Auto-assign diagnostic tech as repair tech after successful allocation
+          try {
+            const diagnosticTechId =
+              currentCaseLine.diagnosticTechId ||
+              currentCaseLine.diagnosticTechnician?.userId;
+
+            if (diagnosticTechId) {
+              await caseLineService.assignTechnicianToRepair(
+                currentCaseLine.guaranteeCaseId,
+                caseLineId,
+                { technicianId: diagnosticTechId }
+              );
+            }
+          } catch (assignError) {
+            console.warn("Auto-assignment failed for", caseLineId, assignError);
+            // Continue with next allocation even if assignment fails
+          }
         } catch (error: any) {
           failedCount++;
           let errorMsg = error?.response?.data?.message || error.message;
