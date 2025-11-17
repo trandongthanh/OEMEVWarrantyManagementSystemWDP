@@ -453,12 +453,26 @@ class CaseLineRepository {
                 "serialNumber",
                 "warehouseId",
                 "status",
+                "requestId",
               ],
               include: [
                 {
                   model: Warehouse,
                   as: "warehouse",
                   attributes: ["warehouseId", "name", "address"],
+                },
+                {
+                  model: db.StockTransferRequest,
+                  as: "stockTransferRequest",
+                  attributes: ["requestId", "requestingWarehouseId"],
+                  required: false,
+                  include: [
+                    {
+                      model: Warehouse,
+                      as: "requestingWarehouse",
+                      attributes: ["warehouseId", "name", "address"],
+                    },
+                  ],
                 },
               ],
             },
