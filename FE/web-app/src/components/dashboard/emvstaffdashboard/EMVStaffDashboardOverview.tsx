@@ -51,7 +51,7 @@ export default function EMVStaffDashboardOverview({
         [
           apiClient.get("/stock-transfer-requests"),
           apiClient.get("/stock-transfer-requests", {
-            params: { status: "PENDING" },
+            params: { status: "PENDING_APPROVAL" },
           }),
           apiClient.get("/recall-campaigns", {
             params: { status: "ACTIVE" },

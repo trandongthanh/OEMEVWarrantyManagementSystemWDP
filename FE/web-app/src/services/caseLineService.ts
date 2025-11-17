@@ -48,6 +48,23 @@ export interface CaseLine {
     component?: {
       serialNumber: string;
       componentId: string;
+      warehouseId?: string;
+      status?: string;
+      warehouse?: {
+        warehouseId: string;
+        name: string;
+        address?: string;
+      };
+      stockTransferRequest?: {
+        id?: string;
+        requestId?: string;
+        requestingWarehouseId?: string;
+        requestingWarehouse?: {
+          warehouseId: string;
+          name: string;
+          address?: string;
+        };
+      };
     };
     warehouse?: {
       warehouseId: string;

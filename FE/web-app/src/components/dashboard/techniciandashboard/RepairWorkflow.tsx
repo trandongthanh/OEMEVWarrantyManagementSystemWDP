@@ -26,12 +26,22 @@ interface ComponentWithReservation extends CaseLine {
     component?: {
       serialNumber: string;
       componentId: string;
-    };
-    warehouse?: {
-      warehouseId: string;
-      name?: string;
-      warehouseName?: string;
-      address?: string;
+      warehouseId?: string;
+      status?: string;
+      warehouse?: {
+        warehouseId: string;
+        name: string;
+        address?: string;
+      };
+      stockTransferRequest?: {
+        requestId: string;
+        requestingWarehouseId: string;
+        requestingWarehouse?: {
+          warehouseId: string;
+          name: string;
+          address?: string;
+        };
+      };
     };
   }>;
 }
@@ -594,43 +604,91 @@ export function RepairWorkflow() {
                       <h3 className="font-semibold text-gray-900">
                         Reservation Details
                       </h3>
-                      {(selectedItem as ComponentWithReservation).reservations
-                        ?.filter((res) => res.status === "PICKED_UP")
-                        .map((res, idx) => (
+                      {(() => {
+                        const pickedUpReservations = (
+                          selectedItem as ComponentWithReservation
+                        ).reservations?.filter(
+                          (res) => res.status === "PICKED_UP"
+                        );
+
+                        if (
+                          !pickedUpReservations ||
+                          pickedUpReservations.length === 0
+                        ) {
+                          return (
+                            <div className="p-4 bg-gray-50 rounded-lg text-sm text-gray-500">
+                              No reservation details available
+                            </div>
+                          );
+                        }
+
+                        return pickedUpReservations.map((res, idx) => (
                           <div
                             key={idx}
                             className="p-4 bg-gray-50 rounded-lg space-y-3 text-sm"
                           >
                             {res.component?.serialNumber && (
                               <div>
-                                <p className="text-gray-500">Serial Number</p>
+                                <p className="text-gray-500 mb-1">
+                                  Serial Number
+                                </p>
                                 <p className="font-medium text-gray-900">
                                   {res.component.serialNumber}
                                 </p>
                               </div>
                             )}
-                            {res.warehouse && (
-                              <div>
-                                <p className="text-gray-500 mb-1">Warehouse</p>
-                                <div className="flex items-start gap-2">
-                                  <Warehouse className="w-4 h-4 text-gray-600 mt-0.5 flex-shrink-0" />
-                                  <div>
-                                    <p className="font-medium text-gray-900">
-                                      {res.warehouse.name ||
-                                        res.warehouse.warehouseName ||
-                                        "N/A"}
-                                    </p>
-                                    {res.warehouse.address && (
-                                      <p className="text-xs text-gray-600 mt-1">
-                                        {res.warehouse.address}
+                            <div>
+                              <p className="text-gray-500 mb-1">
+                                Warehouse Location
+                              </p>
+                              <div className="flex items-start gap-2">
+                                <Warehouse className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                                <div>
+                                  {(() => {
+                                    // Try to get warehouse from stockTransferRequest (requesting warehouse)
+                                    const requestingWarehouse =
+                                      res.component?.stockTransferRequest
+                                        ?.requestingWarehouse;
+                                    // Fallback to component's current warehouse
+                                    const currentWarehouse =
+                                      res.component?.warehouse;
+                                    const warehouse =
+                                      requestingWarehouse || currentWarehouse;
+
+                                    if (warehouse) {
+                                      return (
+                                        <>
+                                          <p className="font-medium text-gray-900">
+                                            {warehouse.name}
+                                          </p>
+                                          {warehouse.address && (
+                                            <p className="text-xs text-gray-600 mt-1">
+                                              📍 {warehouse.address}
+                                            </p>
+                                          )}
+                                        </>
+                                      );
+                                    }
+                                    return (
+                                      <p className="font-medium text-gray-500 italic">
+                                        Warehouse information not available
                                       </p>
-                                    )}
-                                  </div>
+                                    );
+                                  })()}
                                 </div>
                               </div>
-                            )}
+                            </div>
+                            <div>
+                              <p className="text-gray-500 mb-1">
+                                Reservation Status
+                              </p>
+                              <p className="font-medium text-green-600">
+                                ✓ {res.status.replace(/_/g, " ")}
+                              </p>
+                            </div>
                           </div>
-                        ))}
+                        ));
+                      })()}
                     </div>
                   )}
 

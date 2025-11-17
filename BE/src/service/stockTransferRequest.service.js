@@ -90,7 +90,7 @@ class StockTransferRequestService {
 
     const roomName = `emv_staff_${companyId}`;
 
-    this.#notificationService.sendToRoom(
+    await this.#notificationService.sendToRoom(
       roomName,
       "new_stock_transfer_request",
       { request: rawResult.newStockTransferRequest }
@@ -309,7 +309,7 @@ class StockTransferRequestService {
     const eventName = "stock_transfer_request_approved";
     const data = requestWithDetails;
 
-    this.#notificationService.sendToRoom(roomName, eventName, data);
+    await this.#notificationService.sendToRoom(roomName, eventName, data);
 
     const affectedStockIds = stockUpdates
       .map((update) => update.stockId)
@@ -459,7 +459,7 @@ class StockTransferRequestService {
     const eventName = "stock_transfer_request_shipped";
     const data = { requestId };
 
-    this.#notificationService.sendToRooms(
+    await this.#notificationService.sendToRooms(
       [
         roomNameServiceCenterStaff,
         roomNameServiceCenterManager,
@@ -654,7 +654,7 @@ class StockTransferRequestService {
         })),
       };
 
-      this.#notificationService.sendToRooms(
+      await this.#notificationService.sendToRooms(
         [roomName_service_center_staff, roomName_service_center_manager],
         eventName,
         data
@@ -753,7 +753,7 @@ class StockTransferRequestService {
       const eventName = "stock_transfer_request_rejected";
       const data = { requestId, rejectionReason };
 
-      this.#notificationService.sendToRooms(
+      await this.#notificationService.sendToRooms(
         [roomNameServiceCenterStaff, roomNameServiceCenterManager],
         eventName,
         data
@@ -858,7 +858,7 @@ class StockTransferRequestService {
     const eventName = "stock_transfer_request_cancelled";
     const data = { updatedRequest };
 
-    this.#notificationService.sendToRooms([roomName], eventName, data);
+    await this.#notificationService.sendToRooms([roomName], eventName, data);
 
     if (releasedStockIds.length > 0) {
       await this.#inventoryService.emitLowStockAlerts({

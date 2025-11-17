@@ -9,11 +9,13 @@ export type NotificationType =
   | "stock_transfer_request"
   | "stock_transfer_approved"
   | "stock_transfer_rejected"
+  | "stock_transfer_cancelled"
   | "component_reserved"
   | "new_message"
   | "appointment_scheduled"
   | "appointment_reminder"
   | "system_alert"
+  | "recall_campaign"
   | "general";
 
 export type NotificationPriority = "low" | "medium" | "high" | "urgent";
