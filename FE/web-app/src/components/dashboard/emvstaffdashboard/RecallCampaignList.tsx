@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import recallService, { RecallCampaign } from "@/services/recallService";
+import vehicleModelService, {
+  VehicleModel,
+} from "@/services/vehicleModelService";
 import {
   Loader2,
   Plus,
@@ -81,6 +84,7 @@ export function CreateRecallModal({
     Array<{ id: string; name: string }>
   >([]);
   const [selectedModelIds, setSelectedModelIds] = useState<string[]>([]);
+  const [modelSearchQuery, setModelSearchQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -95,6 +99,7 @@ export function CreateRecallModal({
       setEndDate("");
       setModelIds("");
       setSelectedModelIds([]);
+      setModelSearchQuery("");
       setError(null);
       setSuccessMessage(null);
     }
@@ -103,22 +108,18 @@ export function CreateRecallModal({
   const loadAvailableModels = async () => {
     try {
       setLoadingModels(true);
-      // Get all campaigns to extract unique vehicle models
-      const result = await recallService.getRecallCampaigns({
-        page: 1,
-        limit: 100,
-      });
-      const uniqueModels = new Map<string, string>();
-      result.campaigns.forEach((campaign) => {
-        campaign.affectedVehicleModels?.forEach((model) => {
-          uniqueModels.set(model.vehicleModelId, model.vehicleModelName);
-        });
-      });
+      // Get all vehicle models from the proper API
+      const models: VehicleModel[] =
+        await vehicleModelService.getVehicleModels();
       setAvailableModels(
-        Array.from(uniqueModels, ([id, name]) => ({ id, name }))
+        models.map((model) => ({
+          id: model.vehicleModelId,
+          name: model.vehicleModelName,
+        }))
       );
     } catch (err) {
       console.error("Error loading models:", err);
+      setAvailableModels([]);
     } finally {
       setLoadingModels(false);
     }
@@ -320,38 +321,93 @@ export function CreateRecallModal({
                 </span>
               </div>
             ) : availableModels.length > 0 ? (
-              <div className="border border-gray-300 rounded-lg p-3 max-h-40 overflow-y-auto bg-white">
-                <div className="space-y-2">
-                  {availableModels.map((model) => (
-                    <label
-                      key={model.id}
-                      className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
+              <div className="border border-gray-300 rounded-lg bg-white">
+                {/* Search and Bulk Actions */}
+                <div className="p-3 border-b border-gray-200 space-y-2">
+                  <input
+                    type="text"
+                    placeholder="Search models..."
+                    value={modelSearchQuery}
+                    onChange={(e) => setModelSearchQuery(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const filtered = (availableModels || []).filter(
+                          (model) =>
+                            model.name
+                              .toLowerCase()
+                              .includes(modelSearchQuery.toLowerCase())
+                        );
+                        setSelectedModelIds(filtered.map((m) => m.id));
+                      }}
+                      className="text-xs px-3 py-1.5 bg-orange-100 text-orange-700 rounded hover:bg-orange-200 transition-colors font-medium"
                     >
-                      <input
-                        type="checkbox"
-                        checked={selectedModelIds.includes(model.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedModelIds([
-                              ...selectedModelIds,
-                              model.id,
-                            ]);
-                          } else {
-                            setSelectedModelIds(
-                              selectedModelIds.filter((id) => id !== model.id)
-                            );
-                          }
-                        }}
-                        className="w-4 h-4 text-orange-600 rounded focus:ring-orange-500"
-                      />
-                      <span className="text-sm text-gray-900">
-                        {model.name}
-                      </span>
-                      <span className="text-xs text-gray-500 font-mono">
-                        ({model.id.slice(0, 8)}...)
-                      </span>
-                    </label>
-                  ))}
+                      Select All Visible
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedModelIds([])}
+                      className="text-xs px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors font-medium"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                </div>
+                <div className="p-3 max-h-60 overflow-y-auto">
+                  <div className="space-y-2">
+                    {(availableModels || [])
+                      .filter((model) =>
+                        model.name
+                          .toLowerCase()
+                          .includes(modelSearchQuery.toLowerCase())
+                      )
+                      .map((model) => (
+                        <label
+                          key={model.id}
+                          className="flex items-center gap-3 p-2.5 hover:bg-orange-50 rounded-lg cursor-pointer transition-colors border border-transparent hover:border-orange-200"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedModelIds.includes(model.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedModelIds([
+                                  ...selectedModelIds,
+                                  model.id,
+                                ]);
+                              } else {
+                                setSelectedModelIds(
+                                  selectedModelIds.filter(
+                                    (id) => id !== model.id
+                                  )
+                                );
+                              }
+                            }}
+                            className="w-4 h-4 text-orange-600 rounded focus:ring-orange-500"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-medium text-gray-900 block">
+                              {model.name}
+                            </span>
+                            <span className="text-xs text-gray-500 font-mono">
+                              ID: {model.id.slice(0, 8)}...
+                            </span>
+                          </div>
+                        </label>
+                      ))}
+                    {(availableModels || []).filter((model) =>
+                      model.name
+                        .toLowerCase()
+                        .includes(modelSearchQuery.toLowerCase())
+                    ).length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        <p className="text-sm">No models match your search</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             ) : (
@@ -677,7 +733,7 @@ export default function RecallCampaignList() {
           </div>
         ) : (
           <div className="divide-y divide-gray-200">
-            {campaigns.map((campaign) => (
+            {(campaigns || []).map((campaign) => (
               <div
                 key={campaign.recallCampaignId}
                 className="p-6 hover:bg-gray-50 transition"
