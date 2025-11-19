@@ -87,28 +87,79 @@ export interface TransferData {
 
 export interface InventoryAdjustmentSummary {
   adjustmentId: string;
-  warehouseId: string;
+  stockId: string;
+  warehouseId?: string;
+  adjustmentType: "IN" | "OUT";
+  quantity: number;
   reason: string;
-  adjustmentType: string;
-  createdAt: string;
-}
-
-export interface InventoryAdjustmentDetail {
-  adjustmentId: string;
-
-  adjustedBy: {
+  note: string | null;
+  adjustedByUserId: string;
+  adjustedAt: string;
+  created_at: string;
+  updated_at: string;
+  stock?: {
+    stockId: string;
+    quantityAvailable: number;
+    quantityInStock: number;
+    quantityReserved: number;
+    typeComponentId: string;
+    warehouseId: string;
+    warehouse?: {
+      warehouseId: string;
+      name: string;
+      address: string;
+      serviceCenterId: string;
+    };
+    typeComponent?: {
+      typeComponentId: string;
+      name: string;
+      sku: string;
+      category: string;
+      price: number;
+      makeBrand: string;
+    };
+  };
+  adjustedBy?: {
     userId: string;
     name: string;
     email: string;
   };
+}
 
-  warehouseId: string;
-  adjustmentType: string;
+export interface InventoryAdjustmentDetail {
+  adjustmentId: string;
+  stockId: string;
+  adjustedBy?: {
+    userId: string;
+    name: string;
+    email: string;
+  };
+  warehouseId?: string;
+  adjustmentType: "IN" | "OUT";
+  quantity: number;
   reason: string;
   note: string | null;
+  adjustedAt: string;
   createdAt: string;
-
-  items: {
+  stock?: {
+    stockId: string;
+    quantityAvailable: number;
+    quantityInStock: number;
+    typeComponentId: string;
+    warehouse?: {
+      warehouseId: string;
+      name: string;
+      address: string;
+    };
+    typeComponent?: {
+      typeComponentId: string;
+      name: string;
+      sku: string;
+      category: string;
+      price: number;
+    };
+  };
+  items?: {
     componentId: string;
     typeComponentId: string;
     serialNumber: string;
@@ -140,14 +191,45 @@ export interface StockHistoryItem {
   quantityChange: number;
   reason: string;
   note?: string;
-  adjustedBy?: string;
+  adjustedByUserId?: string;
+  adjustedAt?: string;
+  created_at?: string;
+  updated_at?: string;
+  stock_id?: string;
+  adjusted_by_user_id?: string;
+  adjustedBy?: {
+    userId: string;
+    name: string;
+    email: string;
+  };
   adjustedByUser?: {
     userId: string;
     name: string;
     email: string;
   };
-  createdAt: string;
+  createdAt?: string;
   eventType: string;
+  stock?: {
+    stockId: string;
+    warehouseId: string;
+    typeComponentId: string;
+    quantityInStock: number;
+    quantityReserved: number;
+    quantityAvailable: number;
+    warehouse?: {
+      warehouseId: string;
+      name: string;
+      address?: string;
+    };
+    typeComponent?: {
+      typeComponentId: string;
+      name: string;
+      price: number;
+      sku: string;
+      category: string;
+      makeBrand?: string;
+    };
+  };
 }
 
 export interface StockHistoryPagination {

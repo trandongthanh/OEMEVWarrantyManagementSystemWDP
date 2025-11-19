@@ -43,6 +43,7 @@ export default function PartsCoordinatorDashboard() {
 
   const [showCreateAdjustment, setShowCreateAdjustment] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const [warehouseId, setWarehouseId] = useState("");
 
@@ -102,6 +103,7 @@ export default function PartsCoordinatorDashboard() {
         return (
           <>
             <AdjustmentList
+              key={refreshKey}
               onCreateClick={() => setShowCreateAdjustment(true)}
               onBulkUploadClick={() => setShowBulkUpload(true)}
             />
@@ -109,6 +111,7 @@ export default function PartsCoordinatorDashboard() {
             <CreateAdjustmentModal
               isOpen={showCreateAdjustment}
               onClose={() => setShowCreateAdjustment(false)}
+              onSuccess={() => setRefreshKey((prev) => prev + 1)}
               warehouseId={warehouseId}
             />
 
@@ -117,7 +120,7 @@ export default function PartsCoordinatorDashboard() {
               onClose={() => setShowBulkUpload(false)}
               onSuccess={() => {
                 setShowBulkUpload(false);
-                // Optionally reload adjustments list
+                setRefreshKey((prev) => prev + 1); // Refresh adjustments list
               }}
             />
           </>
