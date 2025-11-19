@@ -663,6 +663,30 @@ export default function GuestChatWidget({
     }
   };
 
+  const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = event.clipboardData?.items;
+    if (!items) return;
+
+    // Look for image in clipboard
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.indexOf("image") !== -1) {
+        event.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          // Check file size (limit to 10MB)
+          if (file.size > 10 * 1024 * 1024) {
+            setError("Image size must be less than 10MB");
+            return;
+          }
+          setSelectedFile(file);
+          setError(null);
+        }
+        break;
+      }
+    }
+  };
+
   const handleRemoveFile = () => {
     setSelectedFile(null);
   };
@@ -1223,6 +1247,7 @@ export default function GuestChatWidget({
                             }
                           }}
                           onKeyPress={handleKeyPress}
+                          onPaste={handlePaste}
                           placeholder={
                             connectionStatus === "waiting"
                               ? "Waiting for staff to join..."

@@ -278,24 +278,34 @@ export default function StockHistoryList({
                 <table className="w-full">
                   <thead>
                     <tr className="text-left text-sm text-gray-600 border-b border-gray-200">
-                      <th className="py-3 px-6 font-medium">Event</th>
+                      <th className="py-3 px-6 font-medium">Type</th>
                       <th className="py-3 px-6 font-medium">Quantity Change</th>
+                      <th className="py-3 px-6 font-medium">Reason</th>
+                      <th className="py-3 px-6 font-medium">Adjusted By</th>
                       <th className="py-3 px-6 font-medium">Date</th>
                     </tr>
                   </thead>
 
                   <tbody>
-                    {history.map((item, idx) => (
+                    {history.map((item) => (
                       <tr
-                        key={idx}
+                        key={item.adjustmentId}
                         className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
                       >
-                        <td className="py-4 px-6 text-sm text-gray-900">
-                          {item.eventType}
+                        <td className="py-4 px-6 text-sm">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              item.adjustmentType === "IN"
+                                ? "bg-green-100 text-green-700"
+                                : "bg-red-100 text-red-700"
+                            }`}
+                          >
+                            {item.adjustmentType}
+                          </span>
                         </td>
                         <td className="py-4 px-6 text-sm">
                           <span
-                            className={`font-medium ${
+                            className={`font-semibold ${
                               item.quantityChange > 0
                                 ? "text-green-600"
                                 : item.quantityChange < 0
@@ -308,8 +318,23 @@ export default function StockHistoryList({
                               : item.quantityChange}
                           </span>
                         </td>
+                        <td className="py-4 px-6 text-sm text-gray-900">
+                          <div>
+                            <p className="font-medium">{item.reason}</p>
+                            {item.note && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                {item.note}
+                              </p>
+                            )}
+                          </div>
+                        </td>
                         <td className="py-4 px-6 text-sm text-gray-700">
-                          {new Date(item.eventDate).toLocaleString()}
+                          {item.adjustedByUser?.name ||
+                            item.adjustedBy ||
+                            "System"}
+                        </td>
+                        <td className="py-4 px-6 text-sm text-gray-700">
+                          {new Date(item.createdAt).toLocaleString()}
                         </td>
                       </tr>
                     ))}
