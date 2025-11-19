@@ -28,18 +28,38 @@ export function ComponentPickupModal({
       return;
     }
 
-    if (!user?.userId) {
-      toast.error("User ID not available");
-      return;
-    }
-
     setPickingUp(true);
     try {
+      // First fetch the reservation to get the repair technician ID
+      const reservations =
+        await componentReservationService.getComponentReservations({
+          reservationId: reservationId.trim(),
+          limit: 1,
+        });
+
+      const reservation = reservations.data.reservations?.[0];
+      if (!reservation) {
+        toast.error("Reservation not found");
+        return;
+      }
+
+      const repairTechId = reservation.caseLine?.repairTechId;
+      if (!repairTechId) {
+        toast.error(
+          "No repair technician assigned to this reservation. Please assign a technician first."
+        );
+        return;
+      }
+
+      // Pickup with the repair technician's ID
       await componentReservationService.pickupComponent(
         reservationId.trim(),
-        user.userId
+        repairTechId
       );
-      toast.success("Component picked up successfully!");
+
+      const techName =
+        reservation.caseLine?.repairTechnician?.name || "technician";
+      toast.success(`Component picked up successfully by ${techName}!`);
       setReservationId("");
       onSuccess?.();
       onClose();

@@ -5,7 +5,6 @@ import { Package, CheckCircle, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import componentReservationService from "@/services/componentReservationService";
-import { useAuth } from "@/hooks/useAuth";
 import { usePolling } from "@/hooks/usePolling";
 
 interface ComponentPickupListProps {
@@ -23,12 +22,13 @@ interface ReservationItem {
   vehicleVin?: string;
   caseNumber?: string;
   typeComponentId?: string;
+  repairTechId?: string;
+  repairTechName?: string;
 }
 
 export function ComponentPickupList({
   serviceCenterId,
 }: ComponentPickupListProps) {
-  const { user } = useAuth();
   const [reservations, setReservations] = useState<ReservationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [pickingUp, setPickingUp] = useState<string | null>(null);
@@ -56,6 +56,8 @@ export function ComponentPickupList({
         vehicleVin: reservation.caseLine?.id || "",
         caseNumber: reservation.caselineId,
         typeComponentId: reservation.componentId,
+        repairTechId: reservation.caseLine?.repairTechId,
+        repairTechName: reservation.caseLine?.repairTechnician?.name,
       }));
 
       setReservations(items);
@@ -98,6 +100,8 @@ export function ComponentPickupList({
         vehicleVin: reservation.caseLine?.id || "",
         caseNumber: reservation.caselineId,
         typeComponentId: reservation.componentId,
+        repairTechId: reservation.caseLine?.repairTechId,
+        repairTechName: reservation.caseLine?.repairTechnician?.name,
       }));
 
       setReservations(items);
@@ -117,21 +121,36 @@ export function ComponentPickupList({
   }, [serviceCenterId]);
 
   const handlePickup = async (reservationId: string) => {
-    if (!user?.userId) {
-      toast.error("User ID not available");
-      return;
-    }
-
     try {
       setPickingUp(reservationId);
 
-      // Call the pickup API with the current user's ID as the technician picking up
+      // Find the reservation to get the repair technician ID
+      const reservation = reservations.find(
+        (r) => r.reservationId === reservationId
+      );
+      if (!reservation) {
+        toast.error("Reservation not found");
+        setPickingUp(null);
+        return;
+      }
+
+      const repairTechId = reservation.repairTechId;
+      if (!repairTechId) {
+        toast.error(
+          "No repair technician assigned. Please assign a technician first in Case Line Operations."
+        );
+        setPickingUp(null);
+        return;
+      }
+
+      // Call the pickup API with the repair technician's ID
       await componentReservationService.pickupComponent(
         reservationId,
-        user.userId
+        repairTechId
       );
 
-      toast.success("Component picked up successfully!");
+      const techName = reservation.repairTechName || "technician";
+      toast.success(`Component picked up by ${techName}!`);
 
       // Refresh the list
       await fetchReservations();
