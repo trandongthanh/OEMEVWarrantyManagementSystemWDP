@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Package, Loader2, AlertCircle, X } from "lucide-react";
 import componentReservationService from "@/services/componentReservationService";
 import { toast } from "sonner";
-import { useAuth } from "@/hooks/useAuth";
 
 interface ComponentPickupModalProps {
   isOpen: boolean;
@@ -18,7 +17,6 @@ export function ComponentPickupModal({
   onClose,
   onSuccess,
 }: ComponentPickupModalProps) {
-  const { user } = useAuth();
   const [reservationId, setReservationId] = useState("");
   const [pickingUp, setPickingUp] = useState(false);
 
@@ -33,11 +31,14 @@ export function ComponentPickupModal({
       // First fetch the reservation to get the repair technician ID
       const reservations =
         await componentReservationService.getComponentReservations({
-          reservationId: reservationId.trim(),
-          limit: 1,
+          status: "RESERVED",
+          limit: 100,
         });
 
-      const reservation = reservations.data.reservations?.[0];
+      // Find the specific reservation by ID
+      const reservation = reservations.data.reservations?.find(
+        (r) => r.reservationId === reservationId.trim()
+      );
       if (!reservation) {
         toast.error("Reservation not found");
         return;

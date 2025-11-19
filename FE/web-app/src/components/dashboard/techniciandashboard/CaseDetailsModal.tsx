@@ -1401,7 +1401,8 @@ export function CaseDetailsModal({
             <div className="flex items-center gap-3">
               <button
                 onClick={onClose}
-                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+                disabled={isSaving}
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isReadOnly ? "Close" : "Cancel"}
               </button>
@@ -1409,10 +1410,13 @@ export function CaseDetailsModal({
                 <button
                   onClick={handleSubmit}
                   disabled={isSaving || isLoading}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                  className="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
                 >
                   {isSaving ? (
-                    <>{isEditMode ? "Updating..." : "Saving..."}</>
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      {isEditMode ? "Updating..." : "Saving..."}
+                    </>
                   ) : (
                     <>
                       <Save className="w-4 h-4" />
