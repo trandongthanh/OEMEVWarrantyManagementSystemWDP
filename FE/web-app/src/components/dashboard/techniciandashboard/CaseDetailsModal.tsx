@@ -193,7 +193,9 @@ export function CaseDetailsModal({
               componentName: caseLineData.typeComponent?.name || "",
               quantity: caseLineData.quantity || 0,
               warrantyStatus: caseLineData.warrantyStatus || "ELIGIBLE",
-              isUnderWarranty: caseLineData.warrantyStatus === "ELIGIBLE",
+              // Default to true since backend doesn't return typeComponent.isUnderWarranty
+              // This allows technician to choose warranty status when editing
+              isUnderWarranty: true,
               rejectionReason: caseLineData.rejectionReason || "",
               evidenceImageUrls: caseLineData.evidenceImageUrls || [],
             },
@@ -264,9 +266,9 @@ export function CaseDetailsModal({
                         detailedData.warrantyStatus ||
                         cl.warrantyStatus ||
                         "ELIGIBLE",
-                      isUnderWarranty:
-                        (detailedData.warrantyStatus || cl.warrantyStatus) ===
-                        "ELIGIBLE",
+                      // Default to true since backend doesn't return typeComponent.isUnderWarranty
+                      // This allows technician to choose warranty status
+                      isUnderWarranty: true,
                       rejectionReason:
                         detailedData.rejectionReason ||
                         cl.rejectionReason ||
@@ -293,7 +295,9 @@ export function CaseDetailsModal({
                       componentName: cl.typeComponent?.name || "",
                       quantity: cl.quantity || 0,
                       warrantyStatus: cl.warrantyStatus || "ELIGIBLE",
-                      isUnderWarranty: cl.warrantyStatus === "ELIGIBLE",
+                      // Default to true since backend doesn't return typeComponent.isUnderWarranty
+                      // This allows technician to choose warranty status
+                      isUnderWarranty: true,
                       rejectionReason: cl.rejectionReason || "",
                       status: cl.status || "DRAFT",
                       evidenceImageUrls:
@@ -360,6 +364,59 @@ export function CaseDetailsModal({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
+
+  // Background fetch: Update isUnderWarranty for loaded case lines
+  useEffect(() => {
+    const updateWarrantyStatus = async () => {
+      // Only run if we have case lines with components and all components are loaded
+      if (
+        !isOpen ||
+        !recordId ||
+        allComponents.length === 0 ||
+        caseLines.length === 0 ||
+        !caseLines.some((cl) => cl.typeComponentId)
+      ) {
+        return;
+      }
+
+      console.log(
+        "🔄 Background: Updating warranty status for existing case lines"
+      );
+
+      try {
+        // Create a map of typeComponentId -> isUnderWarranty from loaded components
+        const warrantyMap = new Map<string, boolean>();
+        allComponents.forEach((comp) => {
+          warrantyMap.set(comp.typeComponentId, comp.isUnderWarranty || false);
+        });
+
+        // Update case lines with accurate warranty status
+        setCaseLines((prevLines) =>
+          prevLines.map((line) => {
+            if (!line.typeComponentId) return line;
+
+            const actualWarrantyStatus = warrantyMap.get(line.typeComponentId);
+            if (actualWarrantyStatus !== undefined) {
+              console.log(
+                `✅ Updated ${line.componentName}: isUnderWarranty = ${actualWarrantyStatus}`
+              );
+              return {
+                ...line,
+                isUnderWarranty: actualWarrantyStatus,
+              };
+            }
+            return line;
+          })
+        );
+      } catch (error) {
+        console.error("Error updating warranty status:", error);
+        // Non-critical error, don't show to user
+      }
+    };
+
+    updateWarrantyStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, recordId, allComponents.length, caseLines.length]);
 
   // Filter components when search query changes
   useEffect(() => {
