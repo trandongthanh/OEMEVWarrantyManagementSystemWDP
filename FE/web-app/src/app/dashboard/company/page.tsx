@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
-import { Building2, Boxes, ArrowLeftRight, Car, Shield } from "lucide-react";
+import { Building2, Boxes, ArrowLeftRight, Car } from "lucide-react";
 import { authService } from "@/services";
 import { useRoleProtection } from "@/hooks/useRoleProtection";
 import { Sidebar, DashboardHeader } from "@/components/dashboard";
@@ -11,9 +11,7 @@ import InventoryDashboard from "@/components/dashboard/companydashboard/Inventor
 import MostUsedComponents from "@/components/dashboard/MostUsedComponents";
 import CompanyDashboardOverview from "@/components/dashboard/companydashboard/CompanyDashboardOverview";
 import StockTransferRequestManager from "@/components/dashboard/companydashboard/StockTransferRequestManager";
-import VehicleModelManagement from "@/components/dashboard/companydashboard/VehicleModelManagement";
 import VehicleManagement from "@/components/dashboard/companydashboard/VehicleManagement";
-import WarrantyComponentConfig from "@/components/dashboard/companydashboard/WarrantyComponentConfig";
 
 interface CurrentUser {
   userId: string;
@@ -56,8 +54,6 @@ export default function CompanyDashboard() {
       label: "Transfer Requests",
     },
     { id: "vehicles", icon: Car, label: "Vehicles" },
-    { id: "vehicle-models", icon: Shield, label: "Vehicle Models" },
-    { id: "warranty-config", icon: Shield, label: "Warranty Config" },
   ];
 
   const renderContent = () => {
@@ -110,24 +106,6 @@ export default function CompanyDashboard() {
 
       case "vehicles":
         return <VehicleManagement />;
-
-      case "vehicle-models":
-        return (
-          <div className="flex-1 overflow-auto">
-            <div className="p-8">
-              <VehicleModelManagement />
-            </div>
-          </div>
-        );
-
-      case "warranty-config":
-        return (
-          <div className="flex-1 overflow-auto">
-            <div className="p-8">
-              <WarrantyComponentConfig />
-            </div>
-          </div>
-        );
 
       default:
         return <CompanyDashboardOverview />;
