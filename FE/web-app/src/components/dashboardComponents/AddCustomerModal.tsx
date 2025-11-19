@@ -32,12 +32,14 @@ export interface CustomerForm {
 interface AddCustomerModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   onAddCustomer: (customer: CustomerForm) => void;
 }
 
 export default function AddCustomerModal({
   isOpen,
   onClose,
+  onSuccess,
   onAddCustomer,
 }: AddCustomerModalProps) {
   const [formData, setFormData] = useState<CustomerForm>({
@@ -79,6 +81,8 @@ export default function AddCustomerModal({
       type: "success",
       message: `${formData.fullName} added successfully!`,
     });
+
+    onSuccess?.(); // Refresh parent list
 
     setFormData({
       fullName: "",

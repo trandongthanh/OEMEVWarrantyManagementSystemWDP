@@ -10,10 +10,12 @@ import { toast } from "sonner";
 export default function CreateAdjustmentModal({
   isOpen,
   onClose,
+  onSuccess,
   warehouseId,
 }: {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   warehouseId: string;
 }) {
   const [tab, setTab] = useState<"IN" | "OUT">("IN");
@@ -111,6 +113,7 @@ export default function CreateAdjustmentModal({
       await inventoryService.createAdjustment(body);
 
       toast.success("Adjustment created successfully!");
+      onSuccess?.(); // Refresh adjustments list
       onClose();
     } catch (err) {
       console.error("Create adjustment failed:", err);
