@@ -13,6 +13,9 @@ export interface VehicleModel {
   vehicleModelId: string;
   vehicleModelName: string;
   sku: string;
+  yearOfLaunch?: string;
+  generalWarrantyDuration?: number; // in months
+  generalWarrantyMileage?: number; // in km
   vehicleCompanyId: string;
   createdAt: string;
   updatedAt: string;

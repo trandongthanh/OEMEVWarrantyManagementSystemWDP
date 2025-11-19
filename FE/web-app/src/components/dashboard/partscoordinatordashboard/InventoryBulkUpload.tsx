@@ -38,16 +38,9 @@ export default function InventoryBulkUpload({
   const [note, setNote] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadResult, setUploadResult] = useState<{
-    summary: {
-      total: number;
-      successful: number;
-      failed: number;
-    };
-    errors?: Array<{
-      row: number;
-      sku?: string;
-      error: string;
-    }>;
+    successCount: number;
+    totalComponents: number;
+    errors?: string[];
   } | null>(null);
 
   // Warehouse selection (for company coordinators)
@@ -169,31 +162,28 @@ export default function InventoryBulkUpload({
         note: note.trim() || undefined,
       });
 
-      // Backend returns array of adjustment objects, not summary
-      // Parse the response to create summary
+      // Backend returns array of adjustment objects
       const adjustments = Array.isArray(result.data) ? result.data : [];
-      const totalSuccessful = adjustments.length;
+      const successCount = adjustments.length;
       const totalComponents = adjustments.reduce(
         (sum, adj) => sum + (adj.quantity || 0),
         0
       );
 
-      const summary = {
-        total: totalSuccessful,
-        successful: totalSuccessful,
-        failed: 0,
-      };
+      setUploadResult({
+        successCount,
+        totalComponents,
+        errors: [],
+      });
 
-      setUploadResult({ summary, errors: [] });
-
-      if (summary.failed === 0) {
+      if (successCount > 0) {
         // Show success animation
         setUploadSuccess(true);
 
         // Show success toast after a brief delay to let animation play
         setTimeout(() => {
           toast.success(
-            `Successfully imported ${totalComponents} components across ${totalSuccessful} SKU(s)!`,
+            `Successfully imported ${totalComponents} components across ${successCount} SKU(s)!`,
             {
               duration: 3000,
             }
@@ -208,13 +198,7 @@ export default function InventoryBulkUpload({
           handleClose();
         }, 2500);
       } else {
-        // Partial success - show warning and keep modal open
-        toast.warning(
-          `Created ${summary.successful} adjustments, ${summary.failed} failed. Please review errors below.`,
-          {
-            duration: 5000,
-          }
-        );
+        toast.error("No adjustments were created. Please check the file.");
       }
     } catch (error: unknown) {
       console.error("Error uploading adjustments:", error);
@@ -229,17 +213,9 @@ export default function InventoryBulkUpload({
 
       // Set error state in upload result
       setUploadResult({
-        summary: {
-          total: 0,
-          successful: 0,
-          failed: 1,
-        },
-        errors: [
-          {
-            row: 0,
-            error: errorMessage,
-          },
-        ],
+        successCount: 0,
+        totalComponents: 0,
+        errors: [errorMessage],
       });
     } finally {
       setUploading(false);
@@ -544,7 +520,7 @@ export default function InventoryBulkUpload({
                 className="space-y-3"
               >
                 {/* Success Animation */}
-                {uploadSuccess && uploadResult.summary.failed === 0 && (
+                {uploadSuccess && uploadResult.successCount > 0 && (
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
@@ -577,36 +553,37 @@ export default function InventoryBulkUpload({
                       transition={{ delay: 0.5 }}
                       className="text-sm text-gray-600"
                     >
-                      {uploadResult.summary.successful} SKU(s) imported
-                      successfully
+                      {uploadResult.successCount} SKU(s) imported (
+                      {uploadResult.totalComponents} components)
                     </motion.p>
                   </motion.div>
                 )}
 
                 {/* Stats - Show only if there are errors or not in success animation */}
-                {(!uploadSuccess || uploadResult.summary.failed > 0) && (
+                {(!uploadSuccess ||
+                  (uploadResult.errors && uploadResult.errors.length > 0)) && (
                   <>
                     <div className="grid grid-cols-3 gap-3">
                       <div className="p-4 bg-gray-50 rounded-lg">
-                        <p className="text-xs text-gray-600 mb-1">Total</p>
+                        <p className="text-xs text-gray-600 mb-1">Total SKUs</p>
                         <p className="text-2xl font-bold text-gray-900">
-                          {uploadResult?.summary?.total ?? 0}
+                          {uploadResult?.successCount ?? 0}
                         </p>
                       </div>
 
                       <div className="p-4 bg-green-50 rounded-lg">
                         <p className="text-xs text-green-600 mb-1">
-                          Successful
+                          Components
                         </p>
                         <p className="text-2xl font-bold text-green-600">
-                          {uploadResult?.summary?.successful ?? 0}
+                          {uploadResult?.totalComponents ?? 0}
                         </p>
                       </div>
 
                       <div className="p-4 bg-red-50 rounded-lg">
-                        <p className="text-xs text-red-600 mb-1">Failed</p>
+                        <p className="text-xs text-red-600 mb-1">Errors</p>
                         <p className="text-2xl font-bold text-red-600">
-                          {uploadResult?.summary?.failed ?? 0}
+                          {uploadResult?.errors?.length ?? 0}
                         </p>
                       </div>
                     </div>
@@ -623,11 +600,7 @@ export default function InventoryBulkUpload({
                       >
                         <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
                         <div className="text-xs text-red-700">
-                          <p className="font-medium">
-                            Row {err.row}
-                            {err.sku && ` (${err.sku})`}
-                          </p>
-                          <p>{err.error}</p>
+                          <p>{err}</p>
                         </div>
                       </div>
                     ))}

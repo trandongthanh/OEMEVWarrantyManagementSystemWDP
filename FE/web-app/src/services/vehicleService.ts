@@ -305,16 +305,9 @@ export const bulkCreateVehicles = async (
 ): Promise<{
   status: string;
   data: {
-    summary: {
-      total: number;
-      successful: number;
-      failed: number;
-    };
-    errors?: Array<{
-      row: number;
-      vin?: string;
-      error: string;
-    }>;
+    successCount: number;
+    failureCount: number;
+    errors?: string[];
   };
 }> => {
   try {
