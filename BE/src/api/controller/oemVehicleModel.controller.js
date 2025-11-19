@@ -28,7 +28,15 @@ class OemVehicleModelController {
       components,
     } = req.body;
 
-    const { companyId } = req;
+    // Extract companyId from authenticated user
+    const companyId = req.companyId || req.user?.companyId;
+
+    if (!companyId) {
+      return res.status(400).json({
+        status: "fail",
+        message: "Company ID is required. User must be associated with a company.",
+      });
+    }
 
     const result = await this.#oemVehicleModelService.createVehicleModel({
       vehicleModelName,
