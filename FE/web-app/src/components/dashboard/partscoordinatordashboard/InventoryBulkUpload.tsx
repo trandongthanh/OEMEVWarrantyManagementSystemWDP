@@ -42,6 +42,7 @@ export default function InventoryBulkUpload({
     totalComponents: number;
     errors?: string[];
   } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Warehouse selection (for company coordinators)
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -97,6 +98,54 @@ export default function InventoryBulkUpload({
       // Validate file type
       if (!file.name.endsWith(".xlsx") && !file.name.endsWith(".xls")) {
         toast.error("Please select an Excel file (.xlsx or .xls)");
+        return;
+      }
+
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("File size must be less than 10MB");
+        return;
+      }
+
+      setSelectedFile(file);
+      setUploadResult(null);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!uploading) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!uploading) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    if (uploading) return;
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.name.endsWith(".xlsx") && !file.name.endsWith(".xls")) {
+        toast.error("Please drop an Excel file (.xlsx or .xls)");
         return;
       }
 
@@ -451,12 +500,18 @@ export default function InventoryBulkUpload({
 
               <div
                 onClick={() => !uploading && fileInputRef.current?.click()}
+                onDragOver={handleDragOver}
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
                 className={`
                   border-2 border-dashed rounded-xl p-8 text-center cursor-pointer
                   transition-colors
                   ${
                     selectedFile
                       ? "border-blue-300 bg-blue-50"
+                      : isDragging
+                      ? "border-blue-500 bg-blue-100"
                       : "border-gray-300 hover:border-blue-400 hover:bg-gray-50"
                   }
                   ${uploading ? "opacity-50 cursor-not-allowed" : ""}

@@ -133,10 +133,21 @@ export interface InventoryAdjustmentListResponse {
 // ======================= STOCK HISTORY ======================
 
 export interface StockHistoryItem {
-  eventType: string;
+  adjustmentId: string;
+  stockId: string;
+  adjustmentType: "IN" | "OUT";
+  quantity: number;
   quantityChange: number;
-  eventDate: string;
-  details: Record<string, unknown>;
+  reason: string;
+  note?: string;
+  adjustedBy?: string;
+  adjustedByUser?: {
+    userId: string;
+    name: string;
+    email: string;
+  };
+  createdAt: string;
+  eventType: string;
 }
 
 export interface StockHistoryPagination {
@@ -147,6 +158,14 @@ export interface StockHistoryPagination {
 }
 
 export interface StockHistoryResponse {
+  stock?: {
+    stockId: string;
+    warehouseId: string;
+    typeComponentId: string;
+    quantityInStock: number;
+    quantityReserved: number;
+    quantityAvailable: number;
+  };
   history: StockHistoryItem[];
   pagination: StockHistoryPagination;
 }
