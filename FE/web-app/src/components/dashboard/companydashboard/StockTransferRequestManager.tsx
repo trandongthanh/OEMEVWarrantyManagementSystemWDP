@@ -468,7 +468,7 @@ export default function StockTransferRequestManager() {
 
       {/* Approve Confirmation Modal */}
       {showApproveModal && (
-        <div className="fixed inset-0 bg-black/20 bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/20 bg-opacity-50 flex items-center justify-center z-[70] p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative animate-fadeIn">
             <button
               onClick={closeModals}
@@ -537,7 +537,7 @@ export default function StockTransferRequestManager() {
 
       {/* Reject Modal */}
       {showRejectModal && (
-        <div className="fixed inset-0 bg-black/20 bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/20 bg-opacity-50 flex items-center justify-center z-[70] p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative animate-fadeIn">
             <button
               onClick={closeModals}
@@ -613,7 +613,7 @@ export default function StockTransferRequestManager() {
 
       {/* Ship Request Modal */}
       {showShipModal && (
-        <div className="fixed inset-0 bg-black/20 bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/20 bg-opacity-50 flex items-center justify-center z-[70] p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
             <div className="flex items-center gap-4 mb-6">
               <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">

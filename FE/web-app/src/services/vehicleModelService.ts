@@ -29,8 +29,18 @@ export interface VehicleModel {
 
 export interface CreateVehicleModelRequest {
   vehicleModelName: string;
-  vehicleCompanyId: string;
+  vehicleCompanyId?: string; // Optional - backend extracts from auth token
   sku: string;
+  placeOfManufacture: string;
+  yearOfLaunch?: string;
+  generalWarrantyDuration?: number;
+  generalWarrantyMileage?: number;
+  components: Array<{
+    typeComponentId: string;
+    durationMonth: number;
+    mileageLimit: number;
+    quantity: number;
+  }>;
 }
 
 export interface VehicleModelListResponse {

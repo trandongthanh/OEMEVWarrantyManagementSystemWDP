@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Car,
   Upload,
@@ -13,21 +13,796 @@ import {
   List,
   TrendingUp,
   Plus,
+  Calendar,
+  Shield,
+  Clock,
+  AlertCircle,
+  MapPin,
+  ChevronRight,
+  X,
 } from "lucide-react";
 import VehicleBulkUpload from "./VehicleBulkUpload";
 import vehicleModelService, {
   VehicleModel,
 } from "@/services/vehicleModelService";
+import inventoryService from "@/services/inventoryService";
+import { authService } from "@/services";
 import { toast } from "sonner";
 
 /**
  * Vehicle Management Component
  * For parts_coordinator_company role
  *
- * Provides bulk vehicle creation via Excel upload
+ * Provides bulk vehicle creation via Excel upload and manual model creation
  */
+
+interface CreateVehicleModelModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function CreateVehicleModelModal({
+  isOpen,
+  onClose,
+  onSuccess,
+}: CreateVehicleModelModalProps) {
+  const [loading, setLoading] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [formData, setFormData] = useState({
+    vehicleModelName: "",
+    sku: "",
+    vehicleCompanyId: "",
+    yearOfLaunch: "",
+    placeOfManufacture: "",
+    generalWarrantyDuration: "",
+    generalWarrantyMileage: "",
+  });
+
+  // Step 2: Warranty Components
+  const [components, setComponents] = useState<
+    Array<{
+      typeComponentId: string;
+      componentName: string;
+      durationMonth: string;
+      mileageLimit: string;
+      quantity: string;
+    }>
+  >([]);
+  const [availableComponents, setAvailableComponents] = useState<
+    Array<{
+      typeComponentId: string;
+      typeComponent: { name: string; sku: string };
+    }>
+  >([]);
+
+  // Auto-populate company ID from logged-in user
+  useEffect(() => {
+    if (isOpen) {
+      const currentUser = authService.getCurrentUser();
+      if (currentUser?.companyId) {
+        setFormData((prev) => ({
+          ...prev,
+          vehicleCompanyId: currentUser.companyId || "",
+        }));
+      }
+      loadComponents();
+    }
+  }, [isOpen]);
+
+  const loadComponents = async () => {
+    try {
+      const componentsData = await inventoryService.getTypeComponents("");
+      // Deduplicate by typeComponentId to prevent duplicate keys
+      const uniqueComponents = Array.from(
+        new Map(componentsData.map((c) => [c.typeComponentId, c])).values()
+      );
+      setAvailableComponents(uniqueComponents);
+    } catch (error) {
+      console.error("Error loading components:", error);
+    }
+  };
+
+  const handleNext = () => {
+    // Validate required fields for step 1
+    const errors: Record<string, string> = {};
+    if (!formData.vehicleModelName.trim())
+      errors.vehicleModelName = "Model name is required";
+    if (!formData.sku.trim()) errors.sku = "SKU is required";
+    if (!formData.vehicleCompanyId.trim())
+      errors.vehicleCompanyId = "Company ID is required";
+    if (!formData.placeOfManufacture.trim())
+      errors.placeOfManufacture = "Place of manufacture is required";
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    setFieldErrors({});
+    setCurrentStep(2);
+  };
+
+  const handleBack = () => {
+    setCurrentStep(1);
+  };
+
+  const addComponent = () => {
+    setComponents([
+      ...components,
+      {
+        typeComponentId: "",
+        componentName: "",
+        durationMonth: "",
+        mileageLimit: "",
+        quantity: "1",
+      },
+    ]);
+  };
+
+  const removeComponent = (index: number) => {
+    setComponents(components.filter((_, i) => i !== index));
+  };
+
+  const updateComponent = (index: number, field: string, value: string) => {
+    const updated = [...components];
+    if (field === "typeComponentId") {
+      const selected = availableComponents.find(
+        (c) => c.typeComponentId === value
+      );
+      updated[index] = {
+        ...updated[index],
+        typeComponentId: value,
+        componentName: selected?.typeComponent?.name || "",
+      };
+    } else {
+      updated[index] = { ...updated[index], [field]: value };
+    }
+    setComponents(updated);
+  };
+
+  const handleSubmit = async () => {
+    // Validate at least one component
+    if (components.length === 0) {
+      toast.error("Please add at least one warranty component");
+      return;
+    }
+
+    // Validate component fields
+    const invalidComponents = components.filter(
+      (c) =>
+        !c.typeComponentId || !c.durationMonth || !c.mileageLimit || !c.quantity
+    );
+    if (invalidComponents.length > 0) {
+      toast.error("Please fill in all component fields");
+      return;
+    }
+
+    setFieldErrors({});
+
+    try {
+      setLoading(true);
+
+      const createData = {
+        vehicleModelName: formData.vehicleModelName,
+        sku: formData.sku,
+        placeOfManufacture: formData.placeOfManufacture,
+        components: components.map((c) => ({
+          typeComponentId: c.typeComponentId,
+          durationMonth: parseInt(c.durationMonth),
+          mileageLimit: parseInt(c.mileageLimit),
+          quantity: parseInt(c.quantity),
+        })),
+        ...(formData.yearOfLaunch && { yearOfLaunch: formData.yearOfLaunch }),
+        ...(formData.generalWarrantyDuration && {
+          generalWarrantyDuration: parseInt(formData.generalWarrantyDuration),
+        }),
+        ...(formData.generalWarrantyMileage && {
+          generalWarrantyMileage: parseInt(formData.generalWarrantyMileage),
+        }),
+      };
+
+      await vehicleModelService.createVehicleModel(createData);
+      toast.success("Vehicle model created successfully!", {
+        description: "Model and warranty components configured",
+        duration: 5000,
+      });
+      onSuccess();
+      onClose();
+      setCurrentStep(1);
+      setComponents([]);
+      setFormData({
+        vehicleModelName: "",
+        sku: "",
+        vehicleCompanyId: "",
+        yearOfLaunch: "",
+        placeOfManufacture: "",
+        generalWarrantyDuration: "",
+        generalWarrantyMileage: "",
+      });
+      setFieldErrors({});
+    } catch (error) {
+      console.error("Error creating vehicle model:", error);
+      toast.error("Failed to create vehicle model");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[70] p-4"
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Create Vehicle Model
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  {currentStep === 1
+                    ? "Step 1: Basic Information"
+                    : "Step 2: Warranty Components"}
+                </p>
+                {/* Step Indicator */}
+                <div className="flex items-center gap-2 mt-3">
+                  <div
+                    className={`flex items-center gap-2 ${
+                      currentStep === 1 ? "text-blue-600" : "text-green-600"
+                    }`}
+                  >
+                    <div
+                      className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                        currentStep === 1
+                          ? "bg-blue-600 text-white"
+                          : "bg-green-600 text-white"
+                      }`}
+                    >
+                      {currentStep === 1 ? "1" : "✓"}
+                    </div>
+                    <span className="text-xs font-medium">Basic Info</span>
+                  </div>
+                  <div className="w-8 h-0.5 bg-gray-300"></div>
+                  <div
+                    className={`flex items-center gap-2 ${
+                      currentStep === 2 ? "text-blue-600" : "text-gray-400"
+                    }`}
+                  >
+                    <div
+                      className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                        currentStep === 2
+                          ? "bg-blue-600 text-white"
+                          : "bg-gray-300 text-gray-600"
+                      }`}
+                    >
+                      2
+                    </div>
+                    <span className="text-xs font-medium">Components</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/50 transition-colors"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* STEP 1: Basic Information */}
+              {currentStep === 1 && (
+                <>
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                      <Car className="w-4 h-4 text-blue-600" />
+                      Basic Information
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-900">
+                          Model Name *
+                        </label>
+                        <input
+                          className={`w-full border rounded-lg px-4 py-2.5 bg-white text-gray-900 placeholder-gray-400 focus:ring-2 transition-colors ${
+                            fieldErrors.vehicleModelName
+                              ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+                              : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+                          }`}
+                          value={formData.vehicleModelName}
+                          onChange={(e) => {
+                            setFormData({
+                              ...formData,
+                              vehicleModelName: e.target.value,
+                            });
+                            if (fieldErrors.vehicleModelName) {
+                              setFieldErrors((prev) => ({
+                                ...prev,
+                                vehicleModelName: "",
+                              }));
+                            }
+                          }}
+                          placeholder="e.g., Model S, Cybertruck"
+                        />
+                        {fieldErrors.vehicleModelName && (
+                          <p className="text-xs text-red-600 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" />
+                            {fieldErrors.vehicleModelName}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-900">
+                          SKU *
+                        </label>
+                        <input
+                          className={`w-full border rounded-lg px-4 py-2.5 bg-white text-gray-900 placeholder-gray-400 focus:ring-2 transition-colors ${
+                            fieldErrors.sku
+                              ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+                              : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+                          }`}
+                          value={formData.sku}
+                          onChange={(e) => {
+                            setFormData({ ...formData, sku: e.target.value });
+                            if (fieldErrors.sku) {
+                              setFieldErrors((prev) => ({ ...prev, sku: "" }));
+                            }
+                          }}
+                          placeholder="MODEL-S-2024"
+                        />
+                        {fieldErrors.sku && (
+                          <p className="text-xs text-red-600 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" />
+                            {fieldErrors.sku}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="col-span-2 space-y-2">
+                        <label className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                          Vehicle Company ID *
+                          <span className="text-xs text-gray-500 font-normal">
+                            (Auto-filled from your account)
+                          </span>
+                        </label>
+                        <input
+                          className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-gray-100 text-gray-700 placeholder-gray-400 font-mono text-sm cursor-not-allowed"
+                          value={formData.vehicleCompanyId}
+                          readOnly
+                          placeholder="Loading company ID..."
+                        />
+                        {formData.vehicleCompanyId && (
+                          <p className="text-xs text-green-600 flex items-center gap-1">
+                            <Info className="w-3 h-3" />
+                            Using your company ID from account
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="col-span-2 space-y-2">
+                        <label className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                          <MapPin className="w-4 h-4 text-orange-600" />
+                          Place of Manufacture *
+                        </label>
+                        <input
+                          className={`w-full border rounded-lg px-4 py-2.5 bg-white text-gray-900 placeholder-gray-400 focus:ring-2 transition-colors ${
+                            fieldErrors.placeOfManufacture
+                              ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+                              : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+                          }`}
+                          value={formData.placeOfManufacture}
+                          onChange={(e) => {
+                            setFormData({
+                              ...formData,
+                              placeOfManufacture: e.target.value,
+                            });
+                            if (fieldErrors.placeOfManufacture) {
+                              setFieldErrors((prev) => ({
+                                ...prev,
+                                placeOfManufacture: "",
+                              }));
+                            }
+                          }}
+                          placeholder="e.g., Vietnam, USA, Germany"
+                        />
+                        {fieldErrors.placeOfManufacture && (
+                          <p className="text-xs text-red-600 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" />
+                            {fieldErrors.placeOfManufacture}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-purple-600" />
+                          Year of Launch (Optional)
+                        </label>
+                        <input
+                          type="date"
+                          className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-white text-gray-900 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                          value={formData.yearOfLaunch}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              yearOfLaunch: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-green-600" />
+                      General Warranty (Optional)
+                    </h3>
+                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-xs text-blue-900 flex items-start gap-2">
+                        <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <span>
+                          After creating the model, you can configure specific
+                          warranty components in the{" "}
+                          <strong>Warranty Config</strong> section.
+                        </span>
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-900">
+                          Duration (Months)
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                            value={formData.generalWarrantyDuration}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                generalWarrantyDuration: e.target.value,
+                              })
+                            }
+                            placeholder="36"
+                            min="1"
+                          />
+                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                            months
+                          </span>
+                        </div>
+                        {formData.generalWarrantyDuration && (
+                          <p className="text-xs text-green-600">
+                            ≈{" "}
+                            {Math.floor(
+                              parseInt(formData.generalWarrantyDuration) / 12
+                            )}{" "}
+                            years
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-900">
+                          Mileage (KM)
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                            value={formData.generalWarrantyMileage}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                generalWarrantyMileage: e.target.value,
+                              })
+                            }
+                            placeholder="100000"
+                            min="1"
+                          />
+                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                            km
+                          </span>
+                        </div>
+                        {formData.generalWarrantyMileage && (
+                          <p className="text-xs text-orange-600">
+                            {(
+                              parseInt(formData.generalWarrantyMileage) / 1000
+                            ).toFixed(0)}
+                            K km
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {formData.vehicleModelName && formData.sku && (
+                    <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl">
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 bg-white rounded-lg">
+                          <Info className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-gray-900 mb-2">
+                            Model Preview
+                          </p>
+                          <div className="space-y-1 text-xs text-gray-700">
+                            <p>
+                              <strong>Name:</strong> {formData.vehicleModelName}
+                            </p>
+                            <p>
+                              <strong>SKU:</strong> {formData.sku}
+                            </p>
+                            {formData.yearOfLaunch && (
+                              <p>
+                                <strong>Launch:</strong>{" "}
+                                {new Date(formData.yearOfLaunch).getFullYear()}
+                              </p>
+                            )}
+                            {(formData.generalWarrantyDuration ||
+                              formData.generalWarrantyMileage) && (
+                              <p>
+                                <strong>Warranty:</strong>{" "}
+                                {formData.generalWarrantyDuration &&
+                                  `${formData.generalWarrantyDuration} months`}
+                                {formData.generalWarrantyDuration &&
+                                  formData.generalWarrantyMileage &&
+                                  " / "}
+                                {formData.generalWarrantyMileage &&
+                                  `${parseInt(
+                                    formData.generalWarrantyMileage
+                                  ).toLocaleString()} km`}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* STEP 2: Warranty Components */}
+              {currentStep === 2 && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-green-600" />
+                      Configure Warranty Components
+                    </h3>
+                    <button
+                      onClick={addComponent}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Component
+                    </button>
+                  </div>
+
+                  {components.length === 0 ? (
+                    <div className="text-center py-8 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl">
+                      <Package className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                      <p className="text-sm text-gray-600 mb-2">
+                        No warranty components added yet
+                      </p>
+                      <p className="text-xs text-gray-500 mb-4">
+                        Add at least one component to continue
+                      </p>
+                      <button
+                        onClick={addComponent}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add First Component
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {components.map((comp, index) => (
+                        <div
+                          key={index}
+                          className="p-4 bg-gray-50 border border-gray-200 rounded-xl"
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <span className="text-sm font-semibold text-gray-900">
+                              Component #{index + 1}
+                            </span>
+                            <button
+                              onClick={() => removeComponent(index)}
+                              className="text-red-500 hover:text-red-700 p-1"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-1 gap-3">
+                            <div>
+                              <label className="text-xs font-medium text-gray-700 block mb-1">
+                                Component Type *
+                              </label>
+                              <select
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                value={comp.typeComponentId}
+                                onChange={(e) =>
+                                  updateComponent(
+                                    index,
+                                    "typeComponentId",
+                                    e.target.value
+                                  )
+                                }
+                              >
+                                <option value="">Select component...</option>
+                                {availableComponents.map((c) => (
+                                  <option
+                                    key={c.typeComponentId}
+                                    value={c.typeComponentId}
+                                  >
+                                    {c.typeComponent.name} (
+                                    {c.typeComponent.sku})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="grid grid-cols-3 gap-3">
+                              <div>
+                                <label className="text-xs font-medium text-gray-700 block mb-1">
+                                  Quantity *
+                                </label>
+                                <input
+                                  type="number"
+                                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                  value={comp.quantity}
+                                  onChange={(e) =>
+                                    updateComponent(
+                                      index,
+                                      "quantity",
+                                      e.target.value
+                                    )
+                                  }
+                                  placeholder="1"
+                                  min="1"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs font-medium text-gray-700 block mb-1">
+                                  Warranty Duration (Months) *
+                                </label>
+                                <input
+                                  type="number"
+                                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                  value={comp.durationMonth}
+                                  onChange={(e) =>
+                                    updateComponent(
+                                      index,
+                                      "durationMonth",
+                                      e.target.value
+                                    )
+                                  }
+                                  placeholder="36"
+                                  min="1"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs font-medium text-gray-700 block mb-1">
+                                  Mileage Limit (KM) *
+                                </label>
+                                <input
+                                  type="number"
+                                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                  value={comp.mileageLimit}
+                                  onChange={(e) =>
+                                    updateComponent(
+                                      index,
+                                      "mileageLimit",
+                                      e.target.value
+                                    )
+                                  }
+                                  placeholder="100000"
+                                  min="1"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-xs text-blue-900 flex items-start gap-2">
+                      <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                      <span>
+                        You must add at least one warranty component. These
+                        define specific coverage for individual parts of the
+                        vehicle.
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200">
+              {currentStep === 1 ? (
+                <>
+                  <button
+                    onClick={onClose}
+                    disabled={loading}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleNext}
+                    disabled={loading}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                  >
+                    Next: Add Components
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={handleBack}
+                    disabled={loading}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={onClose}
+                    disabled={loading}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSubmit}
+                    disabled={loading || components.length === 0}
+                    className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4" />
+                        Create Model
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 export default function VehicleManagement() {
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [vehicleModels, setVehicleModels] = useState<VehicleModel[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -84,17 +859,26 @@ export default function VehicleManagement() {
                   </h1>
                 </div>
                 <p className="text-gray-600">
-                  Manage vehicle inventory and bulk operations
+                  Manage vehicle models and bulk operations
                 </p>
               </div>
 
-              <button
-                onClick={() => setShowUploadModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
-              >
-                <Upload className="w-5 h-5" />
-                Bulk Upload Vehicles
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium shadow-sm"
+                >
+                  <Plus className="w-5 h-5" />
+                  Create Model
+                </button>
+                <button
+                  onClick={() => setShowUploadModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
+                >
+                  <Upload className="w-5 h-5" />
+                  Bulk Upload
+                </button>
+              </div>
             </div>
           </div>
 
@@ -118,18 +902,22 @@ export default function VehicleManagement() {
 
                 <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-xl border border-green-200">
                   <div className="flex items-center justify-between mb-2">
-                    <Car className="w-8 h-8 text-green-600" />
-                    <TrendingUp className="w-5 h-5 text-green-500" />
+                    <Shield className="w-8 h-8 text-green-600" />
+                    <div className="group relative">
+                      <Info className="w-5 h-5 text-green-500" />
+                      <div className="absolute right-0 top-8 hidden group-hover:block w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl z-10">
+                        Models that have general warranty coverage configured
+                      </div>
+                    </div>
                   </div>
                   <p className="text-sm font-medium text-green-900 mb-1">
-                    With Warranty
+                    With General Warranty
                   </p>
                   <p className="text-3xl font-bold text-green-900">
                     {
                       (vehicleModels || []).filter(
                         (m) =>
-                          m.warrantyComponents &&
-                          m.warrantyComponents.length > 0
+                          m.generalWarrantyDuration || m.generalWarrantyMileage
                       ).length
                     }
                   </p>
@@ -137,17 +925,32 @@ export default function VehicleManagement() {
 
                 <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-xl border border-purple-200">
                   <div className="flex items-center justify-between mb-2">
-                    <Package className="w-8 h-8 text-purple-600" />
-                    <Info className="w-5 h-5 text-purple-500" />
+                    <Clock className="w-8 h-8 text-purple-600" />
+                    <div className="group relative">
+                      <Info className="w-5 h-5 text-purple-500" />
+                      <div className="absolute right-0 top-8 hidden group-hover:block w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl z-10">
+                        Average warranty duration across all models
+                      </div>
+                    </div>
                   </div>
                   <p className="text-sm font-medium text-purple-900 mb-1">
-                    Total Components
+                    Avg Warranty Duration
                   </p>
                   <p className="text-3xl font-bold text-purple-900">
-                    {(vehicleModels || []).reduce(
-                      (sum, m) => sum + (m.warrantyComponents?.length || 0),
-                      0
-                    )}
+                    {vehicleModels.length > 0
+                      ? Math.round(
+                          (vehicleModels || []).reduce(
+                            (sum, m) => sum + (m.generalWarrantyDuration || 0),
+                            0
+                          ) /
+                            vehicleModels.filter(
+                              (m) => m.generalWarrantyDuration
+                            ).length || 0
+                        )
+                      : 0}
+                    <span className="text-sm font-normal text-purple-700 ml-1">
+                      months
+                    </span>
                   </p>
                 </div>
               </div>
@@ -452,9 +1255,16 @@ export default function VehicleManagement() {
         onSuccess={handleUploadSuccess}
       />
 
+      {/* Create Model Modal */}
+      <CreateVehicleModelModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={handleUploadSuccess}
+      />
+
       {/* Vehicle Model Detail Modal */}
       {showDetailModal && selectedModel && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[70] p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
