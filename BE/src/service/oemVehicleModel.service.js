@@ -24,6 +24,7 @@ class OemVehicleModelService {
     generalWarrantyDuration,
     generalWarrantyMileage,
     companyId,
+    components = [],
   }) => {
     return db.sequelize.transaction(async (transaction) => {
       const existingSku = await this.#oemVehicleModelRepository.findBySku(
@@ -50,6 +51,22 @@ class OemVehicleModelService {
           dataToCreatevehicleModel,
           transaction
         );
+
+      // Create warranty components if provided
+      if (components && components.length > 0) {
+        const warrantyComponentsData = components.map((comp) => ({
+          vehicleModelId: vehicleModel.vehicleModelId,
+          typeComponentId: comp.typeComponentId,
+          durationMonth: comp.durationMonth,
+          mileageLimit: comp.mileageLimit,
+          quantity: comp.quantity,
+        }));
+
+        await this.#warrantyComponentRepository.bulkCreateWarrantyComponents(
+          { warrantyComponents: warrantyComponentsData },
+          transaction
+        );
+      }
 
       return vehicleModel;
     });
