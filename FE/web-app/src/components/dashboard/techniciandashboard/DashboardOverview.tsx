@@ -595,6 +595,7 @@ export function DashboardOverview() {
           <CaseDetailsModal
             isOpen={!!selectedCase}
             onClose={handleCloseModal}
+            onSuccess={loadProcessingRecords} // Refresh dashboard after save
             vin={selectedCase.vin}
             recordId={selectedCase.recordId}
             caseId={selectedCase.caseId}

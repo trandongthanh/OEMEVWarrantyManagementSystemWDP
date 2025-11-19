@@ -98,7 +98,7 @@ export function TrackingWidget() {
         "bg-orange-500/20 text-orange-400 border-orange-500/30",
       PROCESSING: "bg-purple-500/20 text-purple-400 border-purple-500/30",
       READY_FOR_PICKUP: "bg-green-500/20 text-green-400 border-green-500/30",
-      COMPLETED: "bg-gray-500/20 text-gray-400 border-gray-500/30",
+      COMPLETED: "bg-green-500/20 text-green-400 border-green-500/30",
       CANCELLED: "bg-red-500/20 text-red-400 border-red-500/30",
     };
     return colors[status] || "bg-gray-500/20 text-gray-400 border-gray-500/30";

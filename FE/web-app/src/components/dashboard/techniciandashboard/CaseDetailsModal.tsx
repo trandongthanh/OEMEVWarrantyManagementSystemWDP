@@ -28,6 +28,7 @@ import { uploadToCloudinary } from "@/lib/cloudinary";
 interface CaseDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void; // Callback to refresh parent after save
   vin: string;
   recordId: string; // Processing record ID for API calls
   caseId?: string; // Optional - may not exist for new diagnoses
@@ -71,6 +72,7 @@ const COMPONENT_CATEGORIES = [
 export function CaseDetailsModal({
   isOpen,
   onClose,
+  onSuccess,
   vin,
   recordId,
   caseId,
@@ -691,6 +693,7 @@ export function CaseDetailsModal({
         setSuccessMessage(
           `${updatePromises.length} case line(s) updated successfully!`
         );
+        onSuccess?.(); // Refresh parent dashboard
       } else {
         // Create mode - create new case lines
         console.log("✨ Creating new case lines...");
@@ -761,9 +764,10 @@ export function CaseDetailsModal({
         setSuccessMessage("Case lines created successfully!");
       }
 
+      onSuccess?.(); // Refresh parent dashboard
+
       // Don't close modal automatically - let user click Complete Diagnosis button
       // setTimeout(() => {
-      //   onSuccess?.();
       //   onClose();
       // }, 1500);
     } catch (error: unknown) {
