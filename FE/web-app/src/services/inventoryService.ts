@@ -330,10 +330,13 @@ export async function getMostUsedTypeComponents(
  * Download bulk adjustment import template
  */
 export async function downloadBulkAdjustmentTemplate(): Promise<Blob> {
-  const response = await apiClient.get("/inventory/adjustments/import/template", {
-    params: { template: "true" },
-    responseType: "blob",
-  });
+  const response = await apiClient.get(
+    "/inventory/adjustments/import/template",
+    {
+      params: { template: "true" },
+      responseType: "blob",
+    }
+  );
 
   return response.data;
 }
@@ -344,22 +347,26 @@ export async function downloadBulkAdjustmentTemplate(): Promise<Blob> {
 export async function bulkCreateAdjustments(data: {
   file: File;
   warehouseId: string;
-  adjustmentType: "IN";
+  adjustmentType: "IN" | "OUT";
   reason: string;
   note?: string;
 }): Promise<{
-  data: {
-    summary: {
-      total: number;
-      successful: number;
-      failed: number;
+  status: string;
+  data: Array<{
+    adjustment: {
+      inventoryAdjustmentId: string;
+      stockId: string;
+      adjustmentType: string;
+      quantity: number;
+      reason: string;
+      note?: string;
+      adjustedByUserId: string;
+      createdAt: string;
     };
-    errors?: Array<{
-      row: number;
-      sku?: string;
-      error: string;
-    }>;
-  };
+    updatedStock: Record<string, unknown>;
+    stock: Record<string, unknown>;
+    quantity: number;
+  }>;
 }> {
   const formData = new FormData();
   formData.append("file", data.file);

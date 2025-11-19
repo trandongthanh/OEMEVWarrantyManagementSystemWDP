@@ -2,9 +2,6 @@
 
 import { useEffect, useState } from "react";
 import recallService, { RecallCampaign } from "@/services/recallService";
-import vehicleModelService, {
-  VehicleModel,
-} from "@/services/vehicleModelService";
 import {
   Loader2,
   Plus,
@@ -108,15 +105,11 @@ export function CreateRecallModal({
   const loadAvailableModels = async () => {
     try {
       setLoadingModels(true);
-      // Get all vehicle models from the proper API
-      const models: VehicleModel[] =
-        await vehicleModelService.getVehicleModels();
-      setAvailableModels(
-        models.map((model) => ({
-          id: model.vehicleModelId,
-          name: model.vehicleModelName,
-        }))
-      );
+      // EMV staff don't have access to oem-vehicle-models API
+      // Backend only returns affectedVehicleModelIds (UUIDs) without names
+      // Since we can't resolve names, we'll just keep the available models empty
+      // and users will need to enter vehicle model IDs manually
+      setAvailableModels([]);
     } catch (err) {
       console.error("Error loading models:", err);
       setAvailableModels([]);
@@ -754,10 +747,10 @@ export default function RecallCampaignList() {
                         <Calendar className="w-4 h-4" />
                         {new Date(campaign.issueDate).toLocaleDateString()}
                       </span>
-                      {campaign.affectedVehicleModels &&
-                        campaign.affectedVehicleModels.length > 0 && (
+                      {campaign.affectedVehicleModelIds &&
+                        campaign.affectedVehicleModelIds.length > 0 && (
                           <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded-full text-xs font-medium">
-                            {campaign.affectedVehicleModels.length} Models
+                            {campaign.affectedVehicleModelIds.length} Models
                             Affected
                           </span>
                         )}
@@ -864,27 +857,26 @@ export default function RecallCampaignList() {
                   {selectedCampaign.description}
                 </p>
               </div>
-              {selectedCampaign.affectedVehicleModels &&
-                selectedCampaign.affectedVehicleModels.length > 0 && (
+              {selectedCampaign.affectedVehicleModelIds &&
+                selectedCampaign.affectedVehicleModelIds.length > 0 && (
                   <div>
                     <h3 className="text-sm font-medium text-gray-500 mb-2">
-                      Affected Vehicle Models (
-                      {selectedCampaign.affectedVehicleModels.length})
+                      Affected Vehicle Model IDs (
+                      {selectedCampaign.affectedVehicleModelIds.length})
                     </h3>
-                    <div className="grid grid-cols-2 gap-2">
-                      {selectedCampaign.affectedVehicleModels.map((model) => (
-                        <div
-                          key={model.vehicleModelId}
-                          className="bg-orange-50 p-3 rounded-lg border border-orange-200"
-                        >
-                          <p className="font-medium text-gray-900">
-                            {model.vehicleModelName}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            SKU: {model.sku}
-                          </p>
-                        </div>
-                      ))}
+                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 max-h-48 overflow-y-auto">
+                      <div className="space-y-1">
+                        {selectedCampaign.affectedVehicleModelIds.map(
+                          (modelId, index) => (
+                            <div
+                              key={modelId}
+                              className="font-mono text-xs text-gray-700 bg-white px-2 py-1 rounded border border-gray-200"
+                            >
+                              {index + 1}. {modelId}
+                            </div>
+                          )
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}

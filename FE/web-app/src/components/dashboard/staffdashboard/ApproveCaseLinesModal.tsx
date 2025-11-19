@@ -242,7 +242,7 @@ export function ApproveCaseLinesModal({
                         onChange={(e) => setReason(e.target.value)}
                         placeholder="Please explain why these case lines are being rejected..."
                         rows={4}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none text-sm"
+                        className="w-full px-4 py-3 border text-black border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none text-sm"
                       />
                     </div>
                   )}
