@@ -25,6 +25,7 @@ class WarrantyComponentService {
       const existingTypeComponentItems = typeComponents.filter(
         (item) => item.typeComponentId
       );
+
       const newTypeComponentItems = typeComponents.filter(
         (item) => !item.typeComponentId
       );
