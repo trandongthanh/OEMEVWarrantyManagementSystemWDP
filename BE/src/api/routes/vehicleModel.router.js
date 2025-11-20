@@ -154,6 +154,7 @@ router.post(
   "/",
   authentication,
   authorizationByRole(["parts_coordinator_company"]),
+  attachCompanyContext,
   validate(createVehicleModelSchema, "body"),
   async (req, res, next) => {
     const oemVehicleModelController = req.container.resolve(
