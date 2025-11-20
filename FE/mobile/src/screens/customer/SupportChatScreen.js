@@ -12,6 +12,18 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
+// REST
+import { startChatByEmail } from "../../services/chatCustomerService";
+
+// SOCKET
+import {
+  initSocket,
+  joinConversation,
+  sendMessageSocket,
+  onNewMessage,
+  disconnectSocket,
+} from "../../services/socketService";
+
 const COLORS = {
   bg: "#0B0F14",
   surface: "#11161C",
@@ -23,69 +35,128 @@ const COLORS = {
 };
 
 export default function SupportChatScreen({ navigation }) {
-  const [messages, setMessages] = useState([
-    {
-      id: "1",
-      from: "support",
-      text: "Xin chào! 👋\nTôi có thể hỗ trợ gì cho bạn hôm nay?",
-    },
-  ]);
+  const [email, setEmail] = useState("");
+  const [stage, setStage] = useState("email"); // "email" | "chat"
 
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
+  const [conversationId, setConversationId] = useState(null);
+
   const flatListRef = useRef(null);
 
+  // Auto scroll khi có message mới
   useEffect(() => {
     setTimeout(() => {
       flatListRef.current?.scrollToEnd({ animated: true });
-    }, 150);
+    }, 120);
   }, [messages]);
 
-  const sendMessage = () => {
+  /**
+   * 1️⃣ User nhập email → bắt đầu chat
+   */
+  const startChat = async () => {
+    if (!email.trim()) return;
+
+    try {
+      const data = await startChatByEmail(email.trim());
+
+      setConversationId(data.conversationId);
+      setStage("chat");
+
+      // Welcome message
+      setMessages([
+        {
+          id: "welcome",
+          sender: "support",
+          message: "Xin chào! Tôi có thể hỗ trợ gì cho bạn hôm nay?",
+        },
+      ]);
+
+      // Init socket
+      initSocket(null);
+
+      // Join room
+      joinConversation(data.conversationId);
+
+      // Listen realtime
+      onNewMessage((msg) => {
+        setMessages((prev) => [...prev, msg]);
+      });
+    } catch (err) {
+      console.log("❌ Init chat error:", err);
+    }
+  };
+
+  /**
+   * 2️⃣ Gửi tin nhắn
+   */
+  const sendMsg = () => {
     if (!input.trim()) return;
 
     const newMsg = {
       id: Date.now().toString(),
-      from: "customer",
-      text: input.trim(),
+      sender: "customer",
+      message: input.trim(),
     };
 
     setMessages((prev) => [...prev, newMsg]);
-    setInput("");
 
-    // Auto reply (demo)
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString() + "_bot",
-          from: "support",
-          text: "Cảm ơn bạn! Hệ thống sẽ phản hồi sớm.",
-        },
-      ]);
-    }, 900);
+    sendMessageSocket({
+      conversationId,
+      sender: email,
+      message: input.trim(),
+      imageUrl: null,
+    });
+
+    setInput("");
   };
 
   const renderMessage = ({ item }) => {
-    const isCustomer = item.from === "customer";
+    const mine = item.sender === "customer";
 
     return (
       <View
         style={[
           styles.bubbleWrapper,
-          { alignItems: isCustomer ? "flex-end" : "flex-start" },
+          { alignItems: mine ? "flex-end" : "flex-start" },
         ]}
       >
         <View
           style={[
             styles.bubble,
-            isCustomer ? styles.customerBubble : styles.supportBubble,
+            mine ? styles.customerBubble : styles.supportBubble,
           ]}
         >
-          <Text style={styles.bubbleText}>{item.text}</Text>
+          <Text style={styles.bubbleText}>{item.message}</Text>
         </View>
       </View>
     );
   };
+
+  // =============================================
+  // UI
+  // =============================================
+
+  if (stage === "email")
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.emailBox}>
+          <Text style={styles.title}>Start a Conversation</Text>
+
+          <TextInput
+            style={styles.emailInput}
+            placeholder="your.email@example.com"
+            placeholderTextColor={COLORS.textMuted}
+            value={email}
+            onChangeText={setEmail}
+          />
+
+          <TouchableOpacity style={styles.startBtn} onPress={startChat}>
+            <Text style={styles.startBtnText}>Start Chat</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -100,19 +171,19 @@ export default function SupportChatScreen({ navigation }) {
         <Ionicons name="headset-outline" size={22} color={COLORS.accent} />
       </View>
 
-      {/* CHAT LIST */}
+      {/* LIST */}
       <FlatList
         ref={flatListRef}
         data={messages}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item, index) => item.id || index.toString()}
         renderItem={renderMessage}
-        contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
         style={{ flex: 1 }}
       />
 
-      {/* INPUT BAR */}
+      {/* INPUT */}
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={styles.inputBarWrapper}>
           <View style={styles.inputBar}>
@@ -124,7 +195,7 @@ export default function SupportChatScreen({ navigation }) {
               onChangeText={setInput}
             />
 
-            <TouchableOpacity onPress={sendMessage} style={styles.sendBtn}>
+            <TouchableOpacity onPress={sendMsg} style={styles.sendBtn}>
               <Ionicons name="send" size={20} color="#fff" />
             </TouchableOpacity>
           </View>
@@ -138,6 +209,37 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.bg,
+  },
+
+  // EMAIL BOX
+  emailBox: {
+    marginTop: 80,
+    padding: 24,
+  },
+  title: {
+    color: COLORS.text,
+    fontSize: 22,
+    fontWeight: "700",
+    marginBottom: 20,
+  },
+  emailInput: {
+    backgroundColor: COLORS.surface,
+    color: COLORS.text,
+    borderWidth: 1,
+    borderColor: "#1F2833",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
+  },
+  startBtn: {
+    backgroundColor: COLORS.accent,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  startBtnText: {
+    color: "#fff",
+    fontWeight: "700",
   },
 
   // HEADER
@@ -157,7 +259,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  // CHAT BUBBLES
+  // CHAT
   bubbleWrapper: {
     marginVertical: 4,
   },
@@ -170,45 +272,38 @@ const styles = StyleSheet.create({
   bubbleText: {
     color: "#fff",
     fontSize: 15,
-    lineHeight: 20,
   },
   customerBubble: {
     backgroundColor: COLORS.customer,
-    borderBottomRightRadius: 4,
   },
   supportBubble: {
     backgroundColor: COLORS.support,
-    borderBottomLeftRadius: 4,
   },
 
-  // INPUT BAR
   inputBarWrapper: {
     paddingHorizontal: 12,
-    paddingBottom: Platform.OS === "ios" ? 15 : 10,
+    paddingBottom: 10,
     backgroundColor: COLORS.bg,
   },
   inputBar: {
     flexDirection: "row",
-    alignItems: "center",
     backgroundColor: COLORS.surface,
     borderRadius: 12,
+    padding: 8,
     borderWidth: 1,
     borderColor: "#1F2833",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
   },
   input: {
     flex: 1,
     color: COLORS.text,
-    fontSize: 15,
   },
   sendBtn: {
     backgroundColor: COLORS.accent,
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    justifyContent: "center",
+    width: 40,
+    height: 40,
     alignItems: "center",
-    marginLeft: 10,
+    justifyContent: "center",
+    borderRadius: 10,
+    marginLeft: 8,
   },
 });

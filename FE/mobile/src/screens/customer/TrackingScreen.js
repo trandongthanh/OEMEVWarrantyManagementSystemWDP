@@ -6,15 +6,23 @@ import {
   StyleSheet,
   TextInput,
   ActivityIndicator,
+  ScrollView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+
+// SERVICE
 import trackingService from "../../services/trackingService";
+
+// CARD KẾT QUẢ
+import TrackingResultCard from "./TrackingResultCard";
 
 export default function TrackingScreen({ navigation }) {
   const [token, setToken] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [tracking, setTracking] = useState(null);
 
   const handleTrack = async () => {
     if (!token.trim()) {
@@ -27,111 +35,116 @@ export default function TrackingScreen({ navigation }) {
 
     try {
       const res = await trackingService.getTrackingInfo(token.trim());
-
-      navigation.navigate("TrackingResultScreen", {
-        tracking: res.data,
-      });
+      console.log("📌 TRACKING DATA:", res.data);
+      setTracking(res.data);
     } catch (err) {
       const msg =
         err?.response?.data?.message || "Invalid or expired tracking token.";
       setError(msg);
+      setTracking(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleOpenChat = () => {
-    navigation.navigate("SupportChatScreen"); // nhớ khai báo screen này trong navigator
-  };
-
   return (
     <LinearGradient
       colors={["#0A0E1A", "#0B0F14", "#0B0F14"]}
-      style={styles.container}
+      style={{ flex: 1 }}
     >
-      {/* LOGIN BUTTON */}
-      <TouchableOpacity
-        style={styles.loginBtn}
-        onPress={() => navigation.navigate("Login")}
-      >
-        <Ionicons name="log-in-outline" size={16} color="#E6EAF2" />
-        <Text style={styles.loginBtnText}>Login</Text>
-      </TouchableOpacity>
-
-      {/* ICON */}
-      <Ionicons
-        name="car-sport-outline"
-        size={50}
-        color="#4C90FF"
-        style={{ marginBottom: 15 }}
-      />
-
-      {/* TITLE */}
-      <Text style={styles.title}>EV Warranty Tracking</Text>
-
-      {/* SUBTITLE */}
-      <Text style={styles.subtitle}>
-        Check the real-time status of your vehicle service
-      </Text>
-
-      {/* SEARCH CARD */}
-      <View style={styles.searchCard}>
-        <View style={styles.inputRow}>
-          <Ionicons name="search-outline" size={20} color="#6B7485" />
-          <TextInput
-            style={styles.input}
-            placeholder="Enter your tracking token"
-            placeholderTextColor="#6B7485"
-            value={token}
-            onChangeText={setToken}
-          />
-        </View>
-
-        {/* ERROR MESSAGE */}
-        {error ? (
-          <View style={styles.errorBox}>
-            <Ionicons name="warning-outline" size={16} color="#EF4444" />
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        ) : null}
-
-        {/* TRACK BUTTON */}
-        <TouchableOpacity
-          style={styles.trackBtn}
-          onPress={handleTrack}
-          disabled={loading}
+      <SafeAreaView style={{ flex: 1 }}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: 140 }}
+          showsVerticalScrollIndicator={false}
         >
-          <LinearGradient
-            colors={["#2563EB", "#3B82F6"]}
-            style={styles.trackBtnGradient}
+          {/* LOGIN */}
+          <TouchableOpacity
+            style={styles.loginBtn}
+            onPress={() => navigation.navigate("Login")}
           >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.trackBtnText}>TRACK NOW</Text>
-            )}
-          </LinearGradient>
+            <Ionicons name="log-in-outline" size={16} color="#E6EAF2" />
+            <Text style={styles.loginBtnText}>Login</Text>
+          </TouchableOpacity>
+
+          {/* ICON */}
+          <Ionicons
+            name="car-sport-outline"
+            size={50}
+            color="#4C90FF"
+            style={{ marginBottom: 15, marginTop: 10 }}
+          />
+
+          {/* TITLE */}
+          <Text style={styles.title}>EV Warranty Tracking</Text>
+
+          {/* SUBTITLE */}
+          <Text style={styles.subtitle}>
+            Check the real-time status of your vehicle service
+          </Text>
+
+          {/* SEARCH CARD */}
+          <View style={styles.searchCard}>
+            <View style={styles.inputRow}>
+              <Ionicons name="search-outline" size={20} color="#6B7485" />
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your tracking token"
+                placeholderTextColor="#6B7485"
+                value={token}
+                onChangeText={setToken}
+              />
+            </View>
+
+            {error ? (
+              <View style={styles.errorBox}>
+                <Ionicons name="warning-outline" size={16} color="#EF4444" />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
+
+            <TouchableOpacity
+              style={styles.trackBtn}
+              onPress={handleTrack}
+              disabled={loading}
+            >
+              <LinearGradient
+                colors={["#2563EB", "#3B82F6"]}
+                style={styles.trackBtnGradient}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.trackBtnText}>TRACK NOW</Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+
+          {/* FEATURES */}
+          <View style={styles.features}>
+            <Feature color="#22C55E" text="Real-time Updates" />
+            <Feature color="#3B82F6" text="No Login Required" />
+            <Feature color="#A855F7" text="24/7 Access" />
+          </View>
+
+          {/* RESULT CARD */}
+          {tracking && (
+            <View style={{ marginTop: 10, marginBottom: 20 }}>
+              <TrackingResultCard tracking={tracking} />
+            </View>
+          )}
+
+          <Text style={styles.footer}>© 2025 EV Warranty Center</Text>
+        </ScrollView>
+
+        {/* FLOATING CHAT BUTTON */}
+        <TouchableOpacity
+          style={styles.chatBubble}
+          onPress={() => navigation.navigate("SupportChatScreen")}
+        >
+          <Ionicons name="chatbubble-ellipses-outline" size={24} color="#fff" />
         </TouchableOpacity>
-      </View>
-
-      {/* FEATURES */}
-      <View style={styles.features}>
-        <Feature color="#22C55E" text="Real-time Updates" />
-        <Feature color="#3B82F6" text="No Login Required" />
-        <Feature color="#A855F7" text="24/7 Access" />
-      </View>
-
-      {/* FOOTER */}
-      <Text style={styles.footer}>© 2025 EV Warranty Center</Text>
-
-      {/* FLOATING CHAT BUBBLE */}
-      <TouchableOpacity
-        style={styles.chatBubble}
-        onPress={handleOpenChat}
-        activeOpacity={0.85}
-      >
-        <Ionicons name="chatbubble-ellipses-outline" size={24} color="#fff" />
-      </TouchableOpacity>
+      </SafeAreaView>
     </LinearGradient>
   );
 }
@@ -144,17 +157,12 @@ const Feature = ({ color, text }) => (
 );
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    paddingTop: 80,
-    paddingHorizontal: 22,
-  },
+  container: { flex: 1 },
 
   loginBtn: {
     position: "absolute",
-    top: 45,
-    right: 20,
+    top: 10,
+    right: 15,
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 6,
@@ -163,19 +171,20 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.12)",
+    zIndex: 10,
   },
-  loginBtnText: {
-    color: "#E6EAF2",
-    marginLeft: 6,
-    fontWeight: "600",
-  },
+
+  loginBtnText: { color: "#E6EAF2", marginLeft: 6, fontWeight: "600" },
 
   title: {
     color: "#E6EAF2",
     fontSize: 24,
     fontWeight: "700",
     marginBottom: 6,
+    textAlign: "center",
+    marginTop: 40,
   },
+
   subtitle: {
     color: "#9AA7B5",
     fontSize: 14,
@@ -184,17 +193,14 @@ const styles = StyleSheet.create({
   },
 
   searchCard: {
-    width: "100%",
+    width: "92%",
+    alignSelf: "center",
     backgroundColor: "#11161C",
     padding: 16,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: "#1F2833",
-    marginBottom: 25,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 5,
+    marginBottom: 20,
   },
 
   inputRow: {
@@ -208,11 +214,7 @@ const styles = StyleSheet.create({
     height: 48,
   },
 
-  input: {
-    flex: 1,
-    color: "#E6EAF2",
-    marginLeft: 8,
-  },
+  input: { flex: 1, color: "#E6EAF2", marginLeft: 8 },
 
   errorBox: {
     flexDirection: "row",
@@ -224,52 +226,42 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 10,
   },
-  errorText: {
-    color: "#EF4444",
-    marginLeft: 6,
-    fontSize: 13,
-    flex: 1,
-  },
 
-  trackBtn: {
-    marginTop: 14,
-  },
+  errorText: { color: "#EF4444", marginLeft: 6, fontSize: 13 },
+
+  trackBtn: { marginTop: 14 },
+
   trackBtnGradient: {
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: "center",
   },
-  trackBtnText: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "700",
-  },
+
+  trackBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
 
   features: {
     flexDirection: "row",
-    marginBottom: 25,
+    justifyContent: "center",
+    marginBottom: 15,
   },
-  featureItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginHorizontal: 6,
-  },
+
+  featureItem: { flexDirection: "row", alignItems: "center", margin: 6 },
+
   featureDot: {
     width: 7,
     height: 7,
     borderRadius: 50,
     marginRight: 5,
   },
-  featureText: {
-    color: "#9AA7B5",
-    fontSize: 12,
-  },
+
+  featureText: { color: "#9AA7B5", fontSize: 12 },
 
   footer: {
     color: "#6B7485",
     fontSize: 12,
-    position: "absolute",
-    bottom: 20,
+    textAlign: "center",
+    marginTop: 20,
+    marginBottom: 100,
   },
 
   chatBubble: {
@@ -282,10 +274,5 @@ const styles = StyleSheet.create({
     backgroundColor: "#2563EB",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#2563EB",
-    shadowOpacity: 0.35,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
-    elevation: 6,
   },
 });

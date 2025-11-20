@@ -1,17 +1,21 @@
-import api from "./api"; // <-- MUST BE "api", not apiClient
+import apiPublic from "./apiPublic";
 
-const trackingService = {
-  async getTrackingInfo(token) {
-    try {
-      const res = await api.get("/public/tracking", {
-        params: { token },
-      });
-      return res.data;
-    } catch (error) {
-      console.error("❌ Error fetching tracking info:", error);
-      throw error;
-    }
-  },
+export const getTrackingInfo = async (token) => {
+  try {
+    const res = await apiPublic.get("/api/public/tracking", {
+      params: { token },
+    });
+
+    return res.data;
+  } catch (error) {
+    console.error(
+      "❌ Error fetching tracking info:",
+      error.response?.data || error.message
+    );
+    throw error;
+  }
 };
 
-export default trackingService;
+export default {
+  getTrackingInfo,
+};

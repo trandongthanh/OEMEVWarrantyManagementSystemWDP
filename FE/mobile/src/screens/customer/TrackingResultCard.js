@@ -3,7 +3,6 @@ import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 const COLORS = {
-  bg: "#0B0F14",
   surface: "#11161C",
   border: "#1F2833",
   text: "#E6EAF2",
@@ -12,144 +11,247 @@ const COLORS = {
   success: "#22C55E",
   warn: "#EAB308",
   danger: "#EF4444",
+  cardBg: "#0F141B",
+  badgeBg: "rgba(255,255,255,0.06)",
 };
 
-export default function TrackingResultCard({ data }) {
-  if (!data) return null;
+export default function TrackingResultCard({ tracking }) {
+  if (!tracking) return null;
 
-  const { vin, checkInDate, checkOutDate, status, visitorInfo, odometer } =
-    data;
+  const {
+    vin,
+    status,
+    odometer,
+    checkInDate,
+    checkOutDate,
+    vehicle,
+    mainTechnician,
+    guaranteeCases,
+  } = tracking;
+
+  const modelName = vehicle?.model?.name || "Unknown Model";
+  const technicianName = mainTechnician?.name || "—";
 
   const statusColor =
     {
+      COMPLETED: COLORS.success,
       CHECKED_IN: COLORS.warn,
       IN_PROGRESS: COLORS.accent,
-      COMPLETED: COLORS.success,
-      CANCELLED: COLORS.danger,
+      DIAGNOSED: COLORS.warn,
     }[status] || COLORS.accent;
+
+  const formatDate = (d) => (d ? new Date(d).toLocaleString() : "—");
 
   return (
     <View style={styles.card}>
-      {/* VIN */}
-      <View style={styles.row}>
-        <Ionicons name="car-sport-outline" size={22} color={COLORS.accent} />
-        <Text style={styles.label}>VIN:</Text>
-        <Text style={styles.value}>{vin}</Text>
-      </View>
+      {/* HEADER */}
+      <Text style={styles.headerTitle}>Service Record Found</Text>
+      <Text style={styles.headerSub}>{modelName} • VinFast Auto</Text>
 
-      {/* STATUS */}
-      <View style={styles.statusBox}>
+      {/* STATUS BADGE */}
+      <View style={[styles.statusBadge, { borderColor: statusColor }]}>
         <Ionicons
-          name="information-circle-outline"
-          size={20}
+          name="checkmark-circle-outline"
+          size={18}
           color={statusColor}
         />
         <Text style={[styles.statusText, { color: statusColor }]}>
-          {status.replaceAll("_", " ")}
+          {status}
         </Text>
       </View>
 
-      {/* Visitor Info */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Customer Info</Text>
-        <InfoItem label="Name" value={visitorInfo.fullName} />
-        <InfoItem label="Email" value={visitorInfo.email} />
-        <InfoItem label="Phone" value={visitorInfo.phone} />
-        <InfoItem label="Relationship" value={visitorInfo.relationship} />
+      {/* INFO GRID */}
+      <View style={styles.grid}>
+        <InfoBox icon="car-sport-outline" label="VIN" value={vin} />
+        <InfoBox
+          icon="calendar-outline"
+          label="CHECK-IN"
+          value={formatDate(checkInDate)}
+        />
+        <InfoBox
+          icon="speedometer-outline"
+          label="ODOMETER"
+          value={`${odometer} km`}
+        />
+        <InfoBox
+          icon="hammer-outline"
+          label="TECHNICIAN"
+          value={technicianName}
+        />
       </View>
 
-      {/* Odometer */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Vehicle Details</Text>
-        <InfoItem label="Odometer" value={`${odometer} km`} />
-        <InfoItem
-          label="Checked In"
-          value={new Date(checkInDate).toLocaleString()}
-        />
-        <InfoItem
-          label="Checked Out"
-          value={new Date(checkOutDate).toLocaleString()}
-        />
+      {/* SERVICE CASES */}
+      {guaranteeCases?.length > 0 && (
+        <View style={{ marginTop: 25 }}>
+          <Text style={styles.sectionTitle}>
+            Service Cases ({guaranteeCases.length})
+          </Text>
+
+          {guaranteeCases.map((c, idx) => (
+            <View key={idx} style={styles.caseBox}>
+              <Text style={styles.caseTitle}>Case #{idx + 1}</Text>
+
+              <View style={styles.caseStatusBadge}>
+                <Text style={styles.caseStatusText}>{c.status}</Text>
+              </View>
+
+              <Text style={styles.caseDescription}>{c.contentGuarantee}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* FOOTER */}
+      <View style={[styles.footerBox, { borderColor: COLORS.success }]}>
+        <Ionicons name="checkmark-circle" size={22} color={COLORS.success} />
+        <View>
+          <Text style={styles.footerTitle}>Service Completed</Text>
+          <Text style={styles.footerText}>
+            Checked out on {formatDate(checkOutDate)}
+          </Text>
+        </View>
       </View>
     </View>
   );
 }
 
-const InfoItem = ({ label, value }) => (
-  <View style={styles.infoRow}>
-    <Text style={styles.infoLabel}>{label}:</Text>
-    <Text style={styles.infoValue}>{value}</Text>
-  </View>
-);
+function InfoBox({ icon, label, value }) {
+  return (
+    <View style={styles.infoBox}>
+      <Ionicons name={icon} size={20} color={COLORS.accent} />
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue}>{value}</Text>
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
   card: {
-    width: "100%",
-    backgroundColor: COLORS.surface,
+    width: "92%",
+    alignSelf: "center",
+    backgroundColor: COLORS.cardBg,
     padding: 20,
     borderRadius: 16,
-    marginTop: 20,
     borderWidth: 1,
     borderColor: COLORS.border,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 4,
   },
 
-  row: {
+  // Header
+  headerTitle: {
+    color: COLORS.text,
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  headerSub: {
+    color: COLORS.textMuted,
+    marginTop: 3,
+    fontSize: 13,
+  },
+
+  // Status Badge
+  statusBadge: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 14,
-  },
-  label: {
-    color: COLORS.textMuted,
-    marginHorizontal: 8,
-    fontSize: 14,
-  },
-  value: {
-    color: COLORS.text,
-    fontSize: 15,
-    fontWeight: "600",
-  },
-
-  statusBox: {
-    marginTop: 6,
-    paddingVertical: 8,
+    marginTop: 12,
+    paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: COLORS.badgeBg,
     alignSelf: "flex-start",
     borderRadius: 8,
-    flexDirection: "row",
-    alignItems: "center",
+    borderWidth: 1,
   },
   statusText: {
-    marginLeft: 6,
+    marginLeft: 5,
+    fontSize: 14,
     fontWeight: "700",
+    textTransform: "capitalize",
   },
 
-  section: {
-    marginTop: 20,
-  },
-  sectionTitle: {
-    color: COLORS.text,
-    fontWeight: "700",
-    fontSize: 16,
-    marginBottom: 10,
-  },
-
-  infoRow: {
+  // Info Grid
+  grid: {
+    marginTop: 25,
     flexDirection: "row",
-    marginBottom: 6,
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  infoBox: {
+    width: "48%",
+    backgroundColor: "#0D121A",
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   infoLabel: {
     color: COLORS.textMuted,
-    width: 110,
-    fontSize: 14,
+    fontSize: 12,
+    marginTop: 6,
   },
   infoValue: {
     color: COLORS.text,
+    fontWeight: "700",
+    marginTop: 3,
     fontSize: 14,
-    flex: 1,
+  },
+
+  // Cases
+  sectionTitle: {
+    color: COLORS.text,
+    fontSize: 17,
+    fontWeight: "700",
+    marginBottom: 10,
+  },
+  caseBox: {
+    backgroundColor: "#0D121A",
+    padding: 15,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 12,
+  },
+  caseTitle: {
+    color: COLORS.text,
+    fontWeight: "700",
+    fontSize: 15,
+  },
+  caseStatusBadge: {
+    backgroundColor: COLORS.badgeBg,
+    alignSelf: "flex-start",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginTop: 6,
+  },
+  caseStatusText: {
+    color: COLORS.textMuted,
+    fontWeight: "600",
+    fontSize: 12,
+  },
+  caseDescription: {
+    color: COLORS.textMuted,
+    marginTop: 8,
+    lineHeight: 20,
+  },
+
+  // Footer
+  footerBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 25,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    backgroundColor: "rgba(34,197,94,0.1)",
+  },
+  footerTitle: {
+    color: COLORS.success,
+    fontWeight: "700",
+    marginLeft: 10,
+  },
+  footerText: {
+    color: COLORS.textMuted,
+    marginLeft: 10,
+    marginTop: 2,
   },
 });
