@@ -1,4 +1,3 @@
-// ComponentsToInstall.js
 import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
@@ -10,7 +9,6 @@ import {
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-// --- THÊM IMPORT ---
 import { componentReservationService, caseLineService } from "../../services/technician";
 import ComponentInstallModal from "./ComponentInstallModal"; 
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -19,13 +17,9 @@ export default function ComponentsToInstall() {
   const [components, setComponents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedComponent, setSelectedComponent] = useState(null);
-
-  // --- THÊM STATE MỚI ---
   const [selectedForBulkInstall, setSelectedForBulkInstall] = useState(new Set());
   const [isBulkInstalling, setIsBulkInstalling] = useState(false);
-  // --- KẾT THÚC THÊM STATE ---
 
-  // (Hàm này đã được cập nhật ở bước trước để lọc theo repairTechId)
   const loadComponentsToInstall = async () => {
     try {
       setLoading(true);
@@ -58,14 +52,12 @@ export default function ComponentsToInstall() {
 
   useFocusEffect(
     useCallback(() => {
-      // Xóa lựa chọn khi tab được focus lại
       setSelectedForBulkInstall(new Set());
       setIsBulkInstalling(false);
       loadComponentsToInstall();
     }, [])
   );
 
-  // (Hàm handleInstallClick và handleInstallSuccess không đổi)
   const handleInstallClick = (component) => {
     const reservation = component.reservations?.find(
       (res) => res.status === "PICKED_UP"
@@ -88,10 +80,6 @@ export default function ComponentsToInstall() {
     Alert.alert("Thành công", "Linh kiện đã được lắp đặt.");
   };
 
-  // --- THÊM CÁC HÀM XỬ LÝ BULK ---
-  // (Logic giống hệt web)
-
-  // Lấy danh sách tất cả ID reservation đang hiển thị
   const allReservationIds = useMemo(() => 
     components.map(c => 
       c.reservations?.find(r => r.status === "PICKED_UP")?.reservationId
@@ -133,7 +121,6 @@ export default function ComponentsToInstall() {
 
     for (const reservationId of itemsToInstall) {
       try {
-        // Gọi API cho từng mục
         await componentReservationService.installComponent(reservationId);
         successCount++;
       } catch (err) {
@@ -151,9 +138,8 @@ export default function ComponentsToInstall() {
     
     setSelectedForBulkInstall(new Set());
     setIsBulkInstalling(false);
-    loadComponentsToInstall(); // Tải lại danh sách
+    loadComponentsToInstall(); 
   };
-  // --- KẾT THÚC HÀM XỬ LÝ BULK ---
 
 
   const renderContent = useMemo(() => {
@@ -180,13 +166,11 @@ export default function ComponentsToInstall() {
         {components.map((component) => {
           const caseLineId = component.id || component.caseLineId;
           
-          // --- CẬP NHẬT: Lấy ID và kiểm tra selected ---
           const reservation = component.reservations?.find(
             (res) => res.status === "PICKED_UP"
           );
           const reservationId = reservation?.reservationId || "";
           const isSelected = selectedForBulkInstall.has(reservationId);
-          // --- KẾT THÚC CẬP NHẬT ---
           
           const pickedUpCount =
             component.reservations?.filter(
@@ -198,14 +182,12 @@ export default function ComponentsToInstall() {
           const warehouse = component.reservations?.[0]?.warehouse; 
 
           return (
-            // --- CẬP NHẬT: Thêm checkbox và style khi chọn ---
             <TouchableOpacity 
               key={caseLineId} 
               style={[styles.itemCard, isSelected && styles.itemCardSelected]}
-              onPress={() => toggleSelection(reservationId)} // Nhấn vào thẻ để chọn
+              onPress={() => toggleSelection(reservationId)} 
             >
               <View style={styles.itemRow}>
-                {/* Checkbox */}
                 <TouchableOpacity 
                   style={styles.checkbox} 
                   onPress={() => toggleSelection(reservationId)}
@@ -217,7 +199,6 @@ export default function ComponentsToInstall() {
                   />
                 </TouchableOpacity>
 
-                {/* Nội dung */}
                 <View style={styles.itemContent}>
                   <View style={styles.itemHeader}>
                     <Ionicons name="build-outline" size={16} color="#5B21B6" />
@@ -250,7 +231,6 @@ export default function ComponentsToInstall() {
                   </Text>
                 </View>
 
-                {/* Nút cài đặt đơn lẻ */}
                 <TouchableOpacity
                   onPress={() => handleInstallClick(component)}
                   style={styles.installButton}
@@ -260,12 +240,10 @@ export default function ComponentsToInstall() {
                 </TouchableOpacity>
               </View>
             </TouchableOpacity>
-            // --- KẾT THÚC CẬP NHẬT ---
           );
         })}
       </View>
     );
-  // Cập nhật dependency
   }, [loading, components, selectedForBulkInstall]); 
 
   return (
@@ -284,7 +262,6 @@ export default function ComponentsToInstall() {
           </View>
         </View>
 
-        {/* --- THÊM THANH HÀNH ĐỘNG BULK --- */}
         {components.length > 0 && (
           <View style={styles.bulkActionContainer}>
             <TouchableOpacity 
@@ -319,7 +296,6 @@ export default function ComponentsToInstall() {
             )}
           </View>
         )}
-        {/* --- KẾT THÚC THANH HÀNH ĐỘNG BULK --- */}
         
         {renderContent}
       </View>
@@ -506,5 +482,4 @@ const styles = StyleSheet.create({
   disabledButton: {
     backgroundColor: "#A78BFA",
   },
-  // --- KẾT THÚC STYLES MỚI ---
 });

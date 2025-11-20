@@ -1,4 +1,3 @@
-// CompleteDiagnosisButton.js
 import React, { useState } from "react";
 import {
   TouchableOpacity,
@@ -11,23 +10,24 @@ import {
   Pressable,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons"; 
-import {processingRecordService} from "../../services/technician";
+// Thêm technicianService để gọi API lấy chi tiết phiếu
+import { processingRecordService, technicianService } from "../../services/technician";
 
 export default function CompleteDiagnosisButton({
   recordId,
   onSuccess,
   disabled = false,
   onNavigateToInstall,
-  caseLines = [], // <-- THÊM PROP NÀY
+  caseLines = [], 
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isValidating, setIsValidating] = useState(false); // State mới cho loading khi validate
   const [error, setError] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false); 
 
-  // --- CẬP NHẬT HÀM NÀY ---
-  const handleCompleteDiagnosis = () => {
-    // Logic validate giống hệt web
+  const handleCompleteDiagnosis = async () => {
+    // 1. Validate cục bộ (như cũ)
     const draftCaseLines = caseLines.filter(
       (cl) => cl.status === "DRAFT" || !cl.status
     );
@@ -36,17 +36,60 @@ export default function CompleteDiagnosisButton({
     );
 
     if (missingDiagnosis.length > 0) {
-      const errorMsg = `Không thể hoàn tất: ${missingDiagnosis.length} hạng mục còn thiếu mô tả chẩn đoán. Vui lòng điền đầy đủ.`;
-      setError(errorMsg);
-      Alert.alert("Chưa hoàn tất chẩn đoán", errorMsg);
-      return; // Dừng lại, không mở modal
+      Alert.alert("Chưa hoàn tất", `${missingDiagnosis.length} hạng mục thiếu mô tả chẩn đoán.`);
+      return;
     }
-    // --- KẾT THÚC LOGIC VALIDATE ---
 
-    setError(null); // Xóa lỗi cũ nếu có
-    setShowConfirmModal(true); // Chỉ mở modal nếu validate thành công
+    // 2. Validate toàn diện (ĐỒNG BỘ VỚI WEB)
+    setIsValidating(true);
+    try {
+      console.log("🔍 Validating all guarantee cases for recordId:", recordId);
+      const recordResponse = await technicianService.getRecordDetails(recordId);
+      const fullRecord = recordResponse.data?.record;
+
+      if (!fullRecord || !fullRecord.guaranteeCases) {
+        Alert.alert("Lỗi", "Không thể kiểm tra thông tin phiếu. Vui lòng thử lại.");
+        setIsValidating(false);
+        return;
+      }
+
+      // Lấy các case đang trong trạng thái chẩn đoán
+      const guaranteeCasesInDiagnosis = fullRecord.guaranteeCases.filter(
+        (gc) => gc.status === "IN_DIAGNOSIS"
+      );
+
+      // Tìm các case chưa được chẩn đoán (chưa có caseline hoặc caseline thiếu text)
+      const undiagnosedCases = guaranteeCasesInDiagnosis.filter((gc) => {
+        const hasNoCaseLines = !gc.caseLines || gc.caseLines.length === 0;
+        if (hasNoCaseLines) return true;
+
+        const allMissingDiagnosis = gc.caseLines?.every(
+          (cl) => !cl.diagnosisText || cl.diagnosisText.trim() === ""
+        );
+        return allMissingDiagnosis;
+      });
+
+      if (undiagnosedCases.length > 0) {
+        const caseNumbers = undiagnosedCases.map((_, index) => `Case ${index + 1}`).join(", ");
+        Alert.alert(
+          "Chưa hoàn tất", 
+          `Có ${undiagnosedCases.length} hồ sơ bảo hành chưa được chẩn đoán (${caseNumbers}). Vui lòng xử lý tất cả trước khi hoàn tất.`
+        );
+        setIsValidating(false);
+        return;
+      }
+
+      // Nếu tất cả OK, mở modal xác nhận
+      setError(null);
+      setShowConfirmModal(true);
+
+    } catch (err) {
+      console.error("Failed to validate guarantee cases:", err);
+      Alert.alert("Lỗi", "Không thể kiểm tra trạng thái phiếu.");
+    } finally {
+      setIsValidating(false);
+    }
   };
-  // --- KẾT THÚC CẬP NHẬT ---
 
   const handleConfirmComplete = async () => {
     setShowConfirmModal(false);
@@ -82,24 +125,23 @@ export default function CompleteDiagnosisButton({
     <>
       <TouchableOpacity
         onPress={handleCompleteDiagnosis}
-        disabled={disabled || isSubmitting}
+        disabled={disabled || isSubmitting || isValidating}
         style={[
           styles.button,
-          (disabled || isSubmitting) && styles.disabledButton,
+          (disabled || isSubmitting || isValidating) && styles.disabledButton,
         ]}
       >
-        {isSubmitting ? (
+        {isSubmitting || isValidating ? (
           <ActivityIndicator size="small" color="#FFFFFF" />
         ) : (
           <Ionicons name="checkmark-done-circle-outline" size={20} color="#FFFFFF" />
         )}
         <Text style={styles.buttonText}>
-          {isSubmitting ? "Đang hoàn tất..." : "Hoàn tất Chẩn đoán"}
+          {isValidating ? "Đang kiểm tra..." : isSubmitting ? "Đang xử lý..." : "Hoàn tất Chẩn đoán"}
         </Text>
       </TouchableOpacity>
 
-      {/* (Phần Modal Confirm và Modal Success không thay đổi)
-      */}
+      {/* Modal Confirm (Giữ nguyên) */}
       <Modal
         visible={showConfirmModal}
         transparent={true}
@@ -154,6 +196,7 @@ export default function CompleteDiagnosisButton({
         </Pressable>
       </Modal>
 
+      {/* Modal Success (Giữ nguyên) */}
       <Modal
         visible={showSuccessModal}
         transparent={true}
@@ -206,7 +249,7 @@ export default function CompleteDiagnosisButton({
 const styles = StyleSheet.create({
   button: {
     flexDirection: "row",
-    backgroundColor: "#1D4ED8", // Blue
+    backgroundColor: "#1D4ED8", 
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 8,
@@ -214,7 +257,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   disabledButton: {
-    backgroundColor: "#60A5FA", // Lighter Blue
+    backgroundColor: "#60A5FA", 
   },
   buttonText: {
     color: "#FFFFFF",
@@ -222,7 +265,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginLeft: 8,
   },
-  // Modal Styles
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -259,7 +301,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#EFF6FF",
     padding: 12,
     borderRadius: 8,
-    alignItems: "flex-start", //
+    alignItems: "flex-start", 
   },
   infoText: {
     flex: 1,
@@ -300,8 +342,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#FFFFFF",
   },
-
-  // Success Modal Styles
   successHeader: {
     alignItems: "center",
     padding: 24,

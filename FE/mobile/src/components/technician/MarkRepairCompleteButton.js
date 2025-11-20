@@ -1,4 +1,3 @@
-// MarkRepairCompleteButton.js
 import React, { useState } from "react";
 import {
   TouchableOpacity,
@@ -11,20 +10,18 @@ import {
   Pressable, 
   Image,
   ScrollView,
-  Platform, // <-- THÊM
-  PermissionsAndroid, // <-- THÊM
+  Platform, 
+  PermissionsAndroid, 
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons"; 
-import { launchImageLibrary } from "react-native-image-picker"; // <-- THÊM
-import { caseLineService, imageUploadService } from "../../services/technician"; // <-- THÊM
+import { launchImageLibrary } from "react-native-image-picker"; 
+import { caseLineService, imageUploadService } from "../../services/technician"; 
 
-// --- HÀM YÊU CẦU QUYỀN MỚI CHO ANDROID ---
 const requestGalleryPermission = async () => {
   if (Platform.OS !== 'android') {
-    return true; // Không cần cho iOS
+    return true; 
   }
   try {
-    // Thử quyền mới cho Android 13+
     let granted = await PermissionsAndroid.request(
       PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES,
       {
@@ -34,7 +31,6 @@ const requestGalleryPermission = async () => {
       }
     );
 
-    // Nếu không được (Android < 13), thử quyền cũ
     if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
       granted = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
@@ -53,7 +49,6 @@ const requestGalleryPermission = async () => {
     return false;
   }
 };
-// --- KẾT THÚC HÀM MỚI ---
 
 export default function MarkRepairCompleteButton({
   caseLineId,
@@ -68,18 +63,15 @@ export default function MarkRepairCompleteButton({
   const [showConfirmModal, setShowConfirmModal] = useState(false); 
   const [showSuccess, setShowSuccess] = useState(false); 
   
-  // --- BẮT ĐẦU THAY ĐỔI ---
   const [imageFiles, setImageFiles] = useState([]); 
 
-  const handleImageSelect = async () => { // Thêm async
-    // 1. Yêu cầu quyền
+  const handleImageSelect = async () => {
     const hasPermission = await requestGalleryPermission();
     if (!hasPermission) {
       Alert.alert("Lỗi", "Bạn đã từ chối quyền truy cập thư viện ảnh.");
       return;
     }
     
-    // 2. Mở thư viện nếu có quyền
     launchImageLibrary({ mediaType: "photo", quality: 0.7, selectionLimit: 5 }, (response) => {
       if (response.didCancel) {
         console.log("User cancelled image picker");
@@ -152,7 +144,6 @@ export default function MarkRepairCompleteButton({
       setIsSubmitting(false);
     }
   };
-  // --- KẾT THÚC THAY ĐỔI ---
 
   return (
     <>

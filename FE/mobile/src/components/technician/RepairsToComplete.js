@@ -1,4 +1,3 @@
-// RepairsToComplete.js
 import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
@@ -11,18 +10,15 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { caseLineService } from "../../services/technician";
 import MarkRepairCompleteButton from "./MarkRepairCompleteButton";
-// --- THÊM IMPORT ---
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function RepairsToComplete() {
   const [caseLines, setCaseLines] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // --- CẬP NHẬT HÀM NÀY ---
   const fetchInRepairCaseLines = async () => {
     setLoading(true);
     try {
-      // 1. Lấy ID của KTV đang đăng nhập
       const userId = await AsyncStorage.getItem("userId");
       if (!userId) {
         Alert.alert("Lỗi", "Không tìm thấy ID kỹ thuật viên. Vui lòng đăng nhập lại.");
@@ -30,10 +26,9 @@ export default function RepairsToComplete() {
         return;
       }
 
-      // 2. Gửi ID trong API call, giống logic web
       const response = await caseLineService.getCaseLinesList({
         status: "IN_REPAIR",
-        repairTechId: userId, // <-- LỌC THEO KỸ THUẬT VIÊN
+        repairTechId: userId,
       });
       
       const inRepairLines = response.data?.caseLines || [];
@@ -45,7 +40,6 @@ export default function RepairsToComplete() {
       setLoading(false);
     }
   };
-  // --- KẾT THÚC CẬP NHẬT ---
 
   useFocusEffect(
     useCallback(() => {
