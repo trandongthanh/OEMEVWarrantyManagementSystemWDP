@@ -117,7 +117,7 @@ class WarrantyComponentRepository {
       ],
     });
     if (!record) return null;
-    
+
     const json = record.toJSON();
     // Flatten company name to makeBrand for easier frontend access
     if (json.vehicleModel?.company) {
@@ -129,7 +129,7 @@ class WarrantyComponentRepository {
 
   update = async ({ id, data }, transaction = null) => {
     const [updatedCount] = await WarrantyComponent.update(data, {
-      where: { warrantyComponentId: id },
+      where: { id: id },
       transaction,
     });
     return updatedCount > 0;
@@ -137,7 +137,7 @@ class WarrantyComponentRepository {
 
   delete = async (id, transaction = null) => {
     const deletedCount = await WarrantyComponent.destroy({
-      where: { warrantyComponentId: id },
+      where: { id: id },
       transaction,
     });
     return deletedCount > 0;
