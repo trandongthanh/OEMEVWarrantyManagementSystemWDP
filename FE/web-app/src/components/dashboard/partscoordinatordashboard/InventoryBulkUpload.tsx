@@ -229,20 +229,26 @@ export default function InventoryBulkUpload({
         // Show success animation
         setUploadSuccess(true);
 
-        // Show success toast after a brief delay to let animation play
+        // Show success toast immediately with appropriate message based on adjustment type
+        const actionText = adjustmentType === "IN" ? "imported" : "removed";
+        const actionPastTense = adjustmentType === "IN" ? "Added to" : "Removed from";
+        
+        toast.success(
+          `Successfully ${actionText} ${totalComponents} components across ${successCount} SKU(s)!`,
+          {
+            duration: 5000,
+            description: `${actionPastTense} inventory | Reason: ${reason.trim()}`,
+          }
+        );
+
+        // Wait 3 seconds to show success state, THEN refresh parent and close
         setTimeout(() => {
-          toast.success(
-            `Successfully imported ${totalComponents} components across ${successCount} SKU(s)!`,
-            {
-              duration: 5000,
-            }
-          );
-        }, 500);
+          // Trigger onSuccess callback to refresh parent list right before closing
+          onSuccess?.();
 
-        // Trigger onSuccess callback
-        onSuccess?.();
-
-        // Don't auto-close - let user manually close to see success state
+          // Close immediately after triggering refresh
+          handleClose();
+        }, 3000);
       } else {
         toast.error("No adjustments were created. Please check the file.");
       }
@@ -631,7 +637,7 @@ export default function InventoryBulkUpload({
                       transition={{ delay: 0.4 }}
                       className="text-xl font-semibold text-gray-900 mb-2"
                     >
-                      Upload Successful!
+                      {adjustmentType === "IN" ? "Import" : "Removal"} Successful!
                     </motion.h3>
                     <motion.p
                       initial={{ opacity: 0 }}
@@ -639,7 +645,7 @@ export default function InventoryBulkUpload({
                       transition={{ delay: 0.5 }}
                       className="text-sm text-gray-600 mb-4"
                     >
-                      {uploadResult.successCount} SKU(s) imported (
+                      {uploadResult.successCount} SKU(s) {adjustmentType === "IN" ? "imported" : "removed"} (
                       {uploadResult.totalComponents} components)
                     </motion.p>
                     <motion.button

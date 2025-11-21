@@ -110,21 +110,34 @@ export default function CreateAdjustmentModal({
         };
       }
 
-      await inventoryService.createAdjustment(body);
+      const response = await inventoryService.createAdjustment(body);
+
+      console.log("📦 Adjustment created successfully:", response);
+
+      // Show success toast with more details
+      const componentCount = serials.filter((s) => s.trim() !== "").length;
+      const actionText = tab === "IN" ? "Added" : "Removed";
+      const stockInfo = stockList.find((s) => s.stockId === stockId);
 
       toast.success(
-        `${tab === "IN" ? "Added" : "Removed"} ${
-          serials.filter((s) => s.trim() !== "").length
-        } component(s) successfully!`,
-        { duration: 3000 }
+        `${actionText} ${componentCount} component(s) successfully!${
+          stockInfo ? ` (${stockInfo.typeComponent.name})` : ""
+        }`,
+        {
+          duration: 4000,
+          description: `Stock has been ${
+            tab === "IN" ? "increased" : "decreased"
+          } by ${componentCount} unit(s)`,
+        }
       );
 
-      onSuccess?.(); // Refresh adjustments list
+      // Refresh the parent list immediately
+      onSuccess?.();
 
-      // Close modal after brief delay to show toast
+      // Close modal after a reasonable delay to let user see the success message
       setTimeout(() => {
         onClose();
-      }, 500);
+      }, 1500);
     } catch (err) {
       console.error("Create adjustment failed:", err);
       toast.error("Failed to create adjustment.");
