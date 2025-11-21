@@ -15,7 +15,9 @@ import { jwtDecode } from "jwt-decode";
 import Toast from "react-native-toast-message";
 import { login } from "../services/authService";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
+
+// 🔵 lucide-react-native icons (THAY THE ICON IONICONS)
+import { Shield, User, Lock, ArrowLeft } from "lucide-react-native";
 
 const COLORS = {
   bg: "#0B0F14",
@@ -54,7 +56,6 @@ export default function LoginScreen() {
         console.log("🧾 Token received from API:", token);
 
         const decoded = jwtDecode(token);
-        console.log("📄 Decoded token payload:", decoded);
 
         const role = decoded.roleName;
         const userId = decoded.userId;
@@ -78,15 +79,12 @@ export default function LoginScreen() {
         setTimeout(() => {
           switch (role) {
             case "service_center_manager":
-              console.log("➡️ Navigating to ManagerDashboardTabs with token");
               navigation.replace("ManagerDashboardTabs", { token });
               break;
             case "service_center_staff":
-              console.log("➡️ Navigating to StaffDashboardTabs with token");
-              navigation.replace("StaffDashboardTabs", { token }); // ✅ token truyền đúng chỗ
+              navigation.replace("StaffDashboardTabs", { token });
               break;
             case "service_center_technician":
-              console.log("➡️ Navigating to TechnicianDashboard with token");
               navigation.replace("TechnicianDashboard", { token });
               break;
             default:
@@ -124,18 +122,21 @@ export default function LoginScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1, justifyContent: "center", width: "100%" }}
       >
+        {/* 🔵 HEADER */}
         <View style={styles.header}>
-          <Ionicons name="car-sport-outline" size={50} color={COLORS.accent} />
+          {/* 🛡 ICON THAY THẾ */}
+          <Shield size={50} color={COLORS.accent} strokeWidth={1.6} />
           <Text style={styles.appName}>EV Warranty</Text>
           <Text style={styles.subtitle}>
             Vehicle Warranty Management System
           </Text>
         </View>
 
+        {/* 🧾 FORM */}
         <View style={styles.form}>
           <View style={styles.inputContainer}>
-            <Ionicons
-              name="person-outline"
+            {/* 👤 ICON USER */}
+            <User
               size={20}
               color={COLORS.textMuted}
               style={{ marginRight: 8 }}
@@ -151,8 +152,8 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.inputContainer}>
-            <Ionicons
-              name="lock-closed-outline"
+            {/* 🔒 ICON LOCK */}
+            <Lock
               size={20}
               color={COLORS.textMuted}
               style={{ marginRight: 8 }}
@@ -179,8 +180,19 @@ export default function LoginScreen() {
               <Text style={styles.buttonText}>LOGIN</Text>
             )}
           </TouchableOpacity>
+
+          {/* 🔙 BACK UNDER LOGIN */}
+          <TouchableOpacity
+            style={styles.backBottom}
+            onPress={() => navigation.navigate("TrackingScreen")}
+          >
+            {/* ← ICON BACK */}
+            <ArrowLeft size={16} color={COLORS.textMuted} />
+            <Text style={styles.backBottomText}>Back to Tracking</Text>
+          </TouchableOpacity>
         </View>
 
+        {/* 📌 FOOTER */}
         <Text style={styles.footerText}>© 2025 EV Warranty Center</Text>
       </KeyboardAvoidingView>
     </LinearGradient>
@@ -195,6 +207,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 30,
   },
+
   header: {
     alignItems: "center",
     marginBottom: 40,
@@ -211,6 +224,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     marginTop: 4,
   },
+
   form: {
     width: "100%",
     backgroundColor: COLORS.surface,
@@ -222,6 +236,7 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 5,
   },
+
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -233,11 +248,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginBottom: 15,
   },
+
   input: {
     flex: 1,
     color: COLORS.text,
     fontSize: 15,
   },
+
   button: {
     backgroundColor: COLORS.accent,
     borderRadius: 10,
@@ -250,12 +267,27 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
+
   buttonText: {
     color: "#fff",
     fontWeight: "700",
     fontSize: 16,
     letterSpacing: 1,
   },
+
+  backBottom: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 14,
+    paddingVertical: 6,
+  },
+  backBottomText: {
+    color: COLORS.textMuted,
+    marginLeft: 6,
+    fontSize: 14,
+  },
+
   footerText: {
     textAlign: "center",
     color: COLORS.textMuted,
