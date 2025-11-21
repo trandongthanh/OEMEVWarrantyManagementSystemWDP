@@ -3,6 +3,7 @@ import {
   authentication,
   authorizationByRole,
   validate,
+  attachCompanyContext,
 } from "../middleware/index.js";
 import { warrantyComponentSchema } from "../../validators/warrantyComponent.validator.js";
 
@@ -12,6 +13,7 @@ router.post(
   "/",
   authentication,
   authorizationByRole(["parts_coordinator_company"]),
+  attachCompanyContext,
   validate(warrantyComponentSchema, "body"),
 
   async (req, res, next) => {
