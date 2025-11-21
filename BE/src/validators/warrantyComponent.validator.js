@@ -16,7 +16,7 @@ const categorySchema = Joi.string().valid(
   "INFOTAINMENT_ADAS" // Thông tin giải trí & Hỗ trợ lái
 );
 
-export const warrantyComponentSchema = Joi.object({
+const singleComponentSchema = Joi.object({
   typeComponentId: Joi.string().uuid(),
   name: Joi.string().max(255),
   price: Joi.number().precision(2).min(0),
@@ -51,3 +51,6 @@ export const warrantyComponentSchema = Joi.object({
     }),
   })
   .xor("typeComponentId", "sku");
+
+// Array schema for creating multiple warranty components
+export const warrantyComponentSchema = Joi.array().items(singleComponentSchema);
