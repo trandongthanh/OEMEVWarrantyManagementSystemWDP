@@ -27,11 +27,7 @@ router.post(
 router.get(
   "/",
   authentication,
-  authorizationByRole([
-    "parts_coordinator_company",
-    "company_admin",
-    "service_center_manager",
-  ]),
+  authorizationByRole(["parts_coordinator_company", "service_center_manager"]),
   async (req, res, next) => {
     const warrantyComponentController = req.container.resolve(
       "warrantyComponentController"
@@ -43,11 +39,7 @@ router.get(
 router.get(
   "/:id",
   authentication,
-  authorizationByRole([
-    "parts_coordinator_company",
-    "company_admin",
-    "service_center_manager",
-  ]),
+  authorizationByRole(["parts_coordinator_company", "service_center_manager"]),
   async (req, res, next) => {
     const warrantyComponentController = req.container.resolve(
       "warrantyComponentController"
@@ -59,7 +51,7 @@ router.get(
 router.put(
   "/:id",
   authentication,
-  authorizationByRole(["parts_coordinator_company", "company_admin"]),
+  authorizationByRole(["parts_coordinator_company"]),
   async (req, res, next) => {
     const warrantyComponentController = req.container.resolve(
       "warrantyComponentController"
@@ -71,7 +63,7 @@ router.put(
 router.delete(
   "/:id",
   authentication,
-  authorizationByRole(["parts_coordinator_company", "company_admin"]),
+  authorizationByRole(["parts_coordinator_company"]),
   async (req, res, next) => {
     const warrantyComponentController = req.container.resolve(
       "warrantyComponentController"

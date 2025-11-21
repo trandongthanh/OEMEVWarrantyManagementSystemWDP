@@ -48,6 +48,21 @@ class TypeComponentRepository {
 
     return typeComponents.map((typeComponent) => typeComponent.toJSON());
   };
+
+  findBySku = async (sku, transaction = null) => {
+    if (!sku) {
+      return null;
+    }
+
+    const typeComponent = await TypeComponent.findOne({
+      where: {
+        sku,
+      },
+      transaction,
+    });
+
+    return typeComponent ? typeComponent.toJSON() : null;
+  };
 }
 
 export default TypeComponentRepository;
