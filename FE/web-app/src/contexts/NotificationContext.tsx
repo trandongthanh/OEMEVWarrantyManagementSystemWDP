@@ -72,7 +72,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     userRole?: string
   ): string | undefined => {
     // Role-based page availability:
-    // emv_staff: dashboard, transfer-requests, recall-campaigns
+    // emv_staff: dashboard, transfer-requests
     // service_center_staff: dashboard, cases, chat-support, stock-transfers, vehicle-components, vehicle-history
     // service_center_technician: dashboard, tasks, repairs, schedule, parts, history
     // service_center_manager: dashboard, customers, caselines, all-caselines, assign-tasks, tasks, most-problematic, schedules, warehouse, transfers, stock-transfers, create-user
@@ -127,12 +127,6 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       case "low_stock_alert":
         if (userRole === "parts_coordinator_service_center") return "inventory";
         return undefined; // Only parts coordinator has inventory page
-
-      // Recall notifications
-      case "recallNotificationDispatched":
-      case "recallCampaignNotification":
-        if (userRole === "emv_staff") return "recall-campaigns";
-        return undefined; // Only EMV staff has recalls page
 
       default:
         return undefined;
@@ -433,15 +427,6 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
                   message = `Stock transfer request #${String(
                     cancelledRequestId
                   ).slice(0, 8)} has been cancelled`;
-                  break;
-
-                case "recallNotificationDispatched":
-                  type = "recall_campaign";
-                  priority = "high";
-                  title = "Recall Campaign Notification Sent";
-                  const campaignName = n.data?.campaignName as string;
-                  const notifiedCount = n.data?.notifiedVehiclesCount as number;
-                  message = `Recall campaign "${campaignName}" notifications sent to ${notifiedCount} vehicle(s)`;
                   break;
 
                 case "task_unassigned_notification":
@@ -1114,67 +1099,6 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
             },
           });
         });
-
-        // Recall campaign notification
-        socket.on(
-          "recallCampaignNotification",
-          (data: Record<string, unknown>) => {
-            console.log("🚨 Recall campaign notification:", data);
-            const campaignId = data.campaignId || data.id;
-            const navAction = getNavigationAction(
-              "recallCampaignNotification",
-              userRole
-            );
-
-            addNotification({
-              notificationId: data.notificationId as string,
-              type: "system_alert",
-              priority: "high",
-              title: "Recall Campaign Alert",
-              message:
-                (data.message as string) ||
-                "New recall campaign requires attention",
-              timestamp: (data.sentAt as string) || new Date().toISOString(),
-              data: {
-                ...data,
-                navigationAction: navAction,
-                campaignId,
-              },
-            });
-          }
-        );
-
-        // Recall notification dispatched
-        socket.on(
-          "recallNotificationDispatched",
-          (data: Record<string, unknown>) => {
-            console.log("📢 Recall notification dispatched:", data);
-            const campaignId =
-              data.recallCampaignId || data.campaignId || data.id;
-            const campaignName = data.campaignName as string;
-            const notifiedCount = data.notifiedVehiclesCount as number;
-            const navAction = getNavigationAction(
-              "recallNotificationDispatched",
-              userRole
-            );
-
-            addNotification({
-              notificationId: data.notificationId as string,
-              type: "system_alert",
-              priority: "high",
-              title: "Recall Notifications Sent",
-              message: `Recall campaign "${
-                campaignName || "Campaign"
-              }" notifications sent to ${notifiedCount || 0} vehicles`,
-              timestamp: (data.sentAt as string) || new Date().toISOString(),
-              data: {
-                ...data,
-                navigationAction: navAction,
-                campaignId,
-              },
-            });
-          }
-        );
 
         // New vehicle processing record created
         socket.on(

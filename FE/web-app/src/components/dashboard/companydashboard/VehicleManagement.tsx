@@ -29,6 +29,20 @@ import inventoryService from "@/services/inventoryService";
 import { authService } from "@/services";
 import { toast } from "sonner";
 
+// Component categories for creating new components
+const CATEGORIES = [
+  { value: "HIGH_VOLTAGE_BATTERY", label: "High Voltage Battery" },
+  { value: "POWERTRAIN", label: "Powertrain" },
+  { value: "CHARGING_SYSTEM", label: "Charging System" },
+  { value: "THERMAL_MANAGEMENT", label: "Thermal Management" },
+  { value: "LOW_VOLTAGE_SYSTEM", label: "Low Voltage System" },
+  { value: "BRAKING", label: "Braking" },
+  { value: "SUSPENSION_STEERING", label: "Suspension & Steering" },
+  { value: "HVAC", label: "HVAC" },
+  { value: "BODY_CHASSIS", label: "Body & Chassis" },
+  { value: "INFOTAINMENT_ADAS", label: "Infotainment & ADAS" },
+];
+
 /**
  * Vehicle Management Component
  * For parts_coordinator_company role
@@ -63,8 +77,16 @@ function CreateVehicleModelModal({
   // Step 2: Warranty Components
   const [components, setComponents] = useState<
     Array<{
+      isNew: boolean; // Track if this is a new component
       typeComponentId: string;
       componentName: string;
+      // Fields for new components
+      name: string;
+      price: string;
+      sku: string;
+      category: string;
+      makeBrand: string;
+      // Warranty terms
       durationMonth: string;
       mileageLimit: string;
       quantity: string;
@@ -133,8 +155,14 @@ function CreateVehicleModelModal({
     setComponents([
       ...components,
       {
+        isNew: false,
         typeComponentId: "",
         componentName: "",
+        name: "",
+        price: "",
+        sku: "",
+        category: "",
+        makeBrand: "",
         durationMonth: "",
         mileageLimit: "",
         quantity: "1",
@@ -157,6 +185,38 @@ function CreateVehicleModelModal({
         typeComponentId: value,
         componentName: selected?.typeComponent?.name || "",
       };
+    } else if (field === "isNew") {
+      updated[index] = {
+        ...updated[index],
+        isNew: value === "true",
+        // Clear fields when toggling
+        typeComponentId: "",
+        componentName: "",
+        name: "",
+        sku: "",
+      };
+    } else if (field === "sku") {
+      // Check for duplicate SKU in new components
+      const existingSkuInNew = updated.some(
+        (c, i) => i !== index && c.isNew && c.sku === value && value !== ""
+      );
+
+      // Check for duplicate SKU in existing components
+      const existingSkuInAvailable = availableComponents.some(
+        (c) => c.typeComponent.sku === value && value !== ""
+      );
+
+      if (existingSkuInNew) {
+        toast.error(`SKU "${value}" is already used in another new component`);
+        return;
+      }
+
+      if (existingSkuInAvailable) {
+        toast.error(`SKU "${value}" already exists in the system`);
+        return;
+      }
+
+      updated[index] = { ...updated[index], [field]: value };
     } else {
       updated[index] = { ...updated[index], [field]: value };
     }
@@ -164,6 +224,9 @@ function CreateVehicleModelModal({
   };
 
   const handleSubmit = async () => {
+    // Prevent double submission
+    if (loading) return;
+
     // Validate at least one component
     if (components.length === 0) {
       toast.error("Please add at least one warranty component");
@@ -171,12 +234,24 @@ function CreateVehicleModelModal({
     }
 
     // Validate component fields
-    const invalidComponents = components.filter(
-      (c) =>
-        !c.typeComponentId || !c.durationMonth || !c.mileageLimit || !c.quantity
-    );
+    const invalidComponents = components.filter((c) => {
+      // Common fields for both modes
+      if (!c.durationMonth || !c.mileageLimit || !c.quantity) return true;
+
+      // If selecting existing component
+      if (!c.isNew && !c.typeComponentId) return true;
+
+      // If creating new component
+      if (
+        c.isNew &&
+        (!c.name || !c.sku || !c.category || !c.price || !c.makeBrand)
+      )
+        return true;
+
+      return false;
+    });
     if (invalidComponents.length > 0) {
-      toast.error("Please fill in all component fields");
+      toast.error("Please fill in all required component fields");
       return;
     }
 
@@ -184,45 +259,107 @@ function CreateVehicleModelModal({
 
     try {
       setLoading(true);
+      let createdModel = null;
 
-      const createData = {
-        vehicleModelName: formData.vehicleModelName,
-        sku: formData.sku,
-        placeOfManufacture: formData.placeOfManufacture,
-        components: components.map((c) => ({
-          typeComponentId: c.typeComponentId,
-          durationMonth: parseInt(c.durationMonth),
-          mileageLimit: parseInt(c.mileageLimit),
-          quantity: parseInt(c.quantity),
-        })),
-        ...(formData.yearOfLaunch && { yearOfLaunch: formData.yearOfLaunch }),
-        ...(formData.generalWarrantyDuration && {
-          generalWarrantyDuration: parseInt(formData.generalWarrantyDuration),
-        }),
-        ...(formData.generalWarrantyMileage && {
-          generalWarrantyMileage: parseInt(formData.generalWarrantyMileage),
-        }),
-      };
+      try {
+        // Step 1: Create vehicle model without components
+        const vehicleModelData = {
+          vehicleModelName: formData.vehicleModelName,
+          sku: formData.sku,
+          placeOfManufacture: formData.placeOfManufacture,
+          ...(formData.yearOfLaunch && { yearOfLaunch: formData.yearOfLaunch }),
+          ...(formData.generalWarrantyDuration && {
+            generalWarrantyDuration: parseInt(formData.generalWarrantyDuration),
+          }),
+          ...(formData.generalWarrantyMileage && {
+            generalWarrantyMileage: parseInt(formData.generalWarrantyMileage),
+          }),
+        };
 
-      await vehicleModelService.createVehicleModel(createData);
-      toast.success("Vehicle model created successfully!", {
-        description: "Model and warranty components configured",
-        duration: 5000,
-      });
-      onSuccess();
-      onClose();
-      setCurrentStep(1);
-      setComponents([]);
-      setFormData({
-        vehicleModelName: "",
-        sku: "",
-        vehicleCompanyId: "",
-        yearOfLaunch: "",
-        placeOfManufacture: "",
-        generalWarrantyDuration: "",
-        generalWarrantyMileage: "",
-      });
-      setFieldErrors({});
+        createdModel = await vehicleModelService.createVehicleModel(
+          vehicleModelData
+        );
+
+        // Step 2: Add warranty components to the created vehicle model
+        const warrantyComponentsData = components.map((c) => {
+          const baseData = {
+            durationMonth: parseInt(c.durationMonth),
+            mileageLimit: parseInt(c.mileageLimit),
+            quantity: parseInt(c.quantity),
+          };
+
+          if (c.isNew) {
+            return {
+              ...baseData,
+              name: c.name,
+              price: parseFloat(c.price),
+              sku: c.sku,
+              category: c.category,
+              makeBrand: c.makeBrand,
+            };
+          } else {
+            return {
+              ...baseData,
+              typeComponentId: c.typeComponentId,
+            };
+          }
+        });
+
+        await vehicleModelService.addWarrantyComponents(
+          createdModel.vehicleModelId,
+          warrantyComponentsData
+        );
+
+        toast.success("Vehicle model created successfully!", {
+          description: "Model and warranty components configured",
+          duration: 5000,
+        });
+        onSuccess();
+        onClose();
+        setCurrentStep(1);
+        setComponents([]);
+        setFormData({
+          vehicleModelName: "",
+          sku: "",
+          vehicleCompanyId: "",
+          yearOfLaunch: "",
+          placeOfManufacture: "",
+          generalWarrantyDuration: "",
+          generalWarrantyMileage: "",
+        });
+        setFieldErrors({});
+      } catch (componentError) {
+        // If warranty components fail and vehicle was created, inform user
+        if (createdModel) {
+          console.error("Error adding warranty components:", componentError);
+          toast.error(
+            "Vehicle model created but warranty components failed to add",
+            {
+              description:
+                "Please add warranty components manually from the Warranty Component Config page",
+              duration: 7000,
+            }
+          );
+          // Still call onSuccess since vehicle was created
+          onSuccess();
+          onClose();
+          setCurrentStep(1);
+          setComponents([]);
+          setFormData({
+            vehicleModelName: "",
+            sku: "",
+            vehicleCompanyId: "",
+            yearOfLaunch: "",
+            placeOfManufacture: "",
+            generalWarrantyDuration: "",
+            generalWarrantyMileage: "",
+          });
+          setFieldErrors({});
+        } else {
+          // Vehicle creation failed
+          throw componentError;
+        }
+      }
     } catch (error) {
       console.error("Error creating vehicle model:", error);
       toast.error("Failed to create vehicle model");
@@ -248,9 +385,10 @@ function CreateVehicleModelModal({
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col"
           >
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+            {/* Header - Fixed */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 flex-shrink-0">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">
                   Create Vehicle Model
@@ -305,7 +443,8 @@ function CreateVehicleModelModal({
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
+            {/* Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* STEP 1: Basic Information */}
               {currentStep === 1 && (
                 <>
@@ -632,33 +771,182 @@ function CreateVehicleModelModal({
                             </button>
                           </div>
                           <div className="grid grid-cols-1 gap-3">
-                            <div>
-                              <label className="text-xs font-medium text-gray-700 block mb-1">
-                                Component Type *
+                            {/* Toggle between existing and new component */}
+                            <div className="flex gap-4 p-2 bg-white border border-gray-200 rounded-lg">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name={`mode-${index}`}
+                                  checked={!comp.isNew}
+                                  onChange={() =>
+                                    updateComponent(index, "isNew", "false")
+                                  }
+                                  className="text-green-600 focus:ring-green-500"
+                                />
+                                <span className="text-sm font-medium text-gray-700">
+                                  Select Existing Component
+                                </span>
                               </label>
-                              <select
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                                value={comp.typeComponentId}
-                                onChange={(e) =>
-                                  updateComponent(
-                                    index,
-                                    "typeComponentId",
-                                    e.target.value
-                                  )
-                                }
-                              >
-                                <option value="">Select component...</option>
-                                {availableComponents.map((c) => (
-                                  <option
-                                    key={c.typeComponentId}
-                                    value={c.typeComponentId}
-                                  >
-                                    {c.typeComponent.name} (
-                                    {c.typeComponent.sku})
-                                  </option>
-                                ))}
-                              </select>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name={`mode-${index}`}
+                                  checked={comp.isNew}
+                                  onChange={() =>
+                                    updateComponent(index, "isNew", "true")
+                                  }
+                                  className="text-green-600 focus:ring-green-500"
+                                />
+                                <span className="text-sm font-medium text-gray-700">
+                                  Create New Component
+                                </span>
+                              </label>
                             </div>
+
+                            {/* Existing component selection */}
+                            {!comp.isNew && (
+                              <div>
+                                <label className="text-xs font-medium text-gray-700 block mb-1">
+                                  Component Type *
+                                </label>
+                                <select
+                                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                  value={comp.typeComponentId}
+                                  onChange={(e) =>
+                                    updateComponent(
+                                      index,
+                                      "typeComponentId",
+                                      e.target.value
+                                    )
+                                  }
+                                >
+                                  <option value="">Select component...</option>
+                                  {availableComponents.map((c) => (
+                                    <option
+                                      key={c.typeComponentId}
+                                      value={c.typeComponentId}
+                                    >
+                                      {c.typeComponent.name} (
+                                      {c.typeComponent.sku})
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+
+                            {/* New component creation fields */}
+                            {comp.isNew && (
+                              <div className="space-y-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="text-xs font-medium text-gray-700 block mb-1">
+                                      Component Name *
+                                    </label>
+                                    <input
+                                      type="text"
+                                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                      value={comp.name}
+                                      onChange={(e) =>
+                                        updateComponent(
+                                          index,
+                                          "name",
+                                          e.target.value
+                                        )
+                                      }
+                                      placeholder="e.g., Battery Pack 60kWh"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-xs font-medium text-gray-700 block mb-1">
+                                      SKU *
+                                    </label>
+                                    <input
+                                      type="text"
+                                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                      value={comp.sku}
+                                      onChange={(e) =>
+                                        updateComponent(
+                                          index,
+                                          "sku",
+                                          e.target.value
+                                        )
+                                      }
+                                      placeholder="e.g., BAT-60KWH-001"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="text-xs font-medium text-gray-700 block mb-1">
+                                      Category *
+                                    </label>
+                                    <select
+                                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                      value={comp.category}
+                                      onChange={(e) =>
+                                        updateComponent(
+                                          index,
+                                          "category",
+                                          e.target.value
+                                        )
+                                      }
+                                    >
+                                      <option value="">
+                                        Select category...
+                                      </option>
+                                      {CATEGORIES.map((cat) => (
+                                        <option
+                                          key={cat.value}
+                                          value={cat.value}
+                                        >
+                                          {cat.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="text-xs font-medium text-gray-700 block mb-1">
+                                      Price *
+                                    </label>
+                                    <input
+                                      type="number"
+                                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                      value={comp.price}
+                                      onChange={(e) =>
+                                        updateComponent(
+                                          index,
+                                          "price",
+                                          e.target.value
+                                        )
+                                      }
+                                      placeholder="0.00"
+                                      min="0"
+                                      step="0.01"
+                                    />
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="text-xs font-medium text-gray-700 block mb-1">
+                                    Make/Brand *
+                                  </label>
+                                  <input
+                                    type="text"
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                    value={comp.makeBrand}
+                                    onChange={(e) =>
+                                      updateComponent(
+                                        index,
+                                        "makeBrand",
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder="e.g., LG Chem"
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Warranty fields (common for both modes) */}
                             <div className="grid grid-cols-3 gap-3">
                               <div>
                                 <label className="text-xs font-medium text-gray-700 block mb-1">
@@ -738,7 +1026,8 @@ function CreateVehicleModelModal({
               )}
             </div>
 
-            <div className="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200">
+            {/* Footer - Fixed */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200 flex-shrink-0">
               {currentStep === 1 ? (
                 <>
                   <button
@@ -751,7 +1040,7 @@ function CreateVehicleModelModal({
                   <button
                     onClick={handleNext}
                     disabled={loading}
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                   >
                     Next: Add Components
                     <ChevronRight className="w-4 h-4" />

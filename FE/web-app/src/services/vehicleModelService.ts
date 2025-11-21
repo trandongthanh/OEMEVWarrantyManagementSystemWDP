@@ -35,13 +35,28 @@ export interface CreateVehicleModelRequest {
   yearOfLaunch?: string;
   generalWarrantyDuration?: number;
   generalWarrantyMileage?: number;
-  components: Array<{
-    typeComponentId: string;
-    durationMonth: number;
-    mileageLimit: number;
-    quantity: number;
-  }>;
 }
+
+export type WarrantyComponentRequest = Array<
+  | {
+      // Existing component
+      typeComponentId: string;
+      durationMonth: number;
+      mileageLimit: number;
+      quantity: number;
+    }
+  | {
+      // New component
+      name: string;
+      price: number;
+      sku: string;
+      category: string;
+      makeBrand: string;
+      durationMonth: number;
+      mileageLimit: number;
+      quantity: number;
+    }
+>;
 
 export interface VehicleModelListResponse {
   status: "success";
@@ -92,14 +107,34 @@ export async function createVehicleModel(
   data: CreateVehicleModelRequest
 ): Promise<VehicleModel> {
   try {
-    const response = await apiClient.post<VehicleModelDetailResponse>(
-      "/oem-vehicle-models",
-      data
-    );
+    const response = await apiClient.post<{
+      status: string;
+      data: VehicleModel;
+    }>("/oem-vehicle-models", data);
 
-    return response.data.data.vehicleModel;
+    return response.data.data;
   } catch (error) {
     console.error("Error creating vehicle model:", error);
+    throw error;
+  }
+}
+
+/**
+ * Add warranty components to a vehicle model
+ * POST /oem-vehicle-models/:vehicleModelId/warranty-components
+ * Role: parts_coordinator_company
+ */
+export async function addWarrantyComponents(
+  vehicleModelId: string,
+  components: WarrantyComponentRequest
+): Promise<void> {
+  try {
+    await apiClient.post(
+      `/oem-vehicle-models/${vehicleModelId}/warranty-components`,
+      components
+    );
+  } catch (error) {
+    console.error("Error adding warranty components:", error);
     throw error;
   }
 }
@@ -144,6 +179,7 @@ export async function getVehicleModels(): Promise<VehicleModel[]> {
 
 const vehicleModelService = {
   createVehicleModel,
+  addWarrantyComponents,
   getMostProblematicModels,
   getVehicleModels,
 };

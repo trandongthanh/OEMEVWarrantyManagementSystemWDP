@@ -893,6 +893,20 @@ export function CasesList({ onViewDetails }: CasesListProps) {
                                 finalStatuses.includes(cl.status || "")
                               );
 
+                              // Check if all case lines are REJECTED_BY_CUSTOMER
+                              const allRejectedByCustomer = allCaseLines.every(
+                                (cl) => cl.status === "REJECTED_BY_CUSTOMER"
+                              );
+
+                              // Don't show complete button if all rejected by customer and still PROCESSING
+                              // User should use cancel button instead
+                              if (
+                                allRejectedByCustomer &&
+                                selectedRecord.status === "PROCESSING"
+                              ) {
+                                return null;
+                              }
+
                               // Show complete button if READY_FOR_PICKUP or all case lines are in final states
                               const canComplete =
                                 selectedRecord.status === "READY_FOR_PICKUP" ||

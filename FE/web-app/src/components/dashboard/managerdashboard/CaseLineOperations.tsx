@@ -1070,32 +1070,31 @@ export function CaseLineOperations() {
                                 ? "Stock Allocated"
                                 : "Allocate Stock"}
                             </button>
-                            <button
-                              onClick={() =>
-                                handleOpenTechnicianModal(caseLine.id)
-                              }
-                              disabled={
-                                caseLine.status !== "READY_FOR_REPAIR" ||
-                                !!caseLine.repairTechnician
-                              }
-                              className={`flex-1 px-4 py-2.5 text-sm rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium ${
-                                caseLine.repairTechnician
-                                  ? "bg-green-600 text-white"
-                                  : "bg-gray-900 text-white hover:bg-gray-800"
-                              }`}
-                              title={
-                                caseLine.repairTechnician
-                                  ? `Assigned to ${caseLine.repairTechnician.name}`
-                                  : caseLine.status !== "READY_FOR_REPAIR"
-                                  ? "Stock must be allocated first"
-                                  : "Assign technician"
-                              }
-                            >
-                              <UserPlus className="w-4 h-4" />
-                              {caseLine.repairTechnician
-                                ? caseLine.repairTechnician.name
-                                : "Assign Technician"}
-                            </button>
+                            {/* Repair Technician Assignment - Auto-assigned after stock allocation */}
+                            {caseLine.repairTechnician ? (
+                              <div className="flex-1 px-4 py-2.5 text-sm rounded-lg flex items-center justify-center gap-2 bg-green-50 border-2 border-green-200 text-green-700 font-medium">
+                                <UserPlus className="w-4 h-4" />
+                                {caseLine.repairTechnician.name}
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() =>
+                                  handleOpenTechnicianModal(caseLine.id)
+                                }
+                                disabled={
+                                  caseLine.status !== "READY_FOR_REPAIR"
+                                }
+                                className="flex-1 px-4 py-2.5 text-sm rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium bg-gray-900 text-white hover:bg-gray-800"
+                                title={
+                                  caseLine.status !== "READY_FOR_REPAIR"
+                                    ? "Stock must be allocated first (tech will be auto-assigned)"
+                                    : "Assign technician for repair"
+                                }
+                              >
+                                <UserPlus className="w-4 h-4" />
+                                Assign Technician
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>

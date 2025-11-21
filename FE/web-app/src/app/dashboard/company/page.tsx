@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
-import { Building2, Boxes, ArrowLeftRight, Car } from "lucide-react";
+import { Building2, Boxes, ArrowLeftRight, Car, Package } from "lucide-react";
 import { authService } from "@/services";
 import { useRoleProtection } from "@/hooks/useRoleProtection";
 import { Sidebar, DashboardHeader } from "@/components/dashboard";
@@ -12,6 +12,7 @@ import MostUsedComponents from "@/components/dashboard/MostUsedComponents";
 import CompanyDashboardOverview from "@/components/dashboard/companydashboard/CompanyDashboardOverview";
 import StockTransferRequestManager from "@/components/dashboard/companydashboard/StockTransferRequestManager";
 import VehicleManagement from "@/components/dashboard/companydashboard/VehicleManagement";
+import WarrantyComponentConfig from "@/components/dashboard/companydashboard/WarrantyComponentConfig";
 
 interface CurrentUser {
   userId: string;
@@ -53,6 +54,7 @@ export default function CompanyDashboard() {
       icon: ArrowLeftRight,
       label: "Transfer Requests",
     },
+    { id: "components", icon: Package, label: "Components" },
     { id: "vehicles", icon: Car, label: "Vehicles" },
   ];
 
@@ -106,6 +108,9 @@ export default function CompanyDashboard() {
 
       case "vehicles":
         return <VehicleManagement />;
+
+      case "components":
+        return <WarrantyComponentConfig />;
 
       default:
         return <CompanyDashboardOverview />;

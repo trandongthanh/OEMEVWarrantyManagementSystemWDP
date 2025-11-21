@@ -15,7 +15,6 @@ export type NotificationType =
   | "appointment_scheduled"
   | "appointment_reminder"
   | "system_alert"
-  | "recall_campaign"
   | "general";
 
 export type NotificationPriority = "low" | "medium" | "high" | "urgent";
