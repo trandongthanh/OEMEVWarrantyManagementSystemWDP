@@ -6,7 +6,7 @@ import {
 } from "../middleware/index.js";
 import { warrantyComponentSchema } from "../../validators/warrantyComponent.validator.js";
 
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 
 router.post(
   "/",
