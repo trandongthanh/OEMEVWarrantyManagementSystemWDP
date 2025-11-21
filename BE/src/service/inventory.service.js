@@ -331,6 +331,7 @@ class InventoryService {
       await this.#componentRepository.updateComponentStatusBySerialNumbers(
         serialNumbers,
         "REMOVED",
+        null, // warehouseId - set to null since components are being removed
         transaction
       );
     }
