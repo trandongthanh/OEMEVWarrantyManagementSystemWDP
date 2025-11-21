@@ -9,10 +9,11 @@ import {
   ActivityIndicator,
   Image,
   Alert,
+  Platform,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import * as ImagePicker from 'expo-image-picker';
+import * as ImagePicker from 'expo-image-picker'; 
 import { Picker } from "@react-native-picker/picker";
 
 import {
@@ -63,15 +64,13 @@ const CaseLineForm = ({
 
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: true, 
+      allowsMultipleSelection: true,
       selectionLimit: 5,
       quality: 0.7,
     });
 
     if (!result.canceled) {
       onImageSelect(index, result.assets || []);
-    } else {
-      console.log("User cancelled image picker");
     }
   };
 
@@ -330,7 +329,6 @@ const ComponentSearch = ({
   );
 };
 
-
 export default function CaseDetailsScreen() {
   const navigation = useNavigation();
   const route = useRoute();
@@ -472,8 +470,8 @@ export default function CaseDetailsScreen() {
   const handleImageSelect = (index, assets) => {
     const newImages = assets.map((a) => ({
       uri: a.uri,
-      type: a.mimeType || 'image/jpeg', 
-      fileName: a.fileName || a.uri.split('/').pop(), 
+      type: a.mimeType || 'image/jpeg',
+      fileName: a.fileName || a.uri.split('/').pop(),
     }));
     
     setDiagnosisImages(prev => {
@@ -578,15 +576,32 @@ export default function CaseDetailsScreen() {
       if (updatePromises.length > 0) {
         await Promise.all(updatePromises);
       }
+      
       if (linesToCreate.length > 0) {
-        await technicianService.createCaseLines(caseId, {
+        const createResponse = await technicianService.createCaseLines(caseId, {
           caselines: linesToCreate,
         });
+
+        const createdCaseLines = createResponse.data.caseLines;
+        
+        const linesWithComponents = createdCaseLines.filter(
+          (line) => line.componentId && line.quantity > 0
+        );
+
+        if (linesWithComponents.length > 0 && caseId) {
+          const stockData = linesWithComponents.map((line) => ({
+            id: line.caseLineId,
+            componentId: line.componentId,
+            quantity: line.quantity,
+          }));
+
+          await technicianService.updateStockQuantities(caseId, stockData);
+        }
       }
 
       Alert.alert(
         "Thành công",
-        "Đã lưu chẩn đoán. Bạn có thể hoàn tất chẩn đoán."
+        "Đã lưu chẩn đoán và cập nhật kho thành công."
       );
       setShowCompleteDiagnosis(true); 
       setDiagnosisImages(new Map()); 
@@ -713,7 +728,6 @@ export default function CaseDetailsScreen() {
   );
 }
 
-// --- Stylesheet ---
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -943,7 +957,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#60A5FA",
   },
   
-  // Component Search Styles
   searchContainer: {
     flex: 1,
     backgroundColor: "#F3F4F6",
