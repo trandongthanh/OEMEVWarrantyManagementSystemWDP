@@ -17,6 +17,8 @@ class InventoryService {
   #componentRepository;
   #stockReservationRepository;
   #stockTransferRequestItemRepository;
+  #typeComponentRepository;
+  #warrantyComponentRepository;
 
   constructor({
     inventoryRepository,
@@ -28,6 +30,8 @@ class InventoryService {
     componentRepository,
     stockReservationRepository,
     stockTransferRequestItemRepository,
+    typeComponentRepository,
+    warrantyComponentRepository,
   }) {
     this.#inventoryRepository = inventoryRepository;
     this.#inventoryAdjustmentRepository = inventoryAdjustmentRepository;
@@ -39,6 +43,8 @@ class InventoryService {
     this.#stockReservationRepository = stockReservationRepository;
     this.#stockTransferRequestItemRepository =
       stockTransferRequestItemRepository;
+    this.#typeComponentRepository = typeComponentRepository;
+    this.#warrantyComponentRepository = warrantyComponentRepository;
   }
 
   getInventorySummary = async ({
@@ -140,17 +146,12 @@ class InventoryService {
       for (const sku in componentsBySku) {
         const components = componentsBySku[sku];
 
-        const stock = await this.#warehouseRepository.findStockBySku(
+        const stock = await this.#ensureStockExistsForSku({
           sku,
           warehouseId,
-          transaction
-        );
-
-        if (!stock) {
-          throw new NotFoundError(
-            `Stock item with SKU ${sku} not found in warehouse ${warehouseId}`
-          );
-        }
+          companyId,
+          transaction,
+        });
 
         const result = await this.#performAdjustment({
           stockId: stock.stockId,
@@ -179,6 +180,59 @@ class InventoryService {
     }
 
     return results;
+  };
+
+  #ensureStockExistsForSku = async ({
+    sku,
+    warehouseId,
+    companyId,
+    transaction,
+  }) => {
+    let stock = await this.#warehouseRepository.findStockBySku(
+      sku,
+      warehouseId,
+      transaction
+    );
+
+    if (stock) {
+      return stock;
+    }
+
+    const typeComponent = await this.#typeComponentRepository.findBySku(
+      sku,
+      transaction
+    );
+
+    if (!typeComponent) {
+      throw new NotFoundError(`Type component with SKU ${sku} does not exist`);
+    }
+
+    const isCovered =
+      await this.#warrantyComponentRepository.isTypeComponentCoveredByCompany(
+        {
+          typeComponentId: typeComponent.typeComponentId,
+          companyId,
+        },
+        transaction
+      );
+
+    if (!isCovered) {
+      throw new BadRequestError(
+        `Type component with SKU ${sku} is not part of any warranty component for the current company`
+      );
+    }
+
+    stock = await this.#warehouseRepository.createStock(
+      {
+        warehouseId,
+        typeComponentId: typeComponent.typeComponentId,
+        quantityInStock: 0,
+        quantityReserved: 0,
+      },
+      transaction
+    );
+
+    return stock;
   };
 
   #performAdjustment = async ({

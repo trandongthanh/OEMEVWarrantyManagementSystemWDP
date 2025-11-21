@@ -112,6 +112,39 @@ class WarrantyComponentRepository {
     });
     return deletedCount > 0;
   };
+
+  isTypeComponentCoveredByCompany = async (
+    { typeComponentId, companyId },
+    transaction = null
+  ) => {
+    if (!typeComponentId) {
+      return false;
+    }
+
+    if (!companyId) {
+      return true;
+    }
+
+    const count = await WarrantyComponent.count({
+      where: {
+        typeComponentId,
+      },
+      include: [
+        {
+          model: VehicleModel,
+          as: "vehicleModel",
+          attributes: [],
+          required: true,
+          where: {
+            vehicleCompanyId: companyId,
+          },
+        },
+      ],
+      transaction,
+    });
+
+    return count > 0;
+  };
 }
 
 export default WarrantyComponentRepository;
