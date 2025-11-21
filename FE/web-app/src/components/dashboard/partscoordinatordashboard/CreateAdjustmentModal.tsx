@@ -112,9 +112,19 @@ export default function CreateAdjustmentModal({
 
       await inventoryService.createAdjustment(body);
 
-      toast.success("Adjustment created successfully!");
+      toast.success(
+        `${tab === "IN" ? "Added" : "Removed"} ${
+          serials.filter((s) => s.trim() !== "").length
+        } component(s) successfully!`,
+        { duration: 3000 }
+      );
+
       onSuccess?.(); // Refresh adjustments list
-      onClose();
+
+      // Close modal after brief delay to show toast
+      setTimeout(() => {
+        onClose();
+      }, 500);
     } catch (err) {
       console.error("Create adjustment failed:", err);
       toast.error("Failed to create adjustment.");
