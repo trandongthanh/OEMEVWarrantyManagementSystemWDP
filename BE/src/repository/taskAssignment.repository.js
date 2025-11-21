@@ -206,6 +206,28 @@ class TaskAssignmentRepository {
               as: "typeComponent",
               attributes: ["typeComponentId", "name", "sku"],
             },
+            {
+              model: GuaranteeCase,
+              as: "guaranteeCase",
+              attributes: ["guaranteeCaseId", "status", "contentGuarantee"],
+              required: false,
+              include: [
+                {
+                  model: VehicleProcessingRecord,
+                  as: "vehicleProcessingRecord",
+                  attributes: ["vehicleProcessingRecordId", "vin", "status"],
+                  required: false,
+                  include: [
+                    {
+                      model: Vehicle,
+                      as: "vehicle",
+                      attributes: ["vin"],
+                      required: false,
+                    },
+                  ],
+                },
+              ],
+            },
           ],
         },
       ],

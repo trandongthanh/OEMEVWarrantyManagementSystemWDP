@@ -580,7 +580,60 @@ export function CaseDetailsModal({
     const files = Array.from(event.target.files || []);
     if (files.length === 0) return;
 
-    const newImages = files.map((file) => ({
+    // Validation constants
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    const ALLOWED_TYPES = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+    ];
+
+    // Validate files
+    const invalidFiles: string[] = [];
+    const validFiles: File[] = [];
+
+    files.forEach((file) => {
+      // Check file type
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        invalidFiles.push(
+          `${file.name}: Invalid file type (only JPG, PNG, GIF, WebP allowed)`
+        );
+        return;
+      }
+
+      // Check file size
+      if (file.size > MAX_FILE_SIZE) {
+        invalidFiles.push(
+          `${file.name}: File too large (max 5MB, got ${(
+            file.size /
+            1024 /
+            1024
+          ).toFixed(2)}MB)`
+        );
+        return;
+      }
+
+      validFiles.push(file);
+    });
+
+    // Show error message if there are invalid files
+    if (invalidFiles.length > 0) {
+      setErrorMessage(
+        `Some files could not be uploaded:\n${invalidFiles.join("\n")}`
+      );
+
+      // Clear error after 5 seconds
+      setTimeout(() => {
+        setErrorMessage("");
+      }, 5000);
+    }
+
+    // Only process valid files
+    if (validFiles.length === 0) return;
+
+    const newImages = validFiles.map((file) => ({
       file,
       preview: URL.createObjectURL(file),
     }));
@@ -591,6 +644,9 @@ export function CaseDetailsModal({
       updated.set(lineIndex, [...existing, ...newImages]);
       return updated;
     });
+
+    // Reset the input value to allow re-uploading the same file
+    event.target.value = "";
   };
 
   const handleRemoveImage = (lineIndex: number, imgIndex: number) => {
@@ -1327,11 +1383,11 @@ export function CaseDetailsModal({
                         {!isReadOnly && (
                           <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors border border-gray-300">
                             <Upload className="w-4 h-4" />
-                            Upload Images
+                            Upload Images (Max 5MB each)
                             <input
                               type="file"
                               multiple
-                              accept="image/*"
+                              accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
                               onChange={(e) => handleImageSelect(index, e)}
                               className="hidden"
                             />
