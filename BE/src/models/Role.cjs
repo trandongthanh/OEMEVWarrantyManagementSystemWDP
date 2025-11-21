@@ -1,0 +1,45 @@
+module.exports = (sequelize, DataTypes) => {
+  const Role = sequelize.define(
+    "Role",
+    {
+      roleId: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true,
+        field: "role_id",
+      },
+      roleName: {
+        type: DataTypes.ENUM(
+          "service_center_staff",
+          "service_center_technician",
+          "emv_staff",
+          "parts_coordinator_service_center",
+          "parts_coordinator_company",
+          "emv_admin",
+          "service_center_manager"
+        ),
+
+        allowNull: false,
+        field: "role_name",
+      },
+      maxTasks: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 10,
+        field: "max_tasks",
+      },
+    },
+    {
+      tableName: "role",
+    }
+  );
+
+  Role.associate = function (models) {
+    Role.hasMany(models.User, {
+      foreignKey: "role_id",
+      as: "users",
+    });
+  };
+
+  return Role;
+};

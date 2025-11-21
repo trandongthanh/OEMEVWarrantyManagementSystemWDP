@@ -1,12 +1,20 @@
-import db from "../../models/index.cjs";
-
-const { User, Role } = db;
+import dayjs from "dayjs";
+import db from "../models/index.cjs";
+const {
+  User,
+  Role,
+  ServiceCenter,
+  WorkSchedule,
+  TaskAssignment,
+  VehicleCompany,
+} = db;
 
 class UserRepository {
   async findByUsername({ username }) {
     const existingUser = await User.findOne({
       where: {
         username: username,
+        isActive: true,
       },
 
       include: [
@@ -18,35 +26,244 @@ class UserRepository {
       ],
     });
 
-    const user = existingUser.toJSON();
-    return existingUser;
+    if (!existingUser) {
+      return null;
+    }
+
+    return existingUser.toJSON();
   }
 
-  async createUser({
-    username,
-    password,
-    phone,
-    email,
-    name,
-    address,
-    roleId,
-    serviceCenterId,
-    vehicleCompanyId,
-  }) {
-    const newUser = await User.create({
-      username,
-      password,
-      phone,
-      email,
-      name,
-      address,
+  async findUsersByEmployeeCodes(employeeCodes, transaction = null) {
+    const users = await User.findAll({
+      where: {
+        employeeCode: employeeCodes,
+        isActive: true,
+      },
+      transaction,
+    });
+    return users.map((user) => user.toJSON());
+  }
+
+  async findAndCountAll(filters = {}) {
+    const {
       roleId,
       serviceCenterId,
-      vehicleCompanyId,
+      companyId,
+      limit,
+      offset,
+      ...restFilters
+    } = filters;
+
+    const whereCondition = { ...restFilters, isActive: true };
+
+    if (roleId) {
+      whereCondition.roleId = roleId;
+    }
+    if (serviceCenterId) {
+      whereCondition.serviceCenterId = serviceCenterId;
+    }
+    if (companyId) {
+      whereCondition.companyId = companyId;
+    }
+
+    const { count, rows } = await User.findAndCountAll({
+      where: whereCondition,
+      attributes: {
+        exclude: ["password"],
+      },
+      include: [
+        {
+          model: Role,
+          as: "role",
+          attributes: ["roleId", "roleName"],
+        },
+        {
+          model: ServiceCenter,
+          as: "serviceCenter",
+          attributes: ["serviceCenterId", "name"],
+          required: !!serviceCenterId,
+        },
+        {
+          model: VehicleCompany,
+          as: "vehicleCompany",
+          attributes: ["vehicleCompanyId", "name"],
+          required: !!companyId,
+        },
+      ],
+      limit,
+      offset,
+      distinct: true,
     });
 
-    return newUser.toJSON();
+    return { count, rows: rows.map((row) => row.toJSON()) };
   }
+
+  async getAllTechnicians({ status, serviceCenterId }) {
+    const today = dayjs().format("YYYY-MM-DD");
+
+    const whereCondition = {
+      workDate: today,
+    };
+
+    if (status) {
+      whereCondition.status = status;
+    }
+
+    const userCondition = { isActive: true };
+
+    if (serviceCenterId) {
+      userCondition.serviceCenterId = serviceCenterId;
+    }
+
+    const technicians = await User.findAll({
+      where: userCondition,
+      attributes: [
+        "userId",
+        "name",
+        [
+          db.sequelize.fn(
+            "COUNT",
+            db.sequelize.col("tasks.task_assignment_id")
+          ),
+          "activeTaskCount",
+        ],
+      ],
+
+      include: [
+        {
+          model: WorkSchedule,
+          as: "workSchedule",
+          where: whereCondition,
+          attributes: ["workDate", "status"],
+        },
+        {
+          model: TaskAssignment,
+          as: "tasks",
+          where: { isActive: true },
+          required: false,
+          attributes: [],
+        },
+      ],
+
+      group: ["User.user_id", "workSchedule.schedule_id"],
+    });
+
+    return technicians.map((technician) => technician.toJSON());
+  }
+
+  async findUserById({ userId }, transaction = null, lock = null) {
+    const user = await User.findOne({
+      where: {
+        userId: userId,
+        isActive: true,
+      },
+
+      include: [
+        {
+          model: Role,
+          as: "role",
+        },
+        {
+          model: ServiceCenter,
+          as: "serviceCenter",
+          attributes: ["serviceCenterId", "name", "address"],
+
+          include: [
+            {
+              model: VehicleCompany,
+              as: "vehicleCompany",
+              attributes: ["vehicleCompanyId", "name"],
+              required: false,
+            },
+          ],
+        },
+      ],
+
+      transaction,
+      lock,
+    });
+
+    if (!user) {
+      return null;
+    }
+
+    return user.toJSON();
+  }
+
+  findByPhone = async ({ phone }, transaction = null, lock = null) => {
+    const user = await User.findOne({
+      where: {
+        phone: phone,
+        isActive: true,
+      },
+
+      include: [
+        {
+          model: Role,
+          as: "role",
+          attributes: ["roleName"],
+        },
+      ],
+
+      transaction,
+      lock,
+    });
+
+    return user ? user.toJSON() : null;
+  };
+
+  createUser = async (
+    {
+      username,
+      password,
+      email,
+      phone,
+      address,
+      name,
+      roleId,
+      employeeCode,
+      serviceCenterId,
+      vehicleCompanyId,
+    },
+    transaction = null
+  ) => {
+    const newUser = await User.create(
+      {
+        username,
+        password,
+        email,
+        phone,
+        address,
+        name,
+        roleId,
+        employeeCode,
+        serviceCenterId,
+        vehicleCompanyId,
+      },
+      { transaction }
+    );
+
+    return newUser;
+  };
+
+  updateUser = async ({ userId, data }, transaction = null) => {
+    const [updatedCount] = await User.update(data, {
+      where: { userId },
+      transaction,
+    });
+    return updatedCount > 0;
+  };
+
+  deleteUser = async (userId, transaction = null) => {
+    const [updatedCount] = await User.update(
+      { isActive: false },
+      {
+        where: { userId },
+        transaction,
+      }
+    );
+    return updatedCount > 0;
+  };
 }
 
 export default UserRepository;

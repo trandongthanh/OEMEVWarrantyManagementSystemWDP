@@ -1,0 +1,111 @@
+import Joi from "joi";
+
+export const caseLineSchema = Joi.object({
+  diagnosisText: Joi.string().required(),
+  correctionText: Joi.string().required(),
+  typeComponentId: Joi.string().uuid().allow(null),
+  quantity: Joi.number().integer().min(0).required(),
+  warrantyStatus: Joi.string().valid("ELIGIBLE", "INELIGIBLE").required(),
+  evidenceImageUrls: Joi.array().items(Joi.string().trim()).optional(),
+  rejectionReason: Joi.string().allow(null).optional(),
+});
+
+export const createCaseLinesSchema = Joi.object({
+  caselines: Joi.array().items(caseLineSchema).min(1).required(),
+});
+
+const optionalCaseId = Joi.string().uuid({ version: "uuidv4" }).optional();
+
+const approveCaseline = Joi.object({
+  id: Joi.string().uuid({ version: "uuidv4" }).required(),
+});
+
+export const approveCaselineBodySchema = Joi.object({
+  approvedCaseLineIds: Joi.array().items(approveCaseline).required(),
+  rejectedCaseLineIds: Joi.array().items(approveCaseline).required(),
+});
+
+export const allocateStockParamsSchema = Joi.object({
+  caseId: optionalCaseId,
+  caselineId: Joi.string().uuid({ version: "uuidv4" }).required(),
+});
+
+export const assignTechnicianParamsSchema = Joi.object({
+  caseId: optionalCaseId,
+  caselineId: Joi.string().uuid({ version: "uuidv4" }).required(),
+});
+
+export const assignTechnicianBodySchema = Joi.object({
+  technicianId: Joi.string().uuid().required(),
+});
+
+export const updateCaselineParamsSchema = Joi.object({
+  caseId: optionalCaseId,
+  caselineId: Joi.string().uuid({ version: "uuidv4" }).required(),
+});
+
+export const updateCaselineBodySchema = Joi.object({
+  diagnosisText: Joi.string().required(),
+  correctionText: Joi.string().required(),
+  typeComponentId: Joi.string().uuid({ version: "uuidv4" }).allow(null),
+  quantity: Joi.number().integer().min(0).required(),
+  warrantyStatus: Joi.string().valid("ELIGIBLE", "INELIGIBLE").required(),
+  evidenceImageUrls: Joi.array().items(Joi.string().trim()).optional(),
+  rejectionReason: Joi.string().allow(null).optional(),
+});
+
+export const getCaseLineByIdParamsSchema = Joi.object({
+  caselineId: Joi.string().uuid({ version: "uuidv4" }).required(),
+});
+
+export const pickupComponentsParamsSchema = Joi.object({
+  caselineId: Joi.string().uuid().required(),
+});
+
+export const installComponentsParamsSchema = Joi.object({
+  caselineId: Joi.string().uuid().required(),
+});
+
+export const getCaselineByIdParamsSchema = Joi.object({
+  caselineId: Joi.string().uuid().required(),
+});
+
+export const getAllCaselinesQuerySchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(100).default(10),
+  status: Joi.string()
+    .valid(
+      "DRAFT",
+      "PENDING_APPROVAL",
+      "CUSTOMER_APPROVED",
+      "REJECTED_BY_OUT_OF_WARRANTY",
+      "REJECTED_BY_TECH",
+      "REJECTED_BY_CUSTOMER",
+      "WAITING_FOR_PARTS",
+      "REJECTED_BY_OEM",
+      "READY_FOR_REPAIR",
+      "PARTS_AVAILABLE",
+      "IN_REPAIR",
+      "COMPLETED",
+      "CANCELLED"
+    )
+    .optional(),
+  guaranteeCaseId: Joi.string().uuid().optional(),
+  warrantyStatus: Joi.string().valid("ELIGIBLE", "INELIGIBLE").optional(),
+  vehicleProcessingRecordId: Joi.string().uuid().optional(),
+  diagnosticTechId: Joi.string().uuid().optional(),
+  repairTechId: Joi.string().uuid().optional(),
+  sortBy: Joi.string()
+    .valid("createdAt", "updatedAt", "status")
+    .default("createdAt"),
+  sortOrder: Joi.string().valid("ASC", "DESC").default("DESC"),
+});
+
+export const validateOldComponentSerialSchema = Joi.object({
+  caseLineId: Joi.string().uuid({ version: "uuidv4" }).required(),
+  oldComponentSerialNumber: Joi.string().required(),
+});
+
+export const markRepairCompletedBodySchema = Joi.object({
+  installationImageUrls: Joi.array().items(Joi.string().uri()).optional(),
+});

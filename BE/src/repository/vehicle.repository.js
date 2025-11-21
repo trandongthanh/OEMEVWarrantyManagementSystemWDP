@@ -1,21 +1,44 @@
-import { Op } from "sequelize";
-import db from "../../models/index.cjs";
-const { Vehicle, Customer, VehicleModel, VehicleCompany, TypeComponent } = db;
+import db from "../models/index.cjs";
+const {
+  Vehicle,
+  Customer,
+  VehicleModel,
+  VehicleCompany,
+  TypeComponent,
+  Component,
+} = db;
 
 class VehicleRepository {
-  findVehicleByVinWithOwner = async ({ vin, companyId }, option = null) => {
+  findAllByVins = async (vins, transaction = null) => {
+    const vehicles = await Vehicle.findAll({
+      where: {
+        vin: vins,
+      },
+      attributes: ["vin"],
+      transaction,
+    });
+    return vehicles.map((v) => v.toJSON());
+  };
+
+  bulkCreate = async (vehicles, transaction = null) => {
+    const newVehicles = await Vehicle.bulkCreate(vehicles, {
+      transaction,
+      ignoreDuplicates: false,
+    });
+    return newVehicles;
+  };
+
+  findByVinAndCompany = async (
+    { vin, companyId },
+    option = null,
+    lock = null
+  ) => {
     const existingVehicle = await Vehicle.findOne({
       where: {
         vin: vin,
       },
 
-      attributes: [
-        "vin",
-        "dateOfManufacture",
-        "placeOfManufacture",
-        "licensePlate",
-        "purchaseDate",
-      ],
+      attributes: ["vin", "dateOfManufacture", "licensePlate", "purchaseDate"],
 
       include: [
         {
@@ -29,7 +52,7 @@ class VehicleRepository {
           model: VehicleModel,
           as: "model",
           attributes: [["vehicle_model_name", "modelName"]],
-          // required: true,
+          required: true,
 
           include: [
             {
@@ -37,13 +60,15 @@ class VehicleRepository {
               as: "company",
               where: { vehicleCompanyId: companyId },
               attributes: ["name", "vehicleCompanyId"],
-              required: false,
+
+              required: true,
             },
           ],
         },
       ],
 
       transaction: option,
+      lock: lock,
     });
 
     if (!existingVehicle) {
@@ -53,7 +78,7 @@ class VehicleRepository {
     return existingVehicle.toJSON();
   };
 
-  registerOwnerForVehicle = async (
+  updateOwner = async (
     { companyId, vin, customerId, licensePlate, purchaseDate },
     option = null
   ) => {
@@ -75,7 +100,7 @@ class VehicleRepository {
       return null;
     }
 
-    const updatedVehicle = await this.findVehicleByVinWithOwner(
+    const updatedVehicle = await this.findByVinAndCompany(
       {
         vin: vin,
         companyId: companyId,
@@ -83,25 +108,20 @@ class VehicleRepository {
       option
     );
 
+    if (!updatedVehicle) {
+      return null;
+    }
+
     return updatedVehicle;
   };
 
-  findVehicleByVinWithWarranty = async ({ vin, companyId }) => {
+  findVehicleWithTypeComponentByVin = async ({ vin, companyId }) => {
     const existingVehicle = await Vehicle.findOne({
       where: {
         vin: vin,
-        ownerId: {
-          [Op.not]: null,
-        },
       },
 
-      attributes: [
-        "vin",
-        "dateOfManufacture",
-        "placeOfManufacture",
-        "licensePlate",
-        "purchaseDate",
-      ],
+      attributes: ["vin", "purchaseDate", "dateOfManufacture"],
 
       include: [
         {
@@ -109,11 +129,12 @@ class VehicleRepository {
           as: "model",
           attributes: ["generalWarrantyDuration", "generalWarrantyMileage"],
 
+          required: true,
           include: [
             {
               model: TypeComponent,
               as: "typeComponents",
-              attributes: ["name"],
+              attributes: ["typeComponentId", "name", "category"],
               through: { attributes: ["durationMonth", "mileageLimit"] },
             },
 
@@ -122,6 +143,8 @@ class VehicleRepository {
               as: "company",
               where: { vehicleCompanyId: companyId },
               attributes: ["name"],
+
+              required: true,
             },
           ],
         },
@@ -149,6 +172,69 @@ class VehicleRepository {
     }
 
     return true;
+  };
+
+  findWarrantedComponentsByVehicleVin = async (
+    { vin, companyId, status },
+    option = null
+  ) => {
+    const componentWhere = {};
+
+    if (status && status !== "ALL") {
+      componentWhere.status = status;
+    }
+
+    const vehicle = await Vehicle.findOne({
+      where: {
+        vin: vin,
+      },
+      attributes: ["vin"],
+      include: [
+        {
+          model: VehicleModel,
+          as: "model",
+          attributes: [],
+          required: true,
+          include: [
+            {
+              model: VehicleCompany,
+              as: "company",
+              attributes: [],
+              where: { vehicleCompanyId: companyId },
+              required: true,
+            },
+          ],
+        },
+        {
+          model: Component,
+          as: "components",
+          attributes: ["componentId", "serialNumber", "status", "installedAt"],
+          where:
+            Object.keys(componentWhere).length > 0 ? componentWhere : undefined,
+          required: false,
+          include: [
+            {
+              model: TypeComponent,
+              as: "typeComponent",
+              attributes: [
+                "typeComponentId",
+                "name",
+                "sku",
+                "category",
+                "price",
+              ],
+            },
+          ],
+        },
+      ],
+      transaction: option,
+    });
+
+    if (!vehicle) {
+      return null;
+    }
+
+    return vehicle.toJSON();
   };
 }
 

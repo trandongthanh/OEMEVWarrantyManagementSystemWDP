@@ -1,4 +1,4 @@
-import db from "../../models/index.cjs";
+import db from "../models/index.cjs";
 
 const { ServiceCenter, VehicleCompany } = db;
 
@@ -20,8 +20,24 @@ class ServiceCenterRepository {
       ],
     });
 
+    if (!company) {
+      return null;
+    }
+
     return company.toJSON();
   };
+
+  async findServiceCenterById(
+    { serviceCenterId },
+    transaction = null,
+    lock = null
+  ) {
+    const serviceCenter = await ServiceCenter.findByPk(serviceCenterId, {
+      transaction,
+      lock,
+    });
+    return serviceCenter ? serviceCenter.toJSON() : null;
+  }
 }
 
 export default ServiceCenterRepository;

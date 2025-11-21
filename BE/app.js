@@ -1,30 +1,39 @@
 import express from "express";
-import cors from "cors";
 import { scopePerRequest } from "awilix-express";
 import container from "./container.js";
-import { hanldeError } from "./middleware/index.js";
-import { specs, swaggerUi } from "./config/swagger.js";
+import cors from "cors";
+import { handleError } from "./src/api/middleware/index.js";
+import { specs, swaggerUi } from "./src/config/swagger.js";
 
 const app = express();
 
-// CORS configuration
-app.use(
-  cors({
-    origin: ["http://localhost:3000", "http://localhost:3001"], // Allow frontend URLs
-    credentials: true,
-  })
-);
-
 app.use(express.json());
+app.use(cors());
 app.use(scopePerRequest(container));
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));
 
-import authRouter from "./src/routes/auth.router.js";
-import userRouter from "./src/routes/user.router.js";
-import vehicleRouter from "./src/routes/vehicle.router.js";
-import customerRouter from "./src/routes/customer.router.js";
-import vehicleProcessingRecordRouter from "./src/routes/vehicleProcessingRecord.router.js";
+import authRouter from "./src/api/routes/auth.router.js";
+import userRouter from "./src/api/routes/user.router.js";
+import vehicleRouter from "./src/api/routes/vehicle.router.js";
+import customerRouter from "./src/api/routes/customer.router.js";
+import vehicleProcessingRecordRouter from "./src/api/routes/vehicleProcessingRecord.router.js";
+import guaranteeCaseRouter from "./src/api/routes/guaranteeCase.router.js";
+import chatRouter from "./src/api/routes/chat.router.js";
+import caseLineRouter from "./src/api/routes/caseLine.router.js";
+import componentReservationsRouter from "./src/api/routes/componentReservations.router.js";
+import componentRouter from "./src/api/routes/component.router.js";
+import warehouseRouter from "./src/api/routes/warehouse.router.js";
+import stockTransferRequestRouter from "./src/api/routes/stockTransferRequest.router.js";
+import workScheduleRouter from "./src/api/routes/workSchedule.router.js";
+import mailRouter from "./src/api/routes/mail.router.js";
+import inventoryRouter from "./src/api/routes/inventory.router.js";
+import taskAssignmentRouter from "./src/api/routes/taskAssignmentRouter.js";
+import vehicleModelRouter from "./src/api/routes/vehicleModel.router.js";
+import roleRouter from "./src/api/routes/role.router.js";
+import publicRouter from "./src/api/routes/public.router.js";
+import notificationRouter from "./src/api/routes/notification.router.js";
+import warrantyComponentRouter from "./src/api/routes/warrantyComponent.router.js";
 
 app.get("/", async (req, res) => {
   res.send("Hello world");
@@ -32,12 +41,28 @@ app.get("/", async (req, res) => {
 
 const url = "/api/v1";
 
+app.use("/api/public", publicRouter);
 app.use(`${url}/auth`, authRouter);
 app.use(`${url}/vehicles`, vehicleRouter);
 app.use(`${url}/customers`, customerRouter);
 app.use(`${url}/processing-records`, vehicleProcessingRecordRouter);
 app.use(`${url}/users`, userRouter);
+app.use(`${url}/guarantee-cases`, guaranteeCaseRouter);
+app.use(`${url}/chats`, chatRouter);
+app.use(`${url}/case-lines`, caseLineRouter);
+app.use(`${url}/reservations`, componentReservationsRouter);
+app.use(`${url}/warehouses`, warehouseRouter);
+app.use(`${url}/components`, componentRouter);
+app.use(`${url}/mail`, mailRouter);
+app.use(`${url}/inventory`, inventoryRouter);
+app.use(`${url}/stock-transfer-requests`, stockTransferRequestRouter);
+app.use(`${url}/work-schedules`, workScheduleRouter);
+app.use(`${url}/task-assignments`, taskAssignmentRouter);
+app.use(`${url}/oem-vehicle-models`, vehicleModelRouter);
+app.use(`${url}/roles`, roleRouter);
+app.use(`${url}/notifications`, notificationRouter);
+app.use(`${url}/warranty-components`, warrantyComponentRouter);
 
-app.use(hanldeError);
+app.use(handleError);
 
 export default app;
