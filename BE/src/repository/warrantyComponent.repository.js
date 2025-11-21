@@ -60,19 +60,34 @@ class WarrantyComponentRepository {
         {
           model: TypeComponent,
           as: "typeComponent",
-          attributes: ["name", "sku", "typeComponentId"],
+          attributes: ["name", "sku", "typeComponentId", "category"],
         },
         {
           model: VehicleModel,
           as: "vehicleModel",
-          attributes: ["name", "vehicleModelId"],
+          attributes: ["vehicleModelName", "vehicleModelId", "sku"],
+          include: [
+            {
+              model: db.VehicleCompany,
+              as: "company",
+              attributes: ["name"],
+            },
+          ],
         },
       ],
     });
 
     return {
       totalItems: count,
-      items: rows.map((row) => row.toJSON()),
+      items: rows.map((row) => {
+        const json = row.toJSON();
+        // Flatten company name to makeBrand for easier frontend access
+        if (json.vehicleModel?.company) {
+          json.vehicleModel.makeBrand = json.vehicleModel.company.name;
+          delete json.vehicleModel.company;
+        }
+        return json;
+      }),
       totalPages: Math.ceil(count / limit),
       currentPage: page,
     };
@@ -85,16 +100,31 @@ class WarrantyComponentRepository {
         {
           model: TypeComponent,
           as: "typeComponent",
-          attributes: ["name", "sku"],
+          attributes: ["name", "sku", "typeComponentId", "category"],
         },
         {
           model: VehicleModel,
           as: "vehicleModel",
-          attributes: ["name"],
+          attributes: ["vehicleModelName", "vehicleModelId", "sku"],
+          include: [
+            {
+              model: db.VehicleCompany,
+              as: "company",
+              attributes: ["name"],
+            },
+          ],
         },
       ],
     });
-    return record ? record.toJSON() : null;
+    if (!record) return null;
+    
+    const json = record.toJSON();
+    // Flatten company name to makeBrand for easier frontend access
+    if (json.vehicleModel?.company) {
+      json.vehicleModel.makeBrand = json.vehicleModel.company.name;
+      delete json.vehicleModel.company;
+    }
+    return json;
   };
 
   update = async ({ id, data }, transaction = null) => {
