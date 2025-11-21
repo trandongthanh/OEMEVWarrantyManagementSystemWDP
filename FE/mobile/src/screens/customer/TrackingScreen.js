@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { Shield } from "lucide-react-native";
 
 // SERVICE
 import trackingService from "../../services/trackingService";
@@ -66,16 +67,11 @@ export default function TrackingScreen({ navigation }) {
             <Text style={styles.loginBtnText}>Login</Text>
           </TouchableOpacity>
 
-          {/* ICON */}
-          <Ionicons
-            name="car-sport-outline"
-            size={50}
-            color="#4C90FF"
-            style={{ marginBottom: 15, marginTop: 10 }}
-          />
-
-          {/* TITLE */}
-          <Text style={styles.title}>EV Warranty Tracking</Text>
+          {/* ICON + TITLE */}
+          <View style={styles.titleRow}>
+            <Shield size={44} color="#4C90FF" strokeWidth={1.7} />
+            <Text style={styles.title}>EV Warranty Tracking</Text>
+          </View>
 
           {/* SUBTITLE */}
           <Text style={styles.subtitle}>
@@ -157,8 +153,6 @@ const Feature = ({ color, text }) => (
 );
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-
   loginBtn: {
     position: "absolute",
     top: 10,
@@ -176,13 +170,19 @@ const styles = StyleSheet.create({
 
   loginBtnText: { color: "#E6EAF2", marginLeft: 6, fontWeight: "600" },
 
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 50,
+    marginBottom: 10,
+  },
+
   title: {
     color: "#E6EAF2",
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: "700",
-    marginBottom: 6,
-    textAlign: "center",
-    marginTop: 40,
+    marginLeft: 10,
   },
 
   subtitle: {

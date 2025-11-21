@@ -15,7 +15,9 @@ import { jwtDecode } from "jwt-decode";
 import Toast from "react-native-toast-message";
 import { login } from "../services/authService";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
+
+// 🔵 lucide-react-native icons (THAY THE ICON IONICONS)
+import { Shield, User, Lock, ArrowLeft } from "lucide-react-native";
 
 const COLORS = {
   bg: "#0B0F14",
@@ -119,7 +121,8 @@ export default function LoginScreen() {
       >
         {/* 🔵 HEADER */}
         <View style={styles.header}>
-          <Ionicons name="car-sport-outline" size={50} color={COLORS.accent} />
+          {/* 🛡 ICON THAY THẾ */}
+          <Shield size={50} color={COLORS.accent} strokeWidth={1.6} />
           <Text style={styles.appName}>EV Warranty</Text>
           <Text style={styles.subtitle}>
             Vehicle Warranty Management System
@@ -129,8 +132,8 @@ export default function LoginScreen() {
         {/* 🧾 FORM */}
         <View style={styles.form}>
           <View style={styles.inputContainer}>
-            <Ionicons
-              name="person-outline"
+            {/* 👤 ICON USER */}
+            <User
               size={20}
               color={COLORS.textMuted}
               style={{ marginRight: 8 }}
@@ -146,8 +149,8 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.inputContainer}>
-            <Ionicons
-              name="lock-closed-outline"
+            {/* 🔒 ICON LOCK */}
+            <Lock
               size={20}
               color={COLORS.textMuted}
               style={{ marginRight: 8 }}
@@ -180,7 +183,8 @@ export default function LoginScreen() {
             style={styles.backBottom}
             onPress={() => navigation.navigate("TrackingScreen")}
           >
-            <Ionicons name="arrow-back" size={16} color={COLORS.textMuted} />
+            {/* ← ICON BACK */}
+            <ArrowLeft size={16} color={COLORS.textMuted} />
             <Text style={styles.backBottomText}>Back to Tracking</Text>
           </TouchableOpacity>
         </View>
@@ -268,7 +272,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
 
-  /* 🔙 BACK BUTTON UNDER LOGIN */
   backBottom: {
     flexDirection: "row",
     justifyContent: "center",
