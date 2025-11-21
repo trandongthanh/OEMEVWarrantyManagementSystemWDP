@@ -38,6 +38,24 @@ class WarrantyComponentRepository {
 
     return created.map((record) => record.toJSON());
   };
+
+  findByVehicleModelAndTypeComponent = async ({
+    vehicleModelId,
+    typeComponentId,
+    transaction,
+  }) => {
+    const warrantyComponent = await WarrantyComponent.findOne(
+      {
+        where: {
+          vehicleModelId: vehicleModelId,
+          typeComponentId: typeComponentId,
+        },
+      },
+      { transaction }
+    );
+
+    return warrantyComponent ? warrantyComponent.toJSON() : null;
+  };
 }
 
 export default WarrantyComponentRepository;
