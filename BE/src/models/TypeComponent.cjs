@@ -47,6 +47,12 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         field: "category",
       },
+
+      makeBrand: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        field: "make_brand",
+      },
     },
     {
       tableName: "type_component",
@@ -54,21 +60,15 @@ module.exports = (sequelize, DataTypes) => {
   );
 
   TypeComponent.associate = function (models) {
-    // TypeComponent.hasMany(models.Component, {
-    //   foreignKey: "type_component_id",
-    //   as: "components",
-    // });
+    TypeComponent.hasMany(models.Component, {
+      foreignKey: "type_component_id",
+      as: "components",
+    });
 
     TypeComponent.belongsToMany(models.Warehouse, {
       through: models.Stock,
       foreignKey: "type_component_id",
       as: "warehouses",
-    });
-
-    TypeComponent.belongsToMany(models.ComponentCompany, {
-      through: models.TypeComponentByCompany,
-      foreignKey: "type_component_id",
-      as: "componentCompanies",
     });
 
     TypeComponent.belongsToMany(models.VehicleModel, {

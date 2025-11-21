@@ -35,11 +35,6 @@ module.exports = (sequelize, DataTypes) => {
         field: "place_of_manufacture",
       },
 
-      // vehicleProcessingRecordId: {
-      //   type: DataTypes.UUID,
-      //   field: "vehicle_processing_record_id",
-      // },
-
       vehicleModelId: {
         type: DataTypes.UUID,
         field: "vehicle_model_id",
@@ -64,6 +59,13 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.DATE,
         field: "purchase_date",
       },
+
+      outstandingRecallCampaignIds: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: [],
+        field: "outstanding_recall_campaign_ids",
+      },
     },
     {
       tableName: "vehicle",
@@ -81,14 +83,21 @@ module.exports = (sequelize, DataTypes) => {
       as: "model",
     });
 
-    // Vehicle.hasMany(models.Component, {
-    //   foreignKey: "vehicle_id",
-    //   as: "components",
-    // });
+    Vehicle.hasMany(models.Component, {
+      foreignKey: "vehicle_vin",
+      sourceKey: "vin",
+      as: "components",
+    });
 
     Vehicle.hasOne(models.VehicleProcessingRecord, {
       foreignKey: "vin",
       as: "vehicleRecord",
+    });
+
+    Vehicle.hasMany(models.VehicleRecall, {
+      foreignKey: "vin",
+      sourceKey: "vin",
+      as: "recallRecords",
     });
   };
 

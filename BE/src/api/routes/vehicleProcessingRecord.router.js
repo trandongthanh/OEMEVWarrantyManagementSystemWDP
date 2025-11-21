@@ -1,8 +1,15 @@
+import { createRecordSchema } from "../../validators/vehicleProcessingRecord.validator.js";
+import {
+  updateMainTechnicianBodySchema,
+  updateMainTechnicianParamsSchema,
+  getAllRecordsSchema,
+} from "../../validators/vehicleProcessingRecord.validator.js";
 import {
   attachCompanyContext,
   authentication,
   authorizationByRole,
-  canAssignTask,
+  ensureOtpVerified,
+  validate,
 } from "../middleware/index.js";
 
 import express from "express";
@@ -10,10 +17,13 @@ const router = express.Router();
 
 /**
  * @swagger
- * /vehicle-processing-record:
+ * /processing-records:
  *   post:
- *     summary: Create a new vehicle processing record
- *     description: Create a new vehicle processing record with one or more guarantee cases
+ *     summary: Tạo hồ sơ tiếp nhận xe mới
+ *     description: >-
+ *       Nhân viên (`service_center_staff`) tạo một hồ sơ tiếp nhận xe mới khi khách hàng mang xe đến.
+ *       - Yêu cầu phải xác thực OTP của khách hàng hoặc người đại diện trước khi gọi endpoint này.
+ *       - Sau khi tạo thành công, hệ thống sẽ phát socket `new_record_notification` đến các quản lý.
  *     tags: [Vehicle Processing Record]
  *     security:
  *       - BearerAuth: []
@@ -22,196 +32,29 @@ const router = express.Router();
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - vin
- *               - odometer
- *               - guaranteeCases
- *             properties:
- *               vin:
- *                 type: string
- *                 description: Vehicle Identification Number
- *                 example: "VIN-NEW-0"
- *               odometer:
- *                 type: number
- *                 minimum: 0
- *                 description: Current vehicle odometer reading
- *                 example: 52340
- *               guaranteeCases:
- *                 type: array
- *                 minItems: 1
- *                 description: Array of guarantee cases (at least one is required)
- *                 items:
- *                   type: object
- *                   required:
- *                     - contentGuarantee
- *                   properties:
- *                     contentGuarantee:
- *                       type: string
- *                       description: Description of the issue or guarantee case
- *                       example: "Xe bị rung nhẹ khi tăng tốc, cần kiểm tra hệ thống truyền động."
+ *             $ref: '#/components/schemas/VehicleProcessingRecordCreation'
  *     responses:
  *       201:
- *         description: Vehicle processing record created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "success"
- *                 data:
- *                   type: object
- *                   properties:
- *                     record:
- *                       type: object
- *                       properties:
- *                         vin:
- *                           type: string
- *                           example: "VIN-NEW-0"
- *                         checkInDate:
- *                           type: string
- *                           format: date-time
- *                           description: Date and time when vehicle checked in
- *                           example: "2025-10-11T15:36:25.000Z"
- *                         odometer:
- *                           type: number
- *                           description: Vehicle odometer reading at check-in
- *                           example: 52340
- *                         status:
- *                           type: string
- *                           description: Current status of the processing record
- *                           example: "processing"
- *                         mainTechnician:
- *                           type: object
- *                           nullable: true
- *                           description: Main technician assigned to this record (if assigned)
- *                           properties:
- *                             userId:
- *                               type: string
- *                               format: uuid
- *                               example: "725d1073-9660-48ae-b970-7c8db76f676d"
- *                             name:
- *                               type: string
- *                               example: "KTV Dương Giao Linh"
- *                         vehicle:
- *                           type: object
- *                           description: Vehicle information
- *                           properties:
- *                             vin:
- *                               type: string
- *                               example: "VIN-NEW-0"
- *                             model:
- *                               type: object
- *                               properties:
- *                                 name:
- *                                   type: string
- *                                   example: "VF 9 Plus"
- *                                 vehicleModelId:
- *                                   type: string
- *                                   format: uuid
- *                                   example: "74b79531-887e-4cb6-a4c8-e2e36fce4b2b"
- *                         guaranteeCases:
- *                           type: array
- *                           description: List of guarantee cases created for this record
- *                           items:
- *                             type: object
- *                             properties:
- *                               guaranteeCaseId:
- *                                 type: string
- *                                 format: uuid
- *                                 example: "110f907d-009d-441f-88ad-f9522ae44d0d"
- *                               status:
- *                                 type: string
- *                                 description: Status of the guarantee case
- *                                 example: "pending_diagnosis"
- *                               contentGuarantee:
- *                                 type: string
- *                                 description: Description of the issue
- *                                 example: "Đèn pha bên trái sáng yếu, cần kiểm tra hệ thống điện."
- *                         createdByStaff:
- *                           type: object
- *                           description: Staff member who created this record
- *                           properties:
- *                             userId:
- *                               type: string
- *                               format: uuid
- *                               example: "82af4858-9298-489f-9f97-9af0cbab68e4"
- *                             name:
- *                               type: string
- *                               example: "SA Tô Mỹ Lệ"
+ *         description: Tạo hồ sơ thành công.
  *       400:
- *         description: Bad request - Invalid input data
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "At least one guarantee case is required."
+ *         description: Dữ liệu không hợp lệ.
  *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "Unauthorized"
+ *         description: Chưa xác thực.
  *       403:
- *         description: Forbidden - requires service_center_staff role
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "Access denied. Required role: service_center_staff"
+ *         description: Không có quyền hoặc OTP chưa được xác thực.
  *       404:
- *         description: Vehicle not found or vehicle doesn't have owner
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "Vehicle with VIN-NEW-0 does not have an owner, cannot create a record"
+ *         description: Không tìm thấy xe hoặc xe chưa có chủ sở hữu.
  *       409:
- *         description: Conflict - Vehicle already has an active record
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "Vehicle already has an active record"
+ *         description: Xung đột (xe đang có một hồ sơ khác đang hoạt động).
  */
 router.post(
   "/",
   authentication,
   authorizationByRole(["service_center_staff"]),
   attachCompanyContext,
+  validate(createRecordSchema, "body"),
+  ensureOtpVerified,
+
   async (req, res, next) => {
     const vehicleProcessingRecordController = req.container.resolve(
       "vehicleProcessingRecordController"
@@ -223,9 +66,15 @@ router.post(
 
 /**
  * @swagger
- * /vehicle-processing-record/{id}/assignmen:
+ * /processing-records/{id}/complete-diagnosis:
  *   patch:
- *     summary: Assign a technician to a vehicle processing record
+ *     summary: Hoàn tất quá trình chẩn đoán
+ *     description: >-
+ *       Kỹ thuật viên (`service_center_technician`) sau khi tạo các mục sửa chữa (case line) sẽ gọi endpoint này
+ *       để chuyển trạng thái hồ sơ sang `WAITING_CUSTOMER_APPROVAL`.
+ *       - Các Guarantee Case liên quan sẽ chuyển sang `DIAGNOSED`.
+ *       - Các Case Line ở trạng thái `DRAFT` sẽ chuyển sang `PENDING_APPROVAL`.
+ *       - Hệ thống sẽ phát socket event để thông báo cho nhân viên.
  *     tags: [Vehicle Processing Record]
  *     security:
  *       - BearerAuth: []
@@ -233,66 +82,173 @@ router.post(
  *       - in: path
  *         name: id
  *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *         description: Vehicle processing record ID
- *         example: "550e8400-e29b-41d4-a716-446655440000"
+ *         schema: { type: string, format: uuid }
+ *         description: ID của hồ sơ tiếp nhận xe.
+ *     responses:
+ *       200:
+ *         description: Hoàn tất chẩn đoán thành công.
+ *       400:
+ *         description: Trạng thái của các mục con không hợp lệ.
+ *       403:
+ *         description: Không có quyền.
+ *       404:
+ *         description: Không tìm thấy hồ sơ.
+ */
+router.patch(
+  "/:id/complete-diagnosis",
+  authentication,
+  authorizationByRole(["service_center_technician"]),
+  attachCompanyContext,
+  async (req, res, next) => {
+    const vehicleProcessingRecordController = req.container.resolve(
+      "vehicleProcessingRecordController"
+    );
+
+    await vehicleProcessingRecordController.completeDiagnosis(req, res, next);
+  }
+);
+
+/**
+ * @swagger
+ * /processing-records/{id}/completed:
+ *   patch:
+ *     summary: Hoàn tất và đóng hồ sơ tiếp nhận xe
+ *     description: >-
+ *       Nhân viên hoặc Quản lý (`service_center_staff`, `service_center_manager`) đánh dấu một hồ sơ đã hoàn tất.
+ *       - Yêu cầu tất cả các mục sửa chữa (case line) phải ở trạng thái `COMPLETED`.
+ *       - Gán `checkOutDate` là thời điểm hiện tại.
+ *     tags: [Vehicle Processing Record]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *         description: ID của hồ sơ tiếp nhận xe.
+ *     responses:
+ *       200:
+ *         description: Đóng hồ sơ thành công.
+ *       403:
+ *         description: Không có quyền.
+ *       404:
+ *         description: Không tìm thấy hồ sơ.
+ *       409:
+ *         description: Xung đột (vẫn còn mục sửa chữa chưa hoàn tất).
+ */
+router.patch(
+  "/:id/completed",
+  authentication,
+  authorizationByRole(["service_center_manager", "service_center_staff"]),
+  async (req, res, next) => {
+    const vehicleProcessingRecordController = req.container.resolve(
+      "vehicleProcessingRecordController"
+    );
+
+    await vehicleProcessingRecordController.completeRecord(req, res, next);
+  }
+);
+
+/**
+ * @swagger
+ * /processing-records/{id}/cancel:
+ *   patch:
+ *     summary: Hủy hồ sơ tiếp nhận xe
+ *     description: >-
+ *       Nhân viên hoặc Quản lý (`service_center_staff`, `service_center_manager`) hủy một hồ sơ.
+ *       - Chỉ có thể hủy khi hồ sơ chưa bước vào giai đoạn sửa chữa.
+ *       - Hệ thống sẽ cập nhật trạng thái hồ sơ sang `CANCELLED` và xử lý các mục liên quan (hủy đặt kho,...).
+ *     tags: [Vehicle Processing Record]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *         description: ID của hồ sơ cần hủy.
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: Lý do hủy hồ sơ.
+ *     responses:
+ *       200:
+ *         description: Hủy hồ sơ thành công.
+ *       400:
+ *         description: Trạng thái hồ sơ không cho phép hủy.
+ *       403:
+ *         description: Không có quyền.
+ *       404:
+ *         description: Không tìm thấy hồ sơ.
+ */
+router.patch(
+  "/:id/cancel",
+  authentication,
+  authorizationByRole(["service_center_manager", "service_center_staff"]),
+  attachCompanyContext,
+  async (req, res, next) => {
+    const vehicleProcessingRecordController = req.container.resolve(
+      "vehicleProcessingRecordController"
+    );
+
+    await vehicleProcessingRecordController.cancelRecord(req, res, next);
+  }
+);
+
+/**
+ * @swagger
+ * /processing-records/{id}/assignment:
+ *   patch:
+ *     summary: Giao kỹ thuật viên chính cho hồ sơ
+ *     description: >-
+ *       Quản lý (`service_center_manager`) gán một kỹ thuật viên chính (main technician) chịu trách nhiệm cho toàn bộ hồ sơ.
+ *       - Hệ thống sẽ phát các socket event để thông báo cho kỹ thuật viên cũ (nếu có) và kỹ thuật viên mới.
+ *     tags: [Vehicle Processing Record, Task Assignment]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *         description: ID của hồ sơ tiếp nhận xe.
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - technicianId
+ *             required: [technicianId]
  *             properties:
  *               technicianId:
  *                 type: string
  *                 format: uuid
- *                 description: ID of the technician to assign
- *                 example: "550e8400-e29b-41d4-a716-446655440001"
+ *                 description: ID của kỹ thuật viên được giao.
  *     responses:
  *       200:
- *         description: Technician assigned successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "success"
- *                 data:
- *                   type: object
- *                   properties:
- *                     record:
- *                       type: object
- *                       properties:
- *                         id:
- *                           type: string
- *                           format: uuid
- *                         assignedTechnicianId:
- *                           type: string
- *                           format: uuid
- *                         updatedAt:
- *                           type: string
- *                           format: date-time
+ *         description: Giao việc thành công.
  *       400:
- *         description: Bad request - Invalid technician ID
- *       401:
- *         description: Unauthorized
+ *         description: Dữ liệu không hợp lệ.
  *       403:
- *         description: Forbidden - insufficient permissions or invalid assignment
+ *         description: Không có quyền hoặc phân công không hợp lệ.
  *       404:
- *         description: Record or technician not found
+ *         description: Không tìm thấy hồ sơ hoặc kỹ thuật viên.
  */
 router.patch(
   "/:id/assignment",
   authentication,
-  canAssignTask,
+  authorizationByRole(["service_center_manager"]),
+  attachCompanyContext,
+  validate(updateMainTechnicianParamsSchema, "params"),
+  validate(updateMainTechnicianBodySchema, "body"),
+
   async (req, res, next) => {
-    const vehicleProcessingRecordController = await req.container.resolve(
+    const vehicleProcessingRecordController = req.container.resolve(
       "vehicleProcessingRecordController"
     );
 
@@ -306,10 +262,12 @@ router.patch(
 
 /**
  * @swagger
- * /vehicle-processing-record/{id}:
+ * /processing-records/{id}:
  *   get:
- *     summary: Get vehicle processing record details by ID
- *     description: Retrieve detailed information about a vehicle processing record including vehicle, technician, and guarantee cases
+ *     summary: Lấy chi tiết hồ sơ tiếp nhận xe theo ID
+ *     description: >-
+ *       Lấy thông tin chi tiết của một hồ sơ, bao gồm thông tin xe, kỹ thuật viên, và các trường hợp bảo hành.
+ *       Các vai trò trong trung tâm dịch vụ đều có thể truy cập.
  *     tags: [Vehicle Processing Record]
  *     security:
  *       - BearerAuth: []
@@ -317,157 +275,15 @@ router.patch(
  *       - in: path
  *         name: id
  *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *         description: Vehicle processing record ID
- *         example: "550e8400-e29b-41d4-a716-446655440000"
+ *         schema: { type: string, format: uuid }
+ *         description: ID của hồ sơ tiếp nhận xe.
  *     responses:
  *       200:
- *         description: Vehicle processing record found successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "success"
- *                 data:
- *                   type: object
- *                   properties:
- *                     record:
- *                       type: object
- *                       properties:
- *                         vin:
- *                           type: string
- *                           description: Vehicle Identification Number
- *                           example: "VIN-NEW-0"
- *                         checkInDate:
- *                           type: string
- *                           format: date-time
- *                           description: Date and time when vehicle checked in
- *                           example: "2025-10-11T15:36:25.000Z"
- *                         odometer:
- *                           type: number
- *                           description: Vehicle odometer reading at check-in
- *                           example: 52340
- *                         status:
- *                           type: string
- *                           description: Current status of the processing record
- *                           example: "processing"
- *                           enum: [pending, processing, completed]
- *                         mainTechnician:
- *                           type: object
- *                           nullable: true
- *                           description: Main technician assigned to this record
- *                           properties:
- *                             userId:
- *                               type: string
- *                               format: uuid
- *                               example: "725d1073-9660-48ae-b970-7c8db76f676d"
- *                             name:
- *                               type: string
- *                               example: "KTV Dương Giao Linh"
- *                         vehicle:
- *                           type: object
- *                           description: Vehicle information
- *                           properties:
- *                             vin:
- *                               type: string
- *                               example: "VIN-NEW-0"
- *                             model:
- *                               type: object
- *                               description: Vehicle model details
- *                               properties:
- *                                 name:
- *                                   type: string
- *                                   example: "VF 9 Plus"
- *                                 vehicleModelId:
- *                                   type: string
- *                                   format: uuid
- *                                   example: "74b79531-887e-4cb6-a4c8-e2e36fce4b2b"
- *                         guaranteeCases:
- *                           type: array
- *                           description: List of guarantee cases for this record
- *                           items:
- *                             type: object
- *                             properties:
- *                               guaranteeCaseId:
- *                                 type: string
- *                                 format: uuid
- *                                 example: "110f907d-009d-441f-88ad-f9522ae44d0d"
- *                               status:
- *                                 type: string
- *                                 description: Status of the guarantee case
- *                                 example: "pending_diagnosis"
- *                               contentGuarantee:
- *                                 type: string
- *                                 description: Description of the issue
- *                                 example: "Đèn pha bên trái sáng yếu, cần kiểm tra hệ thống điện."
- *                         createdByStaff:
- *                           type: object
- *                           description: Staff member who created this record
- *                           properties:
- *                             userId:
- *                               type: string
- *                               format: uuid
- *                               example: "82af4858-9298-489f-9f97-9af0cbab68e4"
- *                             name:
- *                               type: string
- *                               example: "SA Tô Mỹ Lệ"
- *       400:
- *         description: Bad request - Invalid record ID
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "RecordId and userId is required"
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "Unauthorized"
+ *         description: Lấy thông tin thành công.
  *       403:
- *         description: Forbidden - insufficient permissions
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "You do not have permission to view this record"
+ *         description: Không có quyền xem hồ sơ này.
  *       404:
- *         description: Processing record not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "Processing record not found"
+ *         description: Không tìm thấy hồ sơ.
  */
 router.get(
   "/:id",
@@ -477,128 +293,50 @@ router.get(
     "service_center_technician",
     "service_center_manager",
   ]),
+  attachCompanyContext,
+
   async (req, res, next) => {
     const vehicleProcessingRecordController = req.container.resolve(
       "vehicleProcessingRecordController"
     );
 
-    await vehicleProcessingRecordController.findById(req, res, next);
+    await vehicleProcessingRecordController.getById(req, res, next);
   }
 );
 
 /**
  * @swagger
- * /vehicle-processing-record/{id}/compatible-components:
+ * /processing-records/{id}/compatible-components:
  *   get:
- *     summary: Search compatible components in stock for a processing record
- *     description: Search for compatible vehicle components available in warehouse stock based on the vehicle model in the processing record
- *     tags: [Vehicle Processing Record]
+ *     summary: Tìm kiếm linh kiện tương thích trong kho
+ *     description: >-
+ *       Tìm kiếm các loại linh kiện tương thích với mẫu xe của hồ sơ và đang có sẵn trong kho.
+ *       Hỗ trợ tìm kiếm theo tên và lọc theo danh mục.
+ *     tags: [Vehicle Processing Record, Component]
  *     security:
  *       - BearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *         description: Vehicle processing record ID
- *         example: "75977d41-64cc-4b16-8858-8f5f7b53944d"
+ *         schema: { type: string, format: uuid }
+ *         description: ID của hồ sơ tiếp nhận xe.
  *       - in: query
  *         name: category
  *         required: true
- *         schema:
- *           type: string
- *         description: Component category to filter by
- *         example: "BRAKING"
+ *         schema: { type: string }
+ *         description: Danh mục linh kiện cần tìm.
  *       - in: query
  *         name: searchName
- *         required: false
- *         schema:
- *           type: string
- *         description: Search by component name (optional)
- *         example: "phanh"
+ *         schema: { type: string }
+ *         description: (Tùy chọn) Từ khóa tìm kiếm theo tên linh kiện.
  *     responses:
  *       200:
- *         description: Compatible components found successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "success"
- *                 data:
- *                   type: object
- *                   properties:
- *                     result:
- *                       type: array
- *                       description: List of compatible components available in stock
- *                       items:
- *                         type: object
- *                         properties:
- *                           typeComponentId:
- *                             type: string
- *                             format: uuid
- *                             description: Unique identifier of the component type
- *                             example: "1096033d-f11f-4a49-a751-8be0cfb9d705"
- *                           name:
- *                             type: string
- *                             description: Name of the component
- *                             example: "Cảm biến ABS bánh sau"
+ *         description: Tìm kiếm thành công.
  *       400:
- *         description: Bad request - Missing required parameters
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "serviceCenterId, category, vehicleProcessingRecordId, modelId is required"
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "Unauthorized"
- *       403:
- *         description: Forbidden - insufficient permissions
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "You do not have permission to view this record"
+ *         description: Thiếu tham số bắt buộc.
  *       404:
- *         description: Processing record not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "Processing record not found"
+ *         description: Không tìm thấy hồ sơ.
  */
 router.get(
   "/:id/compatible-components",
@@ -608,6 +346,7 @@ router.get(
     "service_center_manager",
     "service_center_staff",
   ]),
+  attachCompanyContext,
   async (req, res, next) => {
     const vehicleProcessingRecordController = req.container.resolve(
       "vehicleProcessingRecordController"
@@ -618,6 +357,66 @@ router.get(
       res,
       next
     );
+  }
+);
+
+/**
+ * @swagger
+ * /processing-records:
+ *   get:
+ *     summary: Lấy danh sách hồ sơ tiếp nhận xe
+ *     description: >-
+ *       Lấy danh sách các hồ sơ tiếp nhận xe có phân trang và bộ lọc.
+ *       - **Nhân viên (`staff`)**: Chỉ thấy hồ sơ do mình tạo.
+ *       - **Kỹ thuật viên (`technician`)**: Chỉ thấy hồ sơ được giao cho mình.
+ *       - **Quản lý (`manager`)**: Thấy tất cả hồ sơ trong trung tâm dịch vụ của mình.
+ *     tags: [Vehicle Processing Record]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, minimum: 1, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [CHECKED_IN, IN_DIAGNOSIS, WAITING_CUSTOMER_APPROVAL, PROCESSING, READY_FOR_PICKUP, COMPLETED, CANCELLED] }
+ *         description: Lọc theo trạng thái hồ sơ.
+ *       - in: query
+ *         name: startDate
+ *         schema: { type: string, format: date }
+ *         description: Lọc hồ sơ có ngày check-in từ ngày này trở đi (ISO 8601 format).
+ *       - in: query
+ *         name: endDate
+ *         schema: { type: string, format: date }
+ *         description: Lọc hồ sơ có ngày check-in đến ngày này trở về trước (ISO 8601 format).
+ *     responses:
+ *       200:
+ *         description: Lấy danh sách thành công.
+ *       400:
+ *         description: Tham số không hợp lệ.
+ *       401:
+ *         description: Chưa xác thực.
+ *       403:
+ *         description: Không có quyền.
+ */
+router.get(
+  "/",
+  authentication,
+  authorizationByRole([
+    "service_center_staff",
+    "service_center_manager",
+    "service_center_technician",
+  ]),
+  validate(getAllRecordsSchema, "query"),
+  async (req, res, next) => {
+    const vehicleProcessingRecordController = req.container.resolve(
+      "vehicleProcessingRecordController"
+    );
+
+    await vehicleProcessingRecordController.getAllRecords(req, res, next);
   }
 );
 

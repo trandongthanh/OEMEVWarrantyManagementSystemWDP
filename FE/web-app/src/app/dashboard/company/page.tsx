@@ -1,0 +1,169 @@
+"use client";
+
+export const dynamic = "force-dynamic";
+
+import { useState, useEffect } from "react";
+import { Building2, Boxes, ArrowLeftRight, Car, Shield } from "lucide-react";
+import { authService } from "@/services";
+import { useRoleProtection } from "@/hooks/useRoleProtection";
+import { Sidebar, DashboardHeader } from "@/components/dashboard";
+import InventoryDashboard from "@/components/dashboard/companydashboard/InventoryDashboard";
+import MostUsedComponents from "@/components/dashboard/MostUsedComponents";
+import CompanyDashboardOverview from "@/components/dashboard/companydashboard/CompanyDashboardOverview";
+import StockTransferRequestManager from "@/components/dashboard/companydashboard/StockTransferRequestManager";
+import VehicleModelManagement from "@/components/dashboard/companydashboard/VehicleModelManagement";
+import VehicleManagement from "@/components/dashboard/companydashboard/VehicleManagement";
+import WarrantyComponentConfig from "@/components/dashboard/companydashboard/WarrantyComponentConfig";
+
+interface CurrentUser {
+  userId: string;
+  username?: string;
+  name?: string;
+  roleName: string;
+  serviceCenterId?: string;
+  companyId?: string;
+}
+
+export default function CompanyDashboard() {
+  // ✅ Protect route - only company coordinators
+  useRoleProtection(["parts_coordinator_company"]);
+
+  const [activeNav, setActiveNav] = useState("dashboard");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+
+  useEffect(() => {
+    const userInfo = authService.getUserInfo();
+    if (userInfo) {
+      setCurrentUser(userInfo);
+    } else {
+      const user = authService.getCurrentUser();
+      setCurrentUser(user);
+    }
+  }, []);
+
+  const handleLogout = () => {
+    authService.logout();
+  };
+
+  const navItems = [
+    { id: "dashboard", icon: Building2, label: "Dashboard" },
+    { id: "inventory", icon: Boxes, label: "Inventory" },
+    {
+      id: "transfer-requests",
+      icon: ArrowLeftRight,
+      label: "Transfer Requests",
+    },
+    { id: "vehicles", icon: Car, label: "Vehicles" },
+    { id: "vehicle-models", icon: Shield, label: "Vehicle Models" },
+    { id: "warranty-config", icon: Shield, label: "Warranty Config" },
+  ];
+
+  const renderContent = () => {
+    switch (activeNav) {
+      case "dashboard":
+        return (
+          <div className="flex-1 overflow-auto">
+            <div className="p-8">
+              <CompanyDashboardOverview onNavigate={setActiveNav} />
+            </div>
+          </div>
+        );
+
+      case "inventory":
+        return (
+          <div className="flex-1 overflow-auto">
+            <div className="p-8 space-y-6">
+              <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl border-2 border-blue-200 p-6 shadow-lg">
+                <InventoryDashboard />
+              </div>
+
+              {/* Most Used Components Widget */}
+              <MostUsedComponents limit={10} showDateFilter={true} />
+            </div>
+          </div>
+        );
+
+      case "transfer-requests":
+        return (
+          <div className="flex-1 overflow-auto">
+            <div className="p-8">
+              <div className="bg-white rounded-2xl border border-gray-200">
+                <div className="border-b border-gray-200 p-6">
+                  <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                    <ArrowLeftRight className="w-5 h-5 text-blue-600" />
+                    Stock Transfer Requests
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Manage incoming stock transfer requests from service centers
+                  </p>
+                </div>
+                <div className="p-6">
+                  <StockTransferRequestManager />
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case "vehicles":
+        return <VehicleManagement />;
+
+      case "vehicle-models":
+        return (
+          <div className="flex-1 overflow-auto">
+            <div className="p-8">
+              <VehicleModelManagement />
+            </div>
+          </div>
+        );
+
+      case "warranty-config":
+        return (
+          <div className="flex-1 overflow-auto">
+            <div className="p-8">
+              <WarrantyComponentConfig />
+            </div>
+          </div>
+        );
+
+      default:
+        return <CompanyDashboardOverview />;
+    }
+  };
+
+  return (
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        activeNav={activeNav}
+        onNavChange={setActiveNav}
+        navItems={navItems}
+        brandIcon={Building2}
+        brandName="Company"
+        brandSubtitle="Coordinator"
+        currentUser={currentUser}
+        onLogout={handleLogout}
+      />
+
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <DashboardHeader
+          onSearch={setSearchQuery}
+          onNavigate={setActiveNav}
+          searchPlaceholder="Search..."
+          showSearch={false}
+          showNotifications={true}
+          currentPage={
+            activeNav === "dashboard"
+              ? undefined
+              : navItems.find((item) => item.id === activeNav)?.label
+          }
+          searchValue={searchQuery}
+        />
+        {renderContent()}
+      </div>
+    </div>
+  );
+}

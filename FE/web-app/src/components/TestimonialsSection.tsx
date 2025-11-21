@@ -1,7 +1,21 @@
 "use client";
 
 import { motion } from "framer-motion";
-import ThreeDTestimonialRing from "./ThreeDTestimonialRing";
+import nextDynamic from "next/dynamic";
+import { Loader2 } from "lucide-react";
+
+// Dynamically import ThreeDTestimonialRing to avoid SSR issues
+const ThreeDTestimonialRing = nextDynamic(
+  () => import("./ThreeDTestimonialRing"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-full flex items-center justify-center">
+        <Loader2 className="w-12 h-12 text-emerald-400 animate-spin" />
+      </div>
+    ),
+  }
+);
 
 // Testimonial data
 const testimonials = [

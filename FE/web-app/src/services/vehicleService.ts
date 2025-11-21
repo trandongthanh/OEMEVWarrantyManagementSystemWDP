@@ -1,0 +1,348 @@
+import apiClient from "@/lib/apiClient";
+import type {
+  VehicleResponse,
+  VehicleWarrantyCheckResponse,
+  RegisterOwnerRequest,
+  RegisterOwnerResponse,
+} from "./types";
+
+/**
+ * Types for vehicle components and history
+ */
+export interface VehicleComponent {
+  componentId: string;
+  serialNumber: string;
+  status:
+    | "IN_STOCK"
+    | "RESERVED"
+    | "IN_TRANSIT"
+    | "PICKED_UP"
+    | "INSTALLED"
+    | "REMOVED";
+  vehicleVin: string;
+  installedAt: string;
+  currentHolderId?: string;
+  typeComponent: {
+    typeComponentId: string;
+    name: string;
+    category: string;
+    price: number;
+  };
+}
+
+export interface VehicleComponentsResponse {
+  status: "success";
+  data: VehicleComponent[];
+}
+
+export interface VehicleHistoryItem {
+  vehicleProcessingRecordId: string;
+  vin: string;
+  checkInDate: string;
+  checkOutDate?: string | null;
+  status: string;
+  odometer: number;
+  visitorInfo?: {
+    fullName: string;
+    email: string;
+    phone: string;
+    relationship?: string;
+    note?: string;
+  } | null;
+  guaranteeCases?: Array<{
+    guaranteeCaseId: string;
+    status: string;
+    contentGuarantee: string;
+    caseLines?: Array<{
+      id: string;
+      diagnosisText?: string;
+      correctionText?: string;
+      warrantyStatus?: string;
+      status: string;
+      rejectionReason?: string;
+      quantity?: number;
+      typeComponent?: {
+        typeComponentId: string;
+        name: string;
+        category: string;
+      };
+    }>;
+  }>;
+}
+
+export interface VehicleHistoryResponse {
+  status: "success";
+  data: {
+    serviceHistory: VehicleHistoryItem[];
+    vehicle?: {
+      vin: string;
+      licensePlate?: string;
+      model?: string;
+      owner?: {
+        fullName: string;
+        phone: string;
+      };
+    };
+  };
+}
+
+/**
+ * Vehicle Service
+ *
+ * Handles all vehicle-related API calls:
+ * - Vehicle lookup by VIN
+ * - Warranty status checking
+ * - Owner registration
+ */
+
+/**
+ * Find vehicle by VIN
+ * GET /vehicles/{vin}
+ *
+ * @param vin - Vehicle Identification Number
+ * @returns Vehicle information with owner and model details
+ */
+export const findVehicleByVin = async (
+  vin: string
+): Promise<VehicleResponse> => {
+  try {
+    const response = await apiClient.get(`/vehicles/${vin}`);
+
+    return response.data;
+  } catch (error: unknown) {
+    console.error("Error finding vehicle by VIN:", error);
+    throw error;
+  }
+};
+
+/**
+ * Check vehicle warranty status
+ * GET /vehicles/{vin}/warranty
+ *
+ * Checks warranty eligibility based on:
+ * - Purchase date and warranty duration
+ * - Current odometer reading vs mileage limits
+ * - Component-specific warranties
+ *
+ * @param vin - Vehicle Identification Number
+ * @param odometer - Current odometer reading
+ * @returns Warranty status for vehicle and components
+ */
+export const checkVehicleWarranty = async (
+  vin: string,
+  odometer: number
+): Promise<VehicleWarrantyCheckResponse> => {
+  try {
+    const response = await apiClient.get(`/vehicles/${vin}/warranty`, {
+      params: { odometer },
+    });
+
+    return response.data;
+  } catch (error: unknown) {
+    console.error("Error checking vehicle warranty:", error);
+    throw error;
+  }
+};
+
+/**
+ * Preview warranty status before purchase
+ * POST /vehicles/{vin}/warranty/preview
+ *
+ * Previews warranty eligibility for a vehicle before it's purchased.
+ * Used to check warranty coverage based on hypothetical purchase date and odometer.
+ *
+ * @param vin - Vehicle Identification Number
+ * @param data - Preview data with odometer and purchase date
+ * @returns Warranty status preview
+ */
+export const previewVehicleWarranty = async (
+  vin: string,
+  data: { odometer: number; purchaseDate: string }
+): Promise<VehicleWarrantyCheckResponse> => {
+  try {
+    const response = await apiClient.post(
+      `/vehicles/${vin}/warranty/preview`,
+      data
+    );
+
+    return response.data;
+  } catch (error: unknown) {
+    console.error("Error previewing vehicle warranty:", error);
+    throw error;
+  }
+};
+
+/**
+ * Register owner for vehicle
+ * PATCH /vehicles/{vin}
+ *
+ * Registers a customer as the owner of a vehicle.
+ * Can either use existing customer ID or create new customer.
+ *
+ * @param vin - Vehicle Identification Number
+ * @param data - Owner registration data
+ * @returns Updated vehicle with owner information
+ */
+export const registerVehicleOwner = async (
+  vin: string,
+  data: RegisterOwnerRequest
+): Promise<RegisterOwnerResponse> => {
+  // Validate that either customerId or customer is provided
+  if (!data.customerId && !data.customer) {
+    throw new Error(
+      "Client must provide customer or customerId to register for owner for vehicle"
+    );
+  }
+
+  try {
+    const response = await apiClient.patch(`/vehicles/${vin}`, data);
+
+    return response.data;
+  } catch (error: unknown) {
+    console.error("Error registering vehicle owner:", error);
+    throw error;
+  }
+};
+
+/**
+ * Get all components installed on vehicle
+ * GET /vehicles/{vin}/components
+ *
+ * Returns all components that are currently installed on the vehicle,
+ * including component details and installation dates.
+ *
+ * @param vin - Vehicle Identification Number
+ * @param status - Optional filter by component status (ALL, IN_STOCK, RESERVED, IN_TRANSIT, PICKED_UP, INSTALLED, REMOVED)
+ * @returns List of components installed on the vehicle
+ */
+export const getVehicleComponents = async (
+  vin: string,
+  status:
+    | "ALL"
+    | "IN_STOCK"
+    | "RESERVED"
+    | "IN_TRANSIT"
+    | "PICKED_UP"
+    | "INSTALLED"
+    | "REMOVED" = "ALL"
+): Promise<VehicleComponentsResponse> => {
+  try {
+    const response = await apiClient.get(`/vehicles/${vin}/components`, {
+      params: status ? { status } : undefined,
+    });
+
+    // Backend returns array directly in data field, not wrapped in components property
+    return {
+      status: "success",
+      data: Array.isArray(response.data.data) ? response.data.data : [],
+    };
+  } catch (error: unknown) {
+    console.error("Error fetching vehicle components:", error);
+    throw error;
+  }
+};
+
+/**
+ * Get vehicle service and warranty history
+ * GET /vehicles/{vin}/service-history
+ *
+ * Returns the complete service history for a vehicle, including:
+ * - All processing records (check-ins)
+ * - Guarantee cases
+ * - Service center information
+ * - Status and dates
+ *
+ * @param vin - Vehicle Identification Number
+ * @returns Complete service and warranty history
+ */
+export const getVehicleHistory = async (
+  vin: string
+): Promise<VehicleHistoryResponse> => {
+  try {
+    const response = await apiClient.get(`/vehicles/${vin}/service-history`);
+
+    return response.data;
+  } catch (error: unknown) {
+    console.error("Error fetching vehicle history:", error);
+    throw error;
+  }
+};
+
+/**
+ * Download bulk create template Excel file
+ * GET /vehicles/bulk-create-template
+ *
+ * Downloads an Excel template file for bulk vehicle creation.
+ * Only available for parts_coordinator_company role.
+ *
+ * @returns Excel file as blob
+ */
+export const downloadBulkCreateTemplate = async (): Promise<Blob> => {
+  try {
+    const response = await apiClient.get("/vehicles/bulk-create-template", {
+      responseType: "blob",
+    });
+
+    return response.data;
+  } catch (error: unknown) {
+    console.error("Error downloading bulk create template:", error);
+    throw error;
+  }
+};
+
+/**
+ * Bulk create vehicles from Excel file
+ * POST /vehicles/bulk-create
+ *
+ * Upload an Excel file to create multiple vehicles at once.
+ * Only available for parts_coordinator_company role.
+ *
+ * @param file - Excel file containing vehicle data
+ * @returns Result summary with success/failure counts
+ */
+export const bulkCreateVehicles = async (
+  file: File
+): Promise<{
+  status: string;
+  data: {
+    summary: {
+      total: number;
+      successful: number;
+      failed: number;
+    };
+    errors?: Array<{
+      row: number;
+      vin?: string;
+      error: string;
+    }>;
+  };
+}> => {
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await apiClient.post("/vehicles/bulk-create", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
+    return response.data;
+  } catch (error: unknown) {
+    console.error("Error bulk creating vehicles:", error);
+    throw error;
+  }
+};
+
+const vehicleService = {
+  findVehicleByVin,
+  checkVehicleWarranty,
+  previewVehicleWarranty,
+  registerVehicleOwner,
+  getVehicleComponents,
+  getVehicleHistory,
+  downloadBulkCreateTemplate,
+  bulkCreateVehicles,
+};
+
+export default vehicleService;

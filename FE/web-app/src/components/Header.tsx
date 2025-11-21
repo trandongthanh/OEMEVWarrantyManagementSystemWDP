@@ -90,16 +90,10 @@ export function Header() {
             </button>
             <Link
               href="/login"
-              className="text-gray-300 hover:text-blue-400 transition-colors font-light flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/5"
+              className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-full font-medium hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 hover:scale-105 flex items-center gap-2"
             >
               <User className="h-4 w-4" />
               <span>Sign In</span>
-            </Link>
-            <Link
-              href="/register"
-              className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-full font-medium hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 hover:scale-105"
-            >
-              Get Quote
             </Link>
           </div>
 
@@ -162,18 +156,11 @@ export function Header() {
               <div className="flex flex-col space-y-3 px-4 pt-4 border-t border-gray-700/30">
                 <Link
                   href="/login"
-                  className="text-gray-300 hover:text-blue-400 transition-colors font-light flex items-center gap-2 py-3 px-4 rounded-lg hover:bg-white/5"
+                  className="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 px-6 rounded-full font-medium text-center hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 flex items-center justify-center gap-2"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   <User className="h-4 w-4" />
                   <span>Sign In</span>
-                </Link>
-                <Link
-                  href="/register"
-                  className="bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 px-6 rounded-full font-medium text-center hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Get Quote
                 </Link>
               </div>
             </div>

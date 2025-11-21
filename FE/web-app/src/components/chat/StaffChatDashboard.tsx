@@ -1,0 +1,1076 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
+import {
+  MessageCircle,
+  X,
+  Send,
+  Check,
+  Clock,
+  User,
+  Paperclip,
+  Download,
+} from "lucide-react";
+import {
+  getMyConversations,
+  acceptConversation,
+  getConversationMessages,
+  closeConversation,
+  Conversation,
+  Message,
+} from "@/services/chatService";
+import { uploadToCloudinary } from "@/lib/cloudinary";
+import { decodeFileFromContent } from "@/lib/fileMessageUtils";
+import { toast } from "sonner";
+
+// Lazy-load socket functions to prevent chunk 153 bundling
+const getSocketFunctions = async () => {
+  const socket = await import("@/lib/socket");
+  return socket;
+};
+
+interface StaffChatDashboardProps {
+  serviceCenterId?: string; // Can be used for filtering in the future
+  onClose?: () => void;
+}
+
+export default function StaffChatDashboard({
+  onClose,
+}: StaffChatDashboardProps) {
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeConversation, setActiveConversation] =
+    useState<Conversation | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputText, setInputText] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [selectedTab, setSelectedTab] = useState<
+    "UNASSIGNED" | "ACTIVE" | "CLOSED"
+  >("UNASSIGNED");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [guestHasLeft, setGuestHasLeft] = useState(false); // Track if guest has left
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+
+  // Get auth token and userId from localStorage or context
+  const authToken =
+    typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
+
+  // Get userId from userInfo JSON object
+  const currentUserId = (() => {
+    if (typeof window === "undefined") return null;
+    const userInfoStr = localStorage.getItem("userInfo");
+    if (!userInfoStr) return null;
+    try {
+      const userInfo = JSON.parse(userInfoStr);
+      return userInfo.userId;
+    } catch {
+      return null;
+    }
+  })();
+
+  useEffect(() => {
+    console.log(
+      "[Staff] Component mounted - authToken:",
+      !!authToken,
+      "userId:",
+      currentUserId
+    );
+    if (authToken) {
+      initializeSockets();
+      loadConversations();
+    }
+
+    // Cleanup on unmount
+    return () => {
+      getSocketFunctions().then(({ getChatSocket, getNotificationSocket }) => {
+        const chatSocket = getChatSocket();
+        if (chatSocket) {
+          chatSocket.off("newMessage");
+          chatSocket.off("userTyping");
+        }
+
+        // Also cleanup notification socket listeners
+        const notifSocket = getNotificationSocket();
+        if (notifSocket) {
+          notifSocket.off("newConversation");
+        }
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authToken]);
+
+  useEffect(() => {
+    loadConversations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTab]);
+
+  // Auto-open conversation when navigating from notification
+  useEffect(() => {
+    const notificationId = sessionStorage.getItem("selectedItemId");
+    const notificationType = sessionStorage.getItem("selectedItemType");
+
+    if (
+      notificationType === "chat-support" &&
+      notificationId &&
+      conversations.length > 0
+    ) {
+      // Find the conversation by ID
+      const conversation = conversations.find(
+        (c) => c.conversationId === notificationId
+      );
+      if (conversation) {
+        setActiveConversation(conversation);
+        // Switch to the appropriate tab
+        setSelectedTab(
+          conversation.status as "UNASSIGNED" | "ACTIVE" | "CLOSED"
+        );
+      }
+
+      // Clear storage
+      sessionStorage.removeItem("selectedItemId");
+      sessionStorage.removeItem("selectedItemType");
+    }
+  }, [conversations]);
+
+  useEffect(() => {
+    console.log(
+      "[Staff] 🔄 useEffect triggered - activeConversation changed:",
+      activeConversation
+    );
+    if (activeConversation) {
+      // Reset guest left state when switching conversations
+      setGuestHasLeft(false);
+
+      console.log(
+        "[Staff] Loading messages for conversation:",
+        activeConversation.conversationId
+      );
+      loadMessages(activeConversation.conversationId);
+      console.log("[Staff] Calling setupChatListeners...");
+      setupChatListeners();
+    } else {
+      console.log("[Staff] No active conversation, skipping setup");
+    }
+
+    // Cleanup function to remove listeners when conversation changes
+    return () => {
+      console.log("[Staff] 🧹 Cleaning up listeners for conversation change");
+      getSocketFunctions().then(({ getChatSocket }) => {
+        const socket = getChatSocket();
+        if (socket) {
+          socket.off("newMessage");
+          socket.off("userTyping");
+          socket.off("guestLeft");
+        }
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeConversation]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const initializeSockets = async () => {
+    const { initializeChatSocket, initializeNotificationSocket } =
+      await getSocketFunctions();
+    // Initialize chat socket with auth token for staff
+    await initializeChatSocket(authToken || undefined);
+
+    // Initialize notification socket for new chat alerts
+    if (authToken) {
+      const notifSocket = await initializeNotificationSocket(authToken);
+
+      // Clean up any existing listeners to prevent duplicates
+      notifSocket.off("newConversation");
+
+      // Listen for new conversation requests
+      notifSocket.on("newConversation", (data: { conversationId: string }) => {
+        console.log("New conversation request:", data);
+        // Reload unassigned conversations
+        if (selectedTab === "UNASSIGNED") {
+          loadConversations();
+        }
+        // Show notification
+        playNotificationSound();
+      });
+    }
+  };
+
+  const setupChatListeners = async () => {
+    const { getChatSocket, initializeChatSocket, joinChatRoom } =
+      await getSocketFunctions();
+    const socket = getChatSocket();
+    if (!socket || !activeConversation || !currentUserId) {
+      console.log(
+        "[Staff] Cannot setup listeners - missing:",
+        !socket ? "socket" : !activeConversation ? "conversation" : "userId"
+      );
+      return;
+    }
+
+    // Ensure socket is connected before setting up listeners
+    if (!socket.connected) {
+      console.log("[Staff] Socket not connected, initializing...");
+      console.log(
+        "[Staff] Socket exists:",
+        !!socket,
+        "Connected:",
+        socket?.connected
+      );
+      initializeChatSocket(authToken || undefined).catch(console.error);
+      // Retry after a short delay
+      setTimeout(() => setupChatListeners(), 1000);
+      return;
+    }
+
+    console.log("[Staff] Setting up chat listeners");
+    console.log("[Staff] Conversation ID:", activeConversation.conversationId);
+    console.log("[Staff] Current User ID:", currentUserId);
+    console.log("[Staff] Socket state:", {
+      connected: socket.connected,
+      id: socket.id,
+    });
+
+    // Clean up previous listeners to avoid duplicates
+    console.log("[Staff] Cleaning up old listeners");
+    socket.off("newMessage");
+    socket.off("userTyping");
+    socket.off("guestLeft");
+
+    // Join the conversation room
+    console.log(
+      "[Staff] 🚀 About to join room:",
+      activeConversation.conversationId
+    );
+    joinChatRoom(activeConversation.conversationId, currentUserId, "staff");
+    console.log(
+      "[Staff] ✅ joinChatRoom called - check backend for confirmation"
+    );
+
+    // Listen for new messages
+    socket.on("newMessage", (data: { newMessage: Message }) => {
+      console.log("[Staff] 📩 Received newMessage event:", data);
+      // Normalize senderType to lowercase for frontend consistency
+      const normalizedMessage = {
+        ...data.newMessage,
+        senderType: data.newMessage.senderType.toLowerCase() as
+          | "guest"
+          | "staff",
+        // Backend sends createdAt but frontend expects sentAt
+        sentAt:
+          (data.newMessage as unknown as { createdAt?: string }).createdAt ||
+          data.newMessage.sentAt,
+      };
+      setMessages((prev) => [...prev, normalizedMessage]);
+      setIsTyping(false);
+    });
+
+    // Listen for typing indicator
+    socket.on("userTyping", () => {
+      setIsTyping(true);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      typingTimeoutRef.current = setTimeout(() => {
+        setIsTyping(false);
+      }, 3000);
+    });
+
+    // Listen for guest leaving
+    socket.on(
+      "guestLeft",
+      (data: {
+        conversationId: string;
+        guestId: string;
+        timestamp: string;
+      }) => {
+        console.log("[Staff] 👋 Guest left the chat:", data);
+        if (data.conversationId === activeConversation.conversationId) {
+          // Mark that guest has left (frontend-only state)
+          setGuestHasLeft(true);
+
+          // Add system message to chat
+          const systemMessage: Message = {
+            messageId: `system_${Date.now()}`,
+            content: "Guest has left the conversation",
+            senderId: "system",
+            senderType: "system",
+            senderName: "System",
+            sentAt: data.timestamp,
+            isRead: true,
+          };
+          setMessages((prev) => [...prev, systemMessage]);
+          setIsTyping(false);
+        }
+      }
+    );
+  };
+
+  const loadConversations = async () => {
+    setLoading(true);
+    try {
+      const convs = await getMyConversations(selectedTab);
+      setConversations(convs);
+    } catch (err) {
+      console.error("Failed to load conversations:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadMessages = async (conversationId: string) => {
+    try {
+      const msgs = await getConversationMessages(conversationId);
+      // Normalize senderType to lowercase for frontend consistency
+      // Backend sends createdAt but frontend expects sentAt
+      const normalizedMsgs = msgs.map((msg) => ({
+        ...msg,
+        senderType: msg.senderType.toLowerCase() as "guest" | "staff",
+        sentAt:
+          (msg as unknown as { createdAt?: string }).createdAt || msg.sentAt,
+      }));
+      setMessages(normalizedMsgs);
+    } catch (err) {
+      console.error("Failed to load messages:", err);
+    }
+  };
+
+  const handleAcceptChat = async (conversation: Conversation) => {
+    console.log(
+      "[Staff] 🎯 handleAcceptChat called for conversation:",
+      conversation.conversationId
+    );
+    try {
+      console.log("[Staff] Calling acceptConversation API...");
+      await acceptConversation(conversation.conversationId);
+      console.log("[Staff] ✅ Conversation accepted, setting as active");
+      setActiveConversation({ ...conversation, status: "ACTIVE" });
+      setSelectedTab("ACTIVE");
+      console.log("[Staff] Reloading conversations list...");
+      loadConversations();
+      console.log("[Staff] setupChatListeners should trigger via useEffect");
+    } catch (err) {
+      console.error("[Staff] ❌ Failed to accept chat:", err);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (
+      (!inputText.trim() && !selectedFile) ||
+      !activeConversation ||
+      !currentUserId
+    )
+      return;
+
+    // Check if socket is connected
+    const { getChatSocket, initializeChatSocket, sendSocketMessage } =
+      await getSocketFunctions();
+    const socket = getChatSocket();
+    if (!socket || !socket.connected) {
+      console.error("[Staff] Socket not connected! Reinitializing...");
+      initializeChatSocket(authToken || undefined).catch(console.error);
+      toast.warning("Connection lost. Please try again in a moment.");
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      let messageContent = inputText.trim();
+
+      // Upload file to Cloudinary if selected - just include the URL in message
+      if (selectedFile) {
+        const fileUrl = await uploadToCloudinary(selectedFile);
+        // Simply add the URL to the message - frontend will auto-detect and display it
+        messageContent = fileUrl + (messageContent ? ` ${messageContent}` : "");
+      }
+
+      const messageData = {
+        conversationId: activeConversation.conversationId,
+        senderId: currentUserId,
+        senderType: "staff" as const,
+        content: messageContent || `📎 ${selectedFile?.name || "attachment"}`,
+        timestamp: new Date().toISOString(),
+      };
+
+      console.log("[Staff] Sending message:", messageContent);
+      console.log("[Staff] Socket connected:", socket.connected);
+      console.log("[Staff] Socket ID:", socket.id);
+
+      // Send through socket
+      sendSocketMessage(
+        messageData,
+        (response: { success: boolean; message?: Message; error?: string }) => {
+          console.log("[Staff] Message send response:", response);
+          if (!response.success) {
+            console.error("[Staff] Failed to send message:", response.error);
+            toast.error("Failed to send message: " + response.error);
+          }
+        }
+      );
+
+      // Add to local state for immediate display
+      const newMessage: Message = {
+        messageId: `temp-${Date.now()}`,
+        content: messageContent || `📎 ${selectedFile?.name || "attachment"}`,
+        senderId: currentUserId,
+        senderType: "staff",
+        senderName: "You",
+        sentAt: new Date().toISOString(),
+        isRead: false,
+      };
+
+      setMessages((prev) => [...prev, newMessage]);
+      setInputText("");
+      setSelectedFile(null);
+    } catch (err) {
+      console.error("Failed to send message:", err);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleCloseConversation = async () => {
+    if (!activeConversation) return;
+
+    try {
+      await closeConversation(activeConversation.conversationId);
+      setActiveConversation(null);
+      setMessages([]);
+      loadConversations();
+    } catch (err) {
+      console.error("Failed to close conversation:", err);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Check file size (limit to 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("File size must be less than 10MB");
+        return;
+      }
+      setSelectedFile(file);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+  };
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const playNotificationSound = () => {
+    // Play notification sound
+    if (typeof window !== "undefined" && "Audio" in window) {
+      const audio = new Audio("/notification.mp3");
+      audio.play().catch((err) => console.log("Failed to play sound:", err));
+    }
+  };
+
+  const formatTime = (dateString: string) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "";
+    return date.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "";
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+
+    if (diffInHours < 24) {
+      return formatTime(dateString);
+    } else {
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      });
+    }
+  };
+
+  const getWaitingCount = () => {
+    return conversations.filter((c) => c.status === "UNASSIGNED").length;
+  };
+
+  return (
+    <div className="flex h-full bg-white rounded-2xl overflow-hidden shadow-lg border border-gray-200">
+      {/* Sidebar - Conversations List */}
+      <div className="w-96 bg-gray-50 border-r border-gray-200 flex flex-col">
+        {/* Tabs Header */}
+        <div className="bg-white border-b border-gray-200 p-4">
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 hover:text-gray-700"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+
+          {/* Tabs */}
+          <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
+            <button
+              onClick={() => setSelectedTab("UNASSIGNED")}
+              className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200 relative ${
+                selectedTab === "UNASSIGNED"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <Clock className="w-4 h-4" />
+                <span>Waiting</span>
+              </div>
+              <AnimatePresence mode="wait">
+                {getWaitingCount() > 0 && (
+                  <motion.span
+                    key={getWaitingCount()}
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 500,
+                      damping: 30,
+                    }}
+                    className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md"
+                  >
+                    {getWaitingCount()}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </button>
+            <button
+              onClick={() => setSelectedTab("ACTIVE")}
+              className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                selectedTab === "ACTIVE"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <MessageCircle className="w-4 h-4" />
+                <span>Active</span>
+              </div>
+            </button>
+            <button
+              onClick={() => setSelectedTab("CLOSED")}
+              className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                selectedTab === "CLOSED"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <Check className="w-4 h-4" />
+                <span>Closed</span>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Conversations List */}
+        <div className="flex-1 overflow-y-auto bg-gray-50">
+          {loading ? (
+            <div className="p-8 text-center text-gray-500">
+              <div className="w-8 h-8 border-3 border-gray-200 border-t-blue-500 rounded-full animate-spin mx-auto mb-3"></div>
+              <p className="text-sm font-medium">Loading conversations...</p>
+            </div>
+          ) : conversations.length === 0 ? (
+            <div className="p-12 text-center">
+              <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
+                <MessageCircle className="w-8 h-8 text-gray-300" />
+              </div>
+              <p className="text-base font-semibold text-gray-700 mb-1">
+                No {selectedTab.toLowerCase()} conversations
+              </p>
+              <p className="text-sm text-gray-500">
+                {selectedTab === "UNASSIGNED" &&
+                  "Waiting for customer inquiries"}
+                {selectedTab === "ACTIVE" && "No active chats at the moment"}
+                {selectedTab === "CLOSED" && "No closed conversations yet"}
+              </p>
+            </div>
+          ) : (
+            <div className="p-3 space-y-2">
+              {conversations.map((conversation) => (
+                <motion.div
+                  key={conversation.conversationId}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  onClick={() => setActiveConversation(conversation)}
+                  className={`p-4 bg-white rounded-xl cursor-pointer transition-all duration-200 border ${
+                    activeConversation?.conversationId ===
+                    conversation.conversationId
+                      ? "border-blue-500 shadow-md ring-2 ring-blue-100"
+                      : "border-gray-200 hover:border-gray-300 hover:shadow-sm"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="relative">
+                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <User className="w-6 h-6 text-white" />
+                      </div>
+                      <div
+                        className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white shadow-sm ${
+                          conversation.status === "UNASSIGNED"
+                            ? "bg-amber-400"
+                            : conversation.status === "ACTIVE"
+                            ? "bg-green-500"
+                            : "bg-gray-400"
+                        }`}
+                      ></div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div>
+                          <h4 className="font-semibold text-gray-900 truncate">
+                            Anonymous Guest
+                          </h4>
+                          <p className="text-xs text-gray-500">
+                            ID:{" "}
+                            {conversation.guest?.guestId?.slice(-23) ||
+                              "Unknown"}
+                          </p>
+                        </div>
+                        <span className="text-xs text-gray-500 font-medium">
+                          {formatDate(conversation.createdAt)}
+                        </span>
+                      </div>
+                      {conversation.lastMessage && (
+                        <p className="text-sm text-gray-600 truncate mb-2">
+                          {conversation.lastMessage.content}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+                            conversation.status === "UNASSIGNED"
+                              ? "bg-amber-50 text-amber-700 border border-amber-200"
+                              : conversation.status === "ACTIVE"
+                              ? "bg-green-50 text-green-700 border border-green-200"
+                              : "bg-gray-100 text-gray-700 border border-gray-200"
+                          }`}
+                        >
+                          {conversation.status === "UNASSIGNED"
+                            ? "Waiting"
+                            : conversation.status === "ACTIVE"
+                            ? "Active"
+                            : "Closed"}
+                        </span>
+                        <AnimatePresence mode="wait">
+                          {conversation.unreadCount &&
+                            conversation.unreadCount > 0 && (
+                              <motion.span
+                                key={conversation.unreadCount}
+                                initial={{ scale: 0, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0, opacity: 0 }}
+                                transition={{
+                                  type: "spring",
+                                  stiffness: 500,
+                                  damping: 30,
+                                }}
+                                className="bg-blue-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center"
+                              >
+                                {conversation.unreadCount}
+                              </motion.span>
+                            )}
+                        </AnimatePresence>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Accept Button for Waiting Chats */}
+                  {conversation.status === "UNASSIGNED" && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAcceptChat(conversation);
+                      }}
+                      className="w-full mt-3 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all duration-200 text-sm font-semibold flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>Accept Chat</span>
+                    </button>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col bg-white">
+        {activeConversation ? (
+          <>
+            {/* Chat Header */}
+            <div className="bg-white px-6 py-5 border-b border-gray-200 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-sm">
+                    <User className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-lg">
+                      Anonymous Guest
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      ID:{" "}
+                      {activeConversation.guest?.guestId?.slice(-23) ||
+                        "Unknown"}
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          guestHasLeft
+                            ? "bg-orange-500"
+                            : activeConversation.status === "ACTIVE"
+                            ? "bg-green-500"
+                            : "bg-gray-400"
+                        }`}
+                      ></div>
+                      <p className="text-sm text-gray-600 font-medium capitalize">
+                        {guestHasLeft
+                          ? "Guest Left"
+                          : activeConversation.status === "UNASSIGNED"
+                          ? "Waiting"
+                          : activeConversation.status === "ACTIVE"
+                          ? "Active"
+                          : "Closed"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                {activeConversation.status === "ACTIVE" && (
+                  <button
+                    onClick={handleCloseConversation}
+                    className="px-5 py-2.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md"
+                  >
+                    Close Chat
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Messages Area */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
+              {messages.map((message) => {
+                // System messages (guest left notification)
+                if (message.senderType === "system") {
+                  return (
+                    <motion.div
+                      key={message.messageId}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex justify-center my-4"
+                    >
+                      <div className="bg-gray-200/80 text-gray-600 px-4 py-2 rounded-full text-xs font-medium shadow-sm">
+                        {message.content}
+                      </div>
+                    </motion.div>
+                  );
+                }
+
+                // Regular messages
+                return (
+                  <motion.div
+                    key={message.messageId}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`flex ${
+                      message.senderType === "staff"
+                        ? "justify-end"
+                        : "justify-start"
+                    }`}
+                  >
+                    <div className="max-w-[70%]">
+                      {message.senderType === "guest" && (
+                        <p className="text-xs text-gray-500 mb-1.5 ml-2 font-medium">
+                          {message.senderName}
+                        </p>
+                      )}
+                      {(() => {
+                        const { file, text } = decodeFileFromContent(
+                          message.content
+                        );
+                        return (
+                          <div
+                            className={`rounded-2xl px-4 py-3 shadow-sm ${
+                              message.senderType === "staff"
+                                ? "bg-blue-500 text-white"
+                                : "bg-white text-gray-900 border border-gray-200"
+                            }`}
+                          >
+                            {/* File/Image Display */}
+                            {file && (
+                              <div className="mb-3">
+                                {file.type === "image" ? (
+                                  <div className="relative">
+                                    <Image
+                                      src={file.url}
+                                      alt="Shared image"
+                                      width={300}
+                                      height={200}
+                                      className="max-w-full max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity object-cover"
+                                      onClick={() =>
+                                        window.open(file.url, "_blank")
+                                      }
+                                    />
+                                    <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+                                      📷 Image
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
+                                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                      <span className="text-xl">📎</span>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium text-gray-900 truncate">
+                                        {file.name}
+                                      </p>
+                                      <p className="text-xs text-gray-500">
+                                        File attachment
+                                      </p>
+                                    </div>
+                                    {/* Download button - only show for guest messages */}
+                                    {message.senderType !== "staff" && (
+                                      <a
+                                        href={file.url}
+                                        download
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="p-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex-shrink-0 shadow-sm hover:shadow-md"
+                                        title="Download file"
+                                      >
+                                        <Download size={18} />
+                                      </a>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Message Text */}
+                            {text && (
+                              <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                                {text}
+                              </p>
+                            )}
+
+                            {/* Timestamp - always show */}
+                            <p
+                              className={`text-xs ${
+                                text || !file ? "mt-2" : "mt-0"
+                              } ${
+                                message.senderType === "staff"
+                                  ? "text-blue-100"
+                                  : "text-gray-500"
+                              }`}
+                            >
+                              {formatTime(message.sentAt)}
+                            </p>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </motion.div>
+                );
+              })}
+
+              {/* Typing Indicator */}
+              <AnimatePresence>
+                {isTyping && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="flex justify-start"
+                  >
+                    <div className="inline-flex flex-col gap-1">
+                      <p className="text-xs text-gray-500 font-medium whitespace-nowrap">
+                        Guest is typing...
+                      </p>
+                      <div className="bg-white border border-gray-200 rounded-2xl px-5 py-3 shadow-sm w-fit">
+                        <div className="flex gap-1.5">
+                          <motion.div
+                            key="typing-dot-1"
+                            animate={{ y: [0, -5, 0] }}
+                            transition={{
+                              repeat: Infinity,
+                              duration: 0.6,
+                              delay: 0,
+                            }}
+                            className="w-2 h-2 bg-gray-400 rounded-full"
+                          />
+                          <motion.div
+                            key="typing-dot-2"
+                            animate={{ y: [0, -5, 0] }}
+                            transition={{
+                              repeat: Infinity,
+                              duration: 0.6,
+                              delay: 0.2,
+                            }}
+                            className="w-2 h-2 bg-gray-400 rounded-full"
+                          />
+                          <motion.div
+                            key="typing-dot-3"
+                            animate={{ y: [0, -5, 0] }}
+                            transition={{
+                              repeat: Infinity,
+                              duration: 0.6,
+                              delay: 0.4,
+                            }}
+                            className="w-2 h-2 bg-gray-400 rounded-full"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input Area */}
+            <div className="bg-white border-t border-gray-200 p-5 shadow-sm">
+              {activeConversation.status === "ACTIVE" ? (
+                <>
+                  {/* File Preview */}
+                  {selectedFile && (
+                    <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                            <span className="text-blue-600 text-sm">📎</span>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-900 font-medium truncate max-w-[200px]">
+                              {selectedFile.name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleRemoveFile}
+                          className="p-1 hover:bg-gray-200 rounded-lg transition-colors"
+                        >
+                          <X className="w-4 h-4 text-gray-500 hover:text-gray-700" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-end gap-3">
+                    {/* File Input */}
+                    <label className="p-3 bg-gray-100 border border-gray-200 rounded-xl hover:bg-gray-200 transition-all duration-200 cursor-pointer group">
+                      <input
+                        type="file"
+                        onChange={handleFileSelect}
+                        accept="image/*,.pdf,.doc,.docx,.txt"
+                        className="hidden"
+                      />
+                      <Paperclip className="w-5 h-5 text-gray-500 group-hover:text-gray-700 transition-colors" />
+                    </label>
+
+                    <textarea
+                      value={inputText}
+                      onChange={(e) => {
+                        setInputText(e.target.value);
+                        if (activeConversation && e.target.value.trim()) {
+                          getSocketFunctions().then(
+                            ({ sendTypingIndicator }) => {
+                              sendTypingIndicator(
+                                activeConversation.conversationId
+                              );
+                            }
+                          );
+                        }
+                      }}
+                      onKeyDown={handleKeyPress}
+                      placeholder="Type your message..."
+                      rows={1}
+                      className="flex-1 resize-none rounded-xl border-2 border-gray-200 px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      style={{ minHeight: "48px", maxHeight: "120px" }}
+                    />
+                    <button
+                      onClick={handleSendMessage}
+                      disabled={
+                        (!inputText.trim() && !selectedFile) || isUploading
+                      }
+                      className="p-3.5 bg-blue-500 text-white rounded-xl hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
+                    >
+                      {isUploading ? (
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Send className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-4">
+                  <div
+                    className={`inline-block px-6 py-3 text-sm font-medium rounded-xl ${
+                      guestHasLeft
+                        ? "bg-orange-50 text-orange-600 border border-orange-200"
+                        : "bg-gray-100 text-gray-600"
+                    }`}
+                  >
+                    {guestHasLeft
+                      ? "Guest has left the conversation"
+                      : activeConversation.status === "UNASSIGNED"
+                      ? "Accept this chat to start messaging"
+                      : "This conversation is closed"}
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          /* Empty State */
+          <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 to-white">
+            <div className="text-center">
+              <div className="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm">
+                <MessageCircle className="w-10 h-10 text-gray-400" />
+              </div>
+              <p className="text-lg font-semibold text-gray-700 mb-2">
+                No conversation selected
+              </p>
+              <p className="text-sm text-gray-500">
+                Choose a conversation from the list to start chatting
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

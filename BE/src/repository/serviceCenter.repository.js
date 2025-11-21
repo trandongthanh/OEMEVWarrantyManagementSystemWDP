@@ -26,6 +26,18 @@ class ServiceCenterRepository {
 
     return company.toJSON();
   };
+
+  async findServiceCenterById(
+    { serviceCenterId },
+    transaction = null,
+    lock = null
+  ) {
+    const serviceCenter = await ServiceCenter.findByPk(serviceCenterId, {
+      transaction,
+      lock,
+    });
+    return serviceCenter ? serviceCenter.toJSON() : null;
+  }
 }
 
 export default ServiceCenterRepository;

@@ -13,11 +13,20 @@ module.exports = (sequelize, DataTypes) => {
           "service_center_staff",
           "service_center_technician",
           "emv_staff",
+          "parts_coordinator_service_center",
+          "parts_coordinator_company",
           "emv_admin",
           "service_center_manager"
         ),
+
         allowNull: false,
         field: "role_name",
+      },
+      maxTasks: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 10,
+        field: "max_tasks",
       },
     },
     {
