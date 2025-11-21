@@ -74,7 +74,7 @@ export default function StaffChatScreen({ route, navigation }) {
     console.log("📄 Token type:", typeof token);
   }, [token]);
 
-  // 🧩 Kết nối socket & lắng nghe tin nhắn realtime
+  // 🧩 Kết nối socket & realtime
   useEffect(() => {
     const socket = initSocket(token);
     joinConversation(conversationId);
@@ -103,11 +103,11 @@ export default function StaffChatScreen({ route, navigation }) {
     fetchMessages();
   }, [conversationId]);
 
-  // 🧩 Gửi tin nhắn qua socket
+  // 🧩 Gửi tin nhắn
   const handleSend = () => {
     if (!input.trim() || chatStatus !== "ACTIVE") return;
     if (!staffId) {
-      console.warn("⚠️ Missing senderId — token decode failed or empty");
+      console.warn("⚠️ Missing senderId — token decode failed");
       return;
     }
 
@@ -119,22 +119,20 @@ export default function StaffChatScreen({ route, navigation }) {
       createdAt: new Date().toISOString(),
     };
 
-    console.log("✉️ Sending message:", newMsg);
-
     sendMessageSocket(newMsg);
     setMessages((prev) => [...prev, newMsg]);
     setInput("");
     Keyboard.dismiss();
   };
 
-  // 🧩 Auto scroll khi có tin nhắn mới
+  // 🧩 Auto scroll
   useEffect(() => {
     if (flatListRef.current && messages.length > 0) {
       flatListRef.current.scrollToEnd({ animated: true });
     }
   }, [messages]);
 
-  // 🧩 Đổi màu theo trạng thái chat
+  // 🧩 Đổi màu theo trạng thái
   const getStatusColor = () => {
     switch (chatStatus) {
       case "ACTIVE":
@@ -146,20 +144,18 @@ export default function StaffChatScreen({ route, navigation }) {
     }
   };
 
-  // 🧩 Chấp nhận chat
   const handleAcceptChat = async () => {
     try {
       setAccepting(true);
       await acceptAnonymousChat(conversationId, token);
       setChatStatus("ACTIVE");
     } catch (err) {
-      console.error("❌ Error accepting chat:", err.response?.data || err);
+      console.error("❌ Error accepting chat:", err);
     } finally {
       setAccepting(false);
     }
   };
 
-  // 🧩 Đóng chat
   const handleConfirmClose = async () => {
     try {
       setClosing(true);
@@ -167,15 +163,23 @@ export default function StaffChatScreen({ route, navigation }) {
       setChatStatus("CLOSED");
       setShowConfirm(false);
     } catch (err) {
-      console.error("❌ Error closing chat:", err.response?.data || err);
+      console.error("❌ Error closing chat:", err);
     } finally {
       setClosing(false);
     }
   };
 
-  // 🧩 Render từng tin nhắn
+  /* ---------------------------------------------------------- */
+  /* 🧩 RENDER MESSAGE (ĐÃ THÊM HỖ TRỢ HIỂN THỊ ẢNH)             */
+  /* ---------------------------------------------------------- */
   const renderMessage = ({ item }) => {
     const isStaff = item.senderType === "STAFF";
+
+    // Detect if content is an image URL
+    const isImage =
+      typeof item.content === "string" &&
+      item.content.match(/\.(jpeg|jpg|png|gif|webp|svg)$/i);
+
     return (
       <View
         style={[
@@ -183,14 +187,23 @@ export default function StaffChatScreen({ route, navigation }) {
           isStaff ? styles.staffBubble : styles.customerBubble,
         ]}
       >
-        <Text style={{ color: isStaff ? "#fff" : COLORS.text, fontSize: 15 }}>
-          {item.content}
-        </Text>
+        {isImage ? (
+          <Image
+            source={{ uri: item.content }}
+            style={{ width: 220, height: 220, borderRadius: 10 }}
+            resizeMode="cover"
+          />
+        ) : (
+          <Text style={{ color: isStaff ? "#fff" : COLORS.text, fontSize: 15 }}>
+            {item.content}
+          </Text>
+        )}
       </View>
     );
   };
 
-  // 🧩 Hiển thị avatar và tên guest
+  /* ---------------------------------------------------------- */
+
   const displayName = guest?.full_name || guest?.name || "Anonymous Guest";
   const avatarSource = guest?.avatar ? { uri: guest.avatar } : null;
   const avatarLetter = displayName?.charAt(0)?.toUpperCase() || "?";
@@ -320,7 +333,7 @@ export default function StaffChatScreen({ route, navigation }) {
   );
 }
 
-/* 🎨 Styles */
+/* STYLES giữ nguyên */
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.bg },
   header: {
