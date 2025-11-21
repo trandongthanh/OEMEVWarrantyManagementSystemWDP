@@ -330,11 +330,19 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
                   type = "stock_transfer_approved";
                   priority = "high";
                   title = "Stock Transfer Approved";
-                  const requestId1 = n.data?.requestId as string;
+                  const requestId1 =
+                    (n.data?.id as string) ||
+                    (n.data?.requestId as string) ||
+                    "unknown";
+                  const approverName = (
+                    n.data?.approver as Record<string, unknown>
+                  )?.name as string;
                   message = `Stock transfer request #${String(requestId1).slice(
                     0,
                     8
-                  )} has been approved`;
+                  )} has been approved${
+                    approverName ? ` by ${approverName}` : ""
+                  }`;
                   break;
 
                 case "stock_transfer_request_shipped":
@@ -356,24 +364,39 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
                     ?.requestWithDetails as Record<string, unknown>;
                   const requestId3 =
                     (requestWithDetails?.id as string) ||
-                    (n.data?.requestId as string);
+                    (n.data?.id as string) ||
+                    (n.data?.requestId as string) ||
+                    "unknown";
+                  const receiverName = (
+                    n.data?.receiver as Record<string, unknown>
+                  )?.name as string;
                   message = `Stock transfer request #${String(requestId3).slice(
                     0,
                     8
-                  )} has been received`;
+                  )} has been received${
+                    receiverName ? ` by ${receiverName}` : ""
+                  }`;
                   break;
 
                 case "stock_transfer_request_rejected":
                   type = "stock_transfer_rejected";
                   priority = "high";
                   title = "Stock Transfer Rejected";
-                  const requestId4 = n.data?.requestId as string;
+                  const requestId4 =
+                    (n.data?.id as string) ||
+                    (n.data?.requestId as string) ||
+                    "unknown";
+                  const rejecterName = (
+                    n.data?.rejecter as Record<string, unknown>
+                  )?.name as string;
                   const reason =
-                    n.data?.rejectionReason || "No reason provided";
+                    (n.data?.rejectionReason as string) || "No reason provided";
                   message = `Stock transfer request #${String(requestId4).slice(
                     0,
                     8
-                  )} was rejected: ${reason}`;
+                  )} was rejected${
+                    rejecterName ? ` by ${rejecterName}` : ""
+                  }: ${reason}`;
                   break;
 
                 case "newConversation":
@@ -386,15 +409,38 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
                 case "inventory_adjustment_created":
                   type = "system_alert";
                   priority = "medium";
-                  const adjustmentType = n.data?.adjustmentType as string;
-                  const quantity = n.data?.quantity as number;
-                  const adjustReason = n.data?.reason as string;
+                  const adjustmentData = n.data?.adjustment as Record<
+                    string,
+                    unknown
+                  >;
+                  const adjustmentType =
+                    (adjustmentData?.adjustmentType as string) ||
+                    (n.data?.adjustmentType as string) ||
+                    "IN";
+                  const quantity =
+                    (adjustmentData?.quantity as number) ||
+                    (n.data?.quantity as number) ||
+                    0;
+                  const adjustReason =
+                    (adjustmentData?.reason as string) ||
+                    (n.data?.reason as string) ||
+                    "Unknown reason";
+                  const updatedStockData = n.data?.updatedStock as Record<
+                    string,
+                    unknown
+                  >;
+                  const stockQuantity =
+                    updatedStockData?.quantityInStock as number;
                   title = `Inventory ${
                     adjustmentType === "IN" ? "Added" : "Removed"
                   }`;
                   message = `${quantity} item(s) ${
                     adjustmentType === "IN" ? "added to" : "removed from"
-                  } inventory. Reason: ${adjustReason}`;
+                  } inventory. Reason: ${adjustReason}${
+                    stockQuantity !== undefined
+                      ? `. New stock: ${stockQuantity}`
+                      : ""
+                  }`;
                   break;
 
                 case "low_stock_alert":
@@ -415,14 +461,32 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
                     unknown
                   >;
                   const newRequestId =
-                    requestData?.id || (n.data?.requestId as string);
-                  const fromWarehouseData =
-                    requestData?.fromWarehouse as Record<string, unknown>;
-                  const fromWarehouse = fromWarehouseData?.name as string;
+                    (requestData?.id as string) ||
+                    (n.data?.id as string) ||
+                    (n.data?.requestId as string) ||
+                    "unknown";
+                  const requestingWarehouseData =
+                    (requestData?.requestingWarehouse as Record<
+                      string,
+                      unknown
+                    >) ||
+                    (n.data?.requestingWarehouse as Record<string, unknown>);
+                  const requestingWarehouseName =
+                    requestingWarehouseData?.name as string;
+                  const requesterData =
+                    (requestData?.requester as Record<string, unknown>) ||
+                    (n.data?.requester as Record<string, unknown>);
+                  const newRequestRequesterName = requesterData?.name as string;
                   message = `New stock transfer request #${String(
                     newRequestId
                   ).slice(0, 8)}${
-                    fromWarehouse ? ` from ${fromWarehouse}` : ""
+                    requestingWarehouseName
+                      ? ` from ${requestingWarehouseName}`
+                      : ""
+                  }${
+                    newRequestRequesterName
+                      ? ` by ${newRequestRequesterName}`
+                      : ""
                   }`;
                   break;
 
@@ -435,10 +499,21 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
                     unknown
                   >;
                   const cancelledRequestId =
-                    updatedRequestData?.id || (n.data?.requestId as string);
+                    (updatedRequestData?.id as string) ||
+                    (n.data?.id as string) ||
+                    (n.data?.requestId as string) ||
+                    "unknown";
+                  const cancellerName = (
+                    n.data?.canceller as Record<string, unknown>
+                  )?.name as string;
+                  const cancellationReason =
+                    (updatedRequestData?.cancellationReason as string) ||
+                    (n.data?.cancellationReason as string);
                   message = `Stock transfer request #${String(
                     cancelledRequestId
-                  ).slice(0, 8)} has been cancelled`;
+                  ).slice(0, 8)} has been cancelled${
+                    cancellerName ? ` by ${cancellerName}` : ""
+                  }${cancellationReason ? `: ${cancellationReason}` : ""}`;
                   break;
 
                 case "task_unassigned_notification":
@@ -710,7 +785,10 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         // New repair task assigned to technician
         socket.on("newRepairTaskAssigned", (data: Record<string, unknown>) => {
           console.log("🔧 New repair task assigned:", data);
-          const taskId = data.taskId || data.id;
+          const taskId =
+            (data.taskId as string) || (data.id as string) || "unknown";
+          const caseline = data.caseline as Record<string, unknown> | undefined;
+          const caselineId = caseline?.id as string | undefined;
           const navAction = getNavigationAction(
             "newRepairTaskAssigned",
             userRole
@@ -720,7 +798,9 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
             type: "case_assigned",
             priority: "high",
             title: "New Repair Task Assigned",
-            message: `You have been assigned a new repair task`,
+            message: `You have been assigned a new repair task${
+              caselineId ? ` for case #${String(caselineId).slice(0, 8)}` : ""
+            }`,
             timestamp: (data.sentAt as string) || new Date().toISOString(),
             data: {
               ...data,
@@ -739,14 +819,27 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
               JSON.stringify(data, null, 2)
             );
 
-            const record = data.record as Record<string, unknown>;
+            const record = data.record as Record<string, unknown> | undefined;
+            const updatedRecord = data.updatedRecord as
+              | Record<string, unknown>
+              | undefined;
             const status =
-              (record?.status as string) || (data.status as string);
-            const vin = (record?.vin as string) || (data.vin as string);
+              (record?.status as string) ||
+              (updatedRecord?.status as string) ||
+              (data.status as string) ||
+              "UNKNOWN";
+            const vin =
+              (record?.vin as string) ||
+              (updatedRecord?.vin as string) ||
+              (data.vin as string);
             const recordId =
               (record?.vehicleProcessingRecordId as string) ||
+              (updatedRecord?.vehicleProcessingRecordId as string) ||
+              (record?.id as string) ||
+              (updatedRecord?.id as string) ||
               (data.vehicleProcessingRecordId as string) ||
-              (data.id as string);
+              (data.id as string) ||
+              "unknown";
 
             console.log(
               "📋 Parsed values - status:",
@@ -788,6 +881,8 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
               priority = "medium";
             } else if (vin) {
               message = `Vehicle ${vin} status changed to ${status}`;
+            } else {
+              message = `Vehicle status changed to ${status}`;
             }
 
             console.log(
@@ -824,8 +919,27 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
           "new_stock_transfer_request",
           (data: Record<string, unknown>) => {
             console.log("📦 New stock transfer request:", data);
-            const request = data.request as Record<string, unknown>;
-            const requestId = request?.id || data.id;
+            const request = data.request as Record<string, unknown> | undefined;
+            const requestId =
+              (request?.id as string) ||
+              (data.id as string) ||
+              (data.requestId as string) ||
+              "unknown";
+            const requestingWarehouse =
+              (request?.requestingWarehouse as Record<string, unknown>) ||
+              (data.requestingWarehouse as Record<string, unknown>);
+            const requestingWarehouseName = requestingWarehouse?.name as
+              | string
+              | undefined;
+            const requester =
+              (request?.requester as Record<string, unknown>) ||
+              (data.requester as Record<string, unknown>);
+            const requesterName = requester?.name as string | undefined;
+            const items =
+              (request?.items as Array<Record<string, unknown>>) ||
+              (data.items as Array<Record<string, unknown>>) ||
+              [];
+            const itemsCount = items.length;
             const navAction = getNavigationAction(
               "new_stock_transfer_request",
               userRole
@@ -838,7 +952,15 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
               message: `New stock transfer request #${String(requestId).slice(
                 0,
                 8
-              )} needs approval`,
+              )} needs approval${
+                requestingWarehouseName
+                  ? ` from ${requestingWarehouseName}`
+                  : ""
+              }${requesterName ? ` by ${requesterName}` : ""}${
+                itemsCount > 0
+                  ? ` (${itemsCount} item${itemsCount > 1 ? "s" : ""})`
+                  : ""
+              }`,
               timestamp: (data.sentAt as string) || new Date().toISOString(),
               data: {
                 ...data,
@@ -856,7 +978,14 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
           "stock_transfer_request_approved",
           (data: Record<string, unknown>) => {
             console.log("✅ Stock transfer approved:", data);
-            const requestId = data.requestId || data.id;
+            const requestId =
+              (data.id as string) || (data.requestId as string) || "unknown";
+            const approver = data.approver as
+              | Record<string, unknown>
+              | undefined;
+            const approverName = approver?.name as string | undefined;
+            const items = (data.items as Array<Record<string, unknown>>) || [];
+            const itemsCount = items.length;
             const navAction = getNavigationAction(
               "stock_transfer_request_approved",
               userRole
@@ -869,7 +998,11 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
               message: `Stock transfer request #${String(requestId).slice(
                 0,
                 8
-              )} has been approved`,
+              )} has been approved${approverName ? ` by ${approverName}` : ""}${
+                itemsCount > 0
+                  ? ` (${itemsCount} item${itemsCount > 1 ? "s" : ""})`
+                  : ""
+              }`,
               timestamp: (data.sentAt as string) || new Date().toISOString(),
               data: {
                 ...data,
@@ -887,7 +1020,9 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
           "stock_transfer_request_shipped",
           (data: Record<string, unknown>) => {
             console.log("📦 Stock transfer shipped:", data);
-            const requestId = data.requestId || data.id;
+            const requestId =
+              (data.id as string) || (data.requestId as string) || "unknown";
+            const shippedAt = data.shippedAt as string | undefined;
             const navAction = getNavigationAction(
               "stock_transfer_request_shipped",
               userRole
@@ -900,7 +1035,9 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
               message: `Stock transfer request #${String(requestId).slice(
                 0,
                 8
-              )} has been shipped`,
+              )} has been shipped${
+                shippedAt ? ` at ${new Date(shippedAt).toLocaleString()}` : ""
+              }`,
               timestamp: (data.sentAt as string) || new Date().toISOString(),
               data: {
                 ...data,
@@ -918,7 +1055,13 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
           "stock_transfer_request_received",
           (data: Record<string, unknown>) => {
             console.log("✅ Stock transfer received:", data);
-            const requestId = data.requestId || data.id;
+            const requestId =
+              (data.id as string) || (data.requestId as string) || "unknown";
+            const receiver = data.receiver as
+              | Record<string, unknown>
+              | undefined;
+            const receiverName = receiver?.name as string | undefined;
+            const receivedAt = data.receivedAt as string | undefined;
             const navAction = getNavigationAction(
               "stock_transfer_request_received",
               userRole
@@ -931,7 +1074,9 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
               message: `Stock transfer request #${String(requestId).slice(
                 0,
                 8
-              )} has been received`,
+              )} has been received${receiverName ? ` by ${receiverName}` : ""}${
+                receivedAt ? ` at ${new Date(receivedAt).toLocaleString()}` : ""
+              }`,
               timestamp: (data.sentAt as string) || new Date().toISOString(),
               data: {
                 ...data,
@@ -949,8 +1094,14 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
           "stock_transfer_request_rejected",
           (data: Record<string, unknown>) => {
             console.log("❌ Stock transfer rejected:", data);
-            const requestId = data.requestId || data.id;
-            const reason = data.rejectionReason || "No reason provided";
+            const requestId =
+              (data.id as string) || (data.requestId as string) || "unknown";
+            const reason =
+              (data.rejectionReason as string) || "No reason provided";
+            const rejecter = data.rejecter as
+              | Record<string, unknown>
+              | undefined;
+            const rejecterName = rejecter?.name as string | undefined;
             const navAction = getNavigationAction(
               "stock_transfer_request_rejected",
               userRole
@@ -963,7 +1114,9 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
               message: `Stock transfer request #${String(requestId).slice(
                 0,
                 8
-              )} was rejected: ${reason}`,
+              )} was rejected${
+                rejecterName ? ` by ${rejecterName}` : ""
+              }: ${reason}`,
               timestamp: (data.sentAt as string) || new Date().toISOString(),
               data: {
                 ...data,
@@ -981,11 +1134,21 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
           "stock_transfer_request_cancelled",
           (data: Record<string, unknown>) => {
             console.log("🚫 Stock transfer cancelled:", data);
-            const updatedRequest = data.updatedRequest as Record<
-              string,
-              unknown
-            >;
-            const requestId = updatedRequest?.id || data.requestId || data.id;
+            const updatedRequest = data.updatedRequest as
+              | Record<string, unknown>
+              | undefined;
+            const requestId =
+              (updatedRequest?.id as string) ||
+              (data.id as string) ||
+              (data.requestId as string) ||
+              "unknown";
+            const canceller = data.canceller as
+              | Record<string, unknown>
+              | undefined;
+            const cancellerName = canceller?.name as string | undefined;
+            const cancellationReason =
+              (updatedRequest?.cancellationReason as string) ||
+              (data.cancellationReason as string);
             const navAction = getNavigationAction(
               "stock_transfer_request_cancelled",
               userRole
@@ -998,7 +1161,9 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
               message: `Stock transfer request #${String(requestId).slice(
                 0,
                 8
-              )} has been cancelled`,
+              )} has been cancelled${
+                cancellerName ? ` by ${cancellerName}` : ""
+              }${cancellationReason ? `: ${cancellationReason}` : ""}`,
               timestamp: (data.sentAt as string) || new Date().toISOString(),
               data: {
                 ...data,
@@ -1014,14 +1179,19 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         // New conversation created (chat)
         socket.on("newConversation", (data: Record<string, unknown>) => {
           console.log("💬 New conversation:", data);
-          const conversationId = data.conversationId || data.id;
+          const conversationId =
+            (data.conversationId as string) || (data.id as string) || "unknown";
+          const guest = data.guest as Record<string, unknown> | undefined;
+          const guestName = guest?.name as string | undefined;
           const navAction = getNavigationAction("newConversation", userRole);
           addNotification({
             notificationId: data.notificationId as string,
             type: "new_message",
             priority: "medium",
             title: "New Conversation",
-            message: `You have a new conversation`,
+            message: guestName
+              ? `New conversation with ${guestName}`
+              : "You have a new conversation",
             timestamp: (data.sentAt as string) || new Date().toISOString(),
             data: {
               ...data,
@@ -1036,9 +1206,27 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
           "inventory_adjustment_created",
           (data: Record<string, unknown>) => {
             console.log("📦 Inventory adjustment created:", data);
-            const adjustmentType = data.adjustmentType as string;
-            const quantity = data.quantity as number;
-            const reason = data.reason as string;
+            const adjustment = data.adjustment as
+              | Record<string, unknown>
+              | undefined;
+            const adjustmentType =
+              (adjustment?.adjustmentType as string) ||
+              (data.adjustmentType as string) ||
+              "IN";
+            const quantity =
+              (adjustment?.quantity as number) ||
+              (data.quantity as number) ||
+              0;
+            const reason =
+              (adjustment?.reason as string) ||
+              (data.reason as string) ||
+              "Unknown reason";
+            const updatedStock = data.updatedStock as
+              | Record<string, unknown>
+              | undefined;
+            const stockQuantity = updatedStock?.quantityInStock as
+              | number
+              | undefined;
             const navAction = getNavigationAction(
               "inventory_adjustment_created",
               userRole
@@ -1053,7 +1241,11 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
               }`,
               message: `${quantity} item(s) ${
                 adjustmentType === "IN" ? "added to" : "removed from"
-              } inventory. Reason: ${reason}`,
+              } inventory. Reason: ${reason}${
+                stockQuantity !== undefined
+                  ? `. New stock: ${stockQuantity}`
+                  : ""
+              }`,
               timestamp: (data.sentAt as string) || new Date().toISOString(),
               data: {
                 ...data,
@@ -1068,6 +1260,10 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
           console.log("⚠️ Low stock alert:", data);
           const stocks = (data.stocks as Record<string, unknown>[]) || [];
           const stockCount = stocks.length;
+          const warehouse = data.warehouse as
+            | Record<string, unknown>
+            | undefined;
+          const warehouseName = warehouse?.name as string | undefined;
           const navAction = getNavigationAction("low_stock_alert", userRole);
 
           addNotification({
@@ -1075,7 +1271,9 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
             type: "system_alert",
             priority: "high",
             title: "Low Stock Alert",
-            message: `${stockCount} item(s) are running low on stock`,
+            message: `${stockCount} item(s) are running low on stock${
+              warehouseName ? ` in ${warehouseName}` : ""
+            }`,
             timestamp: (data.sentAt as string) || new Date().toISOString(),
             data: {
               ...data,
@@ -1088,8 +1286,12 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         // Task assignment created
         socket.on("taskAssignmentCreated", (data: Record<string, unknown>) => {
           console.log("📋 Task assignment created:", data);
-          const taskType = data.taskType as string;
-          const taskId = data.taskAssignmentId || data.id;
+          const taskType = (data.taskType as string) || "REPAIR";
+          const taskId =
+            (data.taskAssignmentId as string) ||
+            (data.id as string) ||
+            "unknown";
+          const vin = data.vin as string | undefined;
           const navAction = getNavigationAction(
             "taskAssignmentCreated",
             userRole
@@ -1102,7 +1304,9 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
             title: `New ${
               taskType === "DIAGNOSIS" ? "Diagnosis" : "Repair"
             } Task`,
-            message: `You have been assigned a new ${taskType?.toLowerCase()} task`,
+            message: `You have been assigned a new ${taskType?.toLowerCase()} task${
+              vin ? ` for vehicle ${vin}` : ""
+            }`,
             timestamp: (data.sentAt as string) || new Date().toISOString(),
             data: {
               ...data,
@@ -1117,7 +1321,18 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
           "new_record_notification",
           (data: Record<string, unknown>) => {
             console.log("🚗 New vehicle record created:", data);
-            const recordId = data.vehicleProcessingRecordId || data.id;
+            const record = data.record as Record<string, unknown> | undefined;
+            const recordId =
+              (record?.vehicleProcessingRecordId as string) ||
+              (record?.id as string) ||
+              (data.vehicleProcessingRecordId as string) ||
+              (data.id as string) ||
+              "unknown";
+            const vin = (record?.vin as string) || (data.vin as string);
+            const customer = data.customer as
+              | Record<string, unknown>
+              | undefined;
+            const customerName = customer?.name as string | undefined;
             const navAction = getNavigationAction(
               "new_record_notification",
               userRole
@@ -1128,7 +1343,13 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
               type: "case_updated",
               priority: "medium",
               title: "New Vehicle Check-In",
-              message: "A new vehicle has been checked in for service",
+              message: vin
+                ? `Vehicle ${vin} has been checked in for service${
+                    customerName ? ` (${customerName})` : ""
+                  }`
+                : `A new vehicle has been checked in for service${
+                    customerName ? ` (${customerName})` : ""
+                  }`,
               timestamp: (data.sentAt as string) || new Date().toISOString(),
               data: {
                 ...data,
@@ -1144,7 +1365,21 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
           "new_task_assignment_notification",
           (data: Record<string, unknown>) => {
             console.log("📋 New task assignment notification:", data);
-            const taskId = data.taskAssignmentId || data.id;
+            const assignmentDetails = data.assignmentDetails as
+              | Record<string, unknown>
+              | undefined;
+            const assignment = assignmentDetails?.assignment as
+              | Record<string, unknown>
+              | undefined;
+            const taskId =
+              (assignment?.taskAssignmentId as string) ||
+              (data.taskAssignmentId as string) ||
+              (data.id as string) ||
+              "unknown";
+            const taskType =
+              (assignment?.taskType as string) || (data.taskType as string);
+            const vin =
+              (assignmentDetails?.vin as string) || (data.vin as string);
             const navAction = getNavigationAction(
               "new_task_assignment_notification",
               userRole
@@ -1154,9 +1389,16 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
               notificationId: data.notificationId as string,
               type: "case_assigned",
               priority: "high",
-              title: "Task Assignment",
+              title: taskType
+                ? `New ${
+                    taskType === "DIAGNOSIS" ? "Diagnosis" : "Repair"
+                  } Task`
+                : "Task Assignment",
               message:
-                (data.message as string) || "You have a new task assignment",
+                (data.message as string) ||
+                `You have a new task assignment${
+                  vin ? ` for vehicle ${vin}` : ""
+                }`,
               timestamp: (data.sentAt as string) || new Date().toISOString(),
               data: {
                 ...data,
@@ -1172,9 +1414,14 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
           "task_unassigned_notification",
           (data: Record<string, unknown>) => {
             console.log("❌ Task unassigned notification:", data);
-            const recordId = data.recordId || data.id;
-            const vin = data.vin as string;
-            const reason = data.reason as string;
+            const recordId =
+              (data.vehicleProcessingRecordId as string) ||
+              (data.recordId as string) ||
+              (data.id as string) ||
+              "unknown";
+            const vin = (data.vin as string) || "Unknown";
+            const reason = data.reason as string | undefined;
+            const taskType = (data.taskType as string) || "task";
             const navAction = getNavigationAction(
               "task_unassigned_notification",
               userRole
@@ -1185,9 +1432,9 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
               type: "system_alert",
               priority: "medium",
               title: "Task Unassigned",
-              message: `You have been unassigned from diagnosis task for vehicle ${
-                vin || "Unknown"
-              }. ${reason ? "Reason: " + reason : ""}`,
+              message: `You have been unassigned from ${taskType.toLowerCase()} for vehicle ${vin}${
+                reason ? ". Reason: " + reason : ""
+              }`,
               timestamp: (data.sentAt as string) || new Date().toISOString(),
               data: {
                 ...data,
