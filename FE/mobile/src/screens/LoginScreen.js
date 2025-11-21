@@ -53,10 +53,13 @@ export default function LoginScreen() {
 
       if (res.status === "success" && res.data?.token) {
         const token = res.data.token;
+        console.log("🧾 Token received from API:", token);
+
         const decoded = jwtDecode(token);
 
         const role = decoded.roleName;
         const userId = decoded.userId;
+        console.log("👤 Role:", role, "🆔 userId:", userId);
 
         await AsyncStorage.multiSet([
           ["authToken", token],

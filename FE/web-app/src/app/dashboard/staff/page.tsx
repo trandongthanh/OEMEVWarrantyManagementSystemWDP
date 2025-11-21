@@ -52,6 +52,7 @@ export default function StaffDashboard() {
   const [registerVehicleVin, setRegisterVehicleVin] = useState<
     string | undefined
   >(undefined);
+  const [refreshKey, setRefreshKey] = useState(0);
   // Note: Staff role doesn't have warehouse access, so we don't fetch it
   const warehouseId = null;
 
@@ -131,6 +132,7 @@ export default function StaffDashboard() {
       case "dashboard":
         return (
           <DashboardOverview
+            key={refreshKey}
             onNewClaimClick={() => setShowNewClaimModal(true)}
             onNavigate={setActiveNav}
             onRegisterVehicleClick={() => setShowRegisterVehicleModal(true)}
@@ -138,7 +140,12 @@ export default function StaffDashboard() {
         );
 
       case "cases":
-        return <CasesList onViewDetails={(record) => console.log(record)} />;
+        return (
+          <CasesList
+            key={refreshKey}
+            onViewDetails={(record) => console.log(record)}
+          />
+        );
 
       case "chat-support":
         return (
@@ -213,7 +220,7 @@ export default function StaffDashboard() {
         isOpen={showNewClaimModal}
         onClose={() => setShowNewClaimModal(false)}
         onSuccess={() => {
-          // Data refresh not needed for staff dashboard
+          setRefreshKey((prev) => prev + 1); // Refresh dashboard and cases list
         }}
         onRegisterOwner={(vin) => {
           setRegisterVehicleVin(vin);
@@ -229,7 +236,7 @@ export default function StaffDashboard() {
           setRegisterVehicleVin(undefined);
         }}
         onSuccess={() => {
-          // Data refresh not needed for staff dashboard
+          setRefreshKey((prev) => prev + 1); // Refresh dashboard data
           // Reset VIN after successful registration
           setRegisterVehicleVin(undefined);
         }}

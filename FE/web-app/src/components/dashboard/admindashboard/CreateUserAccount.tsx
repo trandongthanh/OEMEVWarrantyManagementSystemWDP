@@ -9,14 +9,6 @@ interface Role {
   roleId: string;
   roleName: string;
 }
-interface ServiceCenter {
-  id: string;
-  name: string;
-}
-interface VehicleCompany {
-  id: string;
-  name: string;
-}
 interface UserInfo {
   userId: string;
   username: string;
@@ -28,7 +20,6 @@ interface UserInfo {
     | "parts_coordinator_company"
     | "parts_coordinator_service_center";
   serviceCenterId?: string;
-  companyId?: string;
 }
 interface FormData {
   username: string;
@@ -39,11 +30,9 @@ interface FormData {
   name: string;
   employeeCode: string;
   roleId: string;
-  serviceCenterId: string;
-  vehicleCompanyId: string;
 }
 
-export function ManagerCreateUserAccount () {
+export function AdminCreateUserAccount() {
   const currentUser = authService.getUserInfo() as UserInfo | null;
   const token = authService.getToken();
 
@@ -56,19 +45,13 @@ export function ManagerCreateUserAccount () {
     name: "",
     employeeCode: "",
     roleId: "",
-    serviceCenterId: "",
-    vehicleCompanyId: "",
   });
 
   const [roles, setRoles] = useState<Role[]>([]);
-  const [serviceCenters, setServiceCenters] = useState<ServiceCenter[]>([]);
-  const [vehicleCompanies, setVehicleCompanies] = useState<VehicleCompany[]>(
-    []
-  );
   const [loading, setLoading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  // ===== Fetch Roles & Data =====
+  // ===== Fetch Roles =====
   useEffect(() => {
     if (!token || !currentUser) return;
 
@@ -77,13 +60,9 @@ export function ManagerCreateUserAccount () {
         const res = await apiClient.get("/roles", {
           headers: { Authorization: `Bearer ${token}` },
         });
+
         const fetchedRoles: Role[] = res.data.data.map(
-          (r: {
-            roleId?: string;
-            id?: string;
-            roleName?: string;
-            name?: string;
-          }) => ({
+          (r: { roleId?: string; id?: string; roleName?: string; name?: string }) => ({
             roleId: r.roleId || r.id || "",
             roleName: r.roleName || r.name || "",
           })
@@ -104,29 +83,7 @@ export function ManagerCreateUserAccount () {
       }
     };
 
-const fetchData = async () => {
-  if (currentUser.roleName !== "emv_admin") return;
-  try {
-    const [scRes, vcRes] = await Promise.all([
-      apiClient.get("/service-centers", {
-        headers: { Authorization: `Bearer ${token}` },
-      }),
-      apiClient.get("/vehicle-companies", {
-        headers: { Authorization: `Bearer ${token}` },
-      }),
-    ]);
-
-    setServiceCenters(scRes.data.data || []);
-    setVehicleCompanies(vcRes.data.data || []);
-  } catch {
-    toast.error("⚠️ Unable to load admin data.");
-  }
-};
-
-
     fetchRoles();
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   // ===== Handle Change =====
@@ -134,24 +91,6 @@ const fetchData = async () => {
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    if (currentUser?.roleName === "emv_admin") {
-      if (name === "serviceCenterId" && value) {
-        setFormData((p) => ({
-          ...p,
-          serviceCenterId: value,
-          vehicleCompanyId: "",
-        }));
-        return;
-      }
-      if (name === "vehicleCompanyId" && value) {
-        setFormData((p) => ({
-          ...p,
-          vehicleCompanyId: value,
-          serviceCenterId: "",
-        }));
-        return;
-      }
-    }
     setFormData((p) => ({ ...p, [name]: value }));
   };
 
@@ -184,32 +123,20 @@ const fetchData = async () => {
         roleId: formData.roleId,
       };
 
+      // Manager → assign auto service center
       if (currentUser.roleName === "service_center_manager") {
-        payload.serviceCenterId = currentUser.serviceCenterId;
+        payload.serviceCenterId = currentUser.serviceCenterId ?? undefined;
       }
 
       if (currentUser.roleName === "emv_admin") {
-        const hasSC = !!formData.serviceCenterId;
-        const hasVC = !!formData.vehicleCompanyId;
-        if (hasSC && hasVC) {
-          toast.error("⚠️ Select only one: Service Center or Vehicle Company.");
-          setLoading(false);
-          return;
-        }
-        if (!hasSC && !hasVC) {
-          toast.error("⚠️ Please select Service Center or Vehicle Company.");
-          setLoading(false);
-          return;
-        }
-        if (hasSC) payload.serviceCenterId = formData.serviceCenterId;
-        if (hasVC) payload.vehicleCompanyId = formData.vehicleCompanyId;
+        payload.serviceCenterId = undefined;
+        payload.vehicleCompanyId = undefined;
       }
 
       await apiClient.post("/auth/registerAccount", payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      // ✅ Thành công
       toast.success("✅ Account created successfully!", { duration: 4000 });
 
       // Reset form
@@ -222,8 +149,6 @@ const fetchData = async () => {
         name: "",
         employeeCode: "",
         roleId: "",
-        serviceCenterId: "",
-        vehicleCompanyId: "",
       });
     } catch (err: unknown) {
       const error = err as {
@@ -232,38 +157,25 @@ const fetchData = async () => {
           data?: { message?: string; errors?: string[] };
         };
       };
-      console.error("❌ API Error:", error?.response?.data);
 
       const status = error?.response?.status;
       const errorMsg = error?.response?.data?.message?.toLowerCase?.() || "";
       const details = error?.response?.data?.errors;
 
-      // ✅ Hiển thị chi tiết lỗi từ backend
       if (Array.isArray(details) && details.length > 0) {
         toast.error(`⚠️ ${details.join(", ")}`);
       } else if (errorMsg.includes("username")) {
-        toast.error(
-          "❌ Username already exists. Please choose another username."
-        );
+        toast.error("❌ Username already exists.");
       } else if (errorMsg.includes("employeecode")) {
-        toast.error(
-          "❌ Employee Code already exists. Please use another code."
-        );
+        toast.error("❌ Employee Code already exists.");
       } else if (errorMsg.includes("validation")) {
-        toast.error("⚠️ Validation error: Please check all required fields.");
+        toast.error("⚠️ Validation error. Please check required fields.");
       } else if (status === 409) {
-        toast.error(
-          `⚠️ Conflict: ${error.response?.data?.message || "Duplicate data."}`
-        );
+        toast.error(`⚠️ Conflict: ${error.response?.data?.message}`);
       } else if (status === 500) {
-        toast.error(
-          `❌ Server error: ${
-            error.response?.data?.message ||
-            "Something went wrong on the server."
-          }`
-        );
+        toast.error(`❌ Server error: ${error.response?.data?.message}`);
       } else {
-        toast.error("❌ Unable to create account. Please check your input.");
+        toast.error("❌ Unable to create account.");
       }
     } finally {
       setLoading(false);
@@ -291,11 +203,10 @@ const fetchData = async () => {
         {/* Header */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900">
-          Manager Create User Account
+            Create User Account
           </h2>
           <p className="text-gray-600 mt-1">
-            Manage employee accounts and assign roles for service centers or
-            companies
+            Manage employee accounts and assign roles
           </p>
         </div>
 
@@ -366,6 +277,7 @@ const fetchData = async () => {
               <h3 className="text-lg font-semibold text-gray-900 mb-6">
                 Role & Assignment
               </h3>
+
               <div className="grid grid-cols-2 gap-6">
                 {/* Role Dropdown */}
                 <div className="relative">
@@ -408,51 +320,6 @@ const fetchData = async () => {
                     </svg>
                   </div>
                 </div>
-
-                {/* Service Center / Vehicle Company (for admin only) */}
-                {currentUser.roleName === "emv_admin" && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Service Center
-                      </label>
-                      <select
-                        name="serviceCenterId"
-                        value={formData.serviceCenterId}
-                        onChange={handleChange}
-                        disabled={!!formData.vehicleCompanyId}
-                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <option value="">Select service center</option>
-                        {serviceCenters.map((sc) => (
-                          <option key={sc.id} value={sc.id}>
-                            {sc.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Vehicle Company
-                      </label>
-                      <select
-                        name="vehicleCompanyId"
-                        value={formData.vehicleCompanyId}
-                        onChange={handleChange}
-                        disabled={!!formData.serviceCenterId}
-                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <option value="">Select vehicle company</option>
-                        {vehicleCompanies.map((vc) => (
-                          <option key={vc.id} value={vc.id}>
-                            {vc.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </>
-                )}
               </div>
             </div>
 

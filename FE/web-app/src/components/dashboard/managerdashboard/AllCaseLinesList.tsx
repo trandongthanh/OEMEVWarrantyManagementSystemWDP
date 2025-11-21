@@ -16,6 +16,9 @@ import {
   XCircle,
   LucideIcon,
   Image as ImageIcon,
+  PackageCheck,
+  Wrench,
+  FilePenLine,
 } from "lucide-react";
 import caseLineService, {
   CaseLine,
@@ -27,38 +30,58 @@ const statusConfig: Record<
   string,
   { label: string; color: string; icon: LucideIcon }
 > = {
+  DRAFT: {
+    label: "Draft",
+    color: "bg-gray-100 text-gray-800 border-gray-200",
+    icon: FilePenLine,
+  },
   PENDING_APPROVAL: {
-    label: "Pending",
+    label: "Pending Approval",
     color: "bg-yellow-100 text-yellow-800 border-yellow-200",
     icon: Clock,
   },
   CUSTOMER_APPROVED: {
-    label: "Approved",
+    label: "Customer Approved",
     color: "bg-green-100 text-green-800 border-green-200",
     icon: CheckCircle,
   },
-  READY_FOR_REPAIR: {
-    label: "Ready",
-    color: "bg-blue-100 text-blue-800 border-blue-200",
+  WAITING_FOR_PARTS: {
+    label: "Waiting for Parts",
+    color: "bg-orange-100 text-orange-800 border-orange-200",
     icon: Package,
   },
-  IN_PROGRESS: {
-    label: "In Progress",
+  PARTS_AVAILABLE: {
+    label: "Parts Available",
+    color: "bg-teal-100 text-teal-800 border-teal-200",
+    icon: PackageCheck,
+  },
+  READY_FOR_REPAIR: {
+    label: "Ready for Repair",
+    color: "bg-blue-100 text-blue-800 border-blue-200",
+    icon: Wrench,
+  },
+  IN_REPAIR: {
+    label: "In Repair",
     color: "bg-purple-100 text-purple-800 border-purple-200",
-    icon: Clock,
+    icon: Wrench,
   },
   COMPLETED: {
     label: "Completed",
     color: "bg-emerald-100 text-emerald-800 border-emerald-200",
     icon: CheckCircle,
   },
+  CANCELLED: {
+    label: "Cancelled",
+    color: "bg-gray-100 text-gray-800 border-gray-200",
+    icon: XCircle,
+  },
   REJECTED_BY_CUSTOMER: {
-    label: "Rejected",
+    label: "Rejected by Customer",
     color: "bg-red-100 text-red-800 border-red-200",
     icon: XCircle,
   },
   REJECTED_BY_TECH: {
-    label: "Tech Rejected",
+    label: "Rejected by Tech",
     color: "bg-orange-100 text-orange-800 border-orange-200",
     icon: XCircle,
   },
@@ -165,11 +188,15 @@ export function AllCaseLinesList() {
                   className="w-full px-3 py-2 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-colors"
                 >
                   <option value="">All Status</option>
+                  <option value="DRAFT">Draft</option>
                   <option value="PENDING_APPROVAL">Pending Approval</option>
                   <option value="CUSTOMER_APPROVED">Customer Approved</option>
+                  <option value="WAITING_FOR_PARTS">Waiting for Parts</option>
+                  <option value="PARTS_AVAILABLE">Parts Available</option>
                   <option value="READY_FOR_REPAIR">Ready for Repair</option>
-                  <option value="IN_PROGRESS">In Progress</option>
+                  <option value="IN_REPAIR">In Repair</option>
                   <option value="COMPLETED">Completed</option>
+                  <option value="CANCELLED">Cancelled</option>
                   <option value="REJECTED_BY_CUSTOMER">
                     Rejected by Customer
                   </option>

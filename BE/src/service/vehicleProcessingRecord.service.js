@@ -96,7 +96,7 @@ class VehicleProcessingRecordService {
         return { newRecord, newGuaranteeCases, owner: vehicle.owner };
       });
 
-    this.#sendNotifications(
+    await this.#sendNotifications(
       owner,
       vin,
       newRecord,
@@ -234,7 +234,7 @@ class VehicleProcessingRecordService {
     return { newRecord, newGuaranteeCases };
   };
 
-  #sendNotifications = (
+  #sendNotifications = async (
     owner,
     vin,
     newRecord,
@@ -276,7 +276,7 @@ class VehicleProcessingRecordService {
       sendAt: dayjs(),
     };
 
-    this.#notificationService.sendToRoom(room, event, payload);
+    await this.#notificationService.sendToRoom(room, event, payload);
   };
 
   #formatCreateRecordResponse = (newRecord, newGuaranteeCases) => {
@@ -628,7 +628,7 @@ class VehicleProcessingRecordService {
         room: oldTechRoom,
       };
 
-      this.#notificationService.sendToRoom(
+      await this.#notificationService.sendToRoom(
         oldTechRoom,
         "task_unassigned_notification",
         unassignPayload
@@ -644,7 +644,7 @@ class VehicleProcessingRecordService {
       room: room,
     };
 
-    this.#notificationService.sendToRoom(room, event, payload);
+    await this.#notificationService.sendToRoom(room, event, payload);
 
     return formatUpdatedRecord;
   };
@@ -852,6 +852,7 @@ class VehicleProcessingRecordService {
       const allCaseLines = guaranteeCases.flatMap(
         (guaranteeCase) => guaranteeCase.caseLines || []
       );
+
       const hasCaseLines = allCaseLines.length > 0;
       const allRejectedByTech =
         hasCaseLines &&
@@ -876,6 +877,11 @@ class VehicleProcessingRecordService {
               Transaction.LOCK.UPDATE
             );
         }
+
+        await this.#taskAssignmentRepository.cancelDiagnosisTaskByRecordId(
+          { vehicleProcessingRecordId },
+          transaction
+        );
 
         const cancelledRecord =
           await this.#vehicleProcessingRecordRepository.updateStatus(
@@ -918,6 +924,7 @@ class VehicleProcessingRecordService {
             "REJECTED_BY_OUT_OF_WARRANTY",
             "REJECTED_BY_TECH",
           ];
+
           if (!validStatuses.includes(caseLine.status)) {
             throw new BadRequestError(
               `Case line ${caseLine.id} has invalid status ${
@@ -936,6 +943,11 @@ class VehicleProcessingRecordService {
           },
           transaction
         );
+
+      await this.#taskAssignmentRepository.cancelDiagnosisTaskByRecordId(
+        { vehicleProcessingRecordId },
+        transaction
+      );
 
       const updatedGuaranteeCases = [];
 

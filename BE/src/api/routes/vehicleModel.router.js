@@ -58,13 +58,49 @@ const router = express.Router();
 router.get(
   "/statistics/most-problematic",
   authentication,
-  authorizationByRole(["service_center_manager"]),
+  authorizationByRole(["service_center_manager", "emv_admin"]),
+  attachCompanyContext,
   validate(getMostProblematicModelsSchema, "query"),
   async (req, res, next) => {
     const oemVehicleModelController = req.container.resolve(
       "oemVehicleModelController"
     );
     await oemVehicleModelController.getMostProblematicModels(req, res, next);
+  }
+);
+
+/**
+ * @swagger
+ * /oem-vehicle-models:
+ *   get:
+ *     summary: Lấy toàn bộ mẫu xe của công ty
+ *     description: Trả về danh sách tất cả mẫu xe thuộc công ty hiện tại.
+ *     tags: [Vehicle Model]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Thành công.
+ *       401:
+ *         description: Chưa xác thực.
+ *       403:
+ *         description: Không có quyền.
+ */
+router.get(
+  "/",
+  authentication,
+  authorizationByRole([
+    "parts_coordinator_company",
+    "service_center_manager",
+    "emv_admin",
+  ]),
+  attachCompanyContext,
+  async (req, res, next) => {
+    const oemVehicleModelController = req.container.resolve(
+      "oemVehicleModelController"
+    );
+
+    await oemVehicleModelController.getAllVehicleModels(req, res, next);
   }
 );
 
@@ -118,6 +154,7 @@ router.post(
   "/",
   authentication,
   authorizationByRole(["parts_coordinator_company"]),
+  attachCompanyContext,
   validate(createVehicleModelSchema, "body"),
   async (req, res, next) => {
     const oemVehicleModelController = req.container.resolve(

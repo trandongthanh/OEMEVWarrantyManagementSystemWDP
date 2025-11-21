@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquare, X } from "lucide-react";
+import { MessageSquare, X, AlertCircle } from "lucide-react";
 import { useState } from "react";
 
 interface PromptDialogProps {
@@ -14,8 +14,11 @@ interface PromptDialogProps {
   defaultValue?: string;
   confirmText?: string;
   cancelText?: string;
-  inputType?: "text" | "date" | "number";
+  inputType?: "text" | "date" | "number" | "textarea";
   required?: boolean;
+  minLength?: number;
+  maxLength?: number;
+  rows?: number;
 }
 
 export function PromptDialog({
@@ -30,21 +33,51 @@ export function PromptDialog({
   cancelText = "Cancel",
   inputType = "text",
   required = false,
+  minLength,
+  maxLength,
+  rows = 3,
 }: PromptDialogProps) {
   const [value, setValue] = useState(defaultValue);
+  const [error, setError] = useState("");
+
+  const validateInput = (val: string): boolean => {
+    if (required && !val.trim()) {
+      setError("This field is required");
+      return false;
+    }
+    if (minLength && val.trim().length < minLength) {
+      setError(`Minimum ${minLength} characters required`);
+      return false;
+    }
+    if (maxLength && val.length > maxLength) {
+      setError(`Maximum ${maxLength} characters allowed`);
+      return false;
+    }
+    setError("");
+    return true;
+  };
 
   const handleConfirm = () => {
-    if (required && !value.trim()) {
+    if (!validateInput(value)) {
       return;
     }
     onConfirm(value);
     onClose();
     setValue("");
+    setError("");
   };
 
   const handleClose = () => {
     onClose();
     setValue("");
+    setError("");
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey && inputType !== "textarea") {
+      e.preventDefault();
+      handleConfirm();
+    }
   };
 
   return (
@@ -57,11 +90,11 @@ export function PromptDialog({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={handleClose}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70]"
           />
 
           {/* Dialog */}
-          <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 flex items-center justify-center z-[70] p-4">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -91,25 +124,61 @@ export function PromptDialog({
 
                 {/* Input */}
                 <div className="mt-4">
-                  <input
-                    type={inputType}
-                    value={value}
-                    onChange={(e) => setValue(e.target.value)}
-                    placeholder={placeholder}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        handleConfirm();
-                      } else if (e.key === "Escape") {
-                        handleClose();
-                      }
-                    }}
-                  />
-                  {required && !value.trim() && (
-                    <p className="mt-1 text-xs text-red-500">
-                      This field is required
-                    </p>
+                  {inputType === "textarea" ? (
+                    <textarea
+                      value={value}
+                      onChange={(e) => {
+                        setValue(e.target.value);
+                        validateInput(e.target.value);
+                      }}
+                      onKeyDown={handleKeyDown}
+                      placeholder={placeholder}
+                      rows={rows}
+                      maxLength={maxLength}
+                      className={`w-full px-4 py-2.5 border text-black rounded-lg focus:ring-2 transition-all resize-none ${
+                        error
+                          ? "border-red-300 focus:ring-red-500 focus:border-red-500"
+                          : "border-gray-300 focus:ring-blue-500 focus:border-transparent"
+                      }`}
+                      autoFocus
+                    />
+                  ) : (
+                    <input
+                      type={inputType}
+                      value={value}
+                      onChange={(e) => {
+                        setValue(e.target.value);
+                        validateInput(e.target.value);
+                      }}
+                      onKeyDown={handleKeyDown}
+                      placeholder={placeholder}
+                      maxLength={maxLength}
+                      className={`w-full px-4 py-2.5 border text-black rounded-lg focus:ring-2 transition-all ${
+                        error
+                          ? "border-red-300 focus:ring-red-500 focus:border-red-500"
+                          : "border-gray-300 focus:ring-blue-500 focus:border-transparent"
+                      }`}
+                      autoFocus
+                    />
+                  )}
+
+                  {/* Validation Error */}
+                  {error && (
+                    <div className="mt-2 flex items-center gap-2 text-red-600 text-sm">
+                      <AlertCircle className="w-4 h-4" />
+                      <span>{error}</span>
+                    </div>
+                  )}
+
+                  {/* Character Counter */}
+                  {(maxLength || minLength) && (
+                    <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                      <span>{minLength && `Min: ${minLength} characters`}</span>
+                      <span>
+                        {value.length}
+                        {maxLength && `/${maxLength}`}
+                      </span>
+                    </div>
                   )}
                 </div>
               </div>

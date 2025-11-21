@@ -42,6 +42,7 @@ export function ScheduleManagement() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [uploadResult, setUploadResult] = useState<{
     summary: {
       total: number;
@@ -122,6 +123,54 @@ export function ScheduleManagement() {
       // Validate file type
       if (!file.name.endsWith(".xlsx") && !file.name.endsWith(".xls")) {
         toast.error("Please select an Excel file (.xlsx or .xls)");
+        return;
+      }
+
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("File size must be less than 10MB");
+        return;
+      }
+
+      setSelectedFile(file);
+      setUploadResult(null);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!uploading) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!uploading) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    if (uploading) return;
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.name.endsWith(".xlsx") && !file.name.endsWith(".xls")) {
+        toast.error("Please drop an Excel file (.xlsx or .xls)");
         return;
       }
 
@@ -794,7 +843,7 @@ export function ScheduleManagement() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
           onClick={() => !updating && setEditingSchedule(null)}
         >
           <motion.div
@@ -900,7 +949,7 @@ export function ScheduleManagement() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
           onClick={handleCloseUploadModal}
         >
           <motion.div
@@ -980,12 +1029,18 @@ export function ScheduleManagement() {
 
                 <div
                   onClick={() => !uploading && fileInputRef.current?.click()}
+                  onDragOver={handleDragOver}
+                  onDragEnter={handleDragEnter}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
                   className={`
                     border-2 border-dashed rounded-xl p-8 text-center cursor-pointer
                     transition-colors
                     ${
                       selectedFile
                         ? "border-blue-300 bg-blue-50"
+                        : isDragging
+                        ? "border-blue-500 bg-blue-100"
                         : "border-gray-300 hover:border-blue-400 hover:bg-gray-50"
                     }
                     ${uploading ? "opacity-50 cursor-not-allowed" : ""}

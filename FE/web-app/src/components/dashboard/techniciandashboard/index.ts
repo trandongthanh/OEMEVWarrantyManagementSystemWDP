@@ -7,3 +7,4 @@ export { ComponentsToInstall } from "./ComponentsToInstall";
 export { RepairsToComplete } from "./RepairsToComplete";
 export { WorkHistory } from "./WorkHistory";
 export { MySchedule } from "./MySchedule";
+export { RepairWorkflow } from "./RepairWorkflow";

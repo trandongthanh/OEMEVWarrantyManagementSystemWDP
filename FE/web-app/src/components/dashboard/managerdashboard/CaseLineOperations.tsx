@@ -26,6 +26,7 @@ import caseLineService from "@/services/caseLineService";
 import userService from "@/services/userService";
 import warehouseService from "@/services/warehouseService";
 import { Pagination } from "@/components/ui";
+import { toast } from "sonner";
 
 // Status configuration with modern styling
 const STATUS_CONFIG: Record<
@@ -55,6 +56,12 @@ const STATUS_CONFIG: Record<
     color: "text-yellow-700",
     bgColor: "bg-yellow-100",
     icon: AlertTriangle,
+  },
+  PARTS_AVAILABLE: {
+    label: "Part Available",
+    color: "text-teal-700",
+    bgColor: "bg-teal-100",
+    icon: CheckCircle,
   },
   READY_FOR_REPAIR: {
     label: "Ready",
@@ -275,6 +282,36 @@ export function CaseLineOperations() {
       setSuccessMessage(
         `✓ Stock allocated successfully! Reserved ${reservedQty} component(s).`
       );
+      toast.success(`Stock allocated! Reserved ${reservedQty} component(s)`);
+
+      // Auto-assign diagnostic tech as repair tech after successful allocation
+      // This handles both flows:
+      // 1. CUSTOMER_APPROVED → READY_FOR_REPAIR (stock available immediately)
+      // 2. PARTS_AVAILABLE → READY_FOR_REPAIR (after stock transfer received)
+      try {
+        const diagnosticTechId =
+          caseLine.diagnosticTechId || caseLine.diagnosticTechnician?.userId;
+        const newStatus = response.data.formattedCaselineStatus?.[0]?.status;
+
+        if (diagnosticTechId && newStatus === "READY_FOR_REPAIR") {
+          console.log(
+            "Auto-assigning diagnostic tech as repair tech:",
+            diagnosticTechId
+          );
+
+          await caseLineService.assignTechnicianToRepair(
+            caseLine.guaranteeCaseId,
+            caseLineId,
+            { technicianId: diagnosticTechId }
+          );
+
+          toast.success("✓ Diagnostic technician auto-assigned for repair");
+        }
+      } catch (assignError: any) {
+        console.warn("Auto-assignment failed (non-critical):", assignError);
+        // Don't show error to user since stock allocation succeeded
+        // They can manually assign if needed
+      }
 
       await fetchCaseLines();
     } catch (error: any) {
@@ -319,6 +356,7 @@ export function CaseLineOperations() {
       }
 
       setErrorMessage(userFriendlyMessage);
+      toast.error("Failed to allocate stock");
     }
   };
 
@@ -361,15 +399,17 @@ export function CaseLineOperations() {
       );
 
       setSuccessMessage("✓ Technician assigned successfully!");
+      toast.success("Technician assigned successfully!");
       setShowTechnicianModal(false);
       setSelectedCaseLineForAssignment(null);
 
       await fetchCaseLines();
     } catch (error: any) {
       console.error("Error assigning technician:", error);
-      setErrorMessage(
-        error?.response?.data?.message || "Failed to assign technician"
-      );
+      const errorMsg =
+        error?.response?.data?.message || "Failed to assign technician";
+      setErrorMessage(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
@@ -447,6 +487,24 @@ export function CaseLineOperations() {
             caseLineId
           );
           successCount++;
+
+          // Auto-assign diagnostic tech as repair tech after successful allocation
+          try {
+            const diagnosticTechId =
+              currentCaseLine.diagnosticTechId ||
+              currentCaseLine.diagnosticTechnician?.userId;
+
+            if (diagnosticTechId) {
+              await caseLineService.assignTechnicianToRepair(
+                currentCaseLine.guaranteeCaseId,
+                caseLineId,
+                { technicianId: diagnosticTechId }
+              );
+            }
+          } catch (assignError) {
+            console.warn("Auto-assignment failed for", caseLineId, assignError);
+            // Continue with next allocation even if assignment fails
+          }
         } catch (error: any) {
           failedCount++;
           let errorMsg = error?.response?.data?.message || error.message;
@@ -471,26 +529,33 @@ export function CaseLineOperations() {
       }
 
       if (successCount > 0) {
-        setSuccessMessage(
-          `✓ Allocated stock for ${successCount} case line${
+        const msg = `✓ Allocated stock for ${successCount} case line${
+          successCount !== 1 ? "s" : ""
+        }!${failedCount > 0 ? ` ${failedCount} failed.` : ""}`;
+        setSuccessMessage(msg);
+        toast.success(
+          `Allocated stock for ${successCount} case line${
             successCount !== 1 ? "s" : ""
-          }!${failedCount > 0 ? ` ${failedCount} failed.` : ""}`
+          }!`
         );
       }
 
       if (failedCount > 0 && successCount === 0) {
         setErrorMessage(`All allocations failed: ${errors.join("; ")}`);
+        toast.error("All stock allocations failed");
       } else if (failedCount > 0) {
         setErrorMessage(`Some failed: ${errors.join("; ")}`);
+        toast.warning(`${failedCount} allocation(s) failed`);
       }
 
       setSelectedCaseLineIds(new Set());
       await fetchCaseLines();
     } catch (error: any) {
       console.error("Error bulk allocating stock:", error);
-      setErrorMessage(
-        error?.response?.data?.message || "Failed to bulk allocate stock"
-      );
+      const errorMsg =
+        error?.response?.data?.message || "Failed to bulk allocate stock";
+      setErrorMessage(errorMsg);
+      toast.error("Bulk allocation failed");
     } finally {
       setBulkAllocating(false);
     }
@@ -530,6 +595,28 @@ export function CaseLineOperations() {
   return (
     <div className="flex-1 overflow-auto bg-gray-50">
       <div className="p-8">
+        {/* Info Banner */}
+        <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-l-4 border-purple-600 rounded-lg p-4 mb-6">
+          <div className="flex items-start gap-3">
+            <Layers className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-1">
+                Case Line Management
+              </h3>
+              <p className="text-xs text-gray-600">
+                Use this page to <strong>allocate stock</strong> for approved
+                case lines. After stock allocation, the{" "}
+                <strong>
+                  diagnostic technician is automatically assigned as repair
+                  technician
+                </strong>
+                . For overall vehicle technician reassignment, use{" "}
+                <strong>Processing Records</strong>.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Header with Stats */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
@@ -802,7 +889,10 @@ export function CaseLineOperations() {
                   const statusConfig =
                     STATUS_CONFIG[caseLine.status] || STATUS_CONFIG.DRAFT;
                   const StatusIcon = statusConfig.icon;
-                  const isApproved = caseLine.status === "CUSTOMER_APPROVED";
+                  const isApproved =
+                    caseLine.status === "CUSTOMER_APPROVED" ||
+                    caseLine.status === "WAITING_FOR_PARTS" ||
+                    caseLine.status === "PARTS_AVAILABLE";
                   const isSelected = selectedCaseLineIds.has(caseLine.id);
                   const quantityReserved = getQuantityReserved(caseLine);
                   const isFullyReserved =
@@ -1002,32 +1092,31 @@ export function CaseLineOperations() {
                                 ? "Stock Allocated"
                                 : "Allocate Stock"}
                             </button>
-                            <button
-                              onClick={() =>
-                                handleOpenTechnicianModal(caseLine.id)
-                              }
-                              disabled={
-                                caseLine.status !== "READY_FOR_REPAIR" ||
-                                !!caseLine.repairTechnician
-                              }
-                              className={`flex-1 px-4 py-2.5 text-sm rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium ${
-                                caseLine.repairTechnician
-                                  ? "bg-green-600 text-white"
-                                  : "bg-gray-900 text-white hover:bg-gray-800"
-                              }`}
-                              title={
-                                caseLine.repairTechnician
-                                  ? `Assigned to ${caseLine.repairTechnician.name}`
-                                  : caseLine.status !== "READY_FOR_REPAIR"
-                                  ? "Stock must be allocated first"
-                                  : "Assign technician"
-                              }
-                            >
-                              <UserPlus className="w-4 h-4" />
-                              {caseLine.repairTechnician
-                                ? caseLine.repairTechnician.name
-                                : "Assign Technician"}
-                            </button>
+                            {/* Repair Technician Assignment - Auto-assigned after stock allocation */}
+                            {caseLine.repairTechnician ? (
+                              <div className="flex-1 px-4 py-2.5 text-sm rounded-lg flex items-center justify-center gap-2 bg-green-50 border-2 border-green-200 text-green-700 font-medium">
+                                <UserPlus className="w-4 h-4" />
+                                {caseLine.repairTechnician.name}
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() =>
+                                  handleOpenTechnicianModal(caseLine.id)
+                                }
+                                disabled={
+                                  caseLine.status !== "READY_FOR_REPAIR"
+                                }
+                                className="flex-1 px-4 py-2.5 text-sm rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium bg-gray-900 text-white hover:bg-gray-800"
+                                title={
+                                  caseLine.status !== "READY_FOR_REPAIR"
+                                    ? "Stock must be allocated first (tech will be auto-assigned)"
+                                    : "Assign technician for repair"
+                                }
+                              >
+                                <UserPlus className="w-4 h-4" />
+                                Assign Technician
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1060,7 +1149,7 @@ export function CaseLineOperations() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[70]"
             onClick={() => setShowTechnicianModal(false)}
           >
             <motion.div

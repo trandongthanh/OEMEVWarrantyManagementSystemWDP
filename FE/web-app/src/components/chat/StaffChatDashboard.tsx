@@ -467,6 +467,29 @@ export default function StaffChatDashboard({
     }
   };
 
+  const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = event.clipboardData?.items;
+    if (!items) return;
+
+    // Look for image in clipboard
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.indexOf("image") !== -1) {
+        event.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          // Check file size (limit to 10MB)
+          if (file.size > 10 * 1024 * 1024) {
+            toast.error("Image size must be less than 10MB");
+            return;
+          }
+          setSelectedFile(file);
+        }
+        break;
+      }
+    }
+  };
+
   const handleRemoveFile = () => {
     setSelectedFile(null);
   };
@@ -1015,6 +1038,7 @@ export default function StaffChatDashboard({
                         }
                       }}
                       onKeyDown={handleKeyPress}
+                      onPaste={handlePaste}
                       placeholder="Type your message..."
                       rows={1}
                       className="flex-1 resize-none rounded-xl border-2 border-gray-200 px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"

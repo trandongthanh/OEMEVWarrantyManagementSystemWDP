@@ -189,7 +189,11 @@ class ComponentReservationService {
     return updatedReservations;
   };
 
-  installComponent = async ({ reservationId, serviceCenterId }) => {
+  installComponent = async ({ reservationId, serviceCenterId, userId }) => {
+    if (!userId) {
+      throw new Error("Technician context is required for install");
+    }
+
     const rawResult = await db.sequelize.transaction(async (transaction) => {
       const reservation = await this.#componentReservationRepository.findById(
         reservationId,
@@ -205,6 +209,16 @@ class ComponentReservationService {
         throw new Error("Only PICKED_UP components can be installed");
       }
 
+      if (!reservation.pickedUpBy) {
+        throw new Error("Reservation has not been assigned to any technician");
+      }
+
+      if (reservation.pickedUpBy !== userId) {
+        throw new Error(
+          "Only the technician who picked up this component can install it"
+        );
+      }
+
       const caseLineId = reservation.caseLineId;
 
       const caseline = await this.#caselineRepository.getVinById(
@@ -218,6 +232,7 @@ class ComponentReservationService {
       }
 
       const vin = caseline?.guaranteeCase?.vehicleProcessingRecord?.vin;
+      const assignedRepairTechId = caseline?.repairTechId || null;
       const reservationServiceCenterId =
         caseline?.guaranteeCase?.vehicleProcessingRecord?.createdByStaff
           ?.serviceCenterId || null;
@@ -237,6 +252,18 @@ class ComponentReservationService {
 
       if (!vin) {
         throw new Error("Vehicle VIN is missing for the reservation");
+      }
+
+      if (!assignedRepairTechId) {
+        throw new Error(
+          "No repair technician has been assigned to this case line"
+        );
+      }
+
+      if (assignedRepairTechId !== userId) {
+        throw new Error(
+          "You are not authorized to install components for this reservation"
+        );
       }
 
       const componentId = reservation.componentId;

@@ -250,8 +250,7 @@ export function StockTransferRequestList({
   const canApproveReject = userRole === "emv_staff";
   const canShip = userRole === "parts_coordinator_company";
   const canReceive = userRole === "parts_coordinator_service_center";
-  const canCancel =
-    userRole === "emv_staff" || userRole === "service_center_manager";
+  const canCancel = userRole === "service_center_manager";
 
   if (loading) {
     return (
@@ -491,20 +490,32 @@ export function StockTransferRequestList({
                             </button>
                           )}
 
-                          {/* Manager/EMV: Cancel */}
-                          {canCancel &&
-                            !["RECEIVED", "REJECTED", "CANCELLED"].includes(
-                              request.status
-                            ) && (
-                              <button
-                                onClick={() => handleCancel(request.id)}
-                                disabled={isProcessing}
-                                className="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                <Ban className="w-4 h-4" />
-                                Cancel
-                              </button>
-                            )}
+                          {/* Manager Only: Cancel */}
+                          {canCancel && (
+                            <button
+                              onClick={() => handleCancel(request.id)}
+                              disabled={
+                                isProcessing ||
+                                ["RECEIVED", "REJECTED", "CANCELLED"].includes(
+                                  request.status
+                                ) ||
+                                request.status !== "PENDING_APPROVAL"
+                              }
+                              title={
+                                ["RECEIVED", "REJECTED", "CANCELLED"].includes(
+                                  request.status
+                                )
+                                  ? `Cannot cancel ${request.status.toLowerCase()} request`
+                                  : request.status !== "PENDING_APPROVAL"
+                                  ? "Manager can only cancel pending approval requests"
+                                  : "Cancel this request"
+                              }
+                              className="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <Ban className="w-4 h-4" />
+                              Cancel
+                            </button>
+                          )}
 
                           {/* View Details */}
                           <button
@@ -588,8 +599,12 @@ export function StockTransferRequestList({
         }}
         onConfirm={handleCancelConfirm}
         title="Cancel Request"
-        message="Please provide a reason for cancelling this request:"
-        placeholder="Enter cancellation reason..."
+        message="Please provide a detailed reason for cancelling this stock transfer request:"
+        placeholder="Enter cancellation reason (e.g., parts no longer needed, alternative sourcing, etc.)..."
+        inputType="textarea"
+        rows={4}
+        minLength={10}
+        maxLength={500}
         required
       />
 

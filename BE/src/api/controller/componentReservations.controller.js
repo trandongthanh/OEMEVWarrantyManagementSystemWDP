@@ -68,11 +68,13 @@ class ComponentReservationsController {
   installComponent = async (req, res, next) => {
     const { reservationId } = req.params;
     const { serviceCenterId } = req.user;
+    const { userId } = req.body; // Get userId from request body
 
     const updatedComponent =
       await this.#componentReservationService.installComponent({
         reservationId,
         serviceCenterId,
+        userId,
       });
 
     res.status(200).json({

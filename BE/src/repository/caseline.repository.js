@@ -10,6 +10,8 @@ const {
   Component,
   VehicleProcessingRecord,
   ServiceCenter,
+  Warehouse,
+  StockTransferRequest,
 } = db;
 
 class CaseLineRepository {
@@ -72,22 +74,25 @@ class CaseLineRepository {
   };
 
   bulkUpdateStatusByIds = async (
-    { caseLineIds, status },
+    { caseLineIds, status, rejectionReason },
     transaction = null,
     lock = null
   ) => {
-    const [numberOfAffectedRows] = await CaseLine.update(
-      { status: status },
-      {
-        where: {
-          id: {
-            [Op.in]: caseLineIds,
-          },
+    const updatePayload = { status: status };
+
+    if (rejectionReason !== undefined) {
+      updatePayload.rejectionReason = rejectionReason;
+    }
+
+    const [numberOfAffectedRows] = await CaseLine.update(updatePayload, {
+      where: {
+        id: {
+          [Op.in]: caseLineIds,
         },
-        transaction: transaction,
-        lock: lock,
-      }
-    );
+      },
+      transaction: transaction,
+      lock: lock,
+    });
 
     if (numberOfAffectedRows <= 0) {
       return [];
@@ -163,13 +168,39 @@ class CaseLineRepository {
         {
           model: ComponentReservation,
           as: "reservations",
-          attributes: ["reservationId", "caseLineId", "status"],
-
+          attributes: ["reservationId", "caseLineId", "status", "componentId"],
+          required: false,
           include: [
             {
               model: Component,
               as: "component",
-              attributes: ["componentId", "serialNumber", "status"],
+              attributes: [
+                "componentId",
+                "serialNumber",
+                "warehouseId",
+                "status",
+                "requestId",
+              ],
+              include: [
+                {
+                  model: Warehouse,
+                  as: "warehouse",
+                  attributes: ["warehouseId", "name", "address"],
+                },
+                {
+                  model: StockTransferRequest,
+                  as: "stockTransferRequest",
+                  attributes: ["id", "requestingWarehouseId"],
+                  required: false,
+                  include: [
+                    {
+                      model: Warehouse,
+                      as: "requestingWarehouse",
+                      attributes: ["warehouseId", "name", "address"],
+                    },
+                  ],
+                },
+              ],
             },
           ],
         },
@@ -307,7 +338,7 @@ class CaseLineRepository {
 
   getVinById = async (caselineId, transaction = null, lock = null) => {
     const record = await CaseLine.findOne({
-      attributes: ["id"],
+      attributes: ["id", "repairTechId"],
       include: [
         {
           model: GuaranteeCase,
@@ -430,8 +461,41 @@ class CaseLineRepository {
         {
           model: ComponentReservation,
           as: "reservations",
-          attributes: ["reservationId", "status"],
+          attributes: ["reservationId", "status", "componentId"],
           required: false,
+          include: [
+            {
+              model: Component,
+              as: "component",
+              attributes: [
+                "componentId",
+                "serialNumber",
+                "warehouseId",
+                "status",
+                "requestId",
+              ],
+              include: [
+                {
+                  model: Warehouse,
+                  as: "warehouse",
+                  attributes: ["warehouseId", "name", "address"],
+                },
+                {
+                  model: StockTransferRequest,
+                  as: "stockTransferRequest",
+                  attributes: ["id", "requestingWarehouseId"],
+                  required: false,
+                  include: [
+                    {
+                      model: Warehouse,
+                      as: "requestingWarehouse",
+                      attributes: ["warehouseId", "name", "address"],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
         },
       ],
       limit,

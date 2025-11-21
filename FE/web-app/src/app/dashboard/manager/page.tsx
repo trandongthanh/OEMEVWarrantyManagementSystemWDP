@@ -27,7 +27,7 @@ import {
   StockTransferRequestList,
   AllCaseLinesList,
   WarehouseOverview,
-  CreateUserAccount,
+  ManagerCreateUserAccount,
 } from "@/components/dashboard";
 import TaskAssignmentList from "@/components/dashboard/managerdashboard/TaskAssignmentList";
 import { ManagerCasesList } from "@/components/dashboard/managerdashboard/ManagerCasesList";
@@ -89,7 +89,11 @@ export default function ManagerDashboard() {
     { id: "all-caselines", icon: Layers, label: "All Case Lines" },
     { id: "assign-tasks", icon: ClipboardList, label: "Assign Technicians" },
     { id: "tasks", icon: CheckSquare, label: "Task Assignments" },
-    { id: "most-problematic", icon: AlertCircle, label: "Most Problematic Models" },
+    {
+      id: "most-problematic",
+      icon: AlertCircle,
+      label: "Most Problematic Models",
+    },
     { id: "schedules", icon: Calendar, label: "Schedules" },
     { id: "warehouse", icon: Warehouse, label: "Warehouse Stock" },
     { id: "transfers", icon: Package, label: "Stock Transfers" },
@@ -119,6 +123,7 @@ export default function ManagerDashboard() {
       case "warehouse":
         return <WarehouseOverview />;
       case "transfers":
+      case "stock-transfers": // Support both nav IDs for notification compatibility
         return (
           <StockTransferRequestList
             userRole="service_center_manager"
@@ -129,7 +134,7 @@ export default function ManagerDashboard() {
           />
         );
       case "create-user":
-        return <CreateUserAccount />;
+        return <ManagerCreateUserAccount />;
       default:
         return null;
     }

@@ -145,6 +145,43 @@ class TaskAssignmentRepository {
               as: "vehicle",
               attributes: ["vin", "vehicleModelId"],
             },
+            {
+              model: GuaranteeCase,
+              as: "guaranteeCases",
+              attributes: [
+                "guaranteeCaseId",
+                "status",
+                "contentGuarantee",
+                "leadTechId",
+              ],
+              required: false,
+              include: [
+                {
+                  model: CaseLine,
+                  as: "caseLines",
+                  attributes: [
+                    "id",
+                    "status",
+                    "typeComponentId",
+                    "diagnosticTechId",
+                    "repairTechId",
+                    "diagnosisText",
+                    "correctionText",
+                    "warrantyStatus",
+                    "createdAt",
+                    "updatedAt",
+                  ],
+                  required: false,
+                  include: [
+                    {
+                      model: TypeComponent,
+                      as: "typeComponent",
+                      attributes: ["typeComponentId", "name", "sku"],
+                    },
+                  ],
+                },
+              ],
+            },
           ],
         },
         {
@@ -156,6 +193,11 @@ class TaskAssignmentRepository {
             "typeComponentId",
             "diagnosticTechId",
             "repairTechId",
+            "diagnosisText",
+            "correctionText",
+            "warrantyStatus",
+            "createdAt",
+            "updatedAt",
           ],
           required: false, // Use left join
           include: [
@@ -163,6 +205,28 @@ class TaskAssignmentRepository {
               model: TypeComponent,
               as: "typeComponent",
               attributes: ["typeComponentId", "name", "sku"],
+            },
+            {
+              model: GuaranteeCase,
+              as: "guaranteeCase",
+              attributes: ["guaranteeCaseId", "status", "contentGuarantee"],
+              required: false,
+              include: [
+                {
+                  model: VehicleProcessingRecord,
+                  as: "vehicleProcessingRecord",
+                  attributes: ["vehicleProcessingRecordId", "vin", "status"],
+                  required: false,
+                  include: [
+                    {
+                      model: Vehicle,
+                      as: "vehicle",
+                      attributes: ["vin"],
+                      required: false,
+                    },
+                  ],
+                },
+              ],
             },
           ],
         },

@@ -98,8 +98,6 @@ class ConversationRepository {
   ) => {
     let whereClause;
 
-    // For UNASSIGNED status, show conversations with no staff assigned
-    // For other statuses (ACTIVE, CLOSED), show only conversations assigned to this staff
     if (status === "UNASSIGNED") {
       whereClause = {
         staffId: null,

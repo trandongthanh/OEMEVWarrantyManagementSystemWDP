@@ -9,12 +9,10 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import apiClient from "@/lib/apiClient";
-import MostUsedComponents from "../MostUsedComponents";
 
 interface DashboardStats {
   totalTransferRequests: number;
   pendingRequests: number;
-  activeRecallCampaigns: number;
   completedToday: number;
 }
 
@@ -33,7 +31,6 @@ export default function EMVStaffDashboardOverview({
   const [stats, setStats] = useState<DashboardStats>({
     totalTransferRequests: 0,
     pendingRequests: 0,
-    activeRecallCampaigns: 0,
     completedToday: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -48,17 +45,12 @@ export default function EMVStaffDashboardOverview({
       setLoading(true);
 
       // Load stock transfer requests
-      const [allRequests, pendingRequests, recallCampaigns] = await Promise.all(
-        [
-          apiClient.get("/stock-transfer-requests"),
-          apiClient.get("/stock-transfer-requests", {
-            params: { status: "PENDING" },
-          }),
-          apiClient.get("/recall-campaigns", {
-            params: { status: "ACTIVE" },
-          }),
-        ]
-      );
+      const [allRequests, pendingRequests] = await Promise.all([
+        apiClient.get("/stock-transfer-requests"),
+        apiClient.get("/stock-transfer-requests", {
+          params: { status: "PENDING_APPROVAL" },
+        }),
+      ]);
 
       // Calculate completed today
       const today = new Date();
@@ -83,8 +75,6 @@ export default function EMVStaffDashboardOverview({
         totalTransferRequests: allRequestsData.length,
         pendingRequests:
           pendingRequests.data?.data?.stockTransferRequests?.length || 0,
-        activeRecallCampaigns:
-          recallCampaigns.data?.data?.campaigns?.length || 0,
         completedToday: completedTodayCount,
       });
     } catch (err) {
@@ -112,12 +102,6 @@ export default function EMVStaffDashboardOverview({
       iconColor: "text-orange-600",
     },
     {
-      title: "Active Recall Campaigns",
-      value: stats.activeRecallCampaigns,
-      icon: Package,
-      iconColor: "text-red-600",
-    },
-    {
       title: "Completed Today",
       value: stats.completedToday,
       icon: CheckCircle,
@@ -127,8 +111,8 @@ export default function EMVStaffDashboardOverview({
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[1, 2, 3, 4].map((i) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {[1, 2, 3].map((i) => (
           <div
             key={i}
             className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse"
@@ -163,12 +147,12 @@ export default function EMVStaffDashboardOverview({
           EMV Staff Dashboard
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          Manage transfer requests and recall campaigns
+          Manage transfer requests across the system
         </p>
       </motion.div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {statCards.map((card, index) => (
           <motion.div
             key={card.title}
@@ -203,7 +187,7 @@ export default function EMVStaffDashboardOverview({
           <Package className="w-5 h-5 text-blue-600" />
           Quick Actions
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button
             onClick={() => onNavigate?.("transfer-requests")}
             className="p-4 border-2 border-orange-200 rounded-xl hover:bg-orange-50 transition-colors text-left"
@@ -212,29 +196,12 @@ export default function EMVStaffDashboardOverview({
             <p className="font-semibold text-gray-900">Transfer Requests</p>
             <p className="text-sm text-gray-500">Review pending requests</p>
           </button>
-          <button
-            onClick={() => onNavigate?.("recall-campaigns")}
-            className="p-4 border-2 border-red-200 rounded-xl hover:bg-red-50 transition-colors text-left"
-          >
-            <AlertCircle className="w-8 h-8 text-red-600 mb-2" />
-            <p className="font-semibold text-gray-900">Recall Campaigns</p>
-            <p className="text-sm text-gray-500">Manage vehicle recalls</p>
-          </button>
           <div className="p-4 border-2 border-gray-200 rounded-xl bg-gray-50">
             <Package className="w-8 h-8 text-gray-400 mb-2" />
             <p className="font-semibold text-gray-500">Coming Soon</p>
             <p className="text-sm text-gray-400">Additional features</p>
           </div>
         </div>
-      </motion.div>
-
-      {/* Most Used Components */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-      >
-        <MostUsedComponents limit={10} showDateFilter={true} />
       </motion.div>
     </div>
   );

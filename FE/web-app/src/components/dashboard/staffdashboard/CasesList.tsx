@@ -23,6 +23,7 @@ import { Pagination } from "@/components/ui";
 import { CaseLineDetailModal } from "./CaseLineDetailModal";
 import { ApproveCaseLinesModal } from "./ApproveCaseLinesModal";
 import { CompleteRecordModal } from "./CompleteRecordModal";
+import { CancelRecordModal } from "./CancelRecordModal";
 import { usePolling } from "@/hooks/usePolling";
 
 interface CasesListProps {
@@ -33,6 +34,12 @@ const statusConfig: Record<
   string,
   { label: string; color: string; bgColor: string; icon: any }
 > = {
+  DRAFT: {
+    label: "Draft",
+    color: "text-gray-700",
+    bgColor: "bg-gray-100",
+    icon: FileText,
+  },
   CHECKED_IN: {
     label: "Checked In",
     color: "text-blue-700",
@@ -45,17 +52,23 @@ const statusConfig: Record<
     bgColor: "bg-purple-100",
     icon: Clock,
   },
-  WAITING_FOR_PARTS: {
-    label: "Waiting for Parts",
+  WAITING_CUSTOMER_APPROVAL: {
+    label: "Waiting Customer Approval",
     color: "text-yellow-700",
     bgColor: "bg-yellow-100",
-    icon: AlertCircle,
-  },
-  IN_REPAIR: {
-    label: "In Repair",
-    color: "text-orange-700",
-    bgColor: "bg-orange-100",
     icon: Clock,
+  },
+  PROCESSING: {
+    label: "Processing",
+    color: "text-indigo-700",
+    bgColor: "bg-indigo-100",
+    icon: Clock,
+  },
+  READY_FOR_PICKUP: {
+    label: "Ready for Pickup",
+    color: "text-teal-700",
+    bgColor: "bg-teal-100",
+    icon: CheckCircle,
   },
   COMPLETED: {
     label: "Completed",
@@ -68,12 +81,6 @@ const statusConfig: Record<
     color: "text-red-700",
     bgColor: "bg-red-100",
     icon: AlertCircle,
-  },
-  PAID: {
-    label: "Paid",
-    color: "text-emerald-700",
-    bgColor: "bg-emerald-100",
-    icon: CheckCircle,
   },
 };
 
@@ -90,6 +97,7 @@ export function CasesList({ onViewDetails }: CasesListProps) {
   const [showCaseLineModal, setShowCaseLineModal] = useState(false);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const [approvalAction, setApprovalAction] = useState<"approve" | "reject">(
     "approve"
   );
@@ -126,7 +134,8 @@ export function CasesList({ onViewDetails }: CasesListProps) {
         !showDetailsModal &&
         !showCaseLineModal &&
         !showApprovalModal &&
-        !showCompleteModal, // Only poll when no modals open
+        !showCompleteModal &&
+        !showCancelModal, // Only poll when no modals open
       onError: (err) => {
         console.error("❌ Polling error:", err);
       },
@@ -422,8 +431,14 @@ export function CasesList({ onViewDetails }: CasesListProps) {
 
                           if (totalLines > 0) {
                             // Count case lines by status
+                            const draft = caseLines.filter(
+                              (cl) => cl.status === "DRAFT"
+                            ).length;
                             const pendingApproval = caseLines.filter(
                               (cl) => cl.status === "PENDING_APPROVAL"
+                            ).length;
+                            const inDiagnosis = caseLines.filter(
+                              (cl) => cl.status === "IN_DIAGNOSIS"
                             ).length;
                             const waitingForParts = caseLines.filter(
                               (cl) => cl.status === "WAITING_FOR_PARTS"
@@ -459,7 +474,18 @@ export function CasesList({ onViewDetails }: CasesListProps) {
                               "bg-gray-900 text-white hover:bg-gray-800";
                             let statusBadge = null;
 
-                            if (pendingApproval > 0) {
+                            if (draft === totalLines) {
+                              buttonText = `View ${totalLines} Case Line${
+                                totalLines !== 1 ? "s" : ""
+                              }`;
+                              buttonStyle =
+                                "bg-gray-600 text-white hover:bg-gray-700";
+                              statusBadge = (
+                                <span className="px-2 py-0.5 bg-gray-200 text-gray-800 rounded text-xs font-semibold">
+                                  All Draft
+                                </span>
+                              );
+                            } else if (pendingApproval > 0) {
                               buttonText = `Review ${totalLines} Case Line${
                                 totalLines !== 1 ? "s" : ""
                               }`;
@@ -468,6 +494,17 @@ export function CasesList({ onViewDetails }: CasesListProps) {
                               statusBadge = (
                                 <span className="px-2 py-0.5 bg-yellow-200 text-yellow-800 rounded text-xs font-semibold">
                                   {pendingApproval} Pending Approval
+                                </span>
+                              );
+                            } else if (inDiagnosis === totalLines) {
+                              buttonText = `View ${totalLines} Case Line${
+                                totalLines !== 1 ? "s" : ""
+                              }`;
+                              buttonStyle =
+                                "bg-orange-600 text-white hover:bg-orange-700";
+                              statusBadge = (
+                                <span className="px-2 py-0.5 bg-orange-200 text-orange-800 rounded text-xs font-semibold">
+                                  In Diagnosis
                                 </span>
                               );
                             } else if (waitingForParts === totalLines) {
@@ -816,19 +853,86 @@ export function CasesList({ onViewDetails }: CasesListProps) {
                             </h3>
                           </div>
                           <div className="flex items-center gap-2">
-                            {/* Complete Record Button */}
-                            {selectedRecord.status === "READY_FOR_PICKUP" && (
+                            {/* Cancel Record Button - Show for cancellable statuses */}
+                            {[
+                              "CHECKED_IN",
+                              "IN_DIAGNOSIS",
+                              "WAITING_CUSTOMER_APPROVAL",
+                              "PROCESSING",
+                            ].includes(selectedRecord.status) && (
                               <button
                                 onClick={() => {
                                   setShowDetailsModal(false);
-                                  setShowCompleteModal(true);
+                                  setShowCancelModal(true);
                                 }}
-                                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg transition-all text-sm font-semibold shadow-sm hover:shadow-md bg-green-600 text-white hover:bg-green-700"
+                                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg transition-all text-sm font-semibold shadow-sm hover:shadow-md bg-red-600 text-white hover:bg-red-700"
                               >
-                                <CheckSquare className="w-4 h-4" />
-                                Complete Record
+                                <X className="w-4 h-4" />
+                                Cancel Record
                               </button>
                             )}
+                            {/* Complete Record Button - Show when all case lines are in final states */}
+                            {(() => {
+                              // Check if all case lines are in final states
+                              const allCaseLines =
+                                selectedRecord.guaranteeCases?.flatMap(
+                                  (gc) => gc.caseLines || []
+                                ) || [];
+
+                              if (allCaseLines.length === 0) return null;
+
+                              const finalStatuses = [
+                                "COMPLETED",
+                                "CANCELLED",
+                                "REJECTED_BY_OUT_OF_WARRANTY",
+                                "REJECTED_BY_TECH",
+                                "REJECTED_BY_CUSTOMER",
+                              ];
+
+                              const allInFinalState = allCaseLines.every((cl) =>
+                                finalStatuses.includes(cl.status || "")
+                              );
+
+                              // Check if all case lines are REJECTED_BY_CUSTOMER
+                              const allRejectedByCustomer = allCaseLines.every(
+                                (cl) => cl.status === "REJECTED_BY_CUSTOMER"
+                              );
+
+                              // Don't show complete button if all rejected by customer and still PROCESSING
+                              // User should use cancel button instead
+                              if (
+                                allRejectedByCustomer &&
+                                selectedRecord.status === "PROCESSING"
+                              ) {
+                                return null;
+                              }
+
+                              // Show complete button if READY_FOR_PICKUP or all case lines are in final states
+                              const canComplete =
+                                selectedRecord.status === "READY_FOR_PICKUP" ||
+                                (allInFinalState &&
+                                  !["COMPLETED", "CANCELLED"].includes(
+                                    selectedRecord.status
+                                  ));
+
+                              return canComplete ? (
+                                <button
+                                  onClick={() => {
+                                    setShowDetailsModal(false);
+                                    setShowCompleteModal(true);
+                                  }}
+                                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg transition-all text-sm font-semibold shadow-sm hover:shadow-md bg-green-600 text-white hover:bg-green-700"
+                                  title={
+                                    selectedRecord.status === "READY_FOR_PICKUP"
+                                      ? "All repairs completed and ready for checkout"
+                                      : "All case lines are in final states (completed or rejected)"
+                                  }
+                                >
+                                  <CheckSquare className="w-4 h-4" />
+                                  Complete Record
+                                </button>
+                              ) : null;
+                            })()}
                             {/* View Case Lines Button */}
                             {(() => {
                               const caseLines =
@@ -986,6 +1090,21 @@ export function CasesList({ onViewDetails }: CasesListProps) {
           vehicleVin={selectedRecord?.vin}
           onSuccess={() => {
             setShowCompleteModal(false);
+            setSelectedRecord(null);
+            fetchRecords(); // Refresh the list
+          }}
+        />
+
+        {/* Cancel Record Modal */}
+        <CancelRecordModal
+          isOpen={showCancelModal}
+          onClose={() => {
+            setShowCancelModal(false);
+          }}
+          recordId={selectedRecord?.vehicleProcessingRecordId || ""}
+          vehicleVin={selectedRecord?.vin}
+          onSuccess={() => {
+            setShowCancelModal(false);
             setSelectedRecord(null);
             fetchRecords(); // Refresh the list
           }}

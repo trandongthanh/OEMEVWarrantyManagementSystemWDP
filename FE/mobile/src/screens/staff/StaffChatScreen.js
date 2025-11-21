@@ -125,7 +125,7 @@ export default function StaffChatScreen({ route, navigation }) {
     Keyboard.dismiss();
   };
 
-  // 🧩 Auto scroll
+  // 🧩 Auto scroll khi có tin nhắn mới
   useEffect(() => {
     if (flatListRef.current && messages.length > 0) {
       flatListRef.current.scrollToEnd({ animated: true });

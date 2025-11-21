@@ -186,9 +186,30 @@ export function ManagerCasesList({}: ManagerCasesListProps) {
   return (
     <div className="flex-1 overflow-auto">
       <div className="p-8">
+        {/* Info Banner */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-indigo-600 rounded-lg p-4 mb-6">
+          <div className="flex items-start gap-3">
+            <UserCheck className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-1">
+                Main Technician Assignment
+              </h3>
+              <p className="text-xs text-gray-600">
+                Assign or reassign the{" "}
+                <strong>primary diagnostic technician</strong> responsible for
+                the entire vehicle. For individual case line repairs and stock
+                allocation, use <strong>Case Line Operations</strong>. For task
+                tracking, see <strong>Task Assignments</strong>.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Header */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900">Task Assignment</h2>
+          <h2 className="text-2xl font-bold text-gray-900">
+            Assign Technicians
+          </h2>
           <p className="text-gray-600 mt-1">
             Assign technicians to processing records
           </p>
@@ -334,7 +355,25 @@ export function ManagerCasesList({}: ManagerCasesListProps) {
                       {/* Assign Button */}
                       <button
                         onClick={() => handleAssignClick(record)}
-                        className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2"
+                        disabled={[
+                          "COMPLETED",
+                          "CANCELLED",
+                          "READY_FOR_PICKUP",
+                        ].includes(record.status)}
+                        title={
+                          [
+                            "COMPLETED",
+                            "CANCELLED",
+                            "READY_FOR_PICKUP",
+                          ].includes(record.status)
+                            ? `Cannot reassign - Record is ${record.status
+                                .toLowerCase()
+                                .replace(/_/g, " ")}`
+                            : record.mainTechnician
+                            ? "Reassign technician"
+                            : "Assign technician"
+                        }
+                        className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:hover:bg-gray-400"
                       >
                         <UserCheck className="w-4 h-4" />
                         {record.mainTechnician ? "Reassign" : "Assign"}
@@ -368,7 +407,7 @@ export function ManagerCasesList({}: ManagerCasesListProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[70] p-4"
             onClick={() => setShowAssignModal(false)}
           >
             <motion.div

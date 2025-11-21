@@ -11,7 +11,6 @@ import {
   Loader2,
   Info,
   CheckCircle,
-  XCircle,
   Warehouse as WarehouseIcon,
 } from "lucide-react";
 import inventoryService from "@/services/inventoryService";
@@ -34,20 +33,16 @@ export default function InventoryBulkUpload({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
+  const [adjustmentType, setAdjustmentType] = useState<"IN" | "OUT">("IN");
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
+  const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadResult, setUploadResult] = useState<{
-    summary: {
-      total: number;
-      successful: number;
-      failed: number;
-    };
-    errors?: Array<{
-      row: number;
-      sku?: string;
-      error: string;
-    }>;
+    successCount: number;
+    totalComponents: number;
+    errors?: string[];
   } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Warehouse selection (for company coordinators)
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -60,8 +55,26 @@ export default function InventoryBulkUpload({
   const warehouseId = providedWarehouseId || selectedWarehouseId;
 
   // Load warehouses if no warehouseId is provided (company coordinator case)
+  // Reset data + load warehouses (nếu cần) mỗi khi mở modal
   useEffect(() => {
-    if (isOpen && !providedWarehouseId) {
+    if (!isOpen) return;
+
+    // Reset states
+    setSelectedFile(null);
+    setUploadResult(null);
+    setUploadSuccess(false);
+    setAdjustmentType("IN");
+    setReason("");
+    setNote("");
+    setSelectedWarehouseId("");
+
+    // Reset input file trong DOM
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+
+    // Chỉ load warehouses nếu user không có providedWarehouseId
+    if (!providedWarehouseId) {
       loadWarehouses();
     }
   }, [isOpen, providedWarehouseId]);
@@ -85,6 +98,54 @@ export default function InventoryBulkUpload({
       // Validate file type
       if (!file.name.endsWith(".xlsx") && !file.name.endsWith(".xls")) {
         toast.error("Please select an Excel file (.xlsx or .xls)");
+        return;
+      }
+
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("File size must be less than 10MB");
+        return;
+      }
+
+      setSelectedFile(file);
+      setUploadResult(null);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!uploading) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!uploading) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    if (uploading) return;
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.name.endsWith(".xlsx") && !file.name.endsWith(".xls")) {
+        toast.error("Please drop an Excel file (.xlsx or .xls)");
         return;
       }
 
@@ -141,32 +202,70 @@ export default function InventoryBulkUpload({
 
     try {
       setUploading(true);
+
       const result = await inventoryService.bulkCreateAdjustments({
         file: selectedFile,
         warehouseId,
-        adjustmentType: "IN",
+        adjustmentType: adjustmentType,
         reason: reason.trim(),
         note: note.trim() || undefined,
       });
 
-      setUploadResult(result.data);
+      // Backend returns array of adjustment objects
+      const adjustments = Array.isArray(result.data) ? result.data : [];
+      const successCount = adjustments.length;
+      const totalComponents = adjustments.reduce(
+        (sum, adj) => sum + (adj.quantity || 0),
+        0
+      );
 
-      if (result.data.summary.failed === 0) {
-        toast.success(
-          `Successfully created ${result.data.summary.successful} inventory adjustments!`
-        );
+      setUploadResult({
+        successCount,
+        totalComponents,
+        errors: [],
+      });
+
+      if (successCount > 0) {
+        // Show success animation
+        setUploadSuccess(true);
+
+        // Show success toast after a brief delay to let animation play
+        setTimeout(() => {
+          toast.success(
+            `Successfully imported ${totalComponents} components across ${successCount} SKU(s)!`,
+            {
+              duration: 3000,
+            }
+          );
+        }, 500);
+
+        // Trigger onSuccess callback
         onSuccess?.();
+
+        // Close modal after showing success animation (2.5 seconds for animation)
+        setTimeout(() => {
+          handleClose();
+        }, 2500);
       } else {
-        toast.warning(
-          `Created ${result.data.summary.successful} adjustments, ${result.data.summary.failed} failed`
-        );
+        toast.error("No adjustments were created. Please check the file.");
       }
     } catch (error: unknown) {
       console.error("Error uploading adjustments:", error);
       const err = error as { response?: { data?: { message?: string } } };
-      toast.error(
-        err.response?.data?.message || "Failed to upload adjustments"
-      );
+
+      // Show detailed error message
+      const errorMessage =
+        err.response?.data?.message || "Failed to upload adjustments";
+      toast.error(errorMessage, {
+        duration: 5000,
+      });
+
+      // Set error state in upload result
+      setUploadResult({
+        successCount: 0,
+        totalComponents: 0,
+        errors: [errorMessage],
+      });
     } finally {
       setUploading(false);
     }
@@ -176,6 +275,8 @@ export default function InventoryBulkUpload({
     if (!uploading) {
       setSelectedFile(null);
       setUploadResult(null);
+      setUploadSuccess(false);
+      setAdjustmentType("IN");
       setReason("");
       setNote("");
       setSelectedWarehouseId("");
@@ -190,7 +291,7 @@ export default function InventoryBulkUpload({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
         {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -312,16 +413,64 @@ export default function InventoryBulkUpload({
               </div>
             )}
 
+            {/* Adjustment Type Selector */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Adjustment Type <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setAdjustmentType("IN")}
+                  disabled={uploading}
+                  className={`px-4 py-3 rounded-xl font-medium transition-all ${
+                    adjustmentType === "IN"
+                      ? "bg-green-600 text-white shadow-lg"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  } disabled:opacity-50`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <Upload className="w-4 h-4" />
+                    Add Stock (IN)
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdjustmentType("OUT")}
+                  disabled={uploading}
+                  className={`px-4 py-3 rounded-xl font-medium transition-all ${
+                    adjustmentType === "OUT"
+                      ? "bg-red-600 text-white shadow-lg"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  } disabled:opacity-50`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <Download className="w-4 h-4" />
+                    Remove Stock (OUT)
+                  </div>
+                </button>
+              </div>
+              <p className="text-xs text-gray-500">
+                {adjustmentType === "IN"
+                  ? "Adds components to inventory (e.g., new shipment, returns)"
+                  : "Removes components from inventory (e.g., damaged, lost, scrapped)"}
+              </p>
+            </div>
+
             {/* Reason Input */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
-                Reason for Stock Import <span className="text-red-500">*</span>
+                Reason for Adjustment <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="e.g., New supplier shipment, Restocking from warehouse"
+                placeholder={
+                  adjustmentType === "IN"
+                    ? "e.g., New supplier shipment, Customer return"
+                    : "e.g., Damaged goods, Lost inventory, Quality issue"
+                }
                 disabled={uploading}
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:bg-gray-50 text-black"
               />
@@ -351,12 +500,18 @@ export default function InventoryBulkUpload({
 
               <div
                 onClick={() => !uploading && fileInputRef.current?.click()}
+                onDragOver={handleDragOver}
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
                 className={`
                   border-2 border-dashed rounded-xl p-8 text-center cursor-pointer
                   transition-colors
                   ${
                     selectedFile
                       ? "border-blue-300 bg-blue-50"
+                      : isDragging
+                      ? "border-blue-500 bg-blue-100"
                       : "border-gray-300 hover:border-blue-400 hover:bg-gray-50"
                   }
                   ${uploading ? "opacity-50 cursor-not-allowed" : ""}
@@ -419,55 +574,91 @@ export default function InventoryBulkUpload({
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-3"
               >
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <p className="text-xs text-gray-600 mb-1">Total</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {uploadResult.summary.total}
-                    </p>
-                  </div>
-                  <div className="p-4 bg-green-50 rounded-lg">
-                    <p className="text-xs text-green-600 mb-1 flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3" />
-                      Success
-                    </p>
-                    <p className="text-2xl font-bold text-green-900">
-                      {uploadResult.summary.successful}
-                    </p>
-                  </div>
-                  <div className="p-4 bg-red-50 rounded-lg">
-                    <p className="text-xs text-red-600 mb-1 flex items-center gap-1">
-                      <XCircle className="w-3 h-3" />
-                      Failed
-                    </p>
-                    <p className="text-2xl font-bold text-red-900">
-                      {uploadResult.summary.failed}
-                    </p>
-                  </div>
-                </div>
+                {/* Success Animation */}
+                {uploadSuccess && uploadResult.successCount > 0 && (
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", duration: 0.5 }}
+                    className="flex flex-col items-center justify-center py-8"
+                  >
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{
+                        delay: 0.2,
+                        type: "spring",
+                        stiffness: 200,
+                      }}
+                      className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-4"
+                    >
+                      <CheckCircle className="w-12 h-12 text-green-600" />
+                    </motion.div>
+                    <motion.h3
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.4 }}
+                      className="text-xl font-semibold text-gray-900 mb-2"
+                    >
+                      Upload Successful!
+                    </motion.h3>
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.5 }}
+                      className="text-sm text-gray-600"
+                    >
+                      {uploadResult.successCount} SKU(s) imported (
+                      {uploadResult.totalComponents} components)
+                    </motion.p>
+                  </motion.div>
+                )}
+
+                {/* Stats - Show only if there are errors or not in success animation */}
+                {(!uploadSuccess ||
+                  (uploadResult.errors && uploadResult.errors.length > 0)) && (
+                  <>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="p-4 bg-gray-50 rounded-lg">
+                        <p className="text-xs text-gray-600 mb-1">Total SKUs</p>
+                        <p className="text-2xl font-bold text-gray-900">
+                          {uploadResult?.successCount ?? 0}
+                        </p>
+                      </div>
+
+                      <div className="p-4 bg-green-50 rounded-lg">
+                        <p className="text-xs text-green-600 mb-1">
+                          Components
+                        </p>
+                        <p className="text-2xl font-bold text-green-600">
+                          {uploadResult?.totalComponents ?? 0}
+                        </p>
+                      </div>
+
+                      <div className="p-4 bg-red-50 rounded-lg">
+                        <p className="text-xs text-red-600 mb-1">Errors</p>
+                        <p className="text-2xl font-bold text-red-600">
+                          {uploadResult?.errors?.length ?? 0}
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {uploadResult.errors && uploadResult.errors.length > 0 && (
-                  <div className="border border-red-200 rounded-lg overflow-hidden">
-                    <div className="bg-red-50 px-4 py-2 border-b border-red-200">
-                      <p className="text-sm font-medium text-red-900 flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4" />
-                        Errors ({uploadResult.errors.length})
-                      </p>
-                    </div>
-                    <div className="max-h-48 overflow-y-auto">
-                      {uploadResult.errors.map((err, idx) => (
-                        <div
-                          key={idx}
-                          className="px-4 py-2 text-sm border-b border-red-100 last:border-0"
-                        >
-                          <span className="font-medium text-red-900">
-                            Row {err.row}
-                            {err.sku && ` (${err.sku})`}:
-                          </span>{" "}
-                          <span className="text-red-700">{err.error}</span>
+                  <div className="max-h-48 overflow-y-auto space-y-2">
+                    <p className="text-sm font-medium text-gray-700">Errors:</p>
+                    {uploadResult.errors.map((err, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2"
+                      >
+                        <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                        <div className="text-xs text-red-700">
+                          <p>{err}</p>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </motion.div>
@@ -475,11 +666,11 @@ export default function InventoryBulkUpload({
           </div>
 
           {/* Footer */}
-          <div className="p-6 border-t border-gray-200 flex gap-3">
+          <div className="p-6 border-t border-gray-200 flex items-center justify-end gap-3">
             <button
               onClick={handleClose}
               disabled={uploading}
-              className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50"
+              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
             >
               {uploadResult ? "Close" : "Cancel"}
             </button>
@@ -487,17 +678,17 @@ export default function InventoryBulkUpload({
               <button
                 onClick={handleUpload}
                 disabled={!selectedFile || uploading || !reason.trim()}
-                className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {uploading ? (
                   <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" />
                     Uploading...
                   </>
                 ) : (
                   <>
-                    <Upload className="w-5 h-5" />
-                    Upload & Import
+                    <Upload className="w-4 h-4" />
+                    Upload Stock
                   </>
                 )}
               </button>

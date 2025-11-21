@@ -10,10 +10,12 @@ import { toast } from "sonner";
 export default function CreateAdjustmentModal({
   isOpen,
   onClose,
+  onSuccess,
   warehouseId,
 }: {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   warehouseId: string;
 }) {
   const [tab, setTab] = useState<"IN" | "OUT">("IN");
@@ -111,6 +113,7 @@ export default function CreateAdjustmentModal({
       await inventoryService.createAdjustment(body);
 
       toast.success("Adjustment created successfully!");
+      onSuccess?.(); // Refresh adjustments list
       onClose();
     } catch (err) {
       console.error("Create adjustment failed:", err);
@@ -123,7 +126,7 @@ export default function CreateAdjustmentModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[70]">
       <div className="bg-white w-full max-w-lg rounded-xl shadow-xl border border-gray-200">
         {/* HEADER */}
         <div className="px-6 py-4 border-b flex justify-between items-start">

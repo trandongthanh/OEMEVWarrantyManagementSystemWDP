@@ -15,6 +15,12 @@ import {
   Car,
   User,
   X,
+  Package,
+  PackageCheck,
+  FileText,
+  XCircle,
+  CheckCheck,
+  UserCheck,
 } from "lucide-react";
 import technicianService, {
   TechnicianProcessingRecord,
@@ -64,6 +70,92 @@ const statusConfig: Record<
     color: "text-red-700",
     bgColor: "bg-red-100",
     icon: X,
+  },
+};
+
+// Caseline status configuration
+const caselineStatusConfig: Record<
+  string,
+  {
+    label: string;
+    color: string;
+    bgColor: string;
+    borderColor: string;
+    icon: React.ComponentType<{ className?: string }>;
+    description: string;
+  }
+> = {
+  DRAFT: {
+    label: "Draft",
+    color: "text-gray-600",
+    bgColor: "bg-gray-50",
+    borderColor: "border-gray-200",
+    icon: FileText,
+    description: "Case line is in draft state",
+  },
+  PENDING_APPROVAL: {
+    label: "Pending Approval",
+    color: "text-yellow-600",
+    bgColor: "bg-yellow-50",
+    borderColor: "border-yellow-200",
+    icon: Clock,
+    description: "Awaiting manager approval",
+  },
+  CUSTOMER_APPROVED: {
+    label: "Customer Approved",
+    color: "text-green-600",
+    bgColor: "bg-green-50",
+    borderColor: "border-green-200",
+    icon: UserCheck,
+    description: "Customer has approved this repair",
+  },
+  WAITING_FOR_PARTS: {
+    label: "Waiting for Parts",
+    color: "text-orange-600",
+    bgColor: "bg-orange-50",
+    borderColor: "border-orange-200",
+    icon: Package,
+    description: "Stock transfer request in progress",
+  },
+  PARTS_AVAILABLE: {
+    label: "Parts Available",
+    color: "text-green-600",
+    bgColor: "bg-green-50",
+    borderColor: "border-green-200",
+    icon: PackageCheck,
+    description: "Parts received and ready to use",
+  },
+  READY_FOR_REPAIR: {
+    label: "Ready for Repair",
+    color: "text-purple-600",
+    bgColor: "bg-purple-50",
+    borderColor: "border-purple-200",
+    icon: Wrench,
+    description: "Ready to start repair work",
+  },
+  IN_REPAIR: {
+    label: "In Repair",
+    color: "text-blue-600",
+    bgColor: "bg-blue-50",
+    borderColor: "border-blue-200",
+    icon: Wrench,
+    description: "Currently being repaired",
+  },
+  COMPLETED: {
+    label: "Completed",
+    color: "text-green-600",
+    bgColor: "bg-green-50",
+    borderColor: "border-green-200",
+    icon: CheckCheck,
+    description: "Repair work completed",
+  },
+  REJECTED: {
+    label: "Rejected",
+    color: "text-red-600",
+    bgColor: "bg-red-50",
+    borderColor: "border-red-200",
+    icon: XCircle,
+    description: "Rejected by manager or technician",
   },
 };
 
@@ -293,38 +385,25 @@ export function MyTasks() {
                     whileHover={{ scale: 1.01 }}
                     className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-lg transition-all cursor-pointer"
                   >
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex-1">
-                        {/* VIN and Model */}
-                        <div className="flex items-center gap-3 mb-2">
-                          <Car className="w-5 h-5 text-gray-400" />
+                    {/* Header: VIN, Model, and Status Badge */}
+                    <div className="flex items-start justify-between mb-4 pb-4 border-b border-gray-100">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <Car className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
                           <h3 className="text-lg font-semibold text-gray-900">
                             {task.vehicle.model.name}
                           </h3>
-                          <span className="text-sm text-gray-500">
-                            ({task.vin})
-                          </span>
+                          <p className="text-sm text-gray-500">
+                            VIN: {task.vin}
+                          </p>
                         </div>
-
-                        {/* Guarantee Cases */}
-                        {task.guaranteeCases &&
-                          task.guaranteeCases.length > 0 && (
-                            <div className="ml-8 space-y-1">
-                              {task.guaranteeCases.map((gc) => (
-                                <p
-                                  key={gc.guaranteeCaseId}
-                                  className="text-sm text-gray-600"
-                                >
-                                  • {gc.contentGuarantee}
-                                </p>
-                              ))}
-                            </div>
-                          )}
                       </div>
 
                       {/* Status Badge */}
                       <div
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl ${statusInfo.bgColor}`}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${statusInfo.bgColor}`}
                       >
                         <StatusIcon className={`w-4 h-4 ${statusInfo.color}`} />
                         <span
@@ -335,8 +414,93 @@ export function MyTasks() {
                       </div>
                     </div>
 
-                    {/* Meta Information */}
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-4 border-t border-gray-100">
+                    {/* Guarantee Cases Section */}
+                    {task.guaranteeCases && task.guaranteeCases.length > 0 && (
+                      <div className="space-y-3 mb-4">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                          Work Items ({task.guaranteeCases.length})
+                        </p>
+                        {task.guaranteeCases.map((gc) => {
+                          // Group case lines by status using the config
+                          const caseLinesByStatus =
+                            gc.caseLines?.reduce((acc, cl) => {
+                              const status = cl.status || "DRAFT";
+                              if (!acc[status]) acc[status] = [];
+                              acc[status].push(cl);
+                              return acc;
+                            }, {} as Record<string, typeof gc.caseLines>) || {};
+
+                          const hasCaseLineDetails =
+                            gc.caseLines && gc.caseLines.length > 0;
+                          const totalCaseLines = gc.caseLines?.length || 0;
+
+                          return (
+                            <div
+                              key={gc.guaranteeCaseId}
+                              className="bg-gray-50 rounded-lg p-3 space-y-2"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <p className="text-sm font-medium text-gray-900 flex-1">
+                                  {gc.contentGuarantee}
+                                </p>
+                                {hasCaseLineDetails && (
+                                  <span className="text-xs text-gray-500 bg-white px-2 py-0.5 rounded flex-shrink-0">
+                                    {totalCaseLines} item
+                                    {totalCaseLines > 1 ? "s" : ""}
+                                  </span>
+                                )}
+                              </div>
+                              {hasCaseLineDetails && (
+                                <div className="flex flex-wrap gap-2">
+                                  {Object.entries(caseLinesByStatus).map(
+                                    ([status, caselines]) => {
+                                      const config =
+                                        caselineStatusConfig[status];
+                                      if (!config) return null;
+
+                                      const StatusIcon = config.icon;
+                                      const count = caselines.length;
+
+                                      return (
+                                        <div
+                                          key={status}
+                                          className="group relative"
+                                        >
+                                          <div
+                                            className={`flex items-center gap-1.5 px-2.5 py-1 bg-white border ${config.borderColor} rounded ${config.color} text-xs`}
+                                          >
+                                            <StatusIcon
+                                              className={`w-3.5 h-3.5 ${
+                                                status === "IN_REPAIR"
+                                                  ? "animate-pulse"
+                                                  : ""
+                                              }`}
+                                            />
+                                            <span className="font-medium">
+                                              {count}{" "}
+                                              {count === 1
+                                                ? "caseline"
+                                                : "caselines"}{" "}
+                                              {config.label.toLowerCase()}
+                                            </span>
+                                          </div>
+                                          <div className="absolute bottom-full left-0 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                                            {config.description}
+                                          </div>
+                                        </div>
+                                      );
+                                    }
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Meta Information Footer */}
+                    <div className="grid grid-cols-3 gap-4 pt-3 border-t border-gray-100">
                       {/* Check-in Date */}
                       <div className="flex items-center gap-2">
                         <Calendar className="w-4 h-4 text-gray-400" />

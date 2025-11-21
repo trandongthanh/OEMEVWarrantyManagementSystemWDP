@@ -1,108 +1,132 @@
 import apiClient from "@/lib/apiClient";
 
 export interface WarrantyComponent {
-  id: string;
+  warrantyComponentId: string;
   vehicleModelId: string;
-  componentId: string;
-  coverageDurationMonths: number;
-  coverageMileage: number;
-  createdAt: string;
-  updatedAt: string;
-  component?: {
-    id: string;
+  typeComponentId: string;
+  quantity: number;
+  durationMonth: number;
+  mileageLimit: number;
+  createdAt?: string;
+  updatedAt?: string;
+  typeComponent?: {
+    typeComponentId: string;
     name: string;
-    description?: string;
+    sku: string;
+    category: string;
+    price: number;
   };
   vehicleModel?: {
-    id: string;
-    name: string;
-    manufacturerYear: number;
+    vehicleModelId: string;
+    vehicleModelName: string;
+    sku: string;
+    makeBrand?: string;
   };
 }
 
 export interface CreateWarrantyComponentPayload {
-  componentId: string;
-  coverageDurationMonths: number;
-  coverageMileage: number;
+  typeComponentId: string;
+  quantity: number;
+  durationMonth: number;
+  mileageLimit: number;
+}
+
+export interface UpdateWarrantyComponentRequest {
+  quantity?: number;
+  durationMonth?: number;
+  mileageLimit?: number;
 }
 
 export interface GetWarrantyComponentsResponse {
-  success: boolean;
+  status: string;
   data: {
-    warrantyComponents: WarrantyComponent[];
-    pagination?: {
-      total: number;
-      page: number;
-      limit: number;
-      totalPages: number;
-    };
+    totalItems: number;
+    items: WarrantyComponent[];
+    totalPages: number;
+    currentPage: number;
   };
 }
 
 class WarrantyComponentService {
   /**
-   * Get all warranty components for a vehicle model
+   * Get all warranty components with optional filters
    */
-  async getWarrantyComponents(
-    vehicleModelId: string,
-    page: number = 1,
-    limit: number = 20
-  ): Promise<GetWarrantyComponentsResponse> {
-    const response = await apiClient.get(
-      `/oem-vehicle-models/${vehicleModelId}/warranty-components`,
-      {
-        params: { page, limit },
+  async getWarrantyComponents(params?: {
+    page?: number;
+    limit?: number;
+    vehicleModelId?: string;
+    typeComponentId?: string;
+  }): Promise<GetWarrantyComponentsResponse> {
+    try {
+      const response = await apiClient.get("/warranty-components", {
+        params: {
+          page: params?.page || 1,
+          limit: params?.limit || 50,
+          vehicleModelId: params?.vehicleModelId,
+          typeComponentId: params?.typeComponentId,
+        },
+      });
+      // Map id to warrantyComponentId for consistency
+      if (response.data.data.items) {
+        response.data.data.items = response.data.data.items.map(
+          (item: WarrantyComponent & { id?: string }) => ({
+            ...item,
+            warrantyComponentId: item.id || item.warrantyComponentId,
+            // Keep original id for backend operations
+          })
+        );
       }
-    );
-    return response.data;
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching warranty components:", error);
+      throw error;
+    }
   }
 
   /**
-   * Create a warranty component configuration
+   * Get a single warranty component by ID
    */
-  async createWarrantyComponent(
-    vehicleModelId: string,
-    payload: CreateWarrantyComponentPayload
-  ): Promise<{
-    success: boolean;
-    data: { warrantyComponent: WarrantyComponent };
-  }> {
-    const response = await apiClient.post(
-      `/oem-vehicle-models/${vehicleModelId}/warranty-components`,
-      payload
-    );
-    return response.data;
+  async getWarrantyComponentById(id: string): Promise<WarrantyComponent> {
+    try {
+      const response = await apiClient.get(`/warranty-components/${id}`);
+      const item = response.data.data;
+      // Map id to warrantyComponentId for consistency
+      return {
+        ...item,
+        warrantyComponentId: item.id,
+      };
+    } catch (error) {
+      console.error("Error fetching warranty component:", error);
+      throw error;
+    }
   }
 
   /**
-   * Update a warranty component configuration
+   * Update a warranty component
    */
   async updateWarrantyComponent(
-    vehicleModelId: string,
-    warrantyComponentId: string,
-    payload: Partial<CreateWarrantyComponentPayload>
-  ): Promise<{
-    success: boolean;
-    data: { warrantyComponent: WarrantyComponent };
-  }> {
-    const response = await apiClient.put(
-      `/oem-vehicle-models/${vehicleModelId}/warranty-components/${warrantyComponentId}`,
-      payload
-    );
-    return response.data;
+    id: string,
+    data: UpdateWarrantyComponentRequest
+  ): Promise<WarrantyComponent> {
+    try {
+      const response = await apiClient.put(`/warranty-components/${id}`, data);
+      return response.data.data;
+    } catch (error) {
+      console.error("Error updating warranty component:", error);
+      throw error;
+    }
   }
 
   /**
-   * Delete a warranty component configuration
+   * Delete a warranty component
    */
-  async deleteWarrantyComponent(
-    vehicleModelId: string,
-    warrantyComponentId: string
-  ): Promise<{ success: boolean }> {
-    const response = await apiClient.delete(
-      `/oem-vehicle-models/${vehicleModelId}/warranty-components/${warrantyComponentId}`
-    );
-    return response.data;
+  async deleteWarrantyComponent(id: string): Promise<void> {
+    try {
+      await apiClient.delete(`/warranty-components/${id}`);
+    } catch (error) {
+      console.error("Error deleting warranty component:", error);
+      throw error;
+    }
   }
 }
 

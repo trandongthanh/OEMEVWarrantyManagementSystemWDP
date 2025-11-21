@@ -87,28 +87,79 @@ export interface TransferData {
 
 export interface InventoryAdjustmentSummary {
   adjustmentId: string;
-  warehouseId: string;
+  stockId: string;
+  warehouseId?: string;
+  adjustmentType: "IN" | "OUT";
+  quantity: number;
   reason: string;
-  adjustmentType: string;
-  createdAt: string;
-}
-
-export interface InventoryAdjustmentDetail {
-  adjustmentId: string;
-
-  adjustedBy: {
+  note: string | null;
+  adjustedByUserId: string;
+  adjustedAt: string;
+  created_at: string;
+  updated_at: string;
+  stock?: {
+    stockId: string;
+    quantityAvailable: number;
+    quantityInStock: number;
+    quantityReserved: number;
+    typeComponentId: string;
+    warehouseId: string;
+    warehouse?: {
+      warehouseId: string;
+      name: string;
+      address: string;
+      serviceCenterId: string;
+    };
+    typeComponent?: {
+      typeComponentId: string;
+      name: string;
+      sku: string;
+      category: string;
+      price: number;
+      makeBrand: string;
+    };
+  };
+  adjustedBy?: {
     userId: string;
     name: string;
     email: string;
   };
+}
 
-  warehouseId: string;
-  adjustmentType: string;
+export interface InventoryAdjustmentDetail {
+  adjustmentId: string;
+  stockId: string;
+  adjustedBy?: {
+    userId: string;
+    name: string;
+    email: string;
+  };
+  warehouseId?: string;
+  adjustmentType: "IN" | "OUT";
+  quantity: number;
   reason: string;
   note: string | null;
+  adjustedAt: string;
   createdAt: string;
-
-  items: {
+  stock?: {
+    stockId: string;
+    quantityAvailable: number;
+    quantityInStock: number;
+    typeComponentId: string;
+    warehouse?: {
+      warehouseId: string;
+      name: string;
+      address: string;
+    };
+    typeComponent?: {
+      typeComponentId: string;
+      name: string;
+      sku: string;
+      category: string;
+      price: number;
+    };
+  };
+  items?: {
     componentId: string;
     typeComponentId: string;
     serialNumber: string;
@@ -133,10 +184,52 @@ export interface InventoryAdjustmentListResponse {
 // ======================= STOCK HISTORY ======================
 
 export interface StockHistoryItem {
-  eventType: string;
+  adjustmentId: string;
+  stockId: string;
+  adjustmentType: "IN" | "OUT";
+  quantity: number;
   quantityChange: number;
-  eventDate: string;
-  details: Record<string, unknown>;
+  reason: string;
+  note?: string;
+  adjustedByUserId?: string;
+  adjustedAt?: string;
+  created_at?: string;
+  updated_at?: string;
+  stock_id?: string;
+  adjusted_by_user_id?: string;
+  adjustedBy?: {
+    userId: string;
+    name: string;
+    email: string;
+  };
+  adjustedByUser?: {
+    userId: string;
+    name: string;
+    email: string;
+  };
+  createdAt?: string;
+  eventType: string;
+  stock?: {
+    stockId: string;
+    warehouseId: string;
+    typeComponentId: string;
+    quantityInStock: number;
+    quantityReserved: number;
+    quantityAvailable: number;
+    warehouse?: {
+      warehouseId: string;
+      name: string;
+      address?: string;
+    };
+    typeComponent?: {
+      typeComponentId: string;
+      name: string;
+      price: number;
+      sku: string;
+      category: string;
+      makeBrand?: string;
+    };
+  };
 }
 
 export interface StockHistoryPagination {
@@ -147,6 +240,14 @@ export interface StockHistoryPagination {
 }
 
 export interface StockHistoryResponse {
+  stock?: {
+    stockId: string;
+    warehouseId: string;
+    typeComponentId: string;
+    quantityInStock: number;
+    quantityReserved: number;
+    quantityAvailable: number;
+  };
   history: StockHistoryItem[];
   pagination: StockHistoryPagination;
 }
@@ -330,10 +431,13 @@ export async function getMostUsedTypeComponents(
  * Download bulk adjustment import template
  */
 export async function downloadBulkAdjustmentTemplate(): Promise<Blob> {
-  const response = await apiClient.get("/inventory/adjustments/import", {
-    params: { template: "true" },
-    responseType: "blob",
-  });
+  const response = await apiClient.get(
+    "/inventory/adjustments/import/template",
+    {
+      params: { template: "true" },
+      responseType: "blob",
+    }
+  );
 
   return response.data;
 }
@@ -344,22 +448,26 @@ export async function downloadBulkAdjustmentTemplate(): Promise<Blob> {
 export async function bulkCreateAdjustments(data: {
   file: File;
   warehouseId: string;
-  adjustmentType: "IN";
+  adjustmentType: "IN" | "OUT";
   reason: string;
   note?: string;
 }): Promise<{
-  data: {
-    summary: {
-      total: number;
-      successful: number;
-      failed: number;
+  status: string;
+  data: Array<{
+    adjustment: {
+      inventoryAdjustmentId: string;
+      stockId: string;
+      adjustmentType: string;
+      quantity: number;
+      reason: string;
+      note?: string;
+      adjustedByUserId: string;
+      createdAt: string;
     };
-    errors?: Array<{
-      row: number;
-      sku?: string;
-      error: string;
-    }>;
-  };
+    updatedStock: Record<string, unknown>;
+    stock: Record<string, unknown>;
+    quantity: number;
+  }>;
 }> {
   const formData = new FormData();
   formData.append("file", data.file);

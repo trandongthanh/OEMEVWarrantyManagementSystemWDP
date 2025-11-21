@@ -34,6 +34,7 @@ import recallRouter from "./src/api/routes/recall.router.js";
 import roleRouter from "./src/api/routes/role.router.js";
 import publicRouter from "./src/api/routes/public.router.js";
 import notificationRouter from "./src/api/routes/notification.router.js";
+import warrantyComponentRouter from "./src/api/routes/warrantyComponent.router.js";
 
 app.get("/", async (req, res) => {
   res.send("Hello world");
@@ -59,6 +60,7 @@ app.use(`${url}/stock-transfer-requests`, stockTransferRequestRouter);
 app.use(`${url}/work-schedules`, workScheduleRouter);
 app.use(`${url}/task-assignments`, taskAssignmentRouter);
 app.use(`${url}/oem-vehicle-models`, vehicleModelRouter);
+app.use(`${url}/warranty-components`, warrantyComponentRouter);
 app.use(`${url}/recall-campaigns`, recallRouter);
 app.use(`${url}/roles`, roleRouter);
 app.use(`${url}/notifications`, notificationRouter);

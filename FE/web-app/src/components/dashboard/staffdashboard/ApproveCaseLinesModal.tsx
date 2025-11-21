@@ -97,7 +97,7 @@ export function ApproveCaseLinesModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[90] flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
           onClick={onClose}
         >
           <motion.div
@@ -242,7 +242,7 @@ export function ApproveCaseLinesModal({
                         onChange={(e) => setReason(e.target.value)}
                         placeholder="Please explain why these case lines are being rejected..."
                         rows={4}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none text-sm"
+                        className="w-full px-4 py-3 border text-black border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none text-sm"
                       />
                     </div>
                   )}

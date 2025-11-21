@@ -188,6 +188,7 @@ class VehicleService {
       owner: vehicle?.owner,
       model: vehicle?.model?.modelName,
       company: vehicle?.model?.company?.name,
+      warrantyComponents: vehicle?.model?.warrantyComponents || [],
     };
 
     return formatResult;

@@ -14,7 +14,6 @@ import {
 } from "@/components/dashboard";
 
 import Inventory from "@/components/dashboard/partscoordinatordashboard/Inventory";
-import { ComponentReturnList } from "@/components/dashboard/partscoordinatordashboard/ComponentReturnList";
 import { StockHistoryList } from "@/components/dashboard/partscoordinatordashboard/StockHistoryList";
 import { AdjustmentList } from "@/components/dashboard/partscoordinatordashboard/AdjustmentList";
 import { CreateAdjustmentModal } from "@/components/dashboard/partscoordinatordashboard/CreateAdjustmentModal";
@@ -44,6 +43,7 @@ export default function PartsCoordinatorDashboard() {
 
   const [showCreateAdjustment, setShowCreateAdjustment] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const [warehouseId, setWarehouseId] = useState("");
 
@@ -103,6 +103,7 @@ export default function PartsCoordinatorDashboard() {
         return (
           <>
             <AdjustmentList
+              key={refreshKey}
               onCreateClick={() => setShowCreateAdjustment(true)}
               onBulkUploadClick={() => setShowBulkUpload(true)}
             />
@@ -110,6 +111,7 @@ export default function PartsCoordinatorDashboard() {
             <CreateAdjustmentModal
               isOpen={showCreateAdjustment}
               onClose={() => setShowCreateAdjustment(false)}
+              onSuccess={() => setRefreshKey((prev) => prev + 1)}
               warehouseId={warehouseId}
             />
 
@@ -118,7 +120,7 @@ export default function PartsCoordinatorDashboard() {
               onClose={() => setShowBulkUpload(false)}
               onSuccess={() => {
                 setShowBulkUpload(false);
-                // Optionally reload adjustments list
+                setRefreshKey((prev) => prev + 1); // Refresh adjustments list
               }}
             />
           </>
@@ -137,28 +139,6 @@ export default function PartsCoordinatorDashboard() {
           <div className="flex-1 overflow-auto">
             <div className="p-8">
               <StockTransferReceiving />
-            </div>
-          </div>
-        );
-
-      case "component-returns":
-        return (
-          <div className="flex-1 overflow-auto">
-            <div className="p-8">
-              <div className="bg-white rounded-2xl border border-gray-200">
-                <div className="border-b border-gray-200 p-6">
-                  <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                    <RotateCcw className="w-5 h-5 text-purple-600" />
-                    Components to Return
-                  </h2>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Installed components with old parts ready to be returned
-                  </p>
-                </div>
-                <div className="p-6">
-                  <ComponentReturnList />
-                </div>
-              </div>
             </div>
           </div>
         );

@@ -57,7 +57,7 @@ class ChatService {
       email: normalizedEmail,
     };
 
-    this.#notificationService.sendToRoom(roomName, eventName, data);
+    await this.#notificationService.sendToRoom(roomName, eventName, data);
 
     return rawtResult;
   };
