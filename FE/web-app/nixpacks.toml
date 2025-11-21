@@ -1,0 +1,20 @@
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = ["npm ci --legacy-peer-deps || npm install --legacy-peer-deps"]
+
+[phases.build]
+# Force cache invalidation - delete ALL Next.js build artifacts
+# Build: 2025-11-13-05:25 UTC
+cmds = [
+  "echo 'Cleaning all Next.js build artifacts...'",
+  "rm -rf .next .next.* standalone .vercel || true",
+  "echo 'Starting fresh build...'",
+  "npm run build",
+  "echo 'Build complete - listing chunks:'",
+  "ls -la .next/static/chunks/ | grep -E '^-' | head -20 || true"
+]
+
+[start]
+cmd = "npm start"

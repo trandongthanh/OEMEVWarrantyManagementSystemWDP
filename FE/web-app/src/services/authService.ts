@@ -2,12 +2,23 @@ import apiClient from "@/lib/apiClient";
 
 /**
  * Authentication Service
- * Handles login, logout, and token management
+ * Handles login, logout, registration, and token management
  */
 
 export interface LoginCredentials {
   username: string;
   password: string;
+}
+
+export interface RegisterCredentials {
+  username: string;
+  password: string;
+  email: string;
+  phone?: string;
+  name?: string;
+  address?: string;
+  roleId?: string;
+  employeeCode?: string;
 }
 
 export interface LoginResponse {
@@ -17,13 +28,32 @@ export interface LoginResponse {
   };
 }
 
+export interface RegisterResponse {
+  status: string;
+  message?: string;
+  data?: any;
+}
+
 export interface DecodedToken {
   userId: string;
+  username?: string;
+  name?: string;
+  email?: string;
   roleName: string;
   serviceCenterId?: string;
   companyId?: string;
   iat?: number;
   exp?: number;
+}
+
+export interface UserInfo {
+  userId: string;
+  username: string;
+  name: string;
+  email?: string;
+  roleName: string;
+  serviceCenterId?: string;
+  companyId?: string;
 }
 
 /**
@@ -43,6 +73,28 @@ export const login = async (credentials: LoginCredentials): Promise<string> => {
     // Store token in localStorage
     if (typeof window !== "undefined") {
       localStorage.setItem("authToken", token);
+
+      // Decode and store user info
+      try {
+        const decoded = decodeToken(token);
+        console.log("🔑 Decoded Token:", decoded);
+
+        const userInfo: UserInfo = {
+          userId: decoded.userId,
+          username: credentials.username, // Store from login
+          name: decoded.name || credentials.username,
+          email: decoded.email || undefined,
+          roleName: decoded.roleName,
+          serviceCenterId: decoded.serviceCenterId,
+          companyId: decoded.companyId,
+        };
+
+        console.log("💾 Storing User Info:", userInfo);
+        localStorage.setItem("userInfo", JSON.stringify(userInfo));
+        console.log("✅ User info stored successfully");
+      } catch (err) {
+        console.error("❌ Failed to decode token:", err);
+      }
     }
 
     return token;
@@ -61,12 +113,47 @@ export const login = async (credentials: LoginCredentials): Promise<string> => {
 };
 
 /**
+ * Register a new user account
+ * @param credentials - User registration data
+ * @returns success message
+ */
+export const registerAccount = async (
+  credentials: RegisterCredentials
+): Promise<string> => {
+  try {
+    const response = await apiClient.post<RegisterResponse>(
+      "/auth/registerAccount",
+      credentials
+    );
+
+    console.log("📝 Register Response:", response.data);
+
+    if (response.data.status === "success") {
+      return response.data.message || "Registration successful.";
+    } else {
+      throw new Error(response.data.message || "Registration failed.");
+    }
+  } catch (error) {
+    console.error("❌ Registration failed:", error);
+    if (error && typeof error === "object" && "response" in error) {
+      const axiosError = error as {
+        response?: { data?: { message?: string } };
+      };
+      if (axiosError.response?.data?.message) {
+        throw new Error(axiosError.response.data.message);
+      }
+    }
+    throw new Error("Failed to register account. Please try again.");
+  }
+};
+
+/**
  * Logout user and clear authentication data
  */
 export const logout = (): void => {
   if (typeof window !== "undefined") {
     localStorage.removeItem("authToken");
-    // Clear any other auth-related data if needed
+    localStorage.removeItem("userInfo"); // Also clear user info
     window.location.href = "/login";
   }
 };
@@ -81,7 +168,6 @@ export const isAuthenticated = (): boolean => {
   const token = localStorage.getItem("authToken");
   if (!token) return false;
 
-  // Check if token is expired (optional - implement JWT decode)
   try {
     const decoded = decodeToken(token);
     if (decoded.exp && decoded.exp * 1000 < Date.now()) {
@@ -90,7 +176,7 @@ export const isAuthenticated = (): boolean => {
     }
     return true;
   } catch {
-    return !!token; // If decode fails, just check if token exists
+    return !!token;
   }
 };
 
@@ -140,14 +226,41 @@ export const getCurrentUser = (): DecodedToken | null => {
 };
 
 /**
+ * Get stored user info from localStorage
+ * @returns User info or null
+ */
+export const getUserInfo = (): UserInfo | null => {
+  if (typeof window === "undefined") return null;
+
+  const userInfoStr = localStorage.getItem("userInfo");
+  console.log("🔍 Getting user info from localStorage:", userInfoStr);
+
+  if (!userInfoStr) {
+    console.log("⚠️ No user info found in localStorage");
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(userInfoStr) as UserInfo;
+    console.log("✅ Parsed user info:", parsed);
+    return parsed;
+  } catch (err) {
+    console.error("❌ Failed to parse user info:", err);
+    return null;
+  }
+};
+
+/**
  * Auth service object
  */
 export const authService = {
   login,
+  registerAccount,
   logout,
   isAuthenticated,
   getToken,
   getCurrentUser,
+  getUserInfo,
   decodeToken,
 };
 

@@ -30,6 +30,7 @@ export interface VehicleForm {
 interface RegisterVehicleModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   customers: string[];
   onAddVehicle: (vehicle: VehicleForm) => void;
 }
@@ -37,6 +38,7 @@ interface RegisterVehicleModalProps {
 export default function RegisterVehicleModal({
   isOpen,
   onClose,
+  onSuccess,
   customers,
   onAddVehicle,
 }: RegisterVehicleModalProps) {
@@ -73,6 +75,7 @@ export default function RegisterVehicleModal({
       warrantyStart: "",
       warrantyEnd: "",
     });
+    onSuccess?.(); // Refresh parent list
     onClose();
   };
 
