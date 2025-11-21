@@ -51,7 +51,7 @@ class VehicleRepository {
         {
           model: VehicleModel,
           as: "model",
-          attributes: [["vehicle_model_name", "modelName"]],
+          attributes: [["vehicle_model_name", "modelName"], "vehicleModelId"],
           required: true,
 
           include: [
@@ -62,6 +62,23 @@ class VehicleRepository {
               attributes: ["name", "vehicleCompanyId"],
 
               required: true,
+            },
+            {
+              model: db.WarrantyComponent,
+              as: "warrantyComponents",
+              attributes: [
+                "id",
+                "quantity",
+                "durationMonth",
+                "mileageLimit",
+              ],
+              include: [
+                {
+                  model: db.TypeComponent,
+                  as: "typeComponent",
+                  attributes: ["typeComponentId", "name", "sku", "category"],
+                },
+              ],
             },
           ],
         },
