@@ -234,7 +234,7 @@ export default function InventoryBulkUpload({
           toast.success(
             `Successfully imported ${totalComponents} components across ${successCount} SKU(s)!`,
             {
-              duration: 3000,
+              duration: 5000,
             }
           );
         }, 500);
@@ -242,10 +242,7 @@ export default function InventoryBulkUpload({
         // Trigger onSuccess callback
         onSuccess?.();
 
-        // Close modal after showing success animation (2.5 seconds for animation)
-        setTimeout(() => {
-          handleClose();
-        }, 2500);
+        // Don't auto-close - let user manually close to see success state
       } else {
         toast.error("No adjustments were created. Please check the file.");
       }
@@ -345,12 +342,46 @@ export default function InventoryBulkUpload({
                     Fill in component data (SKU and Serial Number for each
                     component)
                   </li>
-                  <li>Provide a reason for this stock import</li>
+                  <li>Provide a reason for this stock adjustment</li>
                   <li>Upload the completed file</li>
                   <li>Review the results</li>
                 </ol>
               </div>
             </div>
+
+            {/* Important Note for OUT adjustments */}
+            {adjustmentType === "OUT" && (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-amber-700 space-y-2">
+                  <p className="font-medium">
+                    Important: Serial Numbers for OUT Adjustments
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li>
+                      You must specify the <strong>exact serial numbers</strong>{" "}
+                      of components to remove
+                    </li>
+                    <li>
+                      Only components with status{" "}
+                      <strong>&quot;IN_STOCK&quot;</strong> can be removed
+                    </li>
+                    <li>
+                      To find available serial numbers:
+                      <ol className="list-decimal list-inside ml-4 mt-1 space-y-0.5">
+                        <li>Go to the inventory list</li>
+                        <li>Click on a component to view details</li>
+                        <li>View all serial numbers currently in stock</li>
+                      </ol>
+                    </li>
+                    <li>
+                      The system will validate that each serial number exists
+                      and is available
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            )}
 
             {/* Download Template Button */}
             <button
@@ -606,11 +637,20 @@ export default function InventoryBulkUpload({
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 0.5 }}
-                      className="text-sm text-gray-600"
+                      className="text-sm text-gray-600 mb-4"
                     >
                       {uploadResult.successCount} SKU(s) imported (
                       {uploadResult.totalComponents} components)
                     </motion.p>
+                    <motion.button
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.6 }}
+                      onClick={handleClose}
+                      className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                    >
+                      Done
+                    </motion.button>
                   </motion.div>
                 )}
 

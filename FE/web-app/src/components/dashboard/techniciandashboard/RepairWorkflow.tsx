@@ -15,7 +15,9 @@ import {
   MapPin,
 } from "lucide-react";
 import caseLineService, { CaseLine } from "@/services/caseLineService";
-import componentReservationService from "@/services/componentReservationService";
+import componentReservationService, {
+  ComponentReservation,
+} from "@/services/componentReservationService";
 import { toast } from "sonner";
 import { usePolling } from "@/hooks/usePolling";
 import { getCurrentUser } from "@/services/authService";
@@ -80,7 +82,15 @@ export function RepairWorkflow() {
       const caseLines = response.data.caseLines || [];
       const componentsReady = caseLines.filter((cl) => {
         if (cl.reservations && cl.reservations.length > 0) {
-          return cl.reservations.some((res) => res.status === "PICKED_UP");
+          // Only show case lines with reservations that are PICKED_UP
+          // and not yet fully installed (component status != INSTALLED)
+          return cl.reservations.some(
+            (res) =>
+              res.status === "PICKED_UP" ||
+              (res.status === "INSTALLED" &&
+                res.component?.status !== "INSTALLED" &&
+                res.component?.status !== "REMOVED")
+          );
         }
         return false;
       });
@@ -102,21 +112,23 @@ export function RepairWorkflow() {
         });
 
       // Group reservations by case line
-      const caseLineMap = new Map<string, any>();
+      const caseLineMap = new Map<string, ComponentWithReservation>();
 
-      response.data.reservations.forEach((reservation: any) => {
-        const caseLineId = reservation.caseLine?.id;
-        if (!caseLineId) return;
+      response.data.reservations.forEach(
+        (reservation: ComponentReservation) => {
+          const caseLineId = reservation.caseLine?.id;
+          if (!caseLineId) return;
 
-        if (!caseLineMap.has(caseLineId)) {
-          caseLineMap.set(caseLineId, {
-            ...reservation.caseLine,
-            reservations: [],
-          });
+          if (!caseLineMap.has(caseLineId)) {
+            caseLineMap.set(caseLineId, {
+              ...reservation.caseLine,
+              reservations: [],
+            } as ComponentWithReservation);
+          }
+
+          caseLineMap.get(caseLineId)?.reservations?.push(reservation as never);
         }
-
-        caseLineMap.get(caseLineId)!.reservations.push(reservation);
-      });
+      );
 
       setComponentsToPickup(Array.from(caseLineMap.values()));
     } catch (error) {
@@ -226,11 +238,18 @@ export function RepairWorkflow() {
     if (selectedForBulkInstall.size === componentsToInstall.length) {
       setSelectedForBulkInstall(new Set());
     } else {
+      // Only select one PICKED_UP reservation per case line (not already fully installed)
       const allReservationIds = componentsToInstall
-        .map(
-          (c) =>
-            c.reservations?.find((r) => r.status === "PICKED_UP")?.reservationId
-        )
+        .map((c) => {
+          const pickedUpReservation = c.reservations?.find(
+            (r) =>
+              r.status === "PICKED_UP" ||
+              (r.status === "INSTALLED" &&
+                r.component?.status !== "INSTALLED" &&
+                r.component?.status !== "REMOVED")
+          );
+          return pickedUpReservation?.reservationId;
+        })
         .filter(Boolean) as string[];
       setSelectedForBulkInstall(new Set(allReservationIds));
     }
@@ -242,9 +261,53 @@ export function RepairWorkflow() {
       return;
     }
 
+    // Group selected reservations by case line to check for conflicts
+    const reservationsByCaseLine = new Map<string, string[]>();
+    for (const reservationId of Array.from(selectedForBulkInstall)) {
+      const caseLine = componentsToInstall.find((cl) =>
+        cl.reservations?.some((r) => r.reservationId === reservationId)
+      );
+      if (caseLine) {
+        const caseLineId = caseLine.id || caseLine.caseLineId || "";
+        if (!reservationsByCaseLine.has(caseLineId)) {
+          reservationsByCaseLine.set(caseLineId, []);
+        }
+        reservationsByCaseLine.get(caseLineId)?.push(reservationId);
+      }
+    }
+
+    // Check if any case line has multiple reservations selected
+    const conflictingCaseLines: string[] = [];
+    for (const [caseLineId, reservations] of reservationsByCaseLine) {
+      if (reservations.length > 1) {
+        const caseLine = componentsToInstall.find(
+          (cl) => (cl.id || cl.caseLineId) === caseLineId
+        );
+        if (caseLine) {
+          conflictingCaseLines.push(
+            `${caseLine.typeComponent?.name || "Component"} (${
+              reservations.length
+            } selected)`
+          );
+        }
+      }
+    }
+
+    // Warn user about component replacement behavior
+    if (conflictingCaseLines.length > 0) {
+      toast.error(
+        `Cannot bulk install multiple components of the same type. Only one component can be installed per vehicle at a time. Conflicting: ${conflictingCaseLines.join(
+          ", "
+        )}`,
+        { duration: 10000 }
+      );
+      return;
+    }
+
     setIsBulkInstalling(true);
     let successCount = 0;
     let errorCount = 0;
+    const failedComponents: string[] = [];
 
     try {
       // Install components one by one using for loop
@@ -254,6 +317,10 @@ export function RepairWorkflow() {
           successCount++;
         } catch (err) {
           console.error(`Failed to install reservation ${reservationId}:`, err);
+          const error = err as { response?: { data?: { message?: string } } };
+          failedComponents.push(
+            error.response?.data?.message || `Reservation ${reservationId}`
+          );
           errorCount++;
         }
       }
@@ -263,7 +330,14 @@ export function RepairWorkflow() {
         toast.success(`Successfully installed ${successCount} component(s)`);
       }
       if (errorCount > 0) {
-        toast.error(`Failed to install ${errorCount} component(s)`);
+        toast.error(
+          `Failed to install ${errorCount} component(s)${
+            failedComponents.length > 0
+              ? ": " + failedComponents.join(", ")
+              : ""
+          }`,
+          { duration: 8000 }
+        );
       }
 
       // Clear selection and reload
@@ -541,15 +615,32 @@ export function RepairWorkflow() {
                   const pickedUpReservation =
                     activeView === "install"
                       ? (item as ComponentWithReservation).reservations?.find(
-                          (res) => res.status === "PICKED_UP"
+                          (res) =>
+                            res.status === "PICKED_UP" ||
+                            (res.status === "INSTALLED" &&
+                              res.component?.status !== "INSTALLED" &&
+                              res.component?.status !== "REMOVED")
                         )
                       : null;
+
                   const reservedReservation =
                     activeView === "pickup"
                       ? (item as ComponentWithReservation).reservations?.find(
                           (res) => res.status === "RESERVED"
                         )
                       : null;
+
+                  // Check if this case line has multiple reservations (quantity > 1)
+                  const hasMultipleReservations =
+                    activeView === "install" &&
+                    item.quantity &&
+                    item.quantity > 1;
+                  const installedReservationsCount =
+                    (item as ComponentWithReservation).reservations?.filter(
+                      (r) =>
+                        r.status === "INSTALLED" &&
+                        r.component?.status === "INSTALLED"
+                    ).length || 0;
 
                   return (
                     <motion.div
@@ -599,9 +690,19 @@ export function RepairWorkflow() {
                                 )}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <h3 className="font-semibold text-gray-900 mb-1">
-                                  {item.typeComponent?.name || "Component"}
-                                </h3>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h3 className="font-semibold text-gray-900">
+                                    {item.typeComponent?.name || "Component"}
+                                  </h3>
+                                  {hasMultipleReservations && (
+                                    <div className="flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-800 rounded text-xs font-medium">
+                                      <AlertCircle className="w-3 h-3" />
+                                      {installedReservationsCount > 0
+                                        ? `${installedReservationsCount}/${item.quantity} installed`
+                                        : "Only 1 can be installed"}
+                                    </div>
+                                  )}
+                                </div>
                                 <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm text-gray-600">
                                   <div>
                                     <span className="font-medium">

@@ -237,10 +237,18 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
             if (!n.data?.title) {
               switch (n.eventName) {
                 case "vehicleProcessingRecordStatusUpdated":
-                  const status = n.data?.status as string;
                   const record = n.data?.record as Record<string, unknown>;
+                  const updatedRecord = n.data?.updatedRecord as Record<
+                    string,
+                    unknown
+                  >;
+                  const status =
+                    (record?.status as string) ||
+                    (updatedRecord?.status as string) ||
+                    (n.data?.status as string);
                   const vin =
                     (record?.vin as string) ||
+                    (updatedRecord?.vin as string) ||
                     n.data?.vehicleProcessingRecordId;
 
                   if (status === "WAITING_CUSTOMER_APPROVAL") {
@@ -344,7 +352,11 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
                   type = "stock_transfer_approved";
                   priority = "medium";
                   title = "Stock Transfer Received";
-                  const requestId3 = n.data?.requestId as string;
+                  const requestWithDetails = n.data
+                    ?.requestWithDetails as Record<string, unknown>;
+                  const requestId3 =
+                    (requestWithDetails?.id as string) ||
+                    (n.data?.requestId as string);
                   message = `Stock transfer request #${String(requestId3).slice(
                     0,
                     8
