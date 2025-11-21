@@ -21,6 +21,7 @@ class CaseLineService {
   #vehicleProcessingRecordRepository;
   #notificationService;
   #inventoryService;
+  #warrantyComponentRepository;
 
   constructor({
     caselineRepository,
@@ -34,6 +35,7 @@ class CaseLineService {
     vehicleProcessingRecordRepository,
     notificationService,
     inventoryService,
+    warrantyComponentRepository,
   }) {
     this.#caselineRepository = caselineRepository;
     this.#componentReservationRepository = componentReservationRepository;
@@ -46,6 +48,7 @@ class CaseLineService {
     this.#vehicleProcessingRecordRepository = vehicleProcessingRecordRepository;
     this.#notificationService = notificationService;
     this.#inventoryService = inventoryService;
+    this.#warrantyComponentRepository = warrantyComponentRepository;
   }
 
   createCaseLines = async ({
@@ -64,11 +67,21 @@ class CaseLineService {
           techId
         );
 
+      const vehicleModelId =
+        guaranteeCase?.vehicleProcessingRecord?.vehicle?.vehicleModelId;
+      for (const caseline of caselines) {
+        await this.#validateCaseLineQuantityByWarranty({
+          typeComponentId: caseline.typeComponentId,
+          quantity: caseline.quantity,
+          vehicleModelId: vehicleModelId,
+          transaction,
+        });
+      }
+
       const typeComponents =
         await this.#warehouseService.searchCompatibleComponentsInStock({
           serviceCenterId: serviceCenterId,
-          modelId:
-            guaranteeCase?.vehicleProcessingRecord?.vehicle?.vehicleModelId,
+          modelId: vehicleModelId,
           vin: guaranteeCase?.vehicleProcessingRecord?.vehicle?.vin,
           odometer: guaranteeCase?.vehicleProcessingRecord?.odometer,
           companyId: companyId,
@@ -145,6 +158,14 @@ class CaseLineService {
       if (!guaranteeCase) {
         throw new NotFoundError("Guarantee case not found");
       }
+
+      await this.#validateCaseLineQuantityByWarranty({
+        typeComponentId,
+        quantity,
+        vehicleModelId:
+          guaranteeCase.vehicleProcessingRecord.vehicle.vehicleModelId,
+        transaction,
+      });
 
       if (guaranteeCase.vehicleProcessingRecord.status !== "IN_DIAGNOSIS") {
         throw new BadRequestError("Record is WAITING_CUSTOMER_APPROVAL");
@@ -756,6 +777,18 @@ class CaseLineService {
           throw new NotFoundError("Guarantee case not found");
         }
 
+        const vehicleModelId =
+          guaranteeCase.vehicleProcessingRecord.vehicle.vehicleModelId;
+        const componentIdToValidate = typeComponentId || caseline.typeComponentId;
+        const quantityToValidate = quantity || caseline.quantity;
+
+        await this.#validateCaseLineQuantityByWarranty({
+          typeComponentId: componentIdToValidate,
+          quantity: quantityToValidate,
+          vehicleModelId: vehicleModelId,
+          transaction,
+        });
+
         const typeComponents =
           await this.#warehouseService.searchCompatibleComponentsInStock({
             serviceCenterId: serviceCenterId,
@@ -1304,6 +1337,8 @@ class CaseLineService {
         .filter((url) => Boolean(url));
     }
 
+
+
     return [];
   };
 
@@ -1399,6 +1434,28 @@ class CaseLineService {
     );
 
     return componentIds;
+  };
+
+  #validateCaseLineQuantityByWarranty = async ({
+    typeComponentId,
+    quantity,
+    vehicleModelId,
+    transaction,
+  }) => {
+    const warrantyComponent =
+      await this.#warrantyComponentRepository.findByVehicleModelAndTypeComponent(
+        {
+          vehicleModelId,
+          typeComponentId,
+        },
+        transaction
+      );
+
+    if (warrantyComponent && quantity > warrantyComponent.quantity) {
+      throw new ConflictError(
+        `Quantity for component exceeds warranty limit. Allowed: ${warrantyComponent.quantity}, Requested: ${quantity}`
+      );
+    }
   };
 }
 
