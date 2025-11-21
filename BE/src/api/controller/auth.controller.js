@@ -1,14 +1,13 @@
-import { formatUTCtzHCM } from "../../util/formatUTCtzHCM.js";
-
 class AuthController {
+  #authService;
   constructor({ authService }) {
-    this.authService = authService;
+    this.#authService = authService;
   }
 
   login = async (req, res, next) => {
     const { username, password } = req.body;
 
-    const result = await this.authService.login({ username, password });
+    const result = await this.#authService.login({ username, password });
 
     res.status(200).json({
       status: "success",
@@ -18,42 +17,41 @@ class AuthController {
     });
   };
 
-  // register = async (req, res, next) => {
-  //   const {
-  //     username,
-  //     password,
-  //     phone,
-  //     email,
-  //     name,
-  //     address,
-  //     roleId,
-  //     serviceCenterId,
-  //   } = req.body;
+  registerAccount = async (req, res, next) => {
+    const {
+      username,
+      password,
+      email,
+      phone,
+      address,
+      name,
+      roleId,
+      employeeCode,
+    } = req.body;
 
-  //   const newUser = await this.authService.register({
-  //     username,
-  //     password,
-  //     phone,
-  //     email,
-  //     name,
-  //     address,
-  //     roleId,
-  //     serviceCenterId,
-  //   });
+    const { serviceCenterId: tokenServiceCenterId, companyId: tokenCompanyId } =
+      req.user;
 
-  //   const formatNewUser = {
-  //     ...newUser,
-  //     createdAt: formatUTCtzHCM(newUser.createdAt),
-  //     updatedAt: formatUTCtzHCM(newUser.updatedAt),
-  //   };
+    const newUser = await this.#authService.registerAccount({
+      username,
+      password,
+      email,
+      phone,
+      address,
+      name,
+      roleId,
+      employeeCode,
+      serviceCenterId: tokenServiceCenterId ?? null,
+      vehicleCompanyId: tokenCompanyId ?? null,
+    });
 
-  //   res.status(201).json({
-  //     status: "success",
-  //     data: {
-  //       user: formatNewUser,
-  //     },
-  //   });
-  // };
+    res.status(201).json({
+      status: "success",
+      data: {
+        user: newUser,
+      },
+    });
+  };
 }
 
 export default AuthController;

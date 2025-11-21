@@ -4,7 +4,7 @@ module.exports = (sequelize, DataTypes) => {
     {
       taskAssignmentId: {
         type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV1,
+        defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
         field: "task_assignment_id",
       },
@@ -15,15 +15,13 @@ module.exports = (sequelize, DataTypes) => {
         field: "technician_id",
       },
 
-      guaranteeCaseId: {
+      vehicleProcessingRecordId: {
         type: DataTypes.UUID,
-        allowNull: true,
-        field: "guarantee_case_id",
+        field: "vehicle_processing_record_id",
       },
 
       caseLineId: {
         type: DataTypes.UUID,
-        allowNull: true,
         field: "case_line_id",
       },
 
@@ -63,13 +61,15 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: "technician_id",
       as: "technician",
     });
+
     TaskAssignment.belongsTo(models.CaseLine, {
       foreignKey: "case_line_id",
       as: "caseLine",
     });
-    TaskAssignment.belongsTo(models.GuaranteeCase, {
-      foreignKey: "guarantee_case_id",
-      as: "guaranteeCase",
+
+    TaskAssignment.belongsTo(models.VehicleProcessingRecord, {
+      foreignKey: "vehicle_processing_record_id",
+      as: "vehicleProcessingRecord",
     });
   };
 

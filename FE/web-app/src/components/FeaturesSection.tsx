@@ -57,7 +57,7 @@ export function FeaturesSection() {
             enableSpotlight={true}
             enableBorderGlow={true}
             enableTilt={true}
-            enableMagnetism={false}
+            enableMagnetism={true}
             clickEffect={true}
             spotlightRadius={300}
             particleCount={10}

@@ -1,5 +1,10 @@
 import express from "express";
-import { validate } from "../middleware/index.js";
+import {
+  attachCompanyContext,
+  authentication,
+  authorizationByRole,
+  validate,
+} from "../middleware/index.js";
 import loginSchema from "../../validators/login.validator.js";
 const router = express.Router();
 
@@ -7,8 +12,10 @@ const router = express.Router();
  * @swagger
  * /auth/login:
  *   post:
- *     summary: User login - Public endpoint (no token required)
- *     description: Authenticate user and receive JWT access token. This endpoint does not require authentication.
+ *     summary: Đăng nhập hệ thống
+ *     description: >-
+ *       Endpoint công khai cho người dùng đăng nhập vào hệ thống bằng `username` và `password`.
+ *       Thành công sẽ trả về một JWT token để sử dụng cho các yêu cầu cần xác thực.
  *     tags: [Authentication]
  *     requestBody:
  *       required: true
@@ -22,27 +29,16 @@ const router = express.Router();
  *             properties:
  *               username:
  *                 type: string
- *                 description: Username for login
- *                 example: "johndoe"
+ *                 description: Tên đăng nhập của người dùng.
+ *                 example: "staff_user"
  *               password:
  *                 type: string
  *                 format: password
- *                 description: User password
- *                 example: "Password123!"
- *           examples:
- *             staffLogin:
- *               summary: Service center staff login
- *               value:
- *                 username: "staff_user"
- *                 password: "StaffPass123!"
- *             technicianLogin:
- *               summary: Technician login
- *               value:
- *                 username: "tech_user"
- *                 password: "TechPass123!"
+ *                 description: Mật khẩu của người dùng.
+ *                 example: "StaffPass123!"
  *     responses:
  *       200:
- *         description: Login successful - Returns JWT access token
+ *         description: Đăng nhập thành công, trả về JWT token.
  *         content:
  *           application/json:
  *             schema:
@@ -56,77 +52,15 @@ const router = express.Router();
  *                   properties:
  *                     token:
  *                       type: string
- *                       description: JWT access token to use for authenticated requests
- *                       example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjM0NTY3ODkwIiwicm9sZSI6InNlcnZpY2VfY2VudGVyX3N0YWZmIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
- *                     user:
- *                       type: object
- *                       properties:
- *                         userId:
- *                           type: string
- *                           format: uuid
- *                         username:
- *                           type: string
- *                         email:
- *                           type: string
- *                         name:
- *                           type: string
- *                         role:
- *                           type: string
- *                           example: "service_center_staff"
+ *                       description: JWT access token.
+ *                       example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjM..."
  *       400:
- *         description: Bad request - Missing or invalid parameters
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "Username and password are required"
- *                 errors:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       field:
- *                         type: string
- *                       message:
- *                         type: string
+ *         description: Dữ liệu không hợp lệ (thiếu username hoặc password).
  *       401:
- *         description: Unauthorized - Invalid credentials
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "Invalid username or password"
- *       403:
- *         description: Forbidden - Account locked or disabled
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "Account is locked or disabled"
- *       500:
- *         description: Internal server error
+ *         description: Sai tên đăng nhập hoặc mật khẩu.
  */
 router.post("/login", validate(loginSchema), async (req, res, next) => {
   const authController = req.container.resolve("authController");
-
   await authController.login(req, res, next);
 });
 
@@ -134,8 +68,11 @@ router.post("/login", validate(loginSchema), async (req, res, next) => {
  * @swagger
  * /auth/register:
  *   post:
- *     summary: User registration - Public endpoint (no token required)
- *     description: Register a new user account. This endpoint does not require authentication.
+ *     summary: (Không dùng) Đăng ký tài khoản công khai
+ *     description: >-
+ *       **LƯU Ý: Endpoint này có thể không được sử dụng trong luồng nghiệp vụ chính.**
+ *       Endpoint công khai cho phép người dùng tự đăng ký tài khoản.
+ *       Cần cân nhắc về vấn đề bảo mật và vai trò mặc định khi sử dụng.
  *     tags: [Authentication]
  *     requestBody:
  *       required: true
@@ -151,171 +88,138 @@ router.post("/login", validate(loginSchema), async (req, res, next) => {
  *               - name
  *               - address
  *               - roleId
+ *               - employeeCode
  *             properties:
  *               username:
  *                 type: string
- *                 minLength: 3
- *                 maxLength: 30
- *                 description: Unique username (alphanumeric only)
- *                 example: "johndoe"
+ *                 example: "newuser01"
  *               password:
  *                 type: string
  *                 format: password
- *                 minLength: 8
- *                 description: Password (min 8 chars, must contain uppercase, lowercase, number, special char)
  *                 example: "Password123!"
  *               email:
  *                 type: string
  *                 format: email
- *                 description: User email address
- *                 example: "john.doe@example.com"
+ *                 example: "new.user@example.com"
  *               phone:
  *                 type: string
- *                 description: User phone number
- *                 example: "+84987654321"
+ *                 example: "+84912345678"
  *               name:
  *                 type: string
- *                 minLength: 2
- *                 maxLength: 100
- *                 description: Full name of the user
- *                 example: "John Doe"
+ *                 example: "Nguyen Van B"
  *               address:
  *                 type: string
- *                 minLength: 10
- *                 maxLength: 500
- *                 description: User address
- *                 example: "123 Main Street, Ho Chi Minh City"
+ *                 example: "123 Duong ABC, Quan 1, TP.HCM"
  *               roleId:
  *                 type: string
  *                 format: uuid
- *                 description: UUID of the user role
- *                 example: "550e8400-e29b-41d4-a716-446655440000"
+ *                 description: ID của vai trò sẽ được gán.
  *               serviceCenterId:
  *                 type: string
  *                 format: uuid
- *                 description: UUID of the service center (optional, for service center staff/technicians)
- *                 example: "550e8400-e29b-41d4-a716-446655440001"
+ *                 description: ID của trung tâm dịch vụ (nếu có).
  *               vehicleCompanyId:
  *                 type: string
  *                 format: uuid
- *                 description: UUID of the vehicle company (optional, for OEM staff)
- *                 example: "550e8400-e29b-41d4-a716-446655440002"
- *           examples:
- *             serviceCenterStaff:
- *               summary: Register service center staff
- *               value:
- *                 username: "staff_user"
- *                 password: "StaffPass123!"
- *                 email: "staff@servicecentter.com"
- *                 phone: "+84901234567"
- *                 name: "Nguyen Van A"
- *                 address: "456 Service Road, District 1, HCMC"
- *                 roleId: "role-uuid-for-staff"
- *                 serviceCenterId: "service-center-uuid"
- *             technician:
- *               summary: Register technician
- *               value:
- *                 username: "tech_user"
- *                 password: "TechPass123!"
- *                 email: "tech@servicecenter.com"
- *                 phone: "+84902345678"
- *                 name: "Tran Thi B"
- *                 address: "789 Tech Street, District 3, HCMC"
- *                 roleId: "role-uuid-for-technician"
- *                 serviceCenterId: "service-center-uuid"
+ *                 description: ID của công ty sản xuất (nếu có).
  *     responses:
  *       201:
- *         description: User registered successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "success"
- *                 message:
- *                   type: string
- *                   example: "User registered successfully"
- *                 data:
- *                   type: object
- *                   properties:
- *                     newUser:
- *                       type: object
- *                       properties:
- *                         userId:
- *                           type: string
- *                           format: uuid
- *                         username:
- *                           type: string
- *                         email:
- *                           type: string
- *                         phone:
- *                           type: string
- *                         name:
- *                           type: string
- *                         address:
- *                           type: string
- *                         roleId:
- *                           type: string
- *                         serviceCenterId:
- *                           type: string
- *                           nullable: true
- *                         vehicleCompanyId:
- *                           type: string
- *                           nullable: true
- *                         createdAt:
- *                           type: string
- *                           format: date-time
- *                         updatedAt:
- *                           type: string
- *                           format: date-time
+ *         description: Đăng ký thành công.
  *       400:
- *         description: Bad request - Invalid input data or validation error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "Validation failed"
- *                 errors:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       field:
- *                         type: string
- *                         example: "password"
- *                       message:
- *                         type: string
- *                         example: "Password must contain at least one uppercase letter, one lowercase letter, one number and one special character"
+ *         description: Dữ liệu không hợp lệ.
  *       409:
- *         description: Conflict - User already exists (duplicate username/email/phone)
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "error"
- *                 message:
- *                   type: string
- *                   example: "Username already exists"
- *       422:
- *         description: Unprocessable entity - Validation error
- *       500:
- *         description: Internal server error
+ *         description: Xung đột dữ liệu (username, email hoặc phone đã tồn tại).
  */
-router.post("/register", async (req, res, next) => {
-  const authController = req.container.resolve("authController");
 
-  await authController.register(req, res, next);
-});
+/**
+ * @swagger
+ * /auth/registerAccount:
+ *   post:
+ *     summary: Tạo tài khoản người dùng nội bộ
+ *     description: >-
+ *       Endpoint cho phép người có thẩm quyền (Quản lý, Admin) tạo tài khoản người dùng mới trong hệ thống.
+ *       - **Quản lý Trung tâm Dịch vụ (`service_center_manager`)**: Chỉ có thể tạo tài khoản cho nhân viên trong trung tâm dịch vụ của mình.
+ *       - **Quản trị viên EMV (`emv_admin`)**: Có thể tạo tài khoản cho bất kỳ trung tâm dịch vụ nào (cung cấp `serviceCenterId`) hoặc tài khoản cho nhân viên công ty sản xuất (cung cấp `vehicleCompanyId`).
+ *     tags: [Authentication, User Management]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - password
+ *               - email
+ *               - phone
+ *               - name
+ *               - address
+ *               - roleId
+ *               - employeeCode
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 description: Tên đăng nhập duy nhất cho tài khoản mới.
+ *                 example: "new.staff.01"
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 description: Mật khẩu, cần tuân thủ quy tắc phức tạp của hệ thống.
+ *                 example: "Password@2025"
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "new.staff.01@example.com"
+ *               phone:
+ *                 type: string
+ *                 example: "+84901234567"
+ *               name:
+ *                 type: string
+ *                 example: "Nguyen Van A"
+ *               address:
+ *                 type: string
+ *                 example: "123 Nguyen Trai, Quan 1, TP.HCM"
+ *               employeeCode:
+ *                 type: string
+ *                 description: Mã định danh nhân viên, phải là duy nhất trong công ty.
+ *                 example: "NV012345"
+ *               roleId:
+ *                 type: string
+ *                 format: uuid
+ *                 description: ID của vai trò sẽ được gán cho tài khoản.
+ *               serviceCenterId:
+ *                 type: string
+ *                 format: uuid
+ *                 description: Cung cấp khi `emv_admin` tạo tài khoản cho một trung tâm dịch vụ.
+ *               vehicleCompanyId:
+ *                 type: string
+ *                 format: uuid
+ *                 description: Cung cấp khi `emv_admin` tạo tài khoản cho một công ty sản xuất.
+ *     responses:
+ *       201:
+ *         description: Tạo tài khoản thành công.
+ *       400:
+ *         description: Dữ liệu không hợp lệ hoặc thiếu thông tin.
+ *       401:
+ *         description: Chưa xác thực (thiếu hoặc sai token).
+ *       403:
+ *         description: Không có quyền thực hiện hành động này.
+ *       409:
+ *         description: Xung đột dữ liệu (username, email, phone hoặc employeeCode đã tồn tại).
+ */
+router.post(
+  "/registerAccount",
+  authentication,
+  authorizationByRole(["service_center_manager", "emv_admin"]),
+  attachCompanyContext,
+
+  async (req, res, next) => {
+    const authController = req.container.resolve("authController");
+
+    await authController.registerAccount(req, res, next);
+  }
+);
 
 export default router;
