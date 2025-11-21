@@ -63,6 +63,11 @@ module.exports = (sequelize, DataTypes) => {
       as: "typeComponents",
     });
 
+    VehicleModel.hasMany(models.WarrantyComponent, {
+      foreignKey: "vehicle_model_id",
+      as: "warrantyComponents",
+    });
+
     // VehicleModel.belongsToMany(models.Campaign, {
     //   through: models.VehicleModelCampaign,
     //   foreignKey: "vehicle_model_id",
