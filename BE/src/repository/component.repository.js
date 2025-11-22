@@ -1,7 +1,13 @@
 import { Op } from "sequelize";
 import db from "../models/index.cjs";
 
-const { Component, TypeComponent } = db;
+const {
+  Component,
+  TypeComponent,
+  Warehouse,
+  StockTransferComponent,
+  StockTransferRequest,
+} = db;
 
 class ComponentRepository {
   findAll = async (
@@ -143,6 +149,51 @@ class ComponentRepository {
       where: { componentId },
       transaction: transaction,
       lock: lock,
+    });
+
+    return component ? component.toJSON() : null;
+  };
+
+  findByIdWithTransferHistory = async (componentId, transaction = null) => {
+    const component = await Component.findOne({
+      where: { componentId },
+      include: [
+        {
+          model: Warehouse,
+          as: "warehouse",
+          attributes: ["warehouseId", "name", "location"],
+        },
+        {
+          model: StockTransferComponent,
+          as: "transferHistory",
+          include: [
+            {
+              model: StockTransferRequest,
+              as: "request",
+              attributes: [
+                "transferRequestId",
+                "status",
+                "requestDate",
+                "approvalDate",
+                "completionDate",
+              ],
+              include: [
+                {
+                  model: Warehouse,
+                  as: "sourceWarehouse",
+                  attributes: ["warehouseId", "name", "location"],
+                },
+                {
+                  model: Warehouse,
+                  as: "requestingWarehouse",
+                  attributes: ["warehouseId", "name", "location"],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      transaction,
     });
 
     return component ? component.toJSON() : null;
