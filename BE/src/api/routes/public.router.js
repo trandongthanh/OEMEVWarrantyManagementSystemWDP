@@ -43,4 +43,34 @@ router.get("/tracking", async (req, res, next) => {
   await publicController.getTrackingInfo(req, res, next);
 });
 
+/**
+ * @swagger
+ * /api/public/service-centers:
+ *   get:
+ *     summary: Lấy danh sách tất cả các trung tâm dịch vụ
+ *     description: >-
+ *       Cho phép khách (guest) xem danh sách các Service Center để chọn trước khi chat.
+ *     tags: [Public]
+ *     responses:
+ *       200:
+ *         description: Lấy danh sách trung tâm dịch vụ thành công.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/ServiceCenter'
+ */
+router.get("/service-centers", async (req, res, next) => {
+  const publicController = req.container.resolve("publicController");
+
+  await publicController.getServiceCenters(req, res, next);
+});
+
 export default router;

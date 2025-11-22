@@ -38,6 +38,26 @@ class ServiceCenterRepository {
     });
     return serviceCenter ? serviceCenter.toJSON() : null;
   }
+
+  findAll = async () => {
+    const serviceCenters = await ServiceCenter.findAll({
+      attributes: [
+        "service_center_id",
+        "name",
+        "address",
+        "phone",
+        "vehicle_company_id",
+      ],
+      include: [
+        {
+          model: VehicleCompany,
+          as: "vehicleCompany",
+          attributes: ["name"],
+        },
+      ],
+    });
+    return serviceCenters.map((sc) => sc.toJSON());
+  };
 }
 
 export default ServiceCenterRepository;

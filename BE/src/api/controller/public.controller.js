@@ -20,6 +20,15 @@ class PublicController {
       next(error);
     }
   };
+
+  getServiceCenters = async (req, res, next) => {
+    const serviceCenters = await this.#publicService.getAllServiceCenters();
+
+    res.status(200).json({
+      status: "success",
+      data: serviceCenters,
+    });
+  };
 }
 
 export default PublicController;
