@@ -28,20 +28,24 @@ const warrantyComponentItemSchema = Joi.object({
   mileageLimit: Joi.number().integer().min(0).required(),
 })
   .xor("typeComponentId", "sku")
-  .when(Joi.object({ typeComponentId: Joi.string().uuid() }).unknown(), {
+  .when(Joi.ref("typeComponentId"), {
+    is: Joi.exist(),
     then: Joi.object({
       name: Joi.forbidden(),
       price: Joi.forbidden(),
       category: Joi.forbidden(),
       makeBrand: Joi.forbidden(),
+      sku: Joi.forbidden(),
     }),
   })
-  .when(Joi.object({ sku: Joi.string() }).unknown(), {
+  .when(Joi.ref("sku"), {
+    is: Joi.exist(),
     then: Joi.object({
       name: Joi.string().max(255).required(),
       price: Joi.number().precision(2).min(0).required(),
       category: categorySchema.required(),
       makeBrand: Joi.string().max(255).required(),
+      typeComponentId: Joi.forbidden(),
     }),
   });
 
