@@ -13,15 +13,17 @@ import Toast from "react-native-toast-message";
 import { getVehicleByVin } from "../../services/vehicleService";
 import VehicleInfoModal from "./VehicleInfoModal";
 
+// 🎨 LIGHT THEME
 const COLORS = {
-  bg: "#0B0F14",
-  surface: "#11161C",
-  border: "#1F2833",
-  text: "#E6EAF2",
-  textMuted: "#9AA7B5",
+  surface: "#FFFFFF",
+  bg: "#F9FAFB",
+  border: "#E5E7EB",
+  text: "#111827",
+  textMuted: "#6B7280",
   accent: "#3B82F6",
-  accentGlow: "#60A5FA",
   danger: "#EF4444",
+  inputBg: "#F3F4F6",
+  overlay: "rgba(0,0,0,0.5)"
 };
 
 export default function NewClaimModal({ visible, onClose }) {
@@ -30,25 +32,13 @@ export default function NewClaimModal({ visible, onClose }) {
   const [vehicle, setVehicle] = useState(null);
   const [vehicleModal, setVehicleModal] = useState(false);
 
-  // 🧭 Toast helper
   const showToast = (type, text) => {
-    Toast.show({
-      type,
-      text1: text,
-      visibilityTime: 2000,
-      position: "bottom",
-      bottomOffset: 80,
-    });
+    Toast.show({ type, text1: text, visibilityTime: 2000, position: "bottom", bottomOffset: 80 });
   };
 
   const handleSearch = async () => {
-    if (!vin.trim()) {
-      showToast("error", "Please enter a VIN number.");
-      return;
-    }
-
+    if (!vin.trim()) { showToast("error", "Please enter a VIN number."); return; }
     setLoading(true);
-
     try {
       const res = await getVehicleByVin(vin);
       if (res?.status === "success" && res.data?.vehicle) {
@@ -59,8 +49,7 @@ export default function NewClaimModal({ visible, onClose }) {
         showToast("error", "Vehicle not found.");
       }
     } catch (err) {
-      console.error("❌ VIN search error:", err);
-      showToast("error", "Unable to find vehicle. Check VIN or network.");
+      showToast("error", "Unable to find vehicle.");
     } finally {
       setLoading(false);
     }
@@ -71,23 +60,17 @@ export default function NewClaimModal({ visible, onClose }) {
       <Modal visible={visible} animationType="fade" transparent>
         <View style={styles.overlay}>
           <View style={styles.modal}>
-            {/* Header (no close icon) */}
             <View style={styles.header}>
+              <View style={styles.iconCircle}>
+                  <Ionicons name="document-text-outline" size={24} color={COLORS.accent} />
+              </View>
               <Text style={styles.title}>New Warranty Claim</Text>
             </View>
 
-            <Text style={styles.label}>
-              Vehicle Identification Number (VIN)
-            </Text>
+            <Text style={styles.label}>Vehicle Identification Number (VIN)</Text>
 
-            {/* VIN input with glowing border */}
             <View style={styles.inputRow}>
-              <Ionicons
-                name="car-outline"
-                size={20}
-                color={COLORS.accent}
-                style={{ marginRight: 8 }}
-              />
+              <Ionicons name="car-outline" size={20} color={COLORS.textMuted} style={{ marginRight: 10 }} />
               <TextInput
                 style={styles.input}
                 placeholder="Enter VIN..."
@@ -103,16 +86,8 @@ export default function NewClaimModal({ visible, onClose }) {
                 <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.searchBtn}
-                onPress={handleSearch}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.searchText}>Search Vehicle</Text>
-                )}
+              <TouchableOpacity style={styles.searchBtn} onPress={handleSearch} disabled={loading}>
+                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.searchText}>Search Vehicle</Text>}
               </TouchableOpacity>
             </View>
 
@@ -124,7 +99,6 @@ export default function NewClaimModal({ visible, onClose }) {
           </View>
         </View>
       </Modal>
-
       <Toast />
     </>
   );
@@ -133,7 +107,7 @@ export default function NewClaimModal({ visible, onClose }) {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: COLORS.overlay,
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
@@ -141,78 +115,51 @@ const styles = StyleSheet.create({
   modal: {
     width: "100%",
     backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1.2,
-    borderColor: COLORS.accent,
-    shadowColor: COLORS.accentGlow,
-    shadowOpacity: 0.5,
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
     shadowRadius: 10,
-    elevation: 8,
+    elevation: 5,
   },
-  header: {
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: COLORS.text,
-  },
-  label: {
-    color: COLORS.text,
-    fontWeight: "500",
-    marginBottom: 8,
-  },
+  header: { justifyContent: "center", alignItems: "center", marginBottom: 20 },
+  iconCircle: { width: 48, height: 48, borderRadius: 24, backgroundColor: "#EFF6FF", justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+  title: { fontSize: 20, fontWeight: "700", color: COLORS.text },
+  label: { color: COLORS.text, fontWeight: "600", marginBottom: 8, fontSize: 14 },
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1.3,
-    borderColor: COLORS.accent,
-    borderRadius: 10,
-    backgroundColor: "#141A22",
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    shadowColor: COLORS.accentGlow,
-    shadowOpacity: 0.7,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  input: {
-    flex: 1,
-    color: COLORS.text,
-    fontSize: 15,
-  },
-  btnRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 24,
-  },
-  cancelBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    backgroundColor: "rgba(239,68,68,0.1)",
     borderWidth: 1,
-    borderColor: COLORS.danger,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    backgroundColor: COLORS.inputBg,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
-  cancelText: {
-    color: COLORS.danger,
-    fontWeight: "600",
+  input: { flex: 1, color: COLORS.text, fontSize: 16 },
+  btnRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 24, gap: 12 },
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center'
   },
+  cancelText: { color: COLORS.textMuted, fontWeight: "600", fontSize: 15 },
   searchBtn: {
+    flex: 1,
     backgroundColor: COLORS.accent,
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    shadowColor: COLORS.accentGlow,
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 6,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    shadowColor: COLORS.accent,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3
   },
-  searchText: {
-    color: "#fff",
-    fontWeight: "600",
-  },
+  searchText: { color: "#fff", fontWeight: "600", fontSize: 15 },
 });

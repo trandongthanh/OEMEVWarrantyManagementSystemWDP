@@ -18,24 +18,6 @@ const getComponentReservations = async (params) => {
   }
 };
 
-/**
- * Lấy (pickup) linh kiện từ kho
- * API: PATCH /reservations/pickup
- */
-const pickupComponents = async (reservationIds) => {
-  try {
-    const userId = await AsyncStorage.getItem("userId");
-    
-    const response = await api.patch(`/reservations/pickup`, {
-      reservationIds,
-      pickedUpByTechId: userId,
-    });
-    return response.data;
-  } catch (error) {
-    console.error("Lỗi khi pickup linh kiện (pickupComponents):", error);
-    throw error;
-  }
-};
 
 /**
  * Lắp đặt linh kiện lên xe (Quan trọng cho Kỹ thuật viên)
@@ -79,7 +61,6 @@ const getReservationById = async (reservationId) => {
 
 const componentReservationService = {
   getComponentReservations,
-  pickupComponents, 
   installComponent,
   getReservationById,
 };

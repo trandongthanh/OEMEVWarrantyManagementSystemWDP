@@ -17,14 +17,20 @@ export default function StaffDashboardTabs({ route }) {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: "#3B82F6",
-        tabBarInactiveTintColor: "#9AA7B5",
+        tabBarActiveTintColor: "#2563EB", // Xanh đậm hơn chút cho rõ trên nền trắng
+        tabBarInactiveTintColor: "#6B7280", // Xám trung tính
         tabBarStyle: {
-          backgroundColor: "#0B0F14",
+          backgroundColor: "#FFFFFF", // Nền trắng
           borderTopWidth: 1,
-          borderTopColor: "#1F2833",
+          borderTopColor: "#E5E7EB", // Viền xám nhạt
           height: 60,
           paddingBottom: 8,
+          paddingTop: 8,
+          elevation: 8, // Bóng đổ Android
+          shadowColor: "#000", // Bóng đổ iOS
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 4,
         },
         tabBarLabelStyle: {
           fontSize: 12,

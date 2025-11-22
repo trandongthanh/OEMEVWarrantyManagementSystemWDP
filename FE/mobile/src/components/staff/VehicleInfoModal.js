@@ -20,15 +20,17 @@ import FindCustomerModal from "../../components/staff/FindCustomerModal";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
+// 🎨 LIGHT THEME
 const COLORS = {
-  bg: "#0B0F14",
-  surface: "#11161C",
-  border: "#1F2833",
-  text: "#E6EAF2",
-  textMuted: "#9AA7B5",
+  surface: "#FFFFFF",
+  bg: "#F9FAFB",
+  border: "#E5E7EB",
+  text: "#111827",
+  textMuted: "#6B7280",
   accent: "#3B82F6",
-  accentSoft: "#2563EB",
   danger: "#EF4444",
+  inputBg: "#F3F4F6",
+  overlay: "rgba(0,0,0,0.6)"
 };
 
 export default function VehicleInfoModal({ visible, vehicle, onClose }) {
@@ -45,12 +47,10 @@ export default function VehicleInfoModal({ visible, vehicle, onClose }) {
       setShowOwnerWarning(true);
       return;
     }
-
     if (!odometer.trim()) {
       setError("Please enter odometer (km).");
       return;
     }
-
     setError("");
     setLoading(true);
     setWarranty(null);
@@ -59,14 +59,12 @@ export default function VehicleInfoModal({ visible, vehicle, onClose }) {
       const data = await getVehicleWarrantyInfo(vehicle.vin, odometer);
       if (data.status === "success" && data.data?.vehicle) {
         setWarranty(data.data.vehicle);
-        // ✅ truyền odometer & vin sang modal sau
         setShowWarrantyModal(true);
       } else {
         setError("No warranty information found.");
       }
     } catch (err) {
-      console.error("❌ Warranty API error:", err);
-      setError("Failed to fetch warranty info. Please try again.");
+      setError("Failed to fetch warranty info.");
     } finally {
       setLoading(false);
     }
@@ -80,88 +78,45 @@ export default function VehicleInfoModal({ visible, vehicle, onClose }) {
             <TouchableWithoutFeedback>
               <View style={styles.modalBox}>
                 <LinearGradient
-                  colors={["#0B3D91", "#1E90FF"]}
+                  colors={["#2563EB", "#3B82F6"]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.header}
                 >
-                  <Ionicons name="car-sport-outline" size={22} color="#fff" />
+                  <Ionicons name="car-sport-outline" size={24} color="#fff" />
                   <Text style={styles.title}>Vehicle Information</Text>
                 </LinearGradient>
 
-                <ScrollView
-                  style={styles.scrollArea}
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={{ paddingBottom: 20 }}
-                >
+                <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
                   {vehicle ? (
                     <>
-                      <Text style={styles.info}>VIN: {vehicle.vin}</Text>
-                      <Text style={styles.info}>
-                        Model: {vehicle.model || "Unknown"}
-                      </Text>
-                      <Text style={styles.info}>
-                        Company: {vehicle.company || "Unknown"}
-                      </Text>
-                      <Text style={styles.info}>
-                        Place of Manufacture:{" "}
-                        {vehicle.placeOfManufacture || "N/A"}
-                      </Text>
-                      <Text style={styles.info}>
-                        Manufacture Date:{" "}
-                        {vehicle.dateOfManufacture
-                          ? new Date(
-                              vehicle.dateOfManufacture
-                            ).toLocaleDateString()
-                          : "N/A"}
-                      </Text>
-                      <Text style={styles.info}>
-                        License Plate: {vehicle.licensePlate || "Not assigned"}
-                      </Text>
+                      <View style={styles.infoGroup}>
+                          <Text style={styles.info}><Text style={styles.label}>VIN: </Text>{vehicle.vin}</Text>
+                          <Text style={styles.info}><Text style={styles.label}>Model: </Text>{vehicle.model || "Unknown"}</Text>
+                          <Text style={styles.info}><Text style={styles.label}>Company: </Text>{vehicle.company || "Unknown"}</Text>
+                          <Text style={styles.info}><Text style={styles.label}>Manufacture Date: </Text>{vehicle.dateOfManufacture ? new Date(vehicle.dateOfManufacture).toLocaleDateString() : "N/A"}</Text>
+                          <Text style={styles.info}><Text style={styles.label}>License Plate: </Text>{vehicle.licensePlate || "Not assigned"}</Text>
+                      </View>
 
                       {vehicle.owner && (
                         <>
-                          <Text style={styles.sectionLabel}>
-                            Owner Information
-                          </Text>
+                          <Text style={styles.sectionLabel}>Owner Information</Text>
                           <View style={styles.ownerBox}>
-                            <Text style={styles.info}>
-                              Full Name: {vehicle.owner.fullName || "N/A"}
-                            </Text>
-                            <Text style={styles.info}>
-                              Email: {vehicle.owner.email || "Not provided"}
-                            </Text>
-                            <Text style={styles.info}>
-                              Phone: {vehicle.owner.phone || "Not provided"}
-                            </Text>
-                            <Text style={styles.info}>
-                              Address: {vehicle.owner.address || "Not provided"}
-                            </Text>
-                            <Text style={styles.info}>
-                              Purchase Date:{" "}
-                              {vehicle.purchaseDate
-                                ? new Date(
-                                    vehicle.purchaseDate
-                                  ).toLocaleDateString()
-                                : "Not registered"}
-                            </Text>
+                            <Text style={styles.info}>Name: <Text style={styles.value}>{vehicle.owner.fullName || "N/A"}</Text></Text>
+                            <Text style={styles.info}>Email: <Text style={styles.value}>{vehicle.owner.email || "N/A"}</Text></Text>
+                            <Text style={styles.info}>Phone: <Text style={styles.value}>{vehicle.owner.phone || "N/A"}</Text></Text>
                           </View>
                         </>
                       )}
 
-                      <Text style={styles.sectionLabel}>
-                        Enter Current Odometer (km)
-                      </Text>
+                      <Text style={styles.sectionLabel}>Enter Current Odometer (km)</Text>
                       <TextInput
                         style={styles.input}
                         placeholder="e.g. 12000"
                         placeholderTextColor={COLORS.textMuted}
                         keyboardType="number-pad"
                         value={odometer}
-                        onChangeText={(text) => {
-                          const numericText = text.replace(/[^0-9]/g, "");
-                          setOdometer(numericText);
-                        }}
+                        onChangeText={(text) => setOdometer(text.replace(/[^0-9]/g, ""))}
                       />
 
                       <TouchableOpacity
@@ -170,21 +125,13 @@ export default function VehicleInfoModal({ visible, vehicle, onClose }) {
                         disabled={loading}
                         activeOpacity={0.9}
                       >
-                        {loading ? (
-                          <ActivityIndicator color="#fff" />
-                        ) : (
-                          <Text style={styles.btnText}>
-                            Check Warranty Info
-                          </Text>
-                        )}
+                        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Check Warranty Info</Text>}
                       </TouchableOpacity>
 
                       {error ? <Text style={styles.error}>{error}</Text> : null}
                     </>
                   ) : (
-                    <Text style={[styles.info, { textAlign: "center" }]}>
-                      No vehicle data available.
-                    </Text>
+                    <Text style={[styles.info, { textAlign: "center" }]}>No vehicle data available.</Text>
                   )}
                 </ScrollView>
               </View>
@@ -193,17 +140,12 @@ export default function VehicleInfoModal({ visible, vehicle, onClose }) {
         </TouchableWithoutFeedback>
       </Modal>
 
-      {/* ⚠️ Owner chưa đăng ký */}
       <OwnerWarningModal
         visible={showOwnerWarning}
         onClose={() => setShowOwnerWarning(false)}
-        onRegister={() => {
-          setShowOwnerWarning(false);
-          setShowFindCustomer(true);
-        }}
+        onRegister={() => { setShowOwnerWarning(false); setShowFindCustomer(true); }}
       />
 
-      {/* 🧭 Modal tìm chủ xe */}
       <FindCustomerModal
         visible={showFindCustomer}
         vin={vehicle?.vin}
@@ -211,13 +153,12 @@ export default function VehicleInfoModal({ visible, vehicle, onClose }) {
         onClose={() => setShowFindCustomer(false)}
       />
 
-      {/* ✅ Truyền VIN + ODO sang WarrantyInfoModal */}
       <WarrantyInfoModal
         visible={showWarrantyModal}
         warranty={warranty}
         vehicle={vehicle}
         odometer={odometer}
-        owner={vehicle?.owner} // ⭐ THÊM DÒNG NÀY
+        owner={vehicle?.owner}
         onClose={() => setShowWarrantyModal(false)}
       />
     </>
@@ -227,78 +168,67 @@ export default function VehicleInfoModal({ visible, vehicle, onClose }) {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.65)",
+    backgroundColor: COLORS.overlay,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 16,
   },
   modalBox: {
-    width: "95%",
+    width: "100%",
     maxHeight: SCREEN_HEIGHT * 0.8,
     backgroundColor: COLORS.surface,
     borderRadius: 18,
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
   },
-  title: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#fff",
-    marginLeft: 8,
-  },
-  scrollArea: {
-    padding: 16,
-  },
-  info: {
-    color: COLORS.text,
-    fontSize: 15,
-    marginBottom: 6,
-  },
-  sectionLabel: {
-    color: COLORS.textMuted,
-    fontSize: 14,
-    fontWeight: "600",
-    marginTop: 18,
-    marginBottom: 4,
-  },
+  title: { fontSize: 18, fontWeight: "700", color: "#fff", marginLeft: 10 },
+  scrollArea: { padding: 20 },
+  infoGroup: { marginBottom: 10 },
+  info: { color: COLORS.text, fontSize: 15, marginBottom: 8 },
+  label: { color: COLORS.textMuted },
+  value: { fontWeight: '600', color: COLORS.text },
+  sectionLabel: { color: COLORS.accent, fontSize: 15, fontWeight: "700", marginTop: 16, marginBottom: 8 },
   ownerBox: {
-    backgroundColor: "rgba(59,130,246,0.1)",
+    backgroundColor: "#F0F9FF", // Xanh dương rất nhạt
     borderWidth: 1,
-    borderColor: COLORS.accent,
-    borderRadius: 10,
-    padding: 10,
+    borderColor: "#BAE6FD",
+    borderRadius: 12,
+    padding: 14,
     marginBottom: 10,
   },
   input: {
-    backgroundColor: COLORS.bg,
+    backgroundColor: COLORS.inputBg,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 10,
     color: COLORS.text,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     marginTop: 6,
+    fontSize: 16
   },
   checkBtn: {
     backgroundColor: COLORS.accent,
-    borderRadius: 10,
-    paddingVertical: 12,
+    borderRadius: 12,
+    paddingVertical: 14,
     alignItems: "center",
-    marginTop: 14,
+    marginTop: 20,
+    shadowColor: COLORS.accent,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3
   },
-  btnText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 15,
-  },
-  error: {
-    color: COLORS.danger,
-    marginTop: 8,
-    textAlign: "center",
-  },
+  btnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  error: { color: COLORS.danger, marginTop: 12, textAlign: "center", fontWeight: '500' },
 });

@@ -14,15 +14,18 @@ import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { registerVehicleOwner } from "../../services/vehicleService";
 
+// 🎨 LIGHT THEME
 const COLORS = {
-  bg: "#0B0F14",
-  surface: "#11161C",
-  border: "#1F2833",
-  text: "#E6EAF2",
-  textMuted: "#9AA7B5",
+  bg: "#F9FAFB",
+  surface: "#FFFFFF",
+  border: "#E5E7EB",
+  text: "#111827",
+  textMuted: "#6B7280",
   accent: "#3B82F6",
   danger: "#EF4444",
-  success: "#22C55E",
+  success: "#10B981",
+  inputBg: "#F3F4F6",
+  overlay: "rgba(0,0,0,0.5)"
 };
 
 export default function RegisterVehicleModal({
@@ -40,23 +43,18 @@ export default function RegisterVehicleModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Customer input states
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
 
-  // Prefill manufacture date
   useEffect(() => {
     if (vehicle?.dateOfManufacture) {
-      const formatted = new Date(vehicle.dateOfManufacture)
-        .toISOString()
-        .split("T")[0];
+      const formatted = new Date(vehicle.dateOfManufacture).toISOString().split("T")[0];
       setManufactureDate(formatted);
     }
   }, [vehicle]);
 
-  // Prefill email/phone
   useEffect(() => {
     if (visible && !customer) {
       if (prefillInfo?.email) setEmail(prefillInfo.email);
@@ -69,35 +67,18 @@ export default function RegisterVehicleModal({
       setError("Please fill in all required fields.");
       return;
     }
-
     setLoading(true);
     setError("");
 
-    // Build customer payload
     let customerPayload = {};
-
     if (customer?.id) {
-      // Existing customer (GUID)
       customerPayload.customerId = customer.id;
     } else {
-      // New customer
-      customerPayload.customer = {
-        fullName,
-        email,
-        phone,
-        address,
-      };
+      customerPayload.customer = { fullName, email, phone, address };
     }
 
     try {
-      await registerVehicleOwner(
-        vin,
-        purchaseDate,
-        licensePlate,
-        manufactureDate,
-        customerPayload
-      );
-
+      await registerVehicleOwner(vin, purchaseDate, licensePlate, manufactureDate, customerPayload);
       alert("Vehicle registered!");
       onClose();
     } catch (err) {
@@ -117,41 +98,29 @@ export default function RegisterVehicleModal({
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.modalBox}>
           {/* Header */}
           <View style={styles.header}>
-            <Ionicons name="car-outline" size={22} color="#fff" />
+            <View style={styles.iconCircle}>
+                <Ionicons name="car-outline" size={24} color={COLORS.accent} />
+            </View>
             <Text style={styles.title}>Register Vehicle</Text>
           </View>
 
           <Text style={styles.vinText}>
-            VIN: <Text style={{ color: COLORS.accent }}>{vin}</Text>
+            VIN: <Text style={{ color: COLORS.accent, fontWeight: '700' }}>{vin}</Text>
           </Text>
 
-          {/* Manufacture Date */}
           <Text style={styles.label}>Date of Manufacture *</Text>
-          <TouchableOpacity
-            style={styles.inputWrapper}
-            onPress={() => openPicker("manufacture")}
-          >
-            <Text style={styles.inputText}>
-              {manufactureDate || "Select date of manufacture"}
+          <TouchableOpacity style={styles.inputWrapper} onPress={() => openPicker("manufacture")}>
+            <Text style={[styles.inputText, !manufactureDate && {color: COLORS.textMuted}]}>
+              {manufactureDate || "Select date"}
             </Text>
-            <Ionicons
-              name="calendar-outline"
-              size={20}
-              color={COLORS.textMuted}
-            />
+            <Ionicons name="calendar-outline" size={20} color={COLORS.textMuted} />
           </TouchableOpacity>
 
-          {/* License Plate */}
           <Text style={styles.label}>License Plate *</Text>
           <TextInput
             style={styles.input}
@@ -161,41 +130,23 @@ export default function RegisterVehicleModal({
             onChangeText={setLicensePlate}
           />
 
-          {/* Purchase Date */}
           <Text style={styles.label}>Purchase Date *</Text>
-          <TouchableOpacity
-            style={styles.inputWrapper}
-            onPress={() => openPicker("purchase")}
-          >
-            <Text style={styles.inputText}>
-              {purchaseDate || "Select purchase date"}
+          <TouchableOpacity style={styles.inputWrapper} onPress={() => openPicker("purchase")}>
+            <Text style={[styles.inputText, !purchaseDate && {color: COLORS.textMuted}]}>
+              {purchaseDate || "Select date"}
             </Text>
-            <Ionicons
-              name="calendar-outline"
-              size={20}
-              color={COLORS.textMuted}
-            />
+            <Ionicons name="calendar-outline" size={20} color={COLORS.textMuted} />
           </TouchableOpacity>
 
-          {/* Customer Info */}
           <Text style={styles.sectionTitle}>Customer Information</Text>
           {customer ? (
             <View style={styles.customerBox}>
-              <Ionicons
-                name="checkmark-circle"
-                size={18}
-                color={COLORS.success}
-              />
-              <View style={{ marginLeft: 8 }}>
-                <Text
-                  style={[
-                    styles.custText,
-                    { fontWeight: "700", color: COLORS.success },
-                  ]}
-                >
+              <Ionicons name="checkmark-circle" size={20} color={COLORS.success} />
+              <View style={{ marginLeft: 10 }}>
+                <Text style={[styles.custText, { fontWeight: "700", color: COLORS.success, marginBottom: 4 }]}>
                   Existing Customer
                 </Text>
-                <Text style={styles.custText}>Name: {customer.fullName}</Text>
+                <Text style={styles.custText}>Name: <Text style={{fontWeight:'600'}}>{customer.fullName}</Text></Text>
                 <Text style={styles.custText}>Email: {customer.email}</Text>
                 <Text style={styles.custText}>Phone: {customer.phone}</Text>
                 <Text style={styles.custText}>Address: {customer.address}</Text>
@@ -204,46 +155,21 @@ export default function RegisterVehicleModal({
           ) : (
             <View style={styles.newCustomerForm}>
               <Text style={styles.formLabel}>Full Name *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Full Name"
-                placeholderTextColor={COLORS.textMuted}
-                value={fullName}
-                onChangeText={setFullName}
-              />
-
+              <TextInput style={styles.input} placeholder="Full Name" placeholderTextColor={COLORS.textMuted} value={fullName} onChangeText={setFullName} />
+              
               <Text style={styles.formLabel}>Email *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Email"
-                placeholderTextColor={COLORS.textMuted}
-                value={email}
-                onChangeText={setEmail}
-              />
-
+              <TextInput style={styles.input} placeholder="Email" placeholderTextColor={COLORS.textMuted} value={email} onChangeText={setEmail} />
+              
               <Text style={styles.formLabel}>Phone *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Phone"
-                placeholderTextColor={COLORS.textMuted}
-                value={phone}
-                onChangeText={setPhone}
-              />
-
+              <TextInput style={styles.input} placeholder="Phone" placeholderTextColor={COLORS.textMuted} value={phone} onChangeText={setPhone} />
+              
               <Text style={styles.formLabel}>Address *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Address"
-                placeholderTextColor={COLORS.textMuted}
-                value={address}
-                onChangeText={setAddress}
-              />
+              <TextInput style={styles.input} placeholder="Address" placeholderTextColor={COLORS.textMuted} value={address} onChangeText={setAddress} />
             </View>
           )}
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
-          {/* Register Button */}
           <TouchableOpacity
             onPress={handleRegister}
             disabled={loading}
@@ -282,11 +208,10 @@ export default function RegisterVehicleModal({
   );
 }
 
-// 🎨 Styles
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
+    backgroundColor: COLORS.overlay,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 16,
@@ -294,70 +219,67 @@ const styles = StyleSheet.create({
   modalBox: {
     width: "95%",
     backgroundColor: COLORS.surface,
-    borderRadius: 18,
-    padding: 16,
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
   },
-  header: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
-  title: { color: "#fff", fontSize: 18, fontWeight: "700", marginLeft: 8 },
-  vinText: { color: COLORS.textMuted, marginBottom: 10 },
-  label: { color: COLORS.textMuted, fontSize: 14, marginTop: 10 },
+  header: { flexDirection: "row", alignItems: "center", marginBottom: 16, justifyContent: 'center' },
+  iconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#EFF6FF", justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+  title: { color: COLORS.text, fontSize: 20, fontWeight: "700" },
+  vinText: { color: COLORS.textMuted, marginBottom: 16, textAlign: 'center', fontSize: 15 },
+  label: { color: COLORS.text, fontSize: 14, marginTop: 12, marginBottom: 6, fontWeight: '500' },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: COLORS.bg,
+    backgroundColor: COLORS.inputBg,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    marginTop: 6,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
   },
-  inputText: { color: COLORS.text, fontSize: 14 },
+  inputText: { color: COLORS.text, fontSize: 15 },
   input: {
-    backgroundColor: COLORS.bg,
+    backgroundColor: COLORS.inputBg,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 8,
+    borderRadius: 10,
     color: COLORS.text,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    marginBottom: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    fontSize: 15
   },
   sectionTitle: {
-    color: "#fff",
+    color: COLORS.accent,
     fontSize: 16,
     fontWeight: "700",
-    marginTop: 20,
-    marginBottom: 10,
+    marginTop: 24,
+    marginBottom: 12,
     borderBottomWidth: 1,
     borderColor: COLORS.border,
-    paddingBottom: 5,
+    paddingBottom: 8,
   },
-  formLabel: {
-    color: COLORS.textMuted,
-    fontSize: 13,
-    marginTop: 6,
-    marginBottom: 4,
-  },
-  newCustomerForm: {
-    marginTop: 6,
-    marginBottom: 10,
-  },
+  formLabel: { color: COLORS.text, fontSize: 14, marginTop: 10, marginBottom: 4, fontWeight: '500' },
+  newCustomerForm: { marginBottom: 10 },
   customerBox: {
-    backgroundColor: "rgba(34,197,94,0.1)",
+    backgroundColor: "#F0FDF4", // Xanh lá rất nhạt
     borderWidth: 1,
-    borderColor: COLORS.success,
-    borderRadius: 8,
-    padding: 10,
+    borderColor: "#BBF7D0",
+    borderRadius: 12,
+    padding: 14,
     flexDirection: "row",
     alignItems: "flex-start",
   },
-  custText: { color: COLORS.text, fontSize: 14, marginBottom: 2 },
-  registerBtn: { borderRadius: 10, marginTop: 16 },
-  gradientBtn: { borderRadius: 10, paddingVertical: 12, alignItems: "center" },
-  btnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
-  error: { color: COLORS.danger, marginTop: 8, textAlign: "center" },
-  closeBtn: { marginTop: 12, alignItems: "center" },
-  closeText: { color: COLORS.textMuted },
+  custText: { color: "#166534", fontSize: 14, marginBottom: 2, lineHeight: 20 },
+  registerBtn: { borderRadius: 12, marginTop: 24, shadowColor: COLORS.accent, shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 },
+  gradientBtn: { borderRadius: 12, paddingVertical: 14, alignItems: "center" },
+  btnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  error: { color: COLORS.danger, marginTop: 12, textAlign: "center", fontWeight: '500' },
+  closeBtn: { marginTop: 16, alignItems: "center", paddingVertical: 8 },
+  closeText: { color: COLORS.textMuted, fontSize: 15, fontWeight: '600' },
 });

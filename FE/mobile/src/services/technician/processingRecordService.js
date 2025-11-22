@@ -50,23 +50,6 @@ const searchCompatibleComponents = async (recordId, category, searchName) => {
 };
 
 /**
- * Gán kỹ thuật viên cho phiếu sửa chữa
- * API: PATCH /processing-records/{id}/assignment
- */
-const assignTechnician = async (recordId, technicianId) => {
-  try {
-    const response = await api.patch(
-      `/processing-records/${recordId}/assignment`,
-      { technicianId }
-    );
-    return response.data.data.record;
-  } catch (error) {
-    console.error("Lỗi khi gán KTV (assignTechnician):", error);
-    throw error;
-  }
-};
-
-/**
  * Hoàn tất chẩn đoán cho một phiếu sửa chữa (Quan trọng cho KTV)
  * API: PATCH /processing-records/{id}/complete-diagnosis
  *
@@ -87,30 +70,11 @@ const completeDiagnosis = async (recordId) => {
   }
 };
 
-/**
- * Đánh dấu phiếu sửa chữa đã hoàn thành (Thường là Staff/Manager)
- * API: PATCH /processing-records/{id}/completed
- */
-const completeRecord = async (recordId) => {
-  try {
-    const response = await api.patch(
-      `/processing-records/${recordId}/completed`
-    );
-    return response.data;
-  } catch (error) {
-    console.error("Lỗi khi hoàn tất phiếu (completeRecord):", error);
-    throw error;
-  }
-};
-
-// Đóng gói các hàm thành một đối tượng service để export
 const processingRecordService = {
   getAllRecords,
   getRecordById,
   searchCompatibleComponents,
-  assignTechnician,
   completeDiagnosis,
-  completeRecord,
 };
 
 export default processingRecordService;

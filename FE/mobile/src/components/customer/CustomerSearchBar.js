@@ -5,17 +5,19 @@ import {
   ActivityIndicator,
   StyleSheet,
   Platform,
+  TouchableOpacity
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Toast from "react-native-toast-message";
 
+// 🎨 LIGHT THEME COLORS
 const COLORS = {
-  surface: "#11161C",
-  border: "#1F2833",
-  text: "#E6EAF2",
-  textMuted: "#9AA7B5",
-  accent: "#3B82F6", // xanh neon
-  accentGlow: "#60A5FA", // ánh sáng neon
+  surface: "#FFFFFF",    // Nền trắng
+  border: "#E5E7EB",     // Viền xám nhạt
+  text: "#111827",       // Chữ đen
+  textMuted: "#9CA3AF",  // Chữ xám placeholder
+  accent: "#3B82F6",     // Xanh dương
+  accentGlow: "#60A5FA", // Màu shadow khi focus
 };
 
 export default function CustomerSearchBar({
@@ -48,14 +50,15 @@ export default function CustomerSearchBar({
             styles.searchBox,
             focused && {
               borderColor: COLORS.accent,
-              shadowColor: COLORS.accentGlow,
-              shadowOpacity: 0.5,
-              shadowRadius: 8,
-              elevation: 6,
+              // Shadow xanh nhẹ khi focus
+              shadowColor: COLORS.accent,
+              shadowOpacity: 0.15,
+              shadowRadius: 4,
+              elevation: 2,
             },
           ]}
         >
-          {/* Icon search đầu ô */}
+          {/* Icon search */}
           <Ionicons
             name="search-outline"
             size={20}
@@ -71,10 +74,24 @@ export default function CustomerSearchBar({
             value={value}
             onChangeText={onChangeText}
             returnKeyType="search"
+            autoCapitalize="none"
+            keyboardType="email-address"
             onSubmitEditing={handleSearchPress}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
           />
+
+          {/* Nút xóa (X) khi có text */}
+          {value.length > 0 && !loading && (
+            <TouchableOpacity onPress={() => onChangeText("")}>
+              <Ionicons
+                name="close-circle"
+                size={18}
+                color={COLORS.textMuted}
+                style={{ marginRight: 10 }}
+              />
+            </TouchableOpacity>
+          )}
 
           {/* Loader khi đang tìm kiếm */}
           {loading && (
@@ -86,8 +103,6 @@ export default function CustomerSearchBar({
           )}
         </View>
       </View>
-
-      {/* Toast hiển thị lỗi / cảnh báo */}
       <Toast />
     </>
   );
@@ -100,25 +115,23 @@ const styles = StyleSheet.create({
   searchBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#141A22",
-    borderRadius: 14,
+    backgroundColor: COLORS.surface, // ✅ Đã đổi thành #FFFFFF
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#1E2633",
-    paddingHorizontal: 6,
+    borderColor: COLORS.border, // ✅ Đã đổi thành viền xám #E5E7EB
     height: 48,
+    // Shadow nhẹ nhàng
     shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 3,
+    elevation: 2,
   },
   input: {
     flex: 1,
     fontSize: 15,
-    color: COLORS.text,
+    color: COLORS.text, // ✅ Đã đổi thành chữ đen #111827
     paddingVertical: 0,
-    textAlignVertical: "center",
-    includeFontPadding: false,
-    marginTop: Platform.OS === "ios" ? 1 : 0,
+    height: "100%", // Đảm bảo input full chiều cao để dễ bấm
   },
 });

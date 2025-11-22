@@ -3,19 +3,22 @@ import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Toast from "react-native-toast-message";
 import { getProcessingRecords } from "../../../services/processingRecordService";
-import { useFocusEffect } from "@react-navigation/native"; // ✅ thêm hook này
+import { useFocusEffect } from "@react-navigation/native";
 
+// 🎨 LIGHT THEME
 const COLORS = {
-  surface: "#11161C",
-  text: "#E6EAF2",
-  textMuted: "#9AA7B5",
+  surface: "#FFFFFF",
+  text: "#111827",
+  textMuted: "#6B7280",
+  border: "#E5E7EB",
 };
 
-// 🧱 Component con hiển thị 1 ô thống kê
+// 🧱 Component con
 const StatCard = ({ icon, color, title, subtitle, value }) => (
-  <View style={[styles.statCard, { borderColor: color }]}>
-    <View style={[styles.iconBox, { backgroundColor: color + "25" }]}>
-      <Ionicons name={icon} size={22} color={color} />
+  // Dùng color + '15' cho background nhẹ, border mỏng
+  <View style={[styles.statCard, { borderColor: COLORS.border, borderBottomColor: color, borderBottomWidth: 3 }]}>
+    <View style={[styles.iconBox, { backgroundColor: color + "15" }]}>
+      <Ionicons name={icon} size={24} color={color} />
     </View>
     <View style={{ flex: 1 }}>
       <Text style={styles.statTitle}>{title}</Text>
@@ -25,17 +28,8 @@ const StatCard = ({ icon, color, title, subtitle, value }) => (
   </View>
 );
 
-// 📊 Component chính
 export default function CasesOverview() {
-  const [stats, setStats] = useState({
-    total: 0,
-    checked_in: 0,
-    in_diagnosis: 0,
-    waiting_for_parts: 0,
-    in_repair: 0,
-    completed: 0,
-    cancelled: 0,
-  });
+  const [stats, setStats] = useState({ total: 0, checked_in: 0, in_diagnosis: 0, waiting_for_parts: 0, in_repair: 0, completed: 0, cancelled: 0 });
   const [loadingStats, setLoadingStats] = useState(false);
 
   const fetchStats = async () => {
@@ -43,7 +37,6 @@ export default function CasesOverview() {
       setLoadingStats(true);
       const res = await getProcessingRecords(1, 1000);
       const records = res?.data?.records?.records || [];
-
       const counts = records.reduce(
         (acc, r) => {
           const status = (r.status || "").trim().toUpperCase();
@@ -56,98 +49,34 @@ export default function CasesOverview() {
           else if (status === "CANCELLED") acc.cancelled += 1;
           return acc;
         },
-        {
-          total: 0,
-          checked_in: 0,
-          in_diagnosis: 0,
-          waiting_for_parts: 0,
-          in_repair: 0,
-          completed: 0,
-          cancelled: 0,
-        }
+        { total: 0, checked_in: 0, in_diagnosis: 0, waiting_for_parts: 0, in_repair: 0, completed: 0, cancelled: 0 }
       );
-
       setStats(counts);
     } catch (err) {
-      console.error("❌ Error fetching stats:", err);
-      Toast.show({
-        type: "error",
-        text1: "Unable to load processing record stats.",
-      });
+      Toast.show({ type: "error", text1: "Unable to load stats." });
     } finally {
       setLoadingStats(false);
     }
   };
 
-  // ✅ Mỗi lần tab được focus -> tự reload lại API
-  useFocusEffect(
-    useCallback(() => {
-      fetchStats();
-    }, [])
-  );
-
-  // ⏱️ Gọi lần đầu khi mount
-  useEffect(() => {
-    fetchStats();
-  }, []);
+  useFocusEffect(useCallback(() => { fetchStats(); }, []));
+  useEffect(() => { fetchStats(); }, []);
 
   return (
-    <View style={{ marginTop: 25, marginBottom: 40 }}>
+    <View style={{ marginTop: 24, marginBottom: 40 }}>
       <Text style={styles.sectionTitle}>Cases Overview</Text>
 
       {loadingStats ? (
         <ActivityIndicator color="#3B82F6" style={{ marginTop: 20 }} />
       ) : (
         <View style={styles.statsContainer}>
-          <StatCard
-            icon="document-text-outline"
-            color="#60A5FA"
-            title="Total"
-            subtitle="All records"
-            value={stats.total}
-          />
-          <StatCard
-            icon="log-in-outline"
-            color="#FACC15"
-            title="Checked In"
-            subtitle="Received vehicles"
-            value={stats.checked_in}
-          />
-          <StatCard
-            icon="search-outline"
-            color="#F59E0B"
-            title="In Diagnosis"
-            subtitle="Under inspection"
-            value={stats.in_diagnosis}
-          />
-          <StatCard
-            icon="cube-outline"
-            color="#FB923C"
-            title="Waiting Parts"
-            subtitle="Pending parts"
-            value={stats.waiting_for_parts}
-          />
-          <StatCard
-            icon="build-outline"
-            color="#34D399"
-            title="In Repair"
-            subtitle="Being repaired"
-            value={stats.in_repair}
-          />
-          <StatCard
-            icon="checkmark-done-outline"
-            color="#22C55E"
-            title="Completed"
-            subtitle="Finished cases"
-            value={stats.completed}
-          />
-          <StatCard
-            icon="close-circle-outline"
-            color="#EF4444"
-            title="Cancelled"
-            subtitle="Stopped cases"
-            value={stats.cancelled}
-          />
+          <StatCard icon="document-text-outline" color="#3B82F6" title="Total" subtitle="All records" value={stats.total} />
+          <StatCard icon="log-in-outline" color="#EAB308" title="Checked In" subtitle="Received" value={stats.checked_in} />
+          <StatCard icon="search-outline" color="#F97316" title="In Diagnosis" subtitle="Inspecting" value={stats.in_diagnosis} />
+          <StatCard icon="cube-outline" color="#8B5CF6" title="Waiting Parts" subtitle="Pending" value={stats.waiting_for_parts} />
+          <StatCard icon="build-outline" color="#06B6D4" title="In Repair" subtitle="Repairing" value={stats.in_repair} />
+          <StatCard icon="checkmark-done-outline" color="#22C55E" title="Completed" subtitle="Done" value={stats.completed} />
+          <StatCard icon="close-circle-outline" color="#EF4444" title="Cancelled" subtitle="Stopped" value={stats.cancelled} />
         </View>
       )}
     </View>
@@ -157,9 +86,9 @@ export default function CasesOverview() {
 const styles = StyleSheet.create({
   sectionTitle: {
     color: COLORS.text,
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "700",
-    marginBottom: 10,
+    marginBottom: 16,
   },
   statsContainer: {
     flexDirection: "row",
@@ -170,28 +99,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: COLORS.surface,
-    borderWidth: 1.3,
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: 12,
+    padding: 12,
     marginBottom: 12,
     width: "48%",
+    borderWidth: 1,
+    // Shadow
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
   iconBox: {
     padding: 8,
     borderRadius: 10,
     marginRight: 10,
   },
-  statTitle: {
-    color: COLORS.text,
-    fontWeight: "700",
-    fontSize: 15,
-  },
-  statSubtitle: {
-    color: COLORS.textMuted,
-    fontSize: 12,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
+  statTitle: { color: COLORS.text, fontWeight: "700", fontSize: 14 },
+  statSubtitle: { color: COLORS.textMuted, fontSize: 11 },
+  statValue: { fontSize: 18, fontWeight: "700", marginLeft: "auto" },
 });

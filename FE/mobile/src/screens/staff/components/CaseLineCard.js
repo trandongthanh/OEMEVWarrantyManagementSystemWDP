@@ -4,27 +4,26 @@ import { Ionicons } from "@expo/vector-icons";
 import Toast from "react-native-toast-message";
 import { approveOrRejectCaseLines } from "../../../services/caseLineService";
 
+// 🎨 LIGHT THEME
 const COLORS = {
-  border: "#1F2833",
-  text: "#E6EAF2",
-  textMuted: "#9AA7B5",
+  cardBg: "#FFFFFF",
+  border: "#E5E7EB",
+  text: "#111827",
+  textMuted: "#6B7280",
   accent: "#3B82F6",
-  success: "#22C55E",
+  success: "#10B981", // Xanh lá đậm hơn chút
   danger: "#EF4444",
-  cardBg: "#161C25",
-  pending: "#EAB308",
+  pending: "#F59E0B", // Màu cam vàng
 };
 
 export default function CaseLineCard({ line }) {
   const handleAction = async (action) => {
     try {
       const caseLineId = line?.id;
-
       if (!caseLineId) {
         Toast.show({ type: "error", text1: "❌ Invalid case line ID" });
         return;
       }
-
       if (line.status !== "PENDING_APPROVAL") {
         Toast.show({
           type: "info",
@@ -34,29 +33,19 @@ export default function CaseLineCard({ line }) {
         return;
       }
 
-      // ✅ Gửi đúng format: { id: "..." }
       const approved = action === "approve" ? [{ id: caseLineId }] : [];
       const rejected = action === "reject" ? [{ id: caseLineId }] : [];
 
-      const res = await approveOrRejectCaseLines(approved, rejected);
-      console.log("✅ Response:", res);
-
+      await approveOrRejectCaseLines(approved, rejected);
       Toast.show({
         type: "success",
-        text1:
-          action === "approve"
-            ? "✅ Approved successfully"
-            : "❌ Rejected successfully",
+        text1: action === "approve" ? "✅ Approved" : "❌ Rejected",
       });
     } catch (err) {
-      console.error(
-        "❌ Error approving/rejecting case lines:",
-        err.response?.data || err
-      );
+      console.error("❌ Error:", err);
       Toast.show({
         type: "error",
         text1: "Failed to update case line",
-        text2: err.response?.data?.message || "Please try again later",
       });
     }
   };
@@ -65,7 +54,7 @@ export default function CaseLineCard({ line }) {
     <View style={styles.card}>
       {/* Header */}
       <View style={styles.header}>
-        <Ionicons name="construct-outline" size={16} color={COLORS.accent} />
+        <Ionicons name="construct-outline" size={18} color={COLORS.accent} />
         <Text style={styles.title}>
           {line.diagnosisText || "No diagnosis text"}
         </Text>
@@ -77,29 +66,26 @@ export default function CaseLineCard({ line }) {
       </Text>
 
       {/* Warranty + Qty + Status */}
-      <Text style={styles.status}>
-        Warranty:{" "}
-        <Text
-          style={{
-            color:
-              line.warrantyStatus === "ELIGIBLE"
-                ? COLORS.success
-                : COLORS.danger,
-          }}
-        >
-          {line.warrantyStatus}
-        </Text>{" "}
-        | Qty: {line.quantity}
-      </Text>
+      <View style={styles.metaRow}>
+        <Text style={styles.status}>
+          Warranty:{" "}
+          <Text
+            style={{
+              color: line.warrantyStatus === "ELIGIBLE" ? COLORS.success : COLORS.danger,
+              fontWeight: '600'
+            }}
+          >
+            {line.warrantyStatus}
+          </Text>{" "}
+          | Qty: {line.quantity}
+        </Text>
+      </View>
 
       <Text
         style={[
           styles.lineStatus,
           {
-            color:
-              line.status === "PENDING_APPROVAL"
-                ? COLORS.pending
-                : COLORS.textMuted,
+            color: line.status === "PENDING_APPROVAL" ? COLORS.pending : COLORS.textMuted,
           },
         ]}
       >
@@ -113,7 +99,7 @@ export default function CaseLineCard({ line }) {
             style={[styles.btn, { backgroundColor: COLORS.success }]}
             onPress={() => handleAction("approve")}
           >
-            <Ionicons name="checkmark" size={16} color="#fff" />
+            <Ionicons name="checkmark" size={18} color="#fff" />
             <Text style={styles.btnText}>Approve</Text>
           </TouchableOpacity>
 
@@ -121,7 +107,7 @@ export default function CaseLineCard({ line }) {
             style={[styles.btn, { backgroundColor: COLORS.danger }]}
             onPress={() => handleAction("reject")}
           >
-            <Ionicons name="close" size={16} color="#fff" />
+            <Ionicons name="close" size={18} color="#fff" />
             <Text style={styles.btnText}>Reject</Text>
           </TouchableOpacity>
         </View>
@@ -134,10 +120,7 @@ export default function CaseLineCard({ line }) {
             style={{ marginRight: 4 }}
           />
           <Text style={styles.disabledText}>
-            Cannot approve yet — waiting for{" "}
-            <Text style={{ color: COLORS.pending }}>
-              {line.status.replaceAll("_", " ")}
-            </Text>
+            Waiting for <Text style={{ color: COLORS.pending, fontWeight: '600' }}>{line.status.replaceAll("_", " ")}</Text>
           </Text>
         </View>
       )}
@@ -148,30 +131,38 @@ export default function CaseLineCard({ line }) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.cardBg,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 10,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
+    // Shadow nhẹ
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
     marginBottom: 6,
   },
-  title: { color: COLORS.text, fontWeight: "600", flex: 1 },
-  desc: { color: COLORS.textMuted, fontSize: 13, marginBottom: 6 },
-  status: { color: COLORS.textMuted, fontSize: 12 },
+  title: { color: COLORS.text, fontWeight: "700", flex: 1, fontSize: 15 },
+  desc: { color: COLORS.textMuted, fontSize: 14, marginBottom: 8 },
+  metaRow: { marginBottom: 4 },
+  status: { color: COLORS.textMuted, fontSize: 13 },
   lineStatus: {
-    marginTop: 4,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "600",
+    marginTop: 2
   },
   actions: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 10,
+    marginTop: 12,
+    gap: 10
   },
   btn: {
     flexDirection: "row",
@@ -179,25 +170,26 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     borderRadius: 8,
-    paddingVertical: 8,
-    marginHorizontal: 4,
+    paddingVertical: 10,
   },
   btnText: {
     color: "#fff",
     fontWeight: "600",
     marginLeft: 6,
-    fontSize: 13,
+    fontSize: 14,
   },
   lockedContainer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 8,
+    marginTop: 10,
+    backgroundColor: "#F3F4F6", // Nền xám cho vùng bị khóa
+    padding: 6,
+    borderRadius: 6
   },
   disabledText: {
     color: COLORS.textMuted,
     fontStyle: "italic",
-    textAlign: "center",
     fontSize: 12,
   },
 });

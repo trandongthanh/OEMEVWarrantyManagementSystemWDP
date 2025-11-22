@@ -2,12 +2,14 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+// 🎨 LIGHT THEME COLORS
 const COLORS = {
-  surface: "#11161C",
-  border: "#1F2833",
-  text: "#E6EAF2",
-  textMuted: "#9AA7B5",
-  accent: "#3B82F6",
+  surface: "#FFFFFF",    // Nền trắng
+  border: "#E5E7EB",     // Viền xám nhạt
+  text: "#111827",       // Chữ đen
+  textMuted: "#6B7280",  // Chữ xám
+  accent: "#3B82F6",     // Xanh dương
+  avatarBg: "#EFF6FF",   // Nền avatar xanh rất nhạt
 };
 
 export default function CustomerInfoCard({ customer }) {
@@ -31,24 +33,16 @@ export default function CustomerInfoCard({ customer }) {
       {/* Info */}
       <View style={styles.infoRow}>
         <Ionicons name="call-outline" size={18} color={COLORS.accent} />
-        <Text style={styles.infoText}>{customer.phone}</Text>
+        <Text style={styles.infoText}>{customer.phone || "No phone"}</Text>
       </View>
       <View style={styles.infoRow}>
         <Ionicons name="mail-outline" size={18} color={COLORS.accent} />
-        <Text style={styles.infoText}>{customer.email}</Text>
+        <Text style={styles.infoText}>{customer.email || "No email"}</Text>
       </View>
       <View style={styles.infoRow}>
         <Ionicons name="home-outline" size={18} color={COLORS.accent} />
-        <Text style={styles.infoText}>{customer.address}</Text>
+        <Text style={styles.infoText}>{customer.address || "No address"}</Text>
       </View>
-
-      {/* Created date */}
-      <Text style={styles.dateText}>
-        🕓 Created:{" "}
-        {new Date(customer.createdAt).toLocaleString("vi-VN", {
-          hour12: false,
-        })}
-      </Text>
     </View>
   );
 }
@@ -61,22 +55,26 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 18,
     marginTop: 15,
+    // Shadow nhẹ cho nền trắng
     shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 3,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 14,
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6", // Đường kẻ mờ ngăn cách header
   },
   avatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: COLORS.accent + "22",
+    backgroundColor: COLORS.avatarBg, // Nền xanh nhạt
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
@@ -93,23 +91,30 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   id: {
-    fontSize: 13,
+    fontSize: 12,
     color: COLORS.textMuted,
   },
   infoRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 6,
+    marginBottom: 10,
   },
   infoText: {
     color: COLORS.text,
     fontSize: 15,
-    marginLeft: 8,
+    marginLeft: 10,
+    flex: 1,
+  },
+  footer: {
+    marginTop: 6,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
   },
   dateText: {
-    marginTop: 10,
     fontSize: 13,
     color: COLORS.textMuted,
     textAlign: "right",
+    fontStyle: "italic",
   },
 });

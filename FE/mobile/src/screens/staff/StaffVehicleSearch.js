@@ -15,6 +15,14 @@ import CustomerInfoCard from "../../components/customer/CustomerInfoCard";
 import { getCustomerByPhoneOrEmail } from "../../services/customerService";
 import CasesOverview from "./components/CasesOverview";
 
+// 🎨 LIGHT THEME COLORS
+const COLORS = {
+  bg: "#F3F4F6",
+  text: "#111827",
+  textMuted: "#6B7280",
+  accent: "#3B82F6",
+};
+
 export default function StaffHome() {
   const [modalVisible, setModalVisible] = useState(false);
   const [searchValue, setSearchValue] = useState("");
@@ -103,13 +111,6 @@ export default function StaffHome() {
   );
 }
 
-const COLORS = {
-  bg: "#0B0F14",
-  text: "#E6EAF2",
-  textMuted: "#9AA7B5",
-  accent: "#3B82F6",
-};
-
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -122,10 +123,11 @@ const styles = StyleSheet.create({
   },
   title: {
     color: COLORS.text,
-    fontSize: 22,
-    fontWeight: "700",
+    fontSize: 28,
+    fontWeight: "bold",
     textAlign: "center",
-    marginBottom: 20,
+    marginBottom: 24,
+    marginTop: 10,
   },
   topRow: {
     flexDirection: "row",
@@ -140,6 +142,11 @@ const styles = StyleSheet.create({
     minWidth: 80,
     justifyContent: "center",
     alignItems: "center",
+    shadowColor: COLORS.accent,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   newBtnText: {
     color: "#fff",

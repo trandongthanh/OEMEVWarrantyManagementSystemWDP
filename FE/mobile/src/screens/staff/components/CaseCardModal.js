@@ -8,15 +8,15 @@ import {
   StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import CaseLineCard from "./CaseLineCard"; // ✅ import thêm
+import CaseLineCard from "./CaseLineCard";
 
+// 🎨 LIGHT THEME
 const COLORS = {
-  surface: "#11161C",
-  border: "#1F2833",
-  text: "#E6EAF2",
-  textMuted: "#9AA7B5",
+  surface: "#FFFFFF",
+  border: "#E5E7EB",
+  text: "#111827",
+  textMuted: "#6B7280",
   accent: "#3B82F6",
-  cardBg: "#161C25",
 };
 
 export default function CaseCardModal({ visible, caseData, onClose }) {
@@ -27,7 +27,7 @@ export default function CaseCardModal({ visible, caseData, onClose }) {
       <View style={styles.overlay}>
         <View style={styles.modalBox}>
           <View style={styles.header}>
-            <Ionicons name="hammer-outline" size={22} color={COLORS.accent} />
+            <Ionicons name="hammer-outline" size={24} color={COLORS.accent} />
             <Text style={styles.title}>
               Case #{caseData?.guaranteeCaseId || ""}
             </Text>
@@ -61,7 +61,7 @@ export default function CaseCardModal({ visible, caseData, onClose }) {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
+    backgroundColor: "rgba(0,0,0,0.5)", // Nền tối mờ nhẹ hơn
     justifyContent: "center",
     alignItems: "center",
     padding: 16,
@@ -72,19 +72,25 @@ const styles = StyleSheet.create({
     width: "100%",
     maxHeight: "90%",
     padding: 16,
+    // Shadow
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 8,
-    gap: 6,
+    gap: 8,
   },
-  title: { color: COLORS.text, fontSize: 18, fontWeight: "700" },
+  title: { color: COLORS.text, fontSize: 20, fontWeight: "700" },
   guaranteeText: {
     color: COLORS.textMuted,
-    marginBottom: 10,
-    fontSize: 13,
+    marginBottom: 16,
+    fontSize: 14,
     textAlign: "center",
   },
   closeBtn: {
@@ -92,11 +98,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 10,
-    borderRadius: 10,
-    marginTop: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 12,
   },
-  closeText: { color: "#fff", fontWeight: "600", marginLeft: 6 },
+  closeText: { color: "#fff", fontWeight: "600", marginLeft: 6, fontSize: 16 },
   empty: {
     color: COLORS.textMuted,
     textAlign: "center",

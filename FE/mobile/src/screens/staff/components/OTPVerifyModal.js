@@ -7,28 +7,24 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
-
 import otpService from "../../../services/otpService";
 
+// 🎨 LIGHT THEME
 const COLORS = {
-  bg: "rgba(0,0,0,0.55)",
-  surface: "#141820",
-  text: "#FFFFFF",
-  textMuted: "#A6A6A6",
+  overlay: "rgba(0,0,0,0.5)",
+  surface: "#FFFFFF",
+  text: "#111827",
+  textMuted: "#6B7280",
   accent: "#3B82F6",
   danger: "#EF4444",
+  inputBg: "#F9FAFB",
+  inputBorder: "#D1D5DB"
 };
 
-export default function OTPVerifyModal({
-  visible,
-  email,
-  onVerified,
-  onClose,
-}) {
+export default function OTPVerifyModal({ visible, email, onVerified, onClose }) {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [alert, setAlert] = useState("");
   const [loading, setLoading] = useState(false);
-
   const inputs = useRef([]);
 
   const handleChange = (text, index) => {
@@ -36,36 +32,24 @@ export default function OTPVerifyModal({
       const newOtp = [...otp];
       newOtp[index] = text;
       setOtp(newOtp);
-
-      if (text !== "" && index < 5) {
-        inputs.current[index + 1].focus();
-      }
-      if (text === "" && index > 0) {
-        inputs.current[index - 1].focus();
-      }
-
+      if (text !== "" && index < 5) inputs.current[index + 1].focus();
+      if (text === "" && index > 0) inputs.current[index - 1].focus();
       setAlert("");
     }
   };
 
   const handleVerify = async () => {
     const code = otp.join("");
-
     if (code.length < 6) {
       setAlert("OTP must be 6 digits.");
       return;
     }
-
     setLoading(true);
     setAlert("");
-
     try {
       const res = await otpService.verifyOtp(email, code);
-      if (res.status === "success") {
-        onVerified();
-      } else {
-        setAlert(res.message || "Invalid OTP.");
-      }
+      if (res.status === "success") onVerified();
+      else setAlert(res.message || "Invalid OTP.");
     } catch {
       setAlert("Verification failed.");
     } finally {
@@ -79,13 +63,10 @@ export default function OTPVerifyModal({
         <View style={styles.box}>
           <Text style={styles.title}>Enter Verification Code</Text>
           <Text style={styles.subtitle}>
-            We’ve sent a 6-digit code to{" "}
-            <Text style={{ color: COLORS.accent, fontWeight: "600" }}>
-              {email}
-            </Text>
+            We’ve sent a 6-digit code to{"\n"}
+            <Text style={{ color: COLORS.accent, fontWeight: "600" }}>{email}</Text>
           </Text>
 
-          {/* OTP 6 boxes */}
           <View style={styles.otpRow}>
             {otp.map((digit, index) => (
               <TextInput
@@ -102,15 +83,12 @@ export default function OTPVerifyModal({
 
           {alert ? <Text style={styles.error}>{alert}</Text> : null}
 
-          {/* Buttons */}
           <TouchableOpacity
             style={[styles.button, loading && { opacity: 0.6 }]}
             onPress={handleVerify}
             disabled={loading}
           >
-            <Text style={styles.buttonText}>
-              {loading ? "Verifying..." : "Verify"}
-            </Text>
+            <Text style={styles.buttonText}>{loading ? "Verifying..." : "Verify"}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={onClose}>
@@ -122,86 +100,83 @@ export default function OTPVerifyModal({
   );
 }
 
-// ================== STYLES ==================
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: COLORS.bg,
+    backgroundColor: COLORS.overlay,
     paddingHorizontal: 20,
   },
-
   box: {
     width: "90%",
     backgroundColor: COLORS.surface,
     borderRadius: 20,
-    paddingVertical: 28,
-    paddingHorizontal: 22,
+    paddingVertical: 30,
+    paddingHorizontal: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
   },
-
   title: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "700",
     color: COLORS.text,
     textAlign: "center",
-    marginBottom: 10,
+    marginBottom: 8,
   },
-
   subtitle: {
     fontSize: 14,
     color: COLORS.textMuted,
     textAlign: "center",
-    marginBottom: 22,
+    marginBottom: 24,
+    lineHeight: 20
   },
-
   otpRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 20,
+    marginBottom: 24,
   },
-
   otpInput: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 50,
     borderRadius: 10,
-    backgroundColor: "#1E2430",
+    backgroundColor: COLORS.inputBg,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: COLORS.inputBorder,
     color: COLORS.text,
     textAlign: "center",
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "600",
   },
-
   otpFilled: {
     borderColor: COLORS.accent,
+    backgroundColor: "#EFF6FF", // Xanh nhạt khi có số
   },
-
   error: {
     color: COLORS.danger,
     textAlign: "center",
-    marginBottom: 12,
+    marginBottom: 16,
     fontSize: 14,
   },
-
   button: {
     backgroundColor: COLORS.accent,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
+    shadowColor: COLORS.accent,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 3,
   },
-
-  buttonText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 16,
-  },
-
+  buttonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
   cancelText: {
     color: COLORS.textMuted,
     textAlign: "center",
-    marginTop: 16,
+    marginTop: 18,
     fontSize: 15,
   },
 });

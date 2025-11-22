@@ -8,19 +8,18 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import CaseLineCard from "./CaseLineCard"; // ✅ import để hiện case lines
+import CaseLineCard from "./CaseLineCard";
 
+// 🎨 LIGHT THEME
 const COLORS = {
-  surface: "#11161C",
-  border: "#1F2833",
-  text: "#E6EAF2",
-  textMuted: "#9AA7B5",
+  surface: "#FFFFFF",
+  border: "#E5E7EB",
+  text: "#111827",
+  textMuted: "#6B7280",
   accent: "#3B82F6",
-  cardBg: "#161C25",
-  warning: "#EAB308",
-  success: "#22C55E",
-  danger: "#EF4444",
-  shadow: "#00000055",
+  cardBg: "#F9FAFB", // Nền hơi xám cho card con bên trong modal
+  warning: "#F59E0B",
+  success: "#10B981",
 };
 
 export default function CaseDetailModal({ visible, cases, onClose }) {
@@ -32,11 +31,7 @@ export default function CaseDetailModal({ visible, cases, onClose }) {
         <View style={styles.modalBox}>
           {/* Header */}
           <View style={styles.header}>
-            <Ionicons
-              name="briefcase-outline"
-              size={22}
-              color={COLORS.accent}
-            />
+            <Ionicons name="briefcase-outline" size={24} color={COLORS.accent} />
             <Text style={styles.title}>Case Detail List</Text>
           </View>
 
@@ -44,66 +39,33 @@ export default function CaseDetailModal({ visible, cases, onClose }) {
             {cases?.length ? (
               cases.map((c, idx) => {
                 const statusColor =
-                  c.status === "DIAGNOSED"
-                    ? COLORS.warning
-                    : c.status === "PROCESSING"
-                    ? COLORS.accent
-                    : c.status === "COMPLETED"
-                    ? COLORS.success
-                    : COLORS.textMuted;
+                  c.status === "DIAGNOSED" ? COLORS.warning :
+                  c.status === "PROCESSING" ? COLORS.accent :
+                  c.status === "COMPLETED" ? COLORS.success : COLORS.textMuted;
 
                 return (
-                  <View
-                    key={c.guaranteeCaseId || idx}
-                    style={[
-                      styles.caseCard,
-                      {
-                        shadowColor: COLORS.shadow,
-                        shadowOpacity: 0.3,
-                        shadowRadius: 5,
-                        elevation: 2,
-                      },
-                    ]}
-                  >
+                  <View key={c.guaranteeCaseId || idx} style={styles.caseCard}>
                     {/* Case Header */}
                     <View style={styles.caseHeaderRow}>
-                      <Ionicons
-                        name="alert-circle-outline"
-                        size={18}
-                        color={statusColor}
-                      />
+                      <Ionicons name="alert-circle-outline" size={20} color={statusColor} />
                       <Text style={styles.caseHeaderText}>Case #{idx + 1}</Text>
-                      <View
-                        style={[
-                          styles.statusBadge,
-                          { backgroundColor: statusColor + "33" },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.statusBadgeText,
-                            { color: statusColor },
-                          ]}
-                        >
+                      <View style={[styles.statusBadge, { backgroundColor: statusColor + "15" }]}>
+                        <Text style={[styles.statusBadgeText, { color: statusColor }]}>
                           {c.status.replaceAll("_", " ")}
                         </Text>
                       </View>
                     </View>
 
-                    {/* Nội dung case */}
                     <Text style={styles.guaranteeText}>
                       {c.contentGuarantee || "No guarantee content."}
                     </Text>
 
-                    {/* Hiển thị các CaseLineCard */}
                     {c.caseLines?.length ? (
                       c.caseLines.map((line, i) => (
                         <CaseLineCard key={i} line={line} />
                       ))
                     ) : (
-                      <Text style={styles.emptyLine}>
-                        No case lines available.
-                      </Text>
+                      <Text style={styles.emptyLine}>No case lines available.</Text>
                     )}
                   </View>
                 );
@@ -113,7 +75,6 @@ export default function CaseDetailModal({ visible, cases, onClose }) {
             )}
           </ScrollView>
 
-          {/* Close button */}
           <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
             <Ionicons name="close-outline" size={18} color="#fff" />
             <Text style={styles.closeText}>Close</Text>
@@ -127,7 +88,7 @@ export default function CaseDetailModal({ visible, cases, onClose }) {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
+    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 16,
@@ -138,79 +99,43 @@ const styles = StyleSheet.create({
     width: "100%",
     maxHeight: "90%",
     padding: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
-    gap: 6,
+    marginBottom: 16,
+    gap: 8,
   },
-  title: {
-    color: COLORS.text,
-    fontSize: 18,
-    fontWeight: "700",
-  },
+  title: { color: COLORS.text, fontSize: 18, fontWeight: "700" },
   caseCard: {
-    backgroundColor: COLORS.cardBg,
+    backgroundColor: COLORS.cardBg, // Card con nền xám nhạt để phân biệt với nền trắng Modal
     borderRadius: 12,
-    padding: 14,
-    marginBottom: 14,
+    padding: 12,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  caseHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  caseHeaderText: {
-    color: COLORS.text,
-    fontWeight: "700",
-    fontSize: 15,
-    flex: 1,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  statusBadgeText: {
-    fontSize: 11,
-    fontWeight: "600",
-    textTransform: "uppercase",
-  },
-  guaranteeText: {
-    color: COLORS.textMuted,
-    marginTop: 6,
-    marginBottom: 8,
-    fontSize: 13,
-  },
+  caseHeaderRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  caseHeaderText: { color: COLORS.text, fontWeight: "700", fontSize: 16, flex: 1 },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  statusBadgeText: { fontSize: 11, fontWeight: "700", textTransform: "uppercase" },
+  guaranteeText: { color: COLORS.textMuted, marginTop: 8, marginBottom: 12, fontSize: 14 },
   closeBtn: {
     backgroundColor: COLORS.accent,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 10,
     marginTop: 8,
   },
-  closeText: {
-    color: "#fff",
-    fontWeight: "600",
-    marginLeft: 6,
-  },
-  empty: {
-    color: COLORS.textMuted,
-    textAlign: "center",
-    marginTop: 20,
-  },
-  emptyLine: {
-    color: COLORS.textMuted,
-    fontSize: 12,
-    fontStyle: "italic",
-    marginTop: 4,
-  },
+  closeText: { color: "#fff", fontWeight: "600", marginLeft: 6, fontSize: 15 },
+  empty: { color: COLORS.textMuted, textAlign: "center", marginTop: 20 },
+  emptyLine: { color: COLORS.textMuted, fontSize: 13, fontStyle: "italic", marginTop: 4 },
 });

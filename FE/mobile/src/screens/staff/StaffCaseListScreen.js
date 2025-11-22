@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "@react-navigation/native"; // ✅ Thêm dòng này
+import { useFocusEffect } from "@react-navigation/native";
 import {
   getProcessingRecords,
   getProcessingRecordById,
@@ -22,15 +22,16 @@ import RecordDetailModal from "./components/RecordDetailModal";
 import ProcessingRecordCard from "./components/ProcessingRecordCard";
 import SearchBar from "./components/SearchBar";
 
+// 🎨 LIGHT THEME COLORS
 const COLORS = {
-  bg: "#0B0F14",
-  surface: "#11161C",
-  border: "#1F2833",
-  text: "#E6EAF2",
-  textMuted: "#9AA7B5",
+  bg: "#F3F4F6",
+  surface: "#FFFFFF",
+  border: "#E5E7EB",
+  text: "#111827",
+  textMuted: "#6B7280",
   accent: "#3B82F6",
-  success: "#22C55E",
-  warning: "#EAB308",
+  success: "#10B981",
+  warning: "#F59E0B",
   danger: "#EF4444",
 };
 
@@ -57,7 +58,7 @@ export default function StaffCaseListScreen() {
   const [recordDetail, setRecordDetail] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
-  // ✅ Dùng useFocusEffect để reload API mỗi khi tab được chọn lại
+  // ✅ Reload API mỗi khi tab được chọn lại
   useFocusEffect(
     useCallback(() => {
       fetchCases();
@@ -83,7 +84,6 @@ export default function StaffCaseListScreen() {
     fetchCases();
   };
 
-  // ===== Fetch chi tiết khi mở modal =====
   const openDetail = async (id) => {
     if (!id) return;
     try {
@@ -114,7 +114,6 @@ export default function StaffCaseListScreen() {
     setIsFilterOpen(false);
   };
 
-  // ===== Lọc danh sách theo từ khóa =====
   const filteredCases = useMemo(() => {
     if (!searchQuery.trim()) return cases;
     const lower = searchQuery.toLowerCase();
@@ -137,7 +136,7 @@ export default function StaffCaseListScreen() {
     <SafeAreaView style={styles.safeArea}>
       {/* Header */}
       <View style={styles.header}>
-        <Ionicons name="briefcase-outline" size={20} color={COLORS.accent} />
+        <Ionicons name="briefcase-outline" size={24} color={COLORS.accent} />
         <Text style={styles.headerTitle}>My Processing Cases</Text>
       </View>
 
@@ -148,11 +147,12 @@ export default function StaffCaseListScreen() {
             value={searchQuery}
             onChange={setSearchQuery}
             onClear={() => setSearchQuery("")}
-            placeholder="Search by VIN, model, staff, or technician..."
+            placeholder="Search by VIN, model..."
+            // Lưu ý: Cần đảm bảo component SearchBar hỗ trợ style mới hoặc tự adapt
           />
         </View>
         <TouchableOpacity onPress={toggleFilter} style={styles.filterBtn}>
-          <Ionicons name="filter-outline" size={22} color={COLORS.accent} />
+          <Ionicons name="filter-outline" size={22} color={COLORS.text} />
         </TouchableOpacity>
       </View>
 
@@ -240,19 +240,22 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    marginVertical: 12,
+    marginVertical: 16,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
   headerTitle: {
     color: COLORS.text,
-    fontSize: 17,
-    fontWeight: "700",
+    fontSize: 20,
+    fontWeight: "bold",
     marginLeft: 8,
   },
   searchFilterRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 10,
+    marginBottom: 12,
     gap: 8,
   },
   filterBtn: {
@@ -260,10 +263,15 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: COLORS.border,
-    width: 46,
-    height: 46,
+    width: 48,
+    height: 48,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   overlay: {
     flex: 1,
@@ -273,40 +281,46 @@ const styles = StyleSheet.create({
   },
   dropdown: {
     backgroundColor: COLORS.surface,
-    borderRadius: 10,
+    borderRadius: 12,
     width: "80%",
-    maxHeight: "70%",
+    maxHeight: "60%",
     paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
   },
   dropdownTitle: {
     color: COLORS.accent,
     fontWeight: "700",
-    fontSize: 15,
-    marginLeft: 14,
+    fontSize: 16,
+    marginLeft: 16,
     marginBottom: 8,
   },
   option: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#F3F4F6",
   },
   optionActive: {
-    backgroundColor: COLORS.accent,
+    backgroundColor: "#EFF6FF", // Xanh rất nhạt
   },
   optionText: {
-    color: COLORS.textMuted,
+    color: COLORS.text,
     fontSize: 14,
     textTransform: "capitalize",
   },
   optionTextActive: {
-    color: "#fff",
-    fontWeight: "600",
+    color: COLORS.accent,
+    fontWeight: "700",
   },
   emptyText: {
     color: COLORS.textMuted,
     textAlign: "center",
-    marginTop: 20,
+    marginTop: 40,
+    fontSize: 15,
   },
   center: {
     flex: 1,

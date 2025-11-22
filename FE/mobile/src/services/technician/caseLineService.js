@@ -17,8 +17,6 @@ const getCaseLinesList = async (params) => {
 /**
  * Lấy chi tiết case line bằng ID
  * API: GET /case-lines/{caselineId}
- *
- * SỬA LỖI: File web gốc xác nhận hàm này KHÔNG cần caseId.
  */
 const getCaseLineById = async (caselineId) => {
   if (!caselineId) {
@@ -42,8 +40,6 @@ const getCaseLineById = async (caselineId) => {
 /**
  * Cập nhật thông tin case line (KTV dùng khi lưu chẩn đoán)
  * API: PATCH /guarantee-cases/{caseId}/case-lines/{caselineId}
- *
- * Hàm này yêu cầu caseId, giống hệt file web.
  */
 const updateCaseLine = async (caselineId, data) => {
   try {
@@ -79,77 +75,11 @@ const markRepairComplete = async (caselineId, installationImageUrls) => {
   }
 };
 
-/**
- * Cập nhật số lượng tồn kho hàng loạt cho các case line
- * API: POST /guarantee-cases/{caseId}
- */
-const bulkUpdateStockQuantities = async (caseId, data) => {
-  try {
-    const payload = {
-      caseId,
-      ...data, // data có dạng { caselines: [...] }
-    };
-    const response = await api.post(
-      `/guarantee-cases/${caseId}`, //
-      payload
-    );
-    return response.data;
-  } catch (error) {
-    console.error(
-      "Lỗi khi cập nhật kho hàng loạt (bulkUpdateStockQuantities):",
-      error
-    );
-    throw error;
-  }
-};
-
-// --- Các hàm KTV có thể không dùng ---
-
-const approveCaseLines = async (data) => {
-  try {
-    const response = await api.patch("/case-lines/approve", data);
-    return response.data;
-  } catch (error) {
-    console.error("Lỗi khi duyệt case line (approveCaseLines):", error);
-    throw error;
-  }
-};
-
-const allocateStock = async (caseId, caselineId) => {
-  try {
-    const response = await api.post(
-      `/guarantee-cases/${caseId}/case-lines/${caselineId}/allocate-stock` //
-    );
-    return response.data;
-  } catch (error) {
-    console.error("Lỗi khi phân bổ kho (allocateStock):", error);
-    throw error;
-  }
-};
-
-const assignTechnicianToRepair = async (caseId, caselineId, data) => {
-  try {
-    const response = await api.patch(
-      `/guarantee-cases/${caseId}/case-lines/${caselineId}/assign-technician`, //
-      data
-    );
-    return response.data;
-  } catch (error) {
-    console.error("Lỗi khi gán KTV (assignTechnicianToRepair):", error);
-    throw error;
-  }
-};
-
-// Đóng gói các hàm thành một đối tượng service để export
 const caseLineService = {
   getCaseLinesList,
   getCaseLineById,
   updateCaseLine,
   markRepairComplete,
-  bulkUpdateStockQuantities,
-  approveCaseLines,
-  allocateStock,
-  assignTechnicianToRepair,
 };
 
 export default caseLineService;

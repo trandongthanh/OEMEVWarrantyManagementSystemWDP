@@ -2,10 +2,13 @@ import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+// 🎨 LIGHT THEME
 const COLORS = {
   accent: "#3B82F6",
-  textMuted: "#9AA7B5",
-  white: "#FFFFFF",
+  text: "#111827",
+  textMuted: "#6B7280",
+  bg: "#E5E7EB", // Màu nền của thanh tab
+  activeBg: "#FFFFFF", // Màu nền của tab đang chọn
 };
 
 export default function ConversationFilterTabs({ filter, counts, onChange }) {
@@ -30,12 +33,13 @@ export default function ConversationFilterTabs({ filter, counts, onChange }) {
             <Ionicons
               name={tab.icon}
               size={16}
-              color={isActive ? COLORS.white : COLORS.textMuted}
+              // Active: màu xanh, Inactive: màu xám
+              color={isActive ? COLORS.accent : COLORS.textMuted}
               style={{ marginRight: 6 }}
             />
             <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
               {tab.label}{" "}
-              <Text style={{ fontSize: 12, opacity: 0.8 }}>({count})</Text>
+              <Text style={{ fontSize: 11, opacity: 0.7 }}>({count})</Text>
             </Text>
           </TouchableOpacity>
         );
@@ -47,11 +51,11 @@ export default function ConversationFilterTabs({ filter, counts, onChange }) {
 const styles = StyleSheet.create({
   tabBar: {
     flexDirection: "row",
-    backgroundColor: "#1A222C",
-    borderRadius: 14,
+    backgroundColor: COLORS.bg, // Nền xám
+    borderRadius: 12,
     padding: 4,
     justifyContent: "space-between",
-    marginBottom: 18,
+    marginBottom: 16,
   },
   tabItem: {
     flex: 1,
@@ -59,24 +63,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 8,
-    marginHorizontal: 3,
+    marginHorizontal: 2,
     borderRadius: 10,
     backgroundColor: "transparent",
   },
   tabItemActive: {
-    backgroundColor: COLORS.accent,
-    shadowColor: COLORS.accent,
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: COLORS.activeBg, // Nền trắng khi active
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   tabText: {
     color: COLORS.textMuted,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "500",
   },
   tabTextActive: {
-    color: COLORS.white,
-    fontWeight: "600",
+    color: COLORS.accent, // Chữ xanh khi active
+    fontWeight: "700",
   },
 });
