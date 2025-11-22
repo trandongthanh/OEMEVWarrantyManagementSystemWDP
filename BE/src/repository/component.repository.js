@@ -1,17 +1,57 @@
 import { Op } from "sequelize";
 import db from "../models/index.cjs";
 
-const { Component, TypeComponent } = db;
+const {
+  Component,
+  TypeComponent,
+  Warehouse,
+  StockTransferComponent,
+  StockTransferRequest,
+} = db;
 
 class ComponentRepository {
   findAll = async (
-    { whereCondition, limit },
+    { whereCondition, limit, offset = 0, includeTypeComponent = false },
+    transaction = null,
+    lock = null
+  ) => {
+    const queryOptions = {
+      where: whereCondition,
+      limit,
+      offset,
+      transaction,
+      lock,
+    };
+
+    if (includeTypeComponent) {
+      queryOptions.include = [
+        {
+          model: TypeComponent,
+          as: "typeComponent",
+        },
+      ];
+    }
+
+    const components = await Component.findAll(queryOptions);
+
+    if (!components || components.length === 0) {
+      return [];
+    }
+
+    return components.map((component) => component.toJSON());
+  };
+
+  findComponentsByIds = async (
+    componentIds,
     transaction = null,
     lock = null
   ) => {
     const components = await Component.findAll({
-      where: whereCondition,
-      limit,
+      where: {
+        componentId: {
+          [Op.in]: componentIds,
+        },
+      },
       transaction,
       lock,
     });
@@ -32,7 +72,7 @@ class ComponentRepository {
       where: {
         typeComponentId: typeComponentId,
         warehouseId: warehouseId,
-        status: "IN_WAREHOUSE",
+        status: "IN_STOCK",
       },
       limit: limit,
       transaction,
@@ -109,6 +149,51 @@ class ComponentRepository {
       where: { componentId },
       transaction: transaction,
       lock: lock,
+    });
+
+    return component ? component.toJSON() : null;
+  };
+
+  findByIdWithTransferHistory = async (componentId, transaction = null) => {
+    const component = await Component.findOne({
+      where: { componentId },
+      include: [
+        {
+          model: Warehouse,
+          as: "warehouse",
+          attributes: ["warehouseId", "name", "address"],
+        },
+        {
+          model: StockTransferComponent,
+          as: "transferHistory",
+          include: [
+            {
+              model: StockTransferRequest,
+              as: "request",
+              attributes: [
+                "transferRequestId",
+                "status",
+                "requestDate",
+                "approvalDate",
+                "completionDate",
+              ],
+              include: [
+                {
+                  model: Warehouse,
+                  as: "sourceWarehouse",
+                  attributes: ["warehouseId", "name", "address"],
+                },
+                {
+                  model: Warehouse,
+                  as: "requestingWarehouse",
+                  attributes: ["warehouseId", "name", "address"],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      transaction,
     });
 
     return component ? component.toJSON() : null;
@@ -226,7 +311,11 @@ class ComponentRepository {
     return component ? component.toJSON() : null;
   };
 
-  findBySerialNumbers = async (serialNumbers, transaction = null, lock = null) => {
+  findBySerialNumbers = async (
+    serialNumbers,
+    transaction = null,
+    lock = null
+  ) => {
     const components = await Component.findAll({
       where: {
         serialNumber: {
@@ -240,7 +329,9 @@ class ComponentRepository {
   };
 
   bulkCreate = async (componentsData, transaction = null) => {
-    const components = await Component.bulkCreate(componentsData, { transaction });
+    const components = await Component.bulkCreate(componentsData, {
+      transaction,
+    });
     return components.map((component) => component.toJSON());
   };
 
@@ -266,25 +357,6 @@ class ComponentRepository {
     });
 
     return updatedComponent ? updatedComponent.toJSON() : null;
-  };
-
-  findComponentsByStockTransferRequestId = async (
-    { requestId },
-    transaction = null,
-    lock = null
-  ) => {
-    const components = await Component.findAll({
-      where: { stockTransferRequestId: requestId },
-
-      transaction: transaction,
-      lock: lock,
-    });
-
-    if (!components || components.length === 0) {
-      return [];
-    }
-
-    return components.map((component) => component.toJSON());
   };
 
   findComponentInVehicleProcessingByTypeAndVin = async (
@@ -335,41 +407,25 @@ class ComponentRepository {
     return component ? component.toJSON() : null;
   };
 
-  findComponentsByRequestId = async (
-    { requestId },
-    transaction = null,
-    lock = null
+  updateComponentStatusBySerialNumbers = async (
+    serialNumbers,
+    status,
+    warehouseId,
+    transaction = null
   ) => {
-    const components = await Component.findAll({
-      where: { requestId: requestId },
-      transaction: transaction,
-      lock: lock,
-    });
-
-    if (!components || components.length === 0) {
-      return [];
-    }
-
-    return components.map((component) => component.toJSON());
-  };
-
-  updateComponentStatusBySerialNumbers = async (serialNumbers, status, warehouseId, transaction = null) => {
     const updateData = { status };
     if (warehouseId !== undefined) {
       updateData.warehouseId = warehouseId;
     }
 
-    const [numberOfAffectedRows] = await Component.update(
-      updateData,
-      {
-        where: {
-          serialNumber: {
-            [Op.in]: serialNumbers,
-          },
+    const [numberOfAffectedRows] = await Component.update(updateData, {
+      where: {
+        serialNumber: {
+          [Op.in]: serialNumbers,
         },
-        transaction,
-      }
-    );
+      },
+      transaction,
+    });
 
     return numberOfAffectedRows;
   };

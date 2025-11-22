@@ -1,6 +1,5 @@
 import XLSX from "xlsx";
 import dayjs from "dayjs";
-import db from "../models/index.cjs";
 import {
   BadRequestError,
   ForbiddenError,
@@ -8,9 +7,12 @@ import {
 } from "../error/index.js";
 
 class WorkScheduleService {
-  constructor({ workScheduleRepository, userRepository }) {
+  #db;
+
+  constructor({ workScheduleRepository, userRepository, db }) {
     this.workScheduleRepository = workScheduleRepository;
     this.userRepository = userRepository;
+    this.#db = db;
   }
 
   async parseExcelFile(fileBuffer, managerId) {
@@ -167,7 +169,7 @@ class WorkScheduleService {
       };
     }
 
-    const transaction = await db.sequelize.transaction();
+    const transaction = await this.#db.sequelize.transaction();
     try {
       const result = await this.workScheduleRepository.bulkUpsertSchedules(
         validRecords,
@@ -189,7 +191,7 @@ class WorkScheduleService {
       };
     } catch (error) {
       await transaction.rollback();
-      // This is a server error (e.g., database constraint violation)
+
       throw new ApiError(`Failed to import schedules: ${error.message}`, 500);
     }
   }

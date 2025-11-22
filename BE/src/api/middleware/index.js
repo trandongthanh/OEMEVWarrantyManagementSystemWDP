@@ -19,7 +19,7 @@ export function authentication(req, res, next) {
   const token = requestHeader.split(" ")[1];
 
   if (!token) {
-    throw new BadRequestError("You missing token in heaer");
+    throw new BadRequestError("You missing token in header");
   }
 
   const tokenService = new TokenService();

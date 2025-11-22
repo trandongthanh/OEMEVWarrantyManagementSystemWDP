@@ -23,7 +23,10 @@ export const socketAuth = (socket, next) => {
   }
 };
 
+// Optional authentication - allows both authenticated and anonymous connections
 export const optionalSocketAuth = (socket, next) => {
+  console.log("Optional authentication for socket...");
+
   const token = socket.handshake.auth.token;
 
   if (token) {
@@ -31,11 +34,14 @@ export const optionalSocketAuth = (socket, next) => {
       const decode = jwt.verify(token, JWT_SECRET);
       socket.user = decode;
       socket.isAuthenticated = true;
+      console.log("Socket authenticated as:", decode.userId);
     } catch (error) {
+      console.log("Invalid token provided, treating as guest");
       socket.isAuthenticated = false;
     }
   } else {
     socket.isAuthenticated = false;
+    console.log("No token provided, treating as guest");
   }
 
   next();

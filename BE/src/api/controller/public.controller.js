@@ -11,6 +11,7 @@ class PublicController {
       const trackingInfo = await this.#publicService.getTrackingInfoByToken(
         token
       );
+
       res.status(200).json({
         status: "success",
         data: trackingInfo,

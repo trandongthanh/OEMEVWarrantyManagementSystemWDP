@@ -5,39 +5,52 @@ const router = express.Router();
 
 /**
  * @swagger
- * /components/{componentId}/status:
- *   patch:
- *     summary: Update component status
- *     description: Update the status of a component (e.g., IN_STOCK, RESERVED, INSTALLED, RETURNED, DEFECTIVE)
- *     tags: [Components]
+ * /components:
+ *   get:
+ *     summary: Danh sách component trong kho
+ *     description: Liệt kê component với khả năng lọc theo kho, loại linh kiện, trạng thái, serial...
+ *     tags: [Component]
  *     security:
  *       - BearerAuth: []
  *     parameters:
- *       - in: path
- *         name: componentId
- *         required: true
+ *       - in: query
+ *         name: warehouseId
  *         schema:
  *           type: string
  *           format: uuid
- *         description: Component ID
- *         example: "1096033d-f11f-4a49-a751-8be0cfb9d705"
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - status
- *             properties:
- *               status:
- *                 type: string
- *                 enum: [IN_STOCK, RESERVED, INSTALLED, RETURNED, DEFECTIVE]
- *                 description: New status for the component
- *                 example: "DEFECTIVE"
+ *         description: Chỉ lấy component thuộc kho này
+ *       - in: query
+ *         name: typeComponentId
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Lọc theo loại linh kiện
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [IN_WAREHOUSE, RESERVED, IN_TRANSIT, WITH_TECHNICIAN, INSTALLED, RETURNED]
+ *         description: Lọc theo trạng thái component
+ *       - in: query
+ *         name: serialNumber
+ *         schema:
+ *           type: string
+ *         description: Tìm theo serial cụ thể
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *         description: Số bản ghi mỗi trang (tối đa 200)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Trang hiện tại
  *     responses:
  *       200:
- *         description: Component status updated successfully
+ *         description: Lấy danh sách thành công
  *         content:
  *           application/json:
  *             schema:
@@ -49,31 +62,18 @@ const router = express.Router();
  *                 data:
  *                   type: object
  *                   properties:
- *                     component:
- *                       type: object
- *                       properties:
- *                         componentId:
- *                           type: string
- *                           format: uuid
- *                         serialNumber:
- *                           type: string
- *                         status:
- *                           type: string
- *                           example: "DEFECTIVE"
- *                         updatedAt:
- *                           type: string
- *                           format: date-time
- *       400:
- *         description: Bad request - Invalid status
+ *                     components:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         description: Thông tin component kèm typeComponent nếu có
  *       401:
- *         description: Unauthorized
- *       404:
- *         description: Component not found
+ *         description: Chưa xác thực
  */
-router.patch("/:componentId/status", authentication, async (req, res, next) => {
-  const componentController = req.container.resolve("componentController");
+router.get("/", authentication, async (req, res, next) => {
+  const inventoryController = req.container.resolve("inventoryController");
 
-  return componentController.updateStatus(req, res, next);
+  await inventoryController.listComponents(req, res, next);
 });
 
 export default router;

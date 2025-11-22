@@ -2,6 +2,7 @@ import { createRecordSchema } from "../../validators/vehicleProcessingRecord.val
 import {
   updateMainTechnicianBodySchema,
   updateMainTechnicianParamsSchema,
+  getAllRecordsSchema,
 } from "../../validators/vehicleProcessingRecord.validator.js";
 import {
   attachCompanyContext,
@@ -381,8 +382,16 @@ router.get(
  *         schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
  *       - in: query
  *         name: status
- *         schema: { type: string, enum: [CHECKED_IN, IN_DIAGNOSIS, WAITING_FOR_PARTS, PAID, IN_REPAIR, COMPLETED, CANCELLED] }
+ *         schema: { type: string, enum: [CHECKED_IN, IN_DIAGNOSIS, WAITING_CUSTOMER_APPROVAL, PROCESSING, READY_FOR_PICKUP, COMPLETED, CANCELLED] }
  *         description: Lọc theo trạng thái hồ sơ.
+ *       - in: query
+ *         name: startDate
+ *         schema: { type: string, format: date }
+ *         description: Lọc hồ sơ có ngày check-in từ ngày này trở đi (ISO 8601 format).
+ *       - in: query
+ *         name: endDate
+ *         schema: { type: string, format: date }
+ *         description: Lọc hồ sơ có ngày check-in đến ngày này trở về trước (ISO 8601 format).
  *     responses:
  *       200:
  *         description: Lấy danh sách thành công.
@@ -401,6 +410,7 @@ router.get(
     "service_center_manager",
     "service_center_technician",
   ]),
+  validate(getAllRecordsSchema, "query"),
   async (req, res, next) => {
     const vehicleProcessingRecordController = req.container.resolve(
       "vehicleProcessingRecordController"

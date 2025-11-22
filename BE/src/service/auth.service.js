@@ -5,7 +5,6 @@ import {
   ConflictError,
   NotFoundError,
 } from "../error/index.js";
-import db from "../models/index.cjs";
 
 class AuthService {
   #userRepository;
@@ -13,6 +12,7 @@ class AuthService {
   #tokenService;
   #serviceCenterRepository;
   #roleRepository;
+  #db;
 
   constructor({
     userRepository,
@@ -20,12 +20,14 @@ class AuthService {
     tokenService,
     serviceCenterRepository,
     roleRepository,
+    db,
   }) {
     this.#userRepository = userRepository;
     this.#hashService = hashService;
     this.#tokenService = tokenService;
     this.#serviceCenterRepository = serviceCenterRepository;
     this.#roleRepository = roleRepository;
+    this.#db = db;
   }
 
   login = async ({ username, password }) => {
@@ -86,8 +88,9 @@ class AuthService {
       throw new BadRequestError("employeeCode cannot be empty");
     }
 
-    const newUser = await db.sequelize.transaction(async (transaction) => {
+    const newUser = await this.#db.sequelize.transaction(async (transaction) => {
       const existingRole = await this.#roleRepository.findById(roleId);
+
       if (!existingRole) {
         throw new BadRequestError("Invalid roleId");
       }
@@ -99,16 +102,25 @@ class AuthService {
         "service_center_manager",
       ];
 
-      const companyRoles = ["emv_staff", "parts_coordinator_company", "emv_admin"];
+      const companyRoles = [
+        "emv_staff",
+        "parts_coordinator_company",
+        "emv_admin",
+      ];
 
-      if (serviceCenterId && !serviceCenterRoles.includes(existingRole.roleName)) {
+      if (
+        serviceCenterId &&
+        !serviceCenterRoles.includes(existingRole.roleName)
+      ) {
         throw new BadRequestError(
           "Service center users can only create users with service center roles."
         );
       }
 
       if (vehicleCompanyId && !companyRoles.includes(existingRole.roleName)) {
-        throw new BadRequestError("Company users can only create users with company roles.");
+        throw new BadRequestError(
+          "Company users can only create users with company roles."
+        );
       }
 
       const existingEmployeeCodes =

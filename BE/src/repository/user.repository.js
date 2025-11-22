@@ -14,6 +14,7 @@ class UserRepository {
     const existingUser = await User.findOne({
       where: {
         username: username,
+        isActive: true,
       },
 
       include: [
@@ -36,10 +37,65 @@ class UserRepository {
     const users = await User.findAll({
       where: {
         employeeCode: employeeCodes,
+        isActive: true,
       },
       transaction,
     });
     return users.map((user) => user.toJSON());
+  }
+
+  async findAndCountAll(filters = {}) {
+    const {
+      roleId,
+      serviceCenterId,
+      companyId,
+      limit,
+      offset,
+      ...restFilters
+    } = filters;
+
+    const whereCondition = { ...restFilters, isActive: true };
+
+    if (roleId) {
+      whereCondition.roleId = roleId;
+    }
+    if (serviceCenterId) {
+      whereCondition.serviceCenterId = serviceCenterId;
+    }
+    if (companyId) {
+      whereCondition.companyId = companyId;
+    }
+
+    const { count, rows } = await User.findAndCountAll({
+      where: whereCondition,
+      attributes: {
+        exclude: ["password"],
+      },
+      include: [
+        {
+          model: Role,
+          as: "role",
+          attributes: ["roleId", "roleName"],
+        },
+        {
+          model: ServiceCenter,
+          as: "serviceCenter",
+          attributes: ["serviceCenterId", "name"],
+          required: !!serviceCenterId,
+        },
+        {
+          model: VehicleCompany,
+          as: "vehicleCompany",
+          attributes: ["vehicleCompanyId", "name"],
+          required: !!companyId,
+        },
+      ],
+      limit,
+      offset,
+      distinct: true,
+    });
+
+    return { count, rows: rows.map((row) => row.toJSON()) };
   }
 
   async getAllTechnicians({ status, serviceCenterId }) {
@@ -53,7 +109,7 @@ class UserRepository {
       whereCondition.status = status;
     }
 
-    const userCondition = {};
+    const userCondition = { isActive: true };
 
     if (serviceCenterId) {
       userCondition.serviceCenterId = serviceCenterId;
@@ -89,7 +145,7 @@ class UserRepository {
         },
       ],
 
-      group: ["userId"],
+      group: ["User.user_id", "workSchedule.schedule_id"],
     });
 
     return technicians.map((technician) => technician.toJSON());
@@ -99,6 +155,7 @@ class UserRepository {
     const user = await User.findOne({
       where: {
         userId: userId,
+        isActive: true,
       },
 
       include: [
@@ -137,6 +194,7 @@ class UserRepository {
     const user = await User.findOne({
       where: {
         phone: phone,
+        isActive: true,
       },
 
       include: [
@@ -186,6 +244,25 @@ class UserRepository {
     );
 
     return newUser;
+  };
+
+  updateUser = async ({ userId, data }, transaction = null) => {
+    const [updatedCount] = await User.update(data, {
+      where: { userId },
+      transaction,
+    });
+    return updatedCount > 0;
+  };
+
+  deleteUser = async (userId, transaction = null) => {
+    const [updatedCount] = await User.update(
+      { isActive: false },
+      {
+        where: { userId },
+        transaction,
+      }
+    );
+    return updatedCount > 0;
   };
 }
 

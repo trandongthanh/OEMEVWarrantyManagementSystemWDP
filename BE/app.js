@@ -30,9 +30,10 @@ import mailRouter from "./src/api/routes/mail.router.js";
 import inventoryRouter from "./src/api/routes/inventory.router.js";
 import taskAssignmentRouter from "./src/api/routes/taskAssignmentRouter.js";
 import vehicleModelRouter from "./src/api/routes/vehicleModel.router.js";
-import recallRouter from "./src/api/routes/recall.router.js";
 import roleRouter from "./src/api/routes/role.router.js";
 import publicRouter from "./src/api/routes/public.router.js";
+import notificationRouter from "./src/api/routes/notification.router.js";
+import warrantyComponentRouter from "./src/api/routes/warrantyComponent.router.js";
 
 app.get("/", async (req, res) => {
   res.send("Hello world");
@@ -58,8 +59,9 @@ app.use(`${url}/stock-transfer-requests`, stockTransferRequestRouter);
 app.use(`${url}/work-schedules`, workScheduleRouter);
 app.use(`${url}/task-assignments`, taskAssignmentRouter);
 app.use(`${url}/oem-vehicle-models`, vehicleModelRouter);
-app.use(`${url}/recall-campaigns`, recallRouter);
 app.use(`${url}/roles`, roleRouter);
+app.use(`${url}/notifications`, notificationRouter);
+app.use(`${url}/warranty-components`, warrantyComponentRouter);
 
 app.use(handleError);
 

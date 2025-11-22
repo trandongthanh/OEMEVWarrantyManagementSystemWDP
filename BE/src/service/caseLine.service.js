@@ -5,7 +5,6 @@ import {
   ForbiddenError,
   NotFoundError,
 } from "../error/index.js";
-import db from "../models/index.cjs";
 import { formatUTCtzHCM } from "../util/formatUTCtzHCM.js";
 import dayjs from "dayjs";
 
@@ -21,7 +20,7 @@ class CaseLineService {
   #vehicleProcessingRecordRepository;
   #notificationService;
   #inventoryService;
-  #warrantyComponentRepository;
+  #db;
 
   constructor({
     caselineRepository,
@@ -35,7 +34,7 @@ class CaseLineService {
     vehicleProcessingRecordRepository,
     notificationService,
     inventoryService,
-    warrantyComponentRepository,
+    db,
   }) {
     this.#caselineRepository = caselineRepository;
     this.#componentReservationRepository = componentReservationRepository;
@@ -48,7 +47,7 @@ class CaseLineService {
     this.#vehicleProcessingRecordRepository = vehicleProcessingRecordRepository;
     this.#notificationService = notificationService;
     this.#inventoryService = inventoryService;
-    this.#warrantyComponentRepository = warrantyComponentRepository;
+    this.#db = db;
   }
 
   createCaseLines = async ({
@@ -59,7 +58,7 @@ class CaseLineService {
     techId,
     companyId,
   }) => {
-    const rawResult = await db.sequelize.transaction(async (transaction) => {
+    const rawResult = await this.#db.sequelize.transaction(async (transaction) => {
       const guaranteeCase =
         await this.#validateInputGuaranteeCaseAndTechnicianForCaseLines(
           guaranteeCaseId,
@@ -67,21 +66,11 @@ class CaseLineService {
           techId
         );
 
-      const vehicleModelId =
-        guaranteeCase?.vehicleProcessingRecord?.vehicle?.vehicleModelId;
-      for (const caseline of caselines) {
-        await this.#validateCaseLineQuantityByWarranty({
-          typeComponentId: caseline.typeComponentId,
-          quantity: caseline.quantity,
-          vehicleModelId: vehicleModelId,
-          transaction,
-        });
-      }
-
       const typeComponents =
         await this.#warehouseService.searchCompatibleComponentsInStock({
           serviceCenterId: serviceCenterId,
-          modelId: vehicleModelId,
+          modelId:
+            guaranteeCase?.vehicleProcessingRecord?.vehicle?.vehicleModelId,
           vin: guaranteeCase?.vehicleProcessingRecord?.vehicle?.vin,
           odometer: guaranteeCase?.vehicleProcessingRecord?.odometer,
           companyId: companyId,
@@ -149,7 +138,7 @@ class CaseLineService {
     evidenceImageUrls,
     rejectionReason,
   }) => {
-    const rawResult = await db.sequelize.transaction(async (transaction) => {
+    const rawResult = await this.#db.sequelize.transaction(async (transaction) => {
       const guaranteeCase = await this.#guaranteeCaseRepository.findDetailById(
         { guaranteeCaseId: guaranteeCaseId },
         transaction
@@ -158,14 +147,6 @@ class CaseLineService {
       if (!guaranteeCase) {
         throw new NotFoundError("Guarantee case not found");
       }
-
-      await this.#validateCaseLineQuantityByWarranty({
-        typeComponentId,
-        quantity,
-        vehicleModelId:
-          guaranteeCase.vehicleProcessingRecord.vehicle.vehicleModelId,
-        transaction,
-      });
 
       if (guaranteeCase.vehicleProcessingRecord.status !== "IN_DIAGNOSIS") {
         throw new BadRequestError("Record is WAITING_CUSTOMER_APPROVAL");
@@ -349,7 +330,7 @@ class CaseLineService {
     userId,
     serviceCenterId,
   }) => {
-    const rawResult = await db.sequelize.transaction(async (transaction) => {
+    const rawResult = await this.#db.sequelize.transaction(async (transaction) => {
       const { caseline } = await this.#validateCaseLine(
         caselineId,
         transaction
@@ -444,6 +425,12 @@ class CaseLineService {
         quantity: caseline.quantity,
       });
 
+      if (!Array.isArray(reservations) || reservations.length === 0) {
+        throw new ConflictError(
+          "Unable to determine stock reservations for this caseline"
+        );
+      }
+
       const componentIds = await this.#collectComponentsFromReservations({
         reservations,
         caseline,
@@ -451,10 +438,32 @@ class CaseLineService {
         transaction,
       });
 
+      if (!Array.isArray(componentIds) || componentIds.length === 0) {
+        throw new ConflictError(
+          "Unable to collect components for the requested caseline"
+        );
+      }
+
+      if (componentIds.length !== caseline.quantity) {
+        throw new ConflictError(
+          "Collected component quantity does not match requested caseline quantity"
+        );
+      }
+
       const componentReservationsToCreate = componentIds.map((componentId) => ({
         caseLineId: caselineId,
         componentId: componentId,
       }));
+
+      if (componentReservationsToCreate.length === 0) {
+        throw new ConflictError(
+          "No component reservations generated for the requested caseline"
+        );
+      }
+
+      const uniqueStockIds = [
+        ...new Set(reservations.map((item) => item.stockId)),
+      ];
 
       const [
         componentReservations,
@@ -489,6 +498,33 @@ class CaseLineService {
         ),
       ]);
 
+      if (
+        !Array.isArray(componentReservations) ||
+        componentReservations.length !== componentReservationsToCreate.length
+      ) {
+        throw new ConflictError(
+          "Failed to create component reservations for this caseline"
+        );
+      }
+
+      if (
+        !Array.isArray(stockUpdates) ||
+        stockUpdates.length !== uniqueStockIds.length
+      ) {
+        throw new ConflictError("Failed to update stock quantities");
+      }
+
+      if (componentStatusUpdates !== componentIds.length) {
+        throw new ConflictError("Failed to update component statuses");
+      }
+
+      if (
+        !Array.isArray(caselineStatusUpdate) ||
+        caselineStatusUpdate.length === 0
+      ) {
+        throw new ConflictError("Failed to update caseline status");
+      }
+
       return {
         componentReservations,
         stockUpdates,
@@ -504,7 +540,9 @@ class CaseLineService {
       caselineStatusUpdate,
     } = rawResult;
 
-    const stockIds = (stockUpdates || []).map((stock) => stock.stockId);
+    const stockIds = [
+      ...new Set((stockUpdates || []).map((stock) => stock.stockId)),
+    ];
 
     if (stockIds.length > 0) {
       await this.#inventoryService.emitLowStockAlerts({ stockIds });
@@ -538,7 +576,7 @@ class CaseLineService {
       throw new ConflictError("No caselines provided for approval process");
     }
 
-    const rawResult = await db.sequelize.transaction(async (transaction) => {
+    const rawResult = await this.#db.sequelize.transaction(async (transaction) => {
       const caselines = await this.#caselineRepository.findByIds(
         { caseLineIds: arrayIds },
         transaction,
@@ -653,7 +691,7 @@ class CaseLineService {
           transaction
         );
 
-        const roomName = `service_center_staff_${serviceCenterId}`;
+        const roomName = `service_center_manager_${serviceCenterId}`;
         const eventName = "vehicleProcessingRecordStatusUpdated";
         const data = {
           vehicleProcessingRecordId,
@@ -696,7 +734,7 @@ class CaseLineService {
     userId,
     evidenceImageUrls,
   }) => {
-    const rawResult = await db.sequelize.transaction(async (transaction) => {
+    const rawResult = await this.#db.sequelize.transaction(async (transaction) => {
       const caseline = await this.#caselineRepository.findById(
         caselineId,
         transaction,
@@ -719,18 +757,6 @@ class CaseLineService {
         if (!guaranteeCase) {
           throw new NotFoundError("Guarantee case not found");
         }
-
-        const vehicleModelId =
-          guaranteeCase.vehicleProcessingRecord.vehicle.vehicleModelId;
-        const componentIdToValidate = typeComponentId || caseline.typeComponentId;
-        const quantityToValidate = quantity || caseline.quantity;
-
-        await this.#validateCaseLineQuantityByWarranty({
-          typeComponentId: componentIdToValidate,
-          quantity: quantityToValidate,
-          vehicleModelId: vehicleModelId,
-          transaction,
-        });
 
         const typeComponents =
           await this.#warehouseService.searchCompatibleComponentsInStock({
@@ -819,7 +845,7 @@ class CaseLineService {
     technicianId,
     serviceCenterId,
   }) => {
-    return await db.sequelize.transaction(async (transaction) => {
+    return await this.#db.sequelize.transaction(async (transaction) => {
       const caseline = await this.#caselineRepository.findById(
         caselineId,
         transaction,
@@ -939,9 +965,10 @@ class CaseLineService {
     caselineId,
     userId,
     roleName,
-    serviceCenterId
+    serviceCenterId,
+    installationImageUrls
   ) => {
-    const rawResult = await db.sequelize.transaction(async (transaction) => {
+    const rawResult = await this.#db.sequelize.transaction(async (transaction) => {
       const caseline = await this.#caselineRepository.findById(
         caselineId,
         transaction,
@@ -1034,6 +1061,13 @@ class CaseLineService {
         );
       }
 
+      if (installationImageUrls && installationImageUrls.length > 0) {
+        await this.#caselineRepository.updateInstallationImages(
+          { caselineId, installationImageUrls },
+          transaction
+        );
+      }
+
       const updatedTaskAssignment =
         await this.#taskAssignmentRepository.completeTaskByCaselineId(
           {
@@ -1114,14 +1148,20 @@ class CaseLineService {
 
       const normalizedId = String(typeComponentId).toLowerCase();
       const isUnderWarranty = Boolean(component?.isUnderWarranty);
+      const quantityLimit = component?.quantityLimit || null;
 
       if (!map.has(normalizedId)) {
-        map.set(normalizedId, isUnderWarranty);
+        map.set(normalizedId, { isUnderWarranty, quantityLimit });
         continue;
       }
 
+      const existing = map.get(normalizedId);
       if (isUnderWarranty) {
-        map.set(normalizedId, true);
+        existing.isUnderWarranty = true;
+      }
+      // Prefer non-null quantity limit if duplicate
+      if (quantityLimit !== null) {
+        existing.quantityLimit = quantityLimit;
       }
     }
 
@@ -1141,14 +1181,6 @@ class CaseLineService {
   };
 
   #allocateStock = ({ stocks, quantity }) => {
-    // const singleStockSource = stocks.find(
-    //   (stock) => stock.quantityAvailable >= quantity
-    // );
-
-    // if (singleStockSource) {
-    //   return [{ stockId: singleStockSource.stockId, quantity: quantity }];
-    // }
-
     let quantityNeed = quantity;
     const reservations = [];
     for (const stock of stocks) {
@@ -1218,7 +1250,19 @@ class CaseLineService {
         const isUnderWarrantyByTech =
           caseline.warrantyStatus === "ELIGIBLE" ? true : false;
 
-        const isUnderWarrantyBySystem = typeComponentsMap.get(normalizedId);
+        const componentInfo = typeComponentsMap.get(normalizedId);
+        const isUnderWarrantyBySystem = componentInfo?.isUnderWarranty;
+        const quantityLimit = componentInfo?.quantityLimit;
+
+        if (
+          quantityLimit !== null &&
+          quantityLimit !== undefined &&
+          caseline.quantity > quantityLimit
+        ) {
+          throw new ConflictError(
+            `Quantity ${caseline.quantity} exceeds the limit of ${quantityLimit} for this component`
+          );
+        }
 
         if (!isUnderWarrantyBySystem && isUnderWarrantyByTech) {
           throw new ConflictError(
@@ -1241,9 +1285,10 @@ class CaseLineService {
         ? String(newCaseline.typeComponentId).toLowerCase()
         : null;
 
-      const systemWarrantyStatus = normalizedId
+      const componentInfo = normalizedId
         ? typeComponentsMap.get(normalizedId)
         : undefined;
+      const systemWarrantyStatus = componentInfo?.isUnderWarranty;
 
       let initialStatus;
 
@@ -1271,8 +1316,6 @@ class CaseLineService {
         .map((url) => (typeof url === "string" ? url.trim() : null))
         .filter((url) => Boolean(url));
     }
-
-
 
     return [];
   };
@@ -1369,28 +1412,6 @@ class CaseLineService {
     );
 
     return componentIds;
-  };
-
-  #validateCaseLineQuantityByWarranty = async ({
-    typeComponentId,
-    quantity,
-    vehicleModelId,
-    transaction,
-  }) => {
-    const warrantyComponent =
-      await this.#warrantyComponentRepository.findByVehicleModelAndTypeComponent(
-        {
-          vehicleModelId,
-          typeComponentId,
-        },
-        transaction
-      );
-
-    if (warrantyComponent && quantity > warrantyComponent.quantity) {
-      throw new ConflictError(
-        `Quantity for component exceeds warranty limit. Allowed: ${warrantyComponent.quantity}, Requested: ${quantity}`
-      );
-    }
   };
 }
 

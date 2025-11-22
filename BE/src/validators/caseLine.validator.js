@@ -23,7 +23,6 @@ const approveCaseline = Joi.object({
 export const approveCaselineBodySchema = Joi.object({
   approvedCaseLineIds: Joi.array().items(approveCaseline).required(),
   rejectedCaseLineIds: Joi.array().items(approveCaseline).required(),
-  approverEmail: Joi.string().email().required(),
 });
 
 export const allocateStockParamsSchema = Joi.object({
@@ -105,4 +104,8 @@ export const getAllCaselinesQuerySchema = Joi.object({
 export const validateOldComponentSerialSchema = Joi.object({
   caseLineId: Joi.string().uuid({ version: "uuidv4" }).required(),
   oldComponentSerialNumber: Joi.string().required(),
+});
+
+export const markRepairCompletedBodySchema = Joi.object({
+  installationImageUrls: Joi.array().items(Joi.string().uri()).optional(),
 });

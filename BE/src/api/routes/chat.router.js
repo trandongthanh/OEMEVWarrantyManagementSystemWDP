@@ -87,6 +87,56 @@ router.post("/start-anonymous-chat", async (req, res, next) => {
 
 /**
  * @swagger
+ * /chat/resume-by-email:
+ *   post:
+ *     summary: Tiếp tục cuộc trò chuyện bằng email
+ *     description: |-
+ *       Tìm kiếm và trả về các cuộc trò chuyện còn mở của một khách vãng lai dựa trên email.
+ *       Không cần authentication.
+ *     tags: [Chat]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email của khách vãng lai để tìm lại cuộc trò chuyện.
+ *                 example: "guest@example.com"
+ *     responses:
+ *       200:
+ *         description: Conversations retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     conversations:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *       404:
+ *         description: No conversations found for this email
+ */
+router.post("/resume-by-email", async (req, res, next) => {
+  const chatController = req.container.resolve("chatController");
+
+  await chatController.resumeByEmail(req, res, next);
+});
+
+/**
+ * @swagger
  * /chat/conversations/{conversationId}/accept:
  *   patch:
  *     summary: Nhận cuộc trò chuyện ẩn danh

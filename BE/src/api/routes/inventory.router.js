@@ -163,12 +163,43 @@ router.get(
 
 /**
  * @swagger
+ * /inventory/adjustments/import/template:
+ *   get:
+ *     summary: Tải file mẫu nhập kho hàng loạt
+ *     description: Tải về file Excel mẫu với cấu trúc cột `SKU` và `SERIAL_NUMBER` để nhập kho hàng loạt.
+ *     tags: [Inventory Management, Adjustment]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Tải file mẫu thành công.
+ *       401:
+ *         description: Chưa xác thực.
+ *       403:
+ *         description: Không có quyền.
+ */
+router.get(
+  "/adjustments/import/template",
+  authentication,
+  authorizationByRole([
+    "parts_coordinator_company",
+    "parts_coordinator_service_center",
+  ]),
+  attachCompanyContext,
+  async (req, res, next) => {
+    const inventoryController = req.container.resolve("inventoryController");
+
+    await inventoryController.getInventoryAdjustmentTemplate(req, res, next);
+  }
+);
+
+/**
+ * @swagger
  * /inventory/adjustments/import:
  *   post:
  *     summary: Nhập kho hàng loạt từ file Excel
  *     description: >-
  *       Cho phép người dùng có quyền (`parts_coordinator_*`) tải lên file Excel để tạo các phiếu điều chỉnh nhập kho (`IN`) hàng loạt.
- *       - Để tải file mẫu, gọi đến endpoint này với phương thức `GET`.
  *     tags: [Inventory Management, Adjustment]
  *     security:
  *       - BearerAuth: []

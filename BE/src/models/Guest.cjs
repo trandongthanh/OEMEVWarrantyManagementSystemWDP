@@ -3,11 +3,11 @@ module.exports = (sequelize, DataTypes) => {
     "Guest",
     {
       guestId: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
+        type: DataTypes.STRING(64),
         primaryKey: true,
         field: "guest_id",
       },
+
       email: {
         type: DataTypes.STRING,
         allowNull: true,

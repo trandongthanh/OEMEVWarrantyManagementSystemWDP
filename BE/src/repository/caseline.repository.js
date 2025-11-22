@@ -10,6 +10,9 @@ const {
   Component,
   VehicleProcessingRecord,
   ServiceCenter,
+  Warehouse,
+  StockTransferComponent,
+  StockTransferRequest,
 } = db;
 
 class CaseLineRepository {
@@ -39,6 +42,7 @@ class CaseLineRepository {
         {
           model: GuaranteeCase,
           as: "guaranteeCase",
+          attributes: ["guaranteeCaseId", "vehicleProcessingRecordId"],
           required: true,
 
           include: [
@@ -72,22 +76,25 @@ class CaseLineRepository {
   };
 
   bulkUpdateStatusByIds = async (
-    { caseLineIds, status },
+    { caseLineIds, status, rejectionReason },
     transaction = null,
     lock = null
   ) => {
-    const [numberOfAffectedRows] = await CaseLine.update(
-      { status: status },
-      {
-        where: {
-          id: {
-            [Op.in]: caseLineIds,
-          },
+    const updatePayload = { status: status };
+
+    if (rejectionReason !== undefined) {
+      updatePayload.rejectionReason = rejectionReason;
+    }
+
+    const [numberOfAffectedRows] = await CaseLine.update(updatePayload, {
+      where: {
+        id: {
+          [Op.in]: caseLineIds,
         },
-        transaction: transaction,
-        lock: lock,
-      }
-    );
+      },
+      transaction: transaction,
+      lock: lock,
+    });
 
     if (numberOfAffectedRows <= 0) {
       return [];
@@ -111,12 +118,18 @@ class CaseLineRepository {
         "rejectionReason",
         "evidenceImageUrls",
         "updatedAt",
+        "installationImageUrls",
       ],
       include: [
         {
           model: GuaranteeCase,
           as: "guaranteeCase",
-          attributes: ["guaranteeCaseId", "contentGuarantee", "status"],
+          attributes: [
+            "guaranteeCaseId",
+            "contentGuarantee",
+            "status",
+            "vehicleProcessingRecordId",
+          ],
           required: true,
 
           include: [
@@ -169,6 +182,14 @@ class CaseLineRepository {
               model: Component,
               as: "component",
               attributes: ["componentId", "serialNumber", "status"],
+
+              include: [
+                {
+                  model: db.Warehouse,
+                  as: "warehouse",
+                  attributes: ["warehouseId", "name", "address"],
+                },
+              ],
             },
           ],
         },
@@ -195,6 +216,7 @@ class CaseLineRepository {
         "evidenceImageUrls",
         "updatedAt",
         "evidenceImageUrls",
+        "installationImageUrls",
       ],
       where: {
         id: {
@@ -280,14 +302,37 @@ class CaseLineRepository {
     return updatedCaseLine ? updatedCaseLine.toJSON() : null;
   };
 
+  updateInstallationImages = async (
+    { caselineId, installationImageUrls },
+    transaction = null
+  ) => {
+    const [rowsUpdated] = await CaseLine.update(
+      { installationImageUrls: installationImageUrls },
+      {
+        where: { id: caselineId },
+        transaction: transaction,
+      }
+    );
+
+    if (rowsUpdated <= 0) {
+      return null;
+    }
+
+    const updatedCaseLine = await CaseLine.findByPk(caselineId, {
+      transaction: transaction,
+    });
+
+    return updatedCaseLine ? updatedCaseLine.toJSON() : null;
+  };
+
   getVinById = async (caselineId, transaction = null, lock = null) => {
     const record = await CaseLine.findOne({
-      attributes: ["id"],
+      attributes: ["id", "repairTechId"],
       include: [
         {
           model: GuaranteeCase,
           as: "guaranteeCase",
-          attributes: ["guaranteeCaseId"],
+          attributes: ["guaranteeCaseId", "vehicleProcessingRecordId"],
           required: true,
           include: [
             {
@@ -355,7 +400,12 @@ class CaseLineRepository {
         {
           model: GuaranteeCase,
           as: "guaranteeCase",
-          attributes: ["guaranteeCaseId", "contentGuarantee", "status"],
+          attributes: [
+            "guaranteeCaseId",
+            "contentGuarantee",
+            "status",
+            "vehicleProcessingRecordId",
+          ],
           where:
             Object.keys(guaranteeCaseWhere).length > 0
               ? guaranteeCaseWhere
@@ -407,6 +457,71 @@ class CaseLineRepository {
           as: "reservations",
           attributes: ["reservationId", "status"],
           required: false,
+          include: [
+            {
+              model: Component,
+              as: "component",
+              attributes: [
+                "componentId",
+                "serialNumber",
+                "status",
+                "warehouseId",
+              ],
+              required: false,
+              include: [
+                {
+                  model: Warehouse,
+                  as: "warehouse",
+                  attributes: ["warehouseId", "name", "address"],
+                  required: false,
+                },
+                {
+                  model: StockTransferComponent,
+                  as: "transferHistory",
+                  attributes: ["requestId", "componentId"],
+                  required: false,
+                  include: [
+                    {
+                      model: StockTransferRequest,
+                      as: "request",
+                      attributes: [
+                        "id",
+                        "sourceWarehouseId",
+                        "requestingWarehouseId",
+                        "shippedAt",
+                        "receivedAt",
+                        "status",
+                      ],
+                      required: false,
+                      include: [
+                        {
+                          model: Warehouse,
+                          as: "sourceWarehouse",
+                          attributes: [
+                            "warehouseId",
+                            "name",
+                            "vehicleCompanyId",
+                          ],
+                          required: false,
+                        },
+                        {
+                          model: Warehouse,
+                          as: "requestingWarehouse",
+                          attributes: [
+                            "warehouseId",
+                            "name",
+                            "serviceCenterId",
+                            "address",
+                          ],
+                          required: false,
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
         },
       ],
       limit,
@@ -437,7 +552,7 @@ class CaseLineRepository {
           model: GuaranteeCase,
           as: "guaranteeCase",
           where: { vehicleProcessingRecordId },
-          attributes: ["guaranteeCaseId"],
+          attributes: ["guaranteeCaseId", "vehicleProcessingRecordId"],
         },
       ],
       transaction,
@@ -461,7 +576,7 @@ class CaseLineRepository {
         {
           model: GuaranteeCase,
           as: "guaranteeCase",
-          attributes: [],
+          attributes: ["vehicleProcessingRecordId"],
           where: { vehicleProcessingRecordId },
           required: true,
         },
@@ -549,13 +664,13 @@ class CaseLineRepository {
         {
           model: GuaranteeCase,
           as: "guaranteeCase",
-          attributes: [],
+          attributes: ["vehicleProcessingRecordId"],
           required: true,
           include: [
             {
               model: VehicleProcessingRecord,
               as: "vehicleProcessingRecord",
-              attributes: [],
+              attributes: ["vehicleProcessingRecordId"],
               required: true,
               include: [
                 {

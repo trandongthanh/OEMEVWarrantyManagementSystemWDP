@@ -102,6 +102,11 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: "request_id",
       as: "stockTransferRequest",
     });
+
+    Component.hasMany(models.StockTransferComponent, {
+      foreignKey: "component_id",
+      as: "transferHistory",
+    });
   };
 
   return Component;

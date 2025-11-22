@@ -31,3 +31,27 @@ export const updateMainTechnicianParamsSchema = Joi.object({
 export const getWarrantedComponentsForVehicleSchema = Joi.object({
   recordId: Joi.string().required().uuid({ version: "uuidv4" }),
 });
+
+export const getAllRecordsSchema = Joi.object({
+  page: Joi.number().integer().min(1).optional(),
+  limit: Joi.number().integer().min(1).optional(),
+  status: Joi.string()
+    .valid(
+      "CHECKED_IN",
+      "IN_DIAGNOSIS",
+      "WAITING_CUSTOMER_APPROVAL",
+      "PROCESSING",
+      "READY_FOR_PICKUP",
+      "COMPLETED",
+      "CANCELLED"
+    )
+    .optional(),
+  startDate: Joi.date().iso().optional(),
+  endDate: Joi.date()
+    .iso()
+    .greater(Joi.ref("startDate"))
+    .optional()
+    .messages({
+      "date.greater": "endDate must be greater than or equal to startDate",
+    }),
+});

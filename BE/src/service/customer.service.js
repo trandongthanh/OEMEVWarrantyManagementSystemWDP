@@ -4,13 +4,15 @@ import {
   ConflictError,
   NotFoundError,
 } from "../error/index.js";
-import db from "../models/index.cjs";
 import createCustomerSchema from "../validators/createCustomer.validator.js";
 
 class CustomerService {
   #customerRepository;
-  constructor({ customerRepository }) {
+  #db;
+
+  constructor({ customerRepository, db }) {
     this.#customerRepository = customerRepository;
+    this.#db = db;
   }
 
   checkDuplicateCustomer = async ({ phone, email }, option = null) => {
@@ -101,7 +103,7 @@ class CustomerService {
   };
 
   updateCustomerInfo = async (id, customerData) => {
-    const rawResult = await db.sequelize.transaction(async (transaction) => {
+    const rawResult = await this.#db.sequelize.transaction(async (transaction) => {
       const existingCustomer = await this.#customerRepository.findCustomerById(
         { id: id },
         transaction,

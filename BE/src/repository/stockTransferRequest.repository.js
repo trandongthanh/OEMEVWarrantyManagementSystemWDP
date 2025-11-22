@@ -2,7 +2,17 @@ import dayjs from "dayjs";
 import db from "../models/index.cjs";
 import { formatUTCtzHCM } from "../util/formatUTCtzHCM.js";
 
-const { StockTransferRequest, StockTransferRequestItem, User, Warehouse } = db;
+const {
+  StockTransferRequest,
+  StockTransferRequestItem,
+  User,
+  Warehouse,
+  StockReservation,
+  Stock,
+  TypeComponent,
+  StockTransferComponent,
+  Component,
+} = db;
 
 class StockTransferRequestRepository {
   createStockTransferRequest = async (
@@ -67,7 +77,6 @@ class StockTransferRequestRepository {
           model: User,
           as: "requester",
           attributes: ["userId", "name", "serviceCenterId"],
-
           required: true,
         },
         {
@@ -80,6 +89,36 @@ class StockTransferRequestRepository {
             "vehicleCompanyId",
           ],
           required: true,
+        },
+        {
+          model: Warehouse,
+          as: "sourceWarehouse",
+          attributes: ["warehouseId", "name", "vehicleCompanyId"],
+          required: false,
+        },
+        {
+          model: User,
+          as: "approver",
+          attributes: ["userId", "name"],
+          required: false,
+        },
+        {
+          model: User,
+          as: "rejecter",
+          attributes: ["userId", "name"],
+          required: false,
+        },
+        {
+          model: User,
+          as: "canceller",
+          attributes: ["userId", "name"],
+          required: false,
+        },
+        {
+          model: User,
+          as: "receiver",
+          attributes: ["userId", "name"],
+          required: false,
         },
       ],
       order: [["createdAt", "DESC"]],
@@ -126,7 +165,6 @@ class StockTransferRequestRepository {
           model: User,
           as: "requester",
           attributes: ["userId", "name", "serviceCenterId"],
-
           required: true,
         },
         {
@@ -140,7 +178,36 @@ class StockTransferRequestRepository {
           ],
           required: true,
         },
-
+        {
+          model: Warehouse,
+          as: "sourceWarehouse",
+          attributes: ["warehouseId", "name", "vehicleCompanyId"],
+          required: false,
+        },
+        {
+          model: User,
+          as: "approver",
+          attributes: ["userId", "name"],
+          required: false,
+        },
+        {
+          model: User,
+          as: "rejecter",
+          attributes: ["userId", "name"],
+          required: false,
+        },
+        {
+          model: User,
+          as: "canceller",
+          attributes: ["userId", "name"],
+          required: false,
+        },
+        {
+          model: User,
+          as: "receiver",
+          attributes: ["userId", "name"],
+          required: false,
+        },
         {
           model: StockTransferRequestItem,
           as: "items",
@@ -150,6 +217,42 @@ class StockTransferRequestRepository {
             "typeComponentId",
             "quantityRequested",
             "caselineId",
+          ],
+          required: false,
+        },
+        {
+          model: StockReservation,
+          as: "stockReservations",
+          include: [
+            {
+              model: Stock,
+              as: "stock",
+              include: [
+                {
+                  model: TypeComponent,
+                  as: "typeComponent",
+                  attributes: ["typeComponentId", "name", "sku"],
+                },
+              ],
+            },
+          ],
+          required: false,
+        },
+        {
+          model: StockTransferComponent,
+          as: "transferComponents",
+          include: [
+            {
+              model: Component,
+              as: "component",
+              include: [
+                {
+                  model: TypeComponent,
+                  as: "typeComponent",
+                  attributes: ["typeComponentId", "name", "sku"],
+                },
+              ],
+            },
           ],
           required: false,
         },
@@ -171,13 +274,20 @@ class StockTransferRequestRepository {
       requestId,
       status,
       approvedByUserId,
+      sourceWarehouseId,
       shippedAt,
       receivedAt,
       estimatedDeliveryDate,
     },
     transaction = null
   ) => {
-    const updateData = { status };
+    const updateData = {};
+    if (status) {
+      updateData.status = status;
+    }
+    if (sourceWarehouseId) {
+      updateData.sourceWarehouseId = sourceWarehouseId;
+    }
 
     if (status === "APPROVED" && approvedByUserId) {
       updateData.approvedByUserId = approvedByUserId;

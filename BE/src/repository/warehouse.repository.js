@@ -480,6 +480,38 @@ class WareHouseRepository {
 
     return stock ? stock.toJSON() : null;
   };
+
+  findStocksByTypeComponentAndWarehouse = async (
+    { typeComponentIds, warehouseId },
+    transaction = null,
+    lock = null
+  ) => {
+    const stocks = await Stock.findAll({
+      where: {
+        warehouseId: warehouseId,
+        typeComponentId: {
+          [Op.in]: typeComponentIds,
+        },
+      },
+      include: [
+        {
+          model: TypeComponent,
+          as: "typeComponent",
+          attributes: ["typeComponentId"],
+          required: true,
+        },
+        {
+          model: Warehouse,
+          as: "warehouse",
+          attributes: ["warehouseId", "priority"],
+        },
+      ],
+      transaction,
+      lock,
+    });
+
+    return stocks.map((stock) => stock.toJSON());
+  };
 }
 
 export default WareHouseRepository;

@@ -101,6 +101,124 @@ router.post("/", async (req, res, next) => {
 
 /**
  * @swagger
+ * /users:
+ *   get:
+ *     summary: Get all users with filters and pagination
+ *     description: Retrieve a list of users. Access is scoped based on role. SUPER_ADMIN can see all. COMPANY_ADMIN can see users in their company. SERVICE_CENTER_MANAGER can see users in their service center.
+ *     tags: [User]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: The page number to retrieve.
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: The number of users to retrieve per page.
+ *       - in: query
+ *         name: roleId
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Filter users by role ID.
+ *       - in: query
+ *         name: serviceCenterId
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Filter users by service center ID (only for SUPER_ADMIN).
+ *       - in: query
+ *         name: companyId
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Filter users by company ID (only for SUPER_ADMIN).
+ *     responses:
+ *       200:
+ *         description: A list of users retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     users:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           userId:
+ *                             type: string
+ *                             format: uuid
+ *                           name:
+ *                             type: string
+ *                           email:
+ *                             type: string
+ *                           phone:
+ *                             type: string
+ *                           role:
+ *                             type: object
+ *                             properties:
+ *                               roleId:
+ *                                 type: string
+ *                               roleName:
+ *                                 type: string
+ *                           serviceCenter:
+ *                             type: object
+ *                             properties:
+ *                               serviceCenterId:
+ *                                 type: string
+ *                               name:
+ *                                 type: string
+ *                           vehicleCompany:
+ *                              type: object
+ *                              properties:
+ *                                vehicleCompanyId:
+ *                                  type: string
+ *                                name:
+ *                                  type: string
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     totalItems:
+ *                       type: integer
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.get(
+  "/",
+  authentication,
+  authorizationByRole([
+    "emv_admin",
+    "emv_staff",
+    "parts_coordinator_company",
+    "service_center_manager",
+  ]),
+  async (req, res, next) => {
+    const userController = req.container.resolve("userController");
+    await userController.getAllUsers(req, res, next);
+  }
+);
+
+/**
+ * @swagger
  * /users/technicians:
  *   get:
  *     summary: Get all technicians with their availability and workload
@@ -257,6 +375,51 @@ router.get(
     const userController = req.container.resolve("userController");
 
     await userController.getTechnicians(req, res, next);
+  }
+);
+
+router.get(
+  "/:id",
+  authentication,
+  authorizationByRole([
+    "emv_admin",
+    "emv_staff",
+    "parts_coordinator_company",
+    "service_center_manager",
+  ]),
+  async (req, res, next) => {
+    const userController = req.container.resolve("userController");
+    await userController.getUserById(req, res, next);
+  }
+);
+
+router.put(
+  "/:id",
+  authentication,
+  authorizationByRole([
+    "emv_admin",
+    "emv_staff",
+    "parts_coordinator_company",
+    "service_center_manager",
+  ]),
+  async (req, res, next) => {
+    const userController = req.container.resolve("userController");
+    await userController.updateUser(req, res, next);
+  }
+);
+
+router.delete(
+  "/:id",
+  authentication,
+  authorizationByRole([
+    "emv_admin",
+    "emv_staff",
+    "parts_coordinator_company",
+    "service_center_manager",
+  ]),
+  async (req, res, next) => {
+    const userController = req.container.resolve("userController");
+    await userController.deleteUser(req, res, next);
   }
 );
 

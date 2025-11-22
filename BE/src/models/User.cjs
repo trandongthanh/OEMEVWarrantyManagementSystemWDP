@@ -96,6 +96,13 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
         field: "vehicle_company_id",
       },
+
+      isActive: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
+        field: "is_active",
+      },
     },
     {
       tableName: "user",

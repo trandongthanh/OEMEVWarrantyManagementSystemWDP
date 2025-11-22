@@ -229,6 +229,7 @@ class CaseLineController {
 
   markRepairCompleted = async (req, res, next) => {
     const { caselineId } = req.params;
+    const { installationImageUrls } = req.body;
 
     const { userId, roleName, serviceCenterId } = req.user;
 
@@ -236,7 +237,8 @@ class CaseLineController {
       caselineId,
       userId,
       roleName,
-      serviceCenterId
+      serviceCenterId,
+      installationImageUrls
     );
 
     if (!result) {

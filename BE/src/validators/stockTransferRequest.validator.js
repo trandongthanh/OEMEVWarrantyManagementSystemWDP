@@ -13,5 +13,5 @@ export const stockTransferRequestSchema = Joi.object({
 });
 
 export const stockTransferRequestShipBodySchema = Joi.object({
-  estimatedDeliveryDate: Joi.date().max(dayjs()).required(),
+  estimatedDeliveryDate: Joi.date().min(dayjs()).required(),
 });

@@ -7,6 +7,7 @@ const {
   GuaranteeCase,
   VehicleProcessingRecord,
   User,
+  Warehouse,
 } = db;
 
 class ComponentReservationRepository {
@@ -236,6 +237,8 @@ class ComponentReservationRepository {
           where:
             Object.keys(componentWhere).length > 0 ? componentWhere : undefined,
           required: true,
+
+          include: [{ model: Warehouse, as: "warehouse" }],
         },
         {
           model: User,

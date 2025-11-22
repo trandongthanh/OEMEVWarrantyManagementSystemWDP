@@ -53,14 +53,6 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: "warehouse_id",
       as: "stocks",
     });
-    // Warehouse.hasMany(models.PartShipment, {
-    //   foreignKey: "from_warehouse_id",
-    //   as: "importedPartMentShips",
-    // });
-    // Warehouse.hasMany(models.PartShipment, {
-    //   foreignKey: "to_warehouse_id",
-    //   as: "exportedPartMentShips",
-    // });
     Warehouse.belongsTo(models.ServiceCenter, {
       foreignKey: "service_center_id",
       as: "serviceCenter",

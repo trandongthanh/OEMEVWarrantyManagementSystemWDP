@@ -25,6 +25,7 @@ import WarehouseRepository from "./src/repository/warehouse.repository.js";
 import InventoryAdjustmentRepository from "./src/repository/inventoryAdjustment.repository.js";
 import StockTransferRequestRepository from "./src/repository/stockTransferRequest.repository.js";
 import StockTransferRequestItemRepository from "./src/repository/stockTransferRequestItem.repository.js";
+import StockTransferComponentRepository from "./src/repository/stockTransferComponent.repository.js";
 import WorkScheduleRepository from "./src/repository/workSchedule.repository.js";
 import InventoryRepository from "./src/repository/inventory.repository.js";
 import StockReservationRepository from "./src/repository/stockReservation.repository.js";
@@ -32,9 +33,9 @@ import TaskAssignmentRepository from "./src/repository/taskAssignment.repository
 import OemVehicleModelRepository from "./src/repository/oemVehicleModel.repository.js";
 import WarrantyComponentRepository from "./src/repository/warrantyComponent.repository.js";
 import TypeComponentRepository from "./src/repository/typeComponent.repository.js";
-import RecallRepository from "./src/repository/recall.repository.js";
 import RoleRepository from "./src/repository/role.repository.js";
 import ServiceCenterRepository from "./src/repository/serviceCenter.repository.js";
+import NotificationRepository from "./src/repository/notification.repository.js"; // New import
 
 // Import services
 import UserService from "./src/service/user.service.js";
@@ -55,7 +56,6 @@ import MailService from "./src/service/mail.service.js";
 import InventoryService from "./src/service/inventory.service.js";
 import TaskAssignmentService from "./src/service/taskAssignment.service.js";
 import OemVehicleModelService from "./src/service/oemVehicleModel.service.js";
-import RecallService from "./src/service/recall.service.js";
 import RoleService from "./src/service/role.service.js";
 import ServiceCenterService from "./src/service/serviceCenter.service.js";
 import WarrantyComponentService from "./src/service/warrantyComponent.service.js";
@@ -78,9 +78,9 @@ import MailController from "./src/api/controller/mail.controller.js";
 import InventoryController from "./src/api/controller/inventory.controller.js";
 import TaskAssignmentController from "./src/api/controller/taskAssignment.controller.js";
 import OemVehicleModelController from "./src/api/controller/oemVehicleModel.controller.js";
-import RecallController from "./src/api/controller/recall.controller.js";
 import RoleController from "./src/api/controller/role.controller.js";
 import PublicController from "./src/api/controller/public.controller.js";
+import NotificationController from "./src/api/controller/notification.controller.js";
 
 const container = createContainer();
 
@@ -92,7 +92,7 @@ export const setupContainer = (socket) => {
     chatNamespace: asValue(socket.chatNamespace),
 
     // Models
-    db: asValue(db),
+    db: asValue(db), // Register Database instance for DI
     redis: asValue(redisClient),
     transporter: asValue(mailTransporter),
 
@@ -148,6 +148,12 @@ export const setupContainer = (socket) => {
         lifetime: Lifetime.SCOPED,
       }
     ),
+    stockTransferComponentRepository: asClass(
+      StockTransferComponentRepository,
+      {
+        lifetime: Lifetime.SCOPED,
+      }
+    ),
     workScheduleRepository: asClass(WorkScheduleRepository, {
       lifetime: Lifetime.SCOPED,
     }),
@@ -169,13 +175,14 @@ export const setupContainer = (socket) => {
     typeComponentRepository: asClass(TypeComponentRepository, {
       lifetime: Lifetime.SCOPED,
     }),
-    recallRepository: asClass(RecallRepository, {
-      lifetime: Lifetime.SCOPED,
-    }),
     roleRepository: asClass(RoleRepository, {
       lifetime: Lifetime.SCOPED,
     }),
     serviceCenterRepository: asClass(ServiceCenterRepository, {
+      lifetime: Lifetime.SCOPED,
+    }),
+    notificationRepository: asClass(NotificationRepository, {
+      // New registration
       lifetime: Lifetime.SCOPED,
     }),
 
@@ -220,9 +227,6 @@ export const setupContainer = (socket) => {
       lifetime: Lifetime.SCOPED,
     }),
     oemVehicleModelService: asClass(OemVehicleModelService, {
-      lifetime: Lifetime.SCOPED,
-    }),
-    recallService: asClass(RecallService, {
       lifetime: Lifetime.SCOPED,
     }),
     roleService: asClass(RoleService, {
@@ -288,13 +292,13 @@ export const setupContainer = (socket) => {
     oemVehicleModelController: asClass(OemVehicleModelController, {
       lifetime: Lifetime.SCOPED,
     }),
-    recallController: asClass(RecallController, {
-      lifetime: Lifetime.SCOPED,
-    }),
     roleController: asClass(RoleController, {
       lifetime: Lifetime.SCOPED,
     }),
     publicController: asClass(PublicController, {
+      lifetime: Lifetime.SCOPED,
+    }),
+    notificationController: asClass(NotificationController, {
       lifetime: Lifetime.SCOPED,
     }),
   });

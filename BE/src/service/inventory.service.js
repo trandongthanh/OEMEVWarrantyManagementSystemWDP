@@ -1,11 +1,20 @@
 import dayjs from "dayjs";
 import { Transaction } from "sequelize";
-import db from "../models/index.cjs";
 import {
   BadRequestError,
   ConflictError,
   NotFoundError,
 } from "../error/index.js";
+
+const VALID_COMPONENT_STATUSES = new Set([
+  "IN_STOCK",
+  "IN_WAREHOUSE",
+  "RESERVED",
+  "IN_TRANSIT",
+  "WITH_TECHNICIAN",
+  "INSTALLED",
+  "RETURNED",
+]);
 
 class InventoryService {
   #inventoryRepository;
@@ -17,6 +26,7 @@ class InventoryService {
   #componentRepository;
   #stockReservationRepository;
   #stockTransferRequestItemRepository;
+  #db;
 
   constructor({
     inventoryRepository,
@@ -28,6 +38,7 @@ class InventoryService {
     componentRepository,
     stockReservationRepository,
     stockTransferRequestItemRepository,
+    db,
   }) {
     this.#inventoryRepository = inventoryRepository;
     this.#inventoryAdjustmentRepository = inventoryAdjustmentRepository;
@@ -39,7 +50,77 @@ class InventoryService {
     this.#stockReservationRepository = stockReservationRepository;
     this.#stockTransferRequestItemRepository =
       stockTransferRequestItemRepository;
+    this.#db = db;
   }
+
+  listComponents = async (query = {}) => {
+    const {
+      warehouseId,
+      typeComponentId,
+      status,
+      currentHolderId,
+      stockTransferRequestItemId,
+      serialNumber,
+      limit,
+      page,
+    } = query;
+
+    const whereCondition = {};
+    const { Op } = this.#db.Sequelize;
+
+    if (warehouseId) {
+      whereCondition.warehouseId = warehouseId;
+    }
+
+    if (typeComponentId) {
+      whereCondition.typeComponentId = typeComponentId;
+    }
+
+    if (currentHolderId) {
+      whereCondition.currentHolderId = currentHolderId;
+    }
+
+    if (stockTransferRequestItemId) {
+      whereCondition.stockTransferRequestItemId = stockTransferRequestItemId;
+    }
+
+    if (status) {
+      if (!VALID_COMPONENT_STATUSES.has(status)) {
+        throw new BadRequestError(`Invalid component status value: ${status}`);
+      }
+
+      whereCondition.status = status;
+    }
+
+    if (serialNumber) {
+      whereCondition.serialNumber = serialNumber;
+    }
+
+    const parsedLimit = limit ? parseInt(limit, 10) : 50;
+
+    if (Number.isNaN(parsedLimit) || parsedLimit <= 0) {
+      throw new BadRequestError("limit must be a positive integer");
+    }
+
+    const cappedLimit = Math.min(parsedLimit, 200);
+
+    const parsedPage = page ? parseInt(page, 10) : 1;
+
+    if (Number.isNaN(parsedPage) || parsedPage <= 0) {
+      throw new BadRequestError("page must be a positive integer");
+    }
+
+    const offset = (parsedPage - 1) * cappedLimit;
+
+    const components = await this.#componentRepository.findAll({
+      whereCondition,
+      limit: cappedLimit,
+      offset,
+      includeTypeComponent: true,
+    });
+
+    return components;
+  };
 
   getInventorySummary = async ({
     serviceCenterId,
@@ -135,37 +216,40 @@ class InventoryService {
       companyId,
     } = adjustmentData;
 
-    const results = await db.sequelize.transaction(async (transaction) => {
-      const adjustments = [];
-      for (const sku in componentsBySku) {
-        const components = componentsBySku[sku];
-        const stock = await this.#warehouseRepository.findStockBySku(
-          sku,
-          warehouseId,
-          transaction
-        );
+    const results = await this.#db.sequelize.transaction(
+      async (transaction) => {
+        const adjustments = [];
+        for (const sku in componentsBySku) {
+          const components = componentsBySku[sku];
 
-        if (!stock) {
-          throw new NotFoundError(
-            `Stock item with SKU ${sku} not found in warehouse ${warehouseId}`
+          const stock = await this.#warehouseRepository.findStockBySku(
+            sku,
+            warehouseId,
+            transaction
           );
-        }
 
-        const result = await this.#performAdjustment({
-          stockId: stock.stockId,
-          adjustmentType,
-          reason,
-          note,
-          components,
-          adjustedByUserId,
-          roleName,
-          companyId,
-          transaction,
-        });
-        adjustments.push(result);
+          if (!stock) {
+            throw new NotFoundError(
+              `Stock item with SKU ${sku} not found in warehouse ${warehouseId}`
+            );
+          }
+
+          const result = await this.#performAdjustment({
+            stockId: stock.stockId,
+            adjustmentType,
+            reason,
+            note,
+            components,
+            adjustedByUserId,
+            roleName,
+            companyId,
+            transaction,
+          });
+          adjustments.push(result);
+        }
+        return adjustments;
       }
-      return adjustments;
-    });
+    );
 
     const stockIds = Array.from(
       new Set(
@@ -339,7 +423,7 @@ class InventoryService {
       companyId,
     } = adjustmentData;
 
-    const result = await db.sequelize.transaction(async (transaction) => {
+    const result = await this.#db.sequelize.transaction(async (transaction) => {
       return this.#performAdjustment({
         stockId,
         adjustmentType,

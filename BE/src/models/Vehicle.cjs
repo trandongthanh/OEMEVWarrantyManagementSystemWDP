@@ -59,13 +59,6 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.DATE,
         field: "purchase_date",
       },
-
-      outstandingRecallCampaignIds: {
-        type: DataTypes.JSON,
-        allowNull: false,
-        defaultValue: [],
-        field: "outstanding_recall_campaign_ids",
-      },
     },
     {
       tableName: "vehicle",
@@ -94,11 +87,12 @@ module.exports = (sequelize, DataTypes) => {
       as: "vehicleRecord",
     });
 
-    Vehicle.hasMany(models.VehicleRecall, {
+    Vehicle.hasMany(models.VehicleProcessingRecord, {
       foreignKey: "vin",
       sourceKey: "vin",
-      as: "recallRecords",
+      as: "vehicleRecords",
     });
+
   };
 
   return Vehicle;

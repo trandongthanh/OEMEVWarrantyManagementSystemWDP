@@ -340,6 +340,8 @@ class VehicleProcessingRecordRepository {
     status,
     userId,
     roleName,
+    startDate,
+    endDate,
   }) => {
     let whereCondition = {};
     if (roleName === "service_center_technician") {
@@ -353,11 +355,23 @@ class VehicleProcessingRecordRepository {
       };
     }
 
+    const where = {
+      ...(status ? { status } : {}),
+      ...whereCondition,
+    };
+
+    if (startDate || endDate) {
+      where.checkInDate = {};
+      if (startDate) {
+        where.checkInDate[Op.gte] = startDate;
+      }
+      if (endDate) {
+        where.checkInDate[Op.lte] = endDate;
+      }
+    }
+
     const { rows, count } = await VehicleProcessingRecord.findAndCountAll({
-      where: {
-        ...(status ? { status } : {}),
-        ...whereCondition,
-      },
+      where,
 
       attributes: [
         "vehicleProcessingRecordId",
@@ -572,7 +586,6 @@ class VehicleProcessingRecordRepository {
                 "repairTechId",
                 "diagnosticTechId",
                 "quantity",
-                "name",
               ],
 
               include: [

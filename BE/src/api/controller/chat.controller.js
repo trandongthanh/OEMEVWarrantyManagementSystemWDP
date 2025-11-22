@@ -72,9 +72,11 @@ class ChatController {
 
   getMyConversations = async (req, res, next) => {
     const { userId } = req.user;
+    const { status } = req.query;
 
     const conversations = await this.#chatService.getMyConversations({
       userId,
+      status,
     });
 
     res.status(200).json({

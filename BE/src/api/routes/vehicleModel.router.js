@@ -1,13 +1,108 @@
 import express from "express";
 import {
+  attachCompanyContext,
   authentication,
   authorizationByRole,
   validate,
 } from "../middleware/index.js";
 import warrantyComponents from "./warrantyComponent.router.js";
-import { createVehicleModelSchema } from "../../validators/oemVehicleModel.validator.js";
+import {
+  createVehicleModelSchema,
+  getMostProblematicModelsSchema,
+} from "../../validators/oemVehicleModel.validator.js";
 
 const router = express.Router();
+
+/**
+ * @swagger
+ * /oem-vehicle-models/statistics/most-problematic:
+ *   get:
+ *     summary: Thống kê các mẫu xe gặp nhiều sự cố nhất
+ *     description: >-
+ *       Lấy danh sách các mẫu xe được sắp xếp theo số lượng mục sửa chữa (case line) giảm dần.
+ *       Endpoint này giúp xác định các mẫu xe thường xuyên gặp sự cố nhất.
+ *       Yêu cầu quyền `oem_admin`.
+ *     tags: [Vehicle Model, Statistics]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 10
+ *         description: Giới hạn số lượng mẫu xe trả về.
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Lọc các sự cố từ ngày này (định dạng ISO 8601).
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Lọc các sự cố đến ngày này (định dạng ISO 8601).
+ *     responses:
+ *       200:
+ *         description: Lấy dữ liệu thống kê thành công.
+ *       400:
+ *         description: Tham số không hợp lệ.
+ *       401:
+ *         description: Chưa xác thực.
+ *       403:
+ *         description: Không có quyền.
+ */
+router.get(
+  "/statistics/most-problematic",
+  authentication,
+  authorizationByRole(["service_center_manager", "emv_admin"]),
+  attachCompanyContext,
+  validate(getMostProblematicModelsSchema, "query"),
+  async (req, res, next) => {
+    const oemVehicleModelController = req.container.resolve(
+      "oemVehicleModelController"
+    );
+    await oemVehicleModelController.getMostProblematicModels(req, res, next);
+  }
+);
+
+/**
+ * @swagger
+ * /oem-vehicle-models:
+ *   get:
+ *     summary: Lấy toàn bộ mẫu xe của công ty
+ *     description: Trả về danh sách tất cả mẫu xe thuộc công ty hiện tại.
+ *     tags: [Vehicle Model]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Thành công.
+ *       401:
+ *         description: Chưa xác thực.
+ *       403:
+ *         description: Không có quyền.
+ */
+router.get(
+  "/",
+  authentication,
+  authorizationByRole([
+    "parts_coordinator_company",
+    "service_center_manager",
+    "emv_admin",
+  ]),
+  attachCompanyContext,
+  async (req, res, next) => {
+    const oemVehicleModelController = req.container.resolve(
+      "oemVehicleModelController"
+    );
+
+    await oemVehicleModelController.getAllVehicleModels(req, res, next);
+  }
+);
 
 /**
  * @swagger
@@ -59,6 +154,7 @@ router.post(
   "/",
   authentication,
   authorizationByRole(["parts_coordinator_company"]),
+  attachCompanyContext,
   validate(createVehicleModelSchema, "body"),
   async (req, res, next) => {
     const oemVehicleModelController = req.container.resolve(

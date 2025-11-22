@@ -8,11 +8,13 @@ module.exports = (sequelize, DataTypes) => {
         primaryKey: true,
         field: "id",
       },
+
       guestId: {
-        type: DataTypes.UUID,
+        type: DataTypes.STRING(64),
         allowNull: false,
         field: "guest_id",
       },
+
       staffId: {
         type: DataTypes.UUID,
         allowNull: true,

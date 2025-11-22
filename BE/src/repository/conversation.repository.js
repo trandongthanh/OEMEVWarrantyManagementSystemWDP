@@ -91,9 +91,14 @@ class ConversationRepository {
     );
   };
 
-  getConversationsByStaffId = async (staffId, transaction = null) => {
+  getConversationsByStaffId = async (staffId, status = null, transaction = null) => {
+    const whereClause = { staffId: staffId };
+    if (status) {
+      whereClause.status = status;
+    }
+
     const conversations = await Conversation.findAll({
-      where: { staffId: staffId },
+      where: whereClause,
       include: [
         {
           model: db.Guest,

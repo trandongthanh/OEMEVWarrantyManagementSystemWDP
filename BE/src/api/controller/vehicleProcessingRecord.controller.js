@@ -150,7 +150,7 @@ class VehicleProcessingRecordController {
 
   getAllRecords = async (req, res, next) => {
     const { roleName, userId, serviceCenterId } = req.user;
-    const { page = 1, limit = 10, status } = req.query;
+    const { page = 1, limit = 10, status, startDate, endDate } = req.query;
 
     const records = await this.#vehicleProcessingRecordService.getAllRecords({
       serviceCenterId,
@@ -159,6 +159,8 @@ class VehicleProcessingRecordController {
       page,
       limit,
       status,
+      startDate,
+      endDate,
     });
 
     res.status(200).json({

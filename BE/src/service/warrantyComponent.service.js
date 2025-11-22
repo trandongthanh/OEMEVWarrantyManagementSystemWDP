@@ -1,19 +1,21 @@
 import { ConflictError, NotFoundError } from "../error/index.js";
-import db from "../models/index.cjs";
 
 class WarrantyComponentService {
   #warrantyComponentRepository;
   #oemVehicleModelRepository;
   #typeComponentRepository;
+  #db;
 
   constructor({
     warrantyComponentRepository,
     oemVehicleModelRepository,
     typeComponentRepository,
+    db,
   }) {
     this.#warrantyComponentRepository = warrantyComponentRepository;
     this.#oemVehicleModelRepository = oemVehicleModelRepository;
     this.#typeComponentRepository = typeComponentRepository;
+    this.#db = db;
   }
 
   createWarrantyComponents = async ({
@@ -21,10 +23,11 @@ class WarrantyComponentService {
     typeComponents,
     companyId,
   }) => {
-    const rawResult = await db.sequelize.transaction(async (transaction) => {
+    const rawResult = await this.#db.sequelize.transaction(async (transaction) => {
       const existingTypeComponentItems = typeComponents.filter(
         (item) => item.typeComponentId
       );
+
       const newTypeComponentItems = typeComponents.filter(
         (item) => !item.typeComponentId
       );
@@ -173,6 +176,36 @@ class WarrantyComponentService {
     );
 
     return result;
+  };
+
+  getWarrantyComponentById = async (id) => {
+    const result = await this.#warrantyComponentRepository.findById(id);
+    if (!result) {
+      throw new NotFoundError("Warranty component not found");
+    }
+    return result;
+  };
+
+  updateWarrantyComponent = async (id, data) => {
+    const exists = await this.#warrantyComponentRepository.findById(id);
+    if (!exists) {
+      throw new NotFoundError("Warranty component not found");
+    }
+
+    const updated = await this.#warrantyComponentRepository.update({ id, data });
+    if (!updated) {
+      throw new ConflictError("Failed to update warranty component");
+    }
+    return await this.#warrantyComponentRepository.findById(id);
+  };
+
+  deleteWarrantyComponent = async (id) => {
+    const exists = await this.#warrantyComponentRepository.findById(id);
+    if (!exists) {
+      throw new NotFoundError("Warranty component not found");
+    }
+    const deleted = await this.#warrantyComponentRepository.delete(id);
+    return deleted;
   };
 }
 

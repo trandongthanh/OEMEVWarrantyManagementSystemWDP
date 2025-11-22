@@ -12,6 +12,12 @@ module.exports = (sequelize, DataTypes) => {
       field: "requesting_warehouse_id",
     },
 
+    sourceWarehouseId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      field: "source_warehouse_id",
+    },
+
     requestedByUserId: {
       type: DataTypes.UUID,
       allowNull: false,
@@ -88,6 +94,12 @@ module.exports = (sequelize, DataTypes) => {
 
     shippedAt: { type: DataTypes.DATE, allowNull: true, field: "shipped_at" },
 
+    estimatedDeliveryDate: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: "estimated_delivery_date",
+    },
+
     receivedAt: { type: DataTypes.DATE, allowNull: true, field: "received_at" },
 
     rejectedAt: { type: DataTypes.DATE, allowNull: true, field: "rejected_at" },
@@ -105,6 +117,11 @@ module.exports = (sequelize, DataTypes) => {
       as: "requestingWarehouse",
     });
 
+    StockTransferRequest.belongsTo(models.Warehouse, {
+      foreignKey: "source_warehouse_id",
+      as: "sourceWarehouse",
+    });
+
     StockTransferRequest.belongsTo(models.User, {
       foreignKey: "requested_by_user_id",
       as: "requester",
@@ -118,6 +135,11 @@ module.exports = (sequelize, DataTypes) => {
     StockTransferRequest.hasMany(models.StockReservation, {
       foreignKey: "request_id",
       as: "stockReservations",
+    });
+
+    StockTransferRequest.hasMany(models.StockTransferComponent, {
+      foreignKey: "request_id",
+      as: "transferComponents",
     });
 
     StockTransferRequest.belongsTo(models.User, {

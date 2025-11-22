@@ -1,19 +1,21 @@
-import db from "../models/index.cjs";
 import { ConflictError, NotFoundError } from "../error/index.js";
 
 class OemVehicleModelService {
   #oemVehicleModelRepository;
   #warrantyComponentRepository;
   #typeComponentRepository;
+  #db;
 
   constructor({
     oemVehicleModelRepository,
     warrantyComponentRepository,
     typeComponentRepository,
+    db,
   }) {
     this.#oemVehicleModelRepository = oemVehicleModelRepository;
     this.#warrantyComponentRepository = warrantyComponentRepository;
     this.#typeComponentRepository = typeComponentRepository;
+    this.#db = db;
   }
 
   createVehicleModel = async ({
@@ -25,7 +27,7 @@ class OemVehicleModelService {
     generalWarrantyMileage,
     companyId,
   }) => {
-    return db.sequelize.transaction(async (transaction) => {
+    return this.#db.sequelize.transaction(async (transaction) => {
       const existingSku = await this.#oemVehicleModelRepository.findBySku(
         sku,
         transaction
@@ -53,6 +55,35 @@ class OemVehicleModelService {
 
       return vehicleModel;
     });
+  };
+
+  getMostProblematicModels = async ({
+    companyId,
+    startDate,
+    endDate,
+    limit,
+  }) => {
+    const results =
+      await this.#oemVehicleModelRepository.findMostProblematicModels({
+        companyId,
+        startDate,
+        endDate,
+        limit,
+      });
+
+    return results;
+  };
+
+  getAllVehicleModels = async ({ companyId }) => {
+    if (!companyId) {
+      throw new NotFoundError("Company context is required");
+    }
+
+    const models = await this.#oemVehicleModelRepository.findAllByCompanyId({
+      companyId,
+    });
+
+    return models;
   };
 }
 

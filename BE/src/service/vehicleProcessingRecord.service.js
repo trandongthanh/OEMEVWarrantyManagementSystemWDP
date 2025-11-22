@@ -1,4 +1,3 @@
-import db from "../models/index.cjs";
 import {
   BadRequestError,
   ConflictError,
@@ -21,6 +20,7 @@ class VehicleProcessingRecordService {
   #workScheduleRepository;
   #vehicleService;
   #mailService;
+  #db;
 
   constructor({
     vehicleProcessingRecordRepository,
@@ -33,6 +33,7 @@ class VehicleProcessingRecordService {
     workScheduleRepository,
     vehicleService,
     mailService,
+    db,
   }) {
     this.#vehicleProcessingRecordRepository = vehicleProcessingRecordRepository;
     this.#guaranteeCaseRepository = guaranteeCaseRepository;
@@ -44,6 +45,7 @@ class VehicleProcessingRecordService {
     this.#workScheduleRepository = workScheduleRepository;
     this.#vehicleService = vehicleService;
     this.#mailService = mailService;
+    this.#db = db;
   }
 
   createRecord = async (params) => {
@@ -80,7 +82,7 @@ class VehicleProcessingRecordService {
     };
 
     const { newRecord, newGuaranteeCases, owner } =
-      await db.sequelize.transaction(async (t) => {
+      await this.#db.sequelize.transaction(async (t) => {
         const vehicle = await this.#validateVehicleForCreation(
           vin,
           companyId,
@@ -260,7 +262,7 @@ class VehicleProcessingRecordService {
           html
         )
         .catch((err) => {
-          throw new Error("Failed to send tracking email:", err);
+          console.error("Failed to send tracking email:", err);
         });
     }
 
@@ -321,7 +323,7 @@ class VehicleProcessingRecordService {
       "REJECTED_BY_CUSTOMER",
     ]);
 
-    const rawResult = await db.sequelize.transaction(async (transaction) => {
+    const rawResult = await this.#db.sequelize.transaction(async (transaction) => {
       const record =
         await this.#vehicleProcessingRecordRepository.findDetailById(
           {
@@ -466,7 +468,7 @@ class VehicleProcessingRecordService {
   }) => {
     let oldTechnicianId = null;
 
-    const rawResult = await db.sequelize.transaction(async (t) => {
+    const rawResult = await this.#db.sequelize.transaction(async (t) => {
       const technician = await this.#userRepository.findUserById(
         { userId: technicianId },
         t
@@ -677,6 +679,8 @@ class VehicleProcessingRecordService {
     page,
     limit,
     status,
+    startDate,
+    endDate,
   }) => {
     if (!serviceCenterId) {
       throw new BadRequestError("serviceCenterId is required");
@@ -694,6 +698,8 @@ class VehicleProcessingRecordService {
       status: status,
       userId: userId,
       roleName: roleName,
+      startDate: startDate,
+      endDate: endDate,
     });
 
     if (!records || records.length === 0) {
@@ -704,7 +710,7 @@ class VehicleProcessingRecordService {
   };
 
   completeRecord = async ({ vehicleProcessingRecordId }) => {
-    const completedRecord = await db.sequelize.transaction(
+    const completedRecord = await this.#db.sequelize.transaction(
       async (transaction) => {
         await this.#findAndValidateRecord(
           vehicleProcessingRecordId,
@@ -826,7 +832,7 @@ class VehicleProcessingRecordService {
     serviceCenterId,
     vehicleProcessingRecordId,
   }) => {
-    const rawResult = await db.sequelize.transaction(async (transaction) => {
+    const rawResult = await this.#db.sequelize.transaction(async (transaction) => {
       const vehicleProcessingRecord =
         await this.#vehicleProcessingRecordRepository.findDetailById(
           {
@@ -845,6 +851,68 @@ class VehicleProcessingRecordService {
 
       const guaranteeCases = vehicleProcessingRecord?.guaranteeCases || [];
 
+      const allCaseLines = guaranteeCases.flatMap(
+        (guaranteeCase) => guaranteeCase.caseLines || []
+      );
+
+      const hasCaseLines = allCaseLines.length > 0;
+      const allRejectedByTech =
+        hasCaseLines &&
+        allCaseLines.every(
+          (caseLine) => caseLine.status === "REJECTED_BY_TECH"
+        );
+
+      if (allRejectedByTech) {
+        const guaranteeCaseIds = guaranteeCases
+          .map((guaranteeCase) => guaranteeCase.guaranteeCaseId)
+          .filter(Boolean);
+
+        let cancelledGuaranteeCases = [];
+        if (guaranteeCaseIds.length > 0) {
+          cancelledGuaranteeCases =
+            await this.#guaranteeCaseRepository.bulkUpdateStatus(
+              {
+                guaranteeCaseIds,
+                status: "CANCELLED",
+              },
+              transaction,
+              Transaction.LOCK.UPDATE
+            );
+        }
+
+        await this.#taskAssignmentRepository.cancelDiagnosisTaskByRecordId(
+          { vehicleProcessingRecordId },
+          transaction
+        );
+
+        const cancelledRecord =
+          await this.#vehicleProcessingRecordRepository.updateStatus(
+            {
+              vehicleProcessingRecordId: vehicleProcessingRecordId,
+              status: "CANCELLED",
+            },
+            transaction
+          );
+
+        const recordDetail =
+          await this.#vehicleProcessingRecordRepository.findDetailById(
+            {
+              id: vehicleProcessingRecordId,
+              roleName,
+              userId,
+              serviceCenterId,
+            },
+            transaction
+          );
+
+        return {
+          record: recordDetail,
+          updatedGuaranteeCases: cancelledGuaranteeCases,
+          updatedCaseLines: [],
+          updatedRecord: cancelledRecord,
+        };
+      }
+
       for (const guaranteeCase of guaranteeCases) {
         if (guaranteeCase.status !== "IN_DIAGNOSIS") {
           throw new BadRequestError("Guarantee case is not in diagnosis");
@@ -858,6 +926,7 @@ class VehicleProcessingRecordService {
             "REJECTED_BY_OUT_OF_WARRANTY",
             "REJECTED_BY_TECH",
           ];
+
           if (!validStatuses.includes(caseLine.status)) {
             throw new BadRequestError(
               `Case line ${caseLine.id} has invalid status ${
@@ -876,6 +945,11 @@ class VehicleProcessingRecordService {
           },
           transaction
         );
+
+      await this.#taskAssignmentRepository.cancelDiagnosisTaskByRecordId(
+        { vehicleProcessingRecordId },
+        transaction
+      );
 
       const updatedGuaranteeCases = [];
 
@@ -915,17 +989,17 @@ class VehicleProcessingRecordService {
           transaction
         );
 
-      const roomName = `service_center_staff_${serviceCenterId}`;
-      const eventName = "vehicleProcessingRecordStatusUpdated";
-      const data = {
-        roomName,
-        record,
-      };
-
-      await this.#notificationService.sendToRoom(roomName, eventName, data);
-
       return { record, updatedGuaranteeCases, updatedCaseLines, updatedRecord };
     });
+
+    const roomName = `service_center_staff_${serviceCenterId}`;
+    const eventName = "vehicleProcessingRecordStatusUpdated";
+    const data = {
+      roomName,
+      record: rawResult.record,
+    };
+
+    await this.#notificationService.sendToRoom(roomName, eventName, data);
 
     return {
       record: rawResult.record,
@@ -985,7 +1059,7 @@ class VehicleProcessingRecordService {
   getServiceHistory = async ({ vin, companyId, page, limit, statusFilter }) => {
     const offset = (page - 1) * limit;
 
-    const rawResult = await db.sequelize.transaction(async (transaction) => {
+    const rawResult = await this.#db.sequelize.transaction(async (transaction) => {
       const vehicle = await this.#vehicleRepository.findByVinAndCompany({
         vin: vin,
         companyId: companyId,

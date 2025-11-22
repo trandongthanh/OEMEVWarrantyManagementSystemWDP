@@ -6,7 +6,6 @@ import {
   ForbiddenError,
   NotFoundError,
 } from "../error/index.js";
-import db from "../models/index.cjs";
 import { Transaction } from "sequelize";
 
 const TYPE_COMPONENT_CATEGORIES = [
@@ -29,17 +28,20 @@ class VehicleService {
   #customerService;
   #componentRepository;
   #oemVehicleModelRepository;
+  #db;
 
   constructor({
     vehicleRepository,
     customerService,
     componentRepository,
     oemVehicleModelRepository,
+    db,
   }) {
     this.#vehicleRepository = vehicleRepository;
     this.#customerService = customerService;
     this.#componentRepository = componentRepository;
     this.#oemVehicleModelRepository = oemVehicleModelRepository;
+    this.#db = db;
   }
 
   bulkCreateFromExcel = async (fileBuffer, companyId) => {
@@ -215,7 +217,7 @@ class VehicleService {
       throw new BadRequestError(dateValidationResult.error);
     }
 
-    return await db.sequelize.transaction(async (t) => {
+    return await this.#db.sequelize.transaction(async (t) => {
       let customerId;
 
       if (ownerId) {
@@ -487,6 +489,7 @@ class VehicleService {
             typeComponentId: component.typeComponentId,
             componentName: component.name,
             category: component.category || null,
+            quantityLimit: null,
             policy: {
               durationMonths: 0,
               mileageLimit: 0,
@@ -519,6 +522,7 @@ class VehicleService {
           typeComponentId: component.typeComponentId,
           componentName: component.name,
           category: component.category || null,
+          quantityLimit: warrantyComponent.quantity || null,
           policy: {
             durationMonths: warrantyComponent.durationMonth,
             mileageLimit: warrantyComponent.mileageLimit,

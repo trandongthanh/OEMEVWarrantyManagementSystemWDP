@@ -3,6 +3,8 @@
 const { sequelize } = require("../models/index.cjs");
 const bcrypt = require("bcrypt");
 
+const OEM_COMPANY_BASE_QUANTITY = 100;
+
 const TYPE_COMPONENTS_DATA = [
   {
     sku: "BAT-HV-42KWH-VFE34",
@@ -98,18 +100,18 @@ const STOCK_PLAN = [
     address: "Khu công nghệ cao Hòa Lạc, Hà Nội",
     priority: 1,
     items: [
-      { sku: "BAT-HV-42KWH-VFE34", quantity: 18 },
-      { sku: "BAT-HV-92KWH-VF8", quantity: 12 },
-      { sku: "MOT-ELC-130KW", quantity: 16 },
-      { sku: "INV-PWR-400V", quantity: 20 },
-      { sku: "CHG-OBC-11KW", quantity: 20 },
-      { sku: "HVAC-AUTO-2ZONE", quantity: 15 },
-      { sku: "ADAS-CAM-360", quantity: 25 },
-      { sku: "DISPLAY-15IN", quantity: 22 },
-      { sku: "BRAKE-PAD-CERAMIC", quantity: 60 },
-      { sku: "SUSP-AIR-ADAPTIVE", quantity: 10 },
-      { sku: "FILTER-CABIN-HEPA", quantity: 80 },
-      { sku: "BODY-WINDSHIELD-HEAT", quantity: 30 },
+      { sku: "BAT-HV-42KWH-VFE34", quantity: OEM_COMPANY_BASE_QUANTITY },
+      { sku: "BAT-HV-92KWH-VF8", quantity: OEM_COMPANY_BASE_QUANTITY },
+      { sku: "MOT-ELC-130KW", quantity: OEM_COMPANY_BASE_QUANTITY },
+      { sku: "INV-PWR-400V", quantity: OEM_COMPANY_BASE_QUANTITY },
+      { sku: "CHG-OBC-11KW", quantity: OEM_COMPANY_BASE_QUANTITY },
+      { sku: "HVAC-AUTO-2ZONE", quantity: OEM_COMPANY_BASE_QUANTITY },
+      { sku: "ADAS-CAM-360", quantity: OEM_COMPANY_BASE_QUANTITY },
+      { sku: "DISPLAY-15IN", quantity: OEM_COMPANY_BASE_QUANTITY },
+      { sku: "BRAKE-PAD-CERAMIC", quantity: OEM_COMPANY_BASE_QUANTITY },
+      { sku: "SUSP-AIR-ADAPTIVE", quantity: OEM_COMPANY_BASE_QUANTITY },
+      { sku: "FILTER-CABIN-HEPA", quantity: OEM_COMPANY_BASE_QUANTITY },
+      { sku: "BODY-WINDSHIELD-HEAT", quantity: OEM_COMPANY_BASE_QUANTITY },
     ],
   },
   {
@@ -155,7 +157,7 @@ const VEHICLE_MODELS_DATA = [
   {
     key: "vfE34",
     vehicleModelName: "VF e34",
-    sku: "VFE34-STD-2021",
+    sku: "VF_E34",
     yearOfLaunch: new Date("2021-12-01"),
     generalWarrantyDuration: 60,
     generalWarrantyMileage: 120000,
@@ -163,7 +165,7 @@ const VEHICLE_MODELS_DATA = [
   {
     key: "vf8",
     vehicleModelName: "VF 8",
-    sku: "VF8-STD-2022",
+    sku: "VF_8",
     yearOfLaunch: new Date("2022-10-01"),
     generalWarrantyDuration: 120,
     generalWarrantyMileage: 200000,
@@ -171,7 +173,7 @@ const VEHICLE_MODELS_DATA = [
   {
     key: "vf9",
     vehicleModelName: "VF 9",
-    sku: "VF9-PLUS-2023",
+    sku: "VF_9",
     yearOfLaunch: new Date("2023-03-01"),
     generalWarrantyDuration: 120,
     generalWarrantyMileage: 200000,
@@ -405,9 +407,104 @@ function createSerialNumber({ sku, warehouseCode, index }) {
   return `${sku}-${warehouseCode}-${String(index).padStart(4, "0")}`;
 }
 
+async function ensureManufacturerInventory({
+  manufacturerWarehouses,
+  typeComponents,
+  Component,
+  Stock,
+  transaction,
+}) {
+  let addedComponents = 0;
+
+  for (const warehouse of manufacturerWarehouses) {
+    for (const [sku, typeComponent] of Object.entries(typeComponents)) {
+      const typeComponentId = typeComponent?.typeComponentId;
+
+      if (!typeComponentId) {
+        continue;
+      }
+
+      const currentCount = await Component.count({
+        where: {
+          warehouseId: warehouse.warehouseId,
+          typeComponentId,
+          status: "IN_STOCK",
+        },
+        transaction,
+      });
+
+      if (currentCount >= OEM_COMPANY_BASE_QUANTITY) {
+        const [stock] = await Stock.findOrCreate({
+          where: {
+            warehouseId: warehouse.warehouseId,
+            typeComponentId,
+          },
+          defaults: {
+            warehouseId: warehouse.warehouseId,
+            typeComponentId,
+            quantityInStock: currentCount,
+            quantityReserved: 0,
+          },
+          transaction,
+        });
+
+        await stock.update({ quantityInStock: currentCount }, { transaction });
+
+        continue;
+      }
+
+      const missingCount = OEM_COMPANY_BASE_QUANTITY - currentCount;
+
+      for (let offset = 1; offset <= missingCount; offset += 1) {
+        const serialNumber = createSerialNumber({
+          sku,
+          warehouseCode: warehouse.code,
+          index: currentCount + offset,
+        });
+
+        await Component.findOrCreate({
+          where: { serialNumber },
+          defaults: {
+            typeComponentId,
+            serialNumber,
+            warehouseId: warehouse.warehouseId,
+            status: "IN_STOCK",
+          },
+          transaction,
+        });
+
+        addedComponents += 1;
+      }
+
+      const [stock] = await Stock.findOrCreate({
+        where: {
+          warehouseId: warehouse.warehouseId,
+          typeComponentId,
+        },
+        defaults: {
+          warehouseId: warehouse.warehouseId,
+          typeComponentId,
+          quantityInStock: OEM_COMPANY_BASE_QUANTITY,
+          quantityReserved: 0,
+        },
+        transaction,
+      });
+
+      await stock.update(
+        { quantityInStock: OEM_COMPANY_BASE_QUANTITY },
+        { transaction }
+      );
+    }
+  }
+
+  return addedComponents;
+}
+
 async function seedDatabase() {
   const transaction = await sequelize.transaction();
   try {
+    await sequelize.query("SET FOREIGN_KEY_CHECKS = 0;", { transaction });
+
     const models = sequelize.models;
     const {
       VehicleCompany,
@@ -422,7 +519,26 @@ async function seedDatabase() {
       Vehicle,
       Stock,
       Component,
+      WorkSchedule,
     } = models;
+
+    console.log("🗑️ Đang xóa dữ liệu cũ...");
+    await Promise.all([
+      Component.destroy({ where: {}, truncate: true, transaction }),
+      Stock.destroy({ where: {}, truncate: true, transaction }),
+      WorkSchedule.destroy({ where: {}, truncate: true, transaction }),
+      Vehicle.destroy({ where: {}, truncate: true, transaction }),
+      WarrantyComponent.destroy({ where: {}, truncate: true, transaction }),
+      User.destroy({ where: {}, truncate: true, transaction }),
+      Role.destroy({ where: {}, truncate: true, transaction }),
+      Customer.destroy({ where: {}, truncate: true, transaction }),
+      TypeComponent.destroy({ where: {}, truncate: true, transaction }),
+      Warehouse.destroy({ where: {}, truncate: true, transaction }),
+      ServiceCenter.destroy({ where: {}, truncate: true, transaction }),
+      VehicleModel.destroy({ where: {}, truncate: true, transaction }),
+      VehicleCompany.destroy({ where: {}, truncate: true, transaction }),
+    ]);
+    console.log("✅ Đã xóa dữ liệu cũ.");
 
     console.log("🌱 Bắt đầu seed dữ liệu thực tế...");
 
@@ -439,16 +555,15 @@ async function seedDatabase() {
 
     const vehicleModels = {};
     for (const data of VEHICLE_MODELS_DATA) {
-      const { key, ...modelDefaults } = data;
       const [record] = await VehicleModel.findOrCreate({
-        where: { vehicleModelName: modelDefaults.vehicleModelName },
+        where: { vehicleModelName: data.vehicleModelName },
         defaults: {
-          ...modelDefaults,
+          ...data,
           vehicleCompanyId: vehicleCompany.vehicleCompanyId,
         },
         transaction,
       });
-      vehicleModels[key] = record;
+      vehicleModels[data.key] = record;
     }
 
     const serviceCenters = {};
@@ -662,12 +777,10 @@ async function seedDatabase() {
       },
     ];
 
-    for (const [index, user] of userPayload.entries()) {
-      const employeeCode = user.employeeCode
-        ? user.employeeCode
-        : `EMP${String(index + 1).padStart(4, "0")}`;
+    const createdUsers = [];
 
-      await User.findOrCreate({
+    for (const [index, user] of userPayload.entries()) {
+      const [userRecord] = await User.findOrCreate({
         where: { username: user.username },
         defaults: {
           username: user.username,
@@ -675,14 +788,49 @@ async function seedDatabase() {
           name: user.name,
           email: `${user.username}@vinfast.vn`,
           phone: `0907${String(index + 1).padStart(4, "0")}`,
+          employeeCode: `EMP_${user.username.toUpperCase()}`,
           address: user.serviceCenterId ? "Trung tâm dịch vụ" : "Trụ sở chính",
-          employeeCode,
           roleId: roles[user.role].roleId,
           serviceCenterId: user.serviceCenterId ?? null,
           vehicleCompanyId: user.vehicleCompanyId ?? null,
         },
         transaction,
       });
+      createdUsers.push(userRecord);
+    }
+
+    let createdWorkSchedules = 0;
+    const technicianRoleId = roles["service_center_technician"].roleId;
+    const technicians = createdUsers.filter(
+      (user) => user.roleId === technicianRoleId
+    );
+
+    const baseDate = new Date();
+    baseDate.setHours(0, 0, 0, 0);
+
+    for (const tech of technicians) {
+      for (let offset = 0; offset < 14; offset += 1) {
+        const workDate = new Date(baseDate);
+        workDate.setDate(baseDate.getDate() + offset);
+
+        const [schedule, created] = await WorkSchedule.findOrCreate({
+          where: {
+            technicianId: tech.userId,
+            workDate,
+          },
+          defaults: {
+            technicianId: tech.userId,
+            workDate,
+            status: offset % 7 === 6 ? "UNAVAILABLE" : "AVAILABLE",
+            notes: offset % 7 === 6 ? "Nghỉ cuối tuần" : null,
+          },
+          transaction,
+        });
+
+        if (created) {
+          createdWorkSchedules += 1;
+        }
+      }
     }
 
     const customers = {};
@@ -776,6 +924,20 @@ async function seedDatabase() {
       }
     }
 
+    const manufacturerWarehouses = Object.values(warehouses).filter(
+      (warehouse) => !warehouse.serviceCenterId
+    );
+
+    const additionalManufacturerComponents = await ensureManufacturerInventory({
+      manufacturerWarehouses,
+      typeComponents,
+      Component,
+      Stock,
+      transaction,
+    });
+
+    createdComponentsInWarehouses += additionalManufacturerComponents;
+
     let installedComponents = 0;
 
     for (const vehicle of vehicles) {
@@ -807,11 +969,13 @@ async function seedDatabase() {
       }
     }
 
+    await sequelize.query("SET FOREIGN_KEY_CHECKS = 1;", { transaction });
     await transaction.commit();
 
     console.log("✅ Seed thành công.");
     console.log(`   • Components trong kho: ${createdComponentsInWarehouses}`);
     console.log(`   • Components đã lắp trên xe: ${installedComponents}`);
+    console.log(`   • Lịch làm việc mới tạo: ${createdWorkSchedules}`);
     console.log(
       "   • Mỗi Stock.quantityInStock đã khớp với số component IN_STOCK tương ứng."
     );
