@@ -13,8 +13,8 @@ import apiClient from "@/lib/apiClient";
  */
 
 export interface StockTransferRequestItem {
-   typeComponentId?: string;  // ✔ optional
-  sku?: string;              // ✔ thêm sku cho warehouse restock
+  typeComponentId?: string; // ✔ optional
+  sku?: string; // ✔ thêm sku cho warehouse restock
   quantityRequested: number;
   caselineId?: string;
 }
@@ -124,7 +124,8 @@ export interface RejectStockTransferRequest {
 }
 
 export interface ShipStockTransferRequest {
-  estimatedDeliveryDate: string;
+  estimatedDeliveryDate: string; // ISO date string
+  shippedComponents: string[]; // Array of component IDs (UUIDs)
 }
 
 export interface CancelStockTransferRequest {
@@ -227,11 +228,15 @@ class StockTransferService {
   }
 
   async approveRequest(
-    requestId: string
+    requestId: string,
+    sourceWarehouseId: string
   ): Promise<StockTransferRequestDetailResponse> {
     try {
       const response = await apiClient.patch(
-        `/stock-transfer-requests/${requestId}/approve`
+        `/stock-transfer-requests/${requestId}/approve`,
+        {
+          sourceWarehouseId,
+        }
       );
       return response.data;
     } catch (error) {
@@ -315,7 +320,6 @@ class StockTransferService {
       throw error;
     }
   }
-
 }
 
 const stockTransferService = new StockTransferService();

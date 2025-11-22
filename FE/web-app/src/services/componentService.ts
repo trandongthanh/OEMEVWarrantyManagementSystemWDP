@@ -102,10 +102,35 @@ const searchBySerialNumber = async (
   }
 };
 
+/**
+ * Get components with filters
+ * GET /components?vin={vin}&typeComponentId={typeComponentId}&status={status}
+ */
+const getComponents = async (params: {
+  vin?: string;
+  typeComponentId?: string;
+  status?: string;
+  warehouseId?: string;
+}): Promise<{
+  status: "success";
+  data: { components: Component[] };
+}> => {
+  try {
+    const response = await apiClient.get("/components", {
+      params,
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching components:", error);
+    throw error;
+  }
+};
+
 const componentService = {
   updateComponentStatus,
   getComponentById,
   searchBySerialNumber,
+  getComponents,
 };
 
 export default componentService;

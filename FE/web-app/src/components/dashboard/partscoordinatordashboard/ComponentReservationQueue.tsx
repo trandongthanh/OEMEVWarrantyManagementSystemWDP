@@ -19,7 +19,6 @@ export default function ComponentReservationQueue() {
   const [loading, setLoading] = useState(true);
   const [reservations, setReservations] = useState<ComponentReservation[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("");
-  const [currentPage, setCurrentPage] = useState(1);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [selectedReservations, setSelectedReservations] = useState<Set<string>>(
@@ -38,7 +37,7 @@ export default function ComponentReservationQueue() {
   const { isPolling } = usePolling(
     async () => {
       const params: GetComponentReservationsParams = {
-        page: currentPage,
+        page: pagination.page,
         limit: 20,
       };
 
@@ -125,48 +124,6 @@ export default function ComponentReservationQueue() {
       setReservations([]);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handlePickup = async (reservationId: string) => {
-    setErrorMessage("");
-    setSuccessMessage("");
-
-    // Find the reservation to get technician ID
-    const reservation = reservations.find(
-      (r) => r.reservationId === reservationId
-    );
-
-    if (!reservation) {
-      setErrorMessage("Reservation not found");
-      return;
-    }
-
-    // Get technician ID from the case line's repair technician
-    const techId = reservation.caseLine?.repairTechId;
-
-    if (!techId) {
-      setErrorMessage(
-        "No technician assigned to this repair. Please assign a technician first in Case Line Operations."
-      );
-      return;
-    }
-
-    try {
-      await componentReservationService.pickupComponent(reservationId, techId);
-      setSuccessMessage(
-        `Component picked up successfully by ${
-          reservation.caseLine?.repairTechnician?.name || "technician"
-        }`
-      );
-      setCurrentPage(pagination.page); // Keep current page
-      loadReservations(pagination.page, statusFilter);
-    } catch (err: unknown) {
-      console.error("Error picking up component:", err);
-      const error = err as { response?: { data?: { message?: string } } };
-      setErrorMessage(
-        error?.response?.data?.message || "Failed to pick up component"
-      );
     }
   };
 
@@ -540,21 +497,6 @@ export default function ComponentReservationQueue() {
                               Case Line: {reservation.caseLine.id} | Status:{" "}
                               {reservation.caseLine.status}
                             </div>
-                          )}
-                        </div>
-
-                        {/* ACTION BUTTONS */}
-                        <div className="ml-4">
-                          {reservation.status === "RESERVED" && (
-                            <button
-                              onClick={() =>
-                                handlePickup(reservation.reservationId)
-                              }
-                              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-                            >
-                              <CheckCircle2 className="w-4 h-4" />
-                              Mark Picked Up
-                            </button>
                           )}
                         </div>
                       </div>

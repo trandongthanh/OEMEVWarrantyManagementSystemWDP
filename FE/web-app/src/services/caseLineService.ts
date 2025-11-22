@@ -55,16 +55,29 @@ export interface CaseLine {
         name: string;
         address?: string;
       };
-      stockTransferRequest?: {
-        id?: string;
-        requestId?: string;
-        requestingWarehouseId?: string;
-        requestingWarehouse?: {
-          warehouseId: string;
-          name: string;
-          address?: string;
+      transferHistory?: Array<{
+        requestId: string;
+        componentId: string;
+        request?: {
+          id: string;
+          sourceWarehouseId: string;
+          requestingWarehouseId: string;
+          shippedAt: string;
+          receivedAt: string;
+          status: string;
+          sourceWarehouse?: {
+            warehouseId: string;
+            name: string;
+            vehicleCompanyId?: string;
+          };
+          requestingWarehouse?: {
+            warehouseId: string;
+            name: string;
+            serviceCenterId?: string;
+            address?: string;
+          };
         };
-      };
+      }>;
     };
     warehouse?: {
       warehouseId: string;

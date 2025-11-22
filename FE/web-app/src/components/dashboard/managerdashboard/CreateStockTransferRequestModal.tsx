@@ -321,7 +321,7 @@ export function CreateStockTransferRequestModal({
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden"
+            className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
           >
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
@@ -346,149 +346,149 @@ export function CreateStockTransferRequestModal({
               </button>
             </div>
 
-            <form
-              onSubmit={handleSubmit}
-              className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]"
-            >
-              {error && (
-                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-red-800">Error</p>
-                    <p className="text-sm text-red-600 mt-1">{error}</p>
+            {/* Content */}
+            <div className="p-6 overflow-y-auto flex-1">
+              <form onSubmit={handleSubmit} id="transfer-request-form">
+                {error && (
+                  <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-red-800">Error</p>
+                      <p className="text-sm text-red-600 mt-1">{error}</p>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* ⬇⬇⬇ NEW: SELECT WAREHOUSE */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Warehouse *
-                </label>
-                <select
-                  value={selectedWarehouse}
-                  onChange={(e) => setSelectedWarehouse(e.target.value)}
-                  className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg 
-                            focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                >
-                  <option value="">-- Select warehouse --</option>
-                  {warehouses.map((w) => (
-                    <option key={w.warehouseId} value={w.warehouseId}>
-                      {w.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {/* ⬆⬆⬆ END NEW */}
-
-              {!caseLineId && (
+                {/* ⬇⬇⬇ NEW: SELECT WAREHOUSE */}
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Case Line *
+                    Select Warehouse *
                   </label>
-                  {loadingCaseLines ? (
-                    <div className="px-3 py-2 text-sm text-gray-500 bg-gray-50 rounded-lg">
-                      Loading case lines...
-                    </div>
-                  ) : caseLines.length === 0 ? (
-                    <div className="px-3 py-2 text-sm text-gray-500 bg-gray-50 rounded-lg">
-                      No pending case lines found that require components
-                    </div>
-                  ) : (
-                    <select
-                      value={selectedCaseLineId}
-                      onChange={(e) => handleCaseLineSelect(e.target.value)}
-                      className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
+                  <select
+                    value={selectedWarehouse}
+                    onChange={(e) => setSelectedWarehouse(e.target.value)}
+                    className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg 
+                            focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  >
+                    <option value="">-- Select warehouse --</option>
+                    {warehouses.map((w) => (
+                      <option key={w.warehouseId} value={w.warehouseId}>
+                        {w.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {/* ⬆⬆⬆ END NEW */}
+
+                {!caseLineId && (
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Select Case Line *
+                    </label>
+                    {loadingCaseLines ? (
+                      <div className="px-3 py-2 text-sm text-gray-500 bg-gray-50 rounded-lg">
+                        Loading case lines...
+                      </div>
+                    ) : caseLines.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-gray-500 bg-gray-50 rounded-lg">
+                        No pending case lines found that require components
+                      </div>
+                    ) : (
+                      <select
+                        value={selectedCaseLineId}
+                        onChange={(e) => handleCaseLineSelect(e.target.value)}
+                        className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        required
+                      >
+                        <option value="">-- Select a case line --</option>
+                        {caseLines.map((caseLine) => {
+                          const caseLineId =
+                            caseLine.id || caseLine.caseLineId || "";
+                          const vehicleInfo =
+                            caseLine.guaranteeCase?.vehicleProcessingRecord
+                              ?.vin || "Unknown VIN";
+                          const componentName =
+                            caseLine.typeComponent?.name || "Unknown Component";
+                          const quantity = caseLine.quantity || 0;
+
+                          return (
+                            <option key={caseLineId} value={caseLineId}>
+                              {vehicleInfo} - {componentName} (Qty: {quantity})
+                              - Status: {caseLine.status}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    )}
+                  </div>
+                )}
+
+                {/* Items */}
+                <div className="space-y-4 mb-6">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-gray-700">
+                      Components to Request
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleAddItem}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-100 rounded-lg"
                     >
-                      <option value="">-- Select a case line --</option>
-                      {caseLines.map((caseLine) => {
-                        const caseLineId =
-                          caseLine.id || caseLine.caseLineId || "";
-                        const vehicleInfo =
-                          caseLine.guaranteeCase?.vehicleProcessingRecord
-                            ?.vin || "Unknown VIN";
-                        const componentName =
-                          caseLine.typeComponent?.name || "Unknown Component";
-                        const quantity = caseLine.quantity || 0;
+                      <Plus className="w-4 h-4" />
+                      Add Item
+                    </button>
+                  </div>
 
-                        return (
-                          <option key={caseLineId} value={caseLineId}>
-                            {vehicleInfo} - {componentName} (Qty: {quantity}) -
-                            Status: {caseLine.status}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  )}
-                </div>
-              )}
+                  {items.map((item, index) => (
+                    <div
+                      key={index}
+                      className="p-4 bg-gray-50 rounded-lg space-y-3"
+                    >
+                      <div className="flex items-start justify-between">
+                        <span className="text-sm font-medium text-gray-700">
+                          Item {index + 1}
+                        </span>
+                        {items.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveItem(index)}
+                            className="p-1 hover:bg-red-100 rounded"
+                          >
+                            <Minus className="w-4 h-4 text-red-600" />
+                          </button>
+                        )}
+                      </div>
 
-              {/* Items */}
-              <div className="space-y-4 mb-6">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-gray-700">
-                    Components to Request
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleAddItem}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-100 rounded-lg"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Item
-                  </button>
-                </div>
-
-                {items.map((item, index) => (
-                  <div
-                    key={index}
-                    className="p-4 bg-gray-50 rounded-lg space-y-3"
-                  >
-                    <div className="flex items-start justify-between">
-                      <span className="text-sm font-medium text-gray-700">
-                        Item {index + 1}
-                      </span>
-                      {items.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveItem(index)}
-                          className="p-1 hover:bg-red-100 rounded"
-                        >
-                          <Minus className="w-4 h-4 text-red-600" />
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Component selection */}
-                    <div className="relative component-dropdown">
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
-                        Component *
-                      </label>
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input
-                          type="text"
-                          value={componentSearch[index] || item.componentName}
-                          onChange={(e) =>
-                            handleSearchChange(index, e.target.value)
-                          }
-                          onFocus={() => {
-                            const newDropdown = [...showDropdown];
-                            newDropdown[index] = true;
-                            setShowDropdown(newDropdown);
-                          }}
-                          placeholder="Search for component..."
-                          className="w-full pl-9 pr-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                          required
-                        />
-                        {showDropdown[index] && (
-                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                            {getFilteredComponents(componentSearch[index])
-                              .length > 0 ? (
-                              getFilteredComponents(componentSearch[index]).map(
-                                (component) => (
+                      {/* Component selection */}
+                      <div className="relative component-dropdown">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Component *
+                        </label>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <input
+                            type="text"
+                            value={componentSearch[index] || item.componentName}
+                            onChange={(e) =>
+                              handleSearchChange(index, e.target.value)
+                            }
+                            onFocus={() => {
+                              const newDropdown = [...showDropdown];
+                              newDropdown[index] = true;
+                              setShowDropdown(newDropdown);
+                            }}
+                            placeholder="Search for component..."
+                            className="w-full pl-9 pr-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                            required
+                          />
+                          {showDropdown[index] && (
+                            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                              {getFilteredComponents(componentSearch[index])
+                                .length > 0 ? (
+                                getFilteredComponents(
+                                  componentSearch[index]
+                                ).map((component) => (
                                   <button
                                     key={component.typeComponentId}
                                     type="button"
@@ -501,72 +501,74 @@ export function CreateStockTransferRequestModal({
                                       {component.name}
                                     </p>
                                   </button>
-                                )
-                              )
-                            ) : (
-                              <div className="px-3 py-2 text-sm text-gray-500">
-                                No components found
-                              </div>
-                            )}
-                          </div>
-                        )}
+                                ))
+                              ) : (
+                                <div className="px-3 py-2 text-sm text-gray-500">
+                                  No components found
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Quantity *
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={item.requestedQuantity}
+                          onChange={(e) =>
+                            handleItemChange(
+                              index,
+                              "requestedQuantity",
+                              parseInt(e.target.value) || 1
+                            )
+                          }
+                          className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          required
+                        />
                       </div>
                     </div>
+                  ))}
+                </div>
 
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
-                        Quantity *
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={item.requestedQuantity}
-                        onChange={(e) =>
-                          handleItemChange(
-                            index,
-                            "requestedQuantity",
-                            parseInt(e.target.value) || 1
-                          )
-                        }
-                        className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        required
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+                {/* Notes */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Notes (Optional)
+                  </label>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Additional information about this request..."
+                    rows={3}
+                    className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
+                  />
+                </div>
+              </form>
+            </div>
 
-              {/* Notes */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Notes (Optional)
-                </label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Additional information about this request..."
-                  rows={3}
-                  className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {isSubmitting ? "Creating..." : "Create Request"}
-                </button>
-              </div>
-            </form>
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="transfer-request-form"
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {isSubmitting ? "Creating..." : "Create Request"}
+              </button>
+            </div>
           </motion.div>
         </div>
       )}
