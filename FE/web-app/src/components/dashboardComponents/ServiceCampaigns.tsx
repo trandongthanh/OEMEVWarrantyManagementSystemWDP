@@ -25,7 +25,7 @@ export default function ServiceCampaigns() {
     >
       <h2 className="text-xl font-bold text-white mb-1">Service Campaigns</h2>
       <p className="text-sm text-gray-300 mb-4">
-        Manage recall campaigns and customer notifications
+        Manage service campaigns and customer notifications
       </p>
 
       {campaigns.map((c) => (

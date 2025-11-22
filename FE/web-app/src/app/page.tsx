@@ -1,11 +1,19 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { Header } from "../components/Header";
 import { HeroSection } from "../components/HeroSection";
 import { FeaturesSection } from "../components/FeaturesSection";
 import { WarrantyTypesSection } from "../components/WarrantyTypesSection";
 import { TestimonialsSection } from "../components/TestimonialsSection";
 import { Footer } from "../components/Footer";
+import { TrackingWidget } from "../components/TrackingWidget";
+
+// Dynamically import GuestChatWidget to prevent socket.io SSR bundling
+const GuestChatWidget = dynamic(
+  () => import("../components/chat").then((mod) => mod.GuestChatWidget),
+  { ssr: false }
+);
 
 export default function Home() {
   return (
@@ -55,11 +63,15 @@ export default function Home() {
       <Header />
       <main className="pt-20 relative z-10">
         <HeroSection />
+        <TrackingWidget />
         <FeaturesSection />
         <WarrantyTypesSection />
         <TestimonialsSection />
       </main>
       <Footer />
+
+      {/* Guest Chat Widget - Floating chat for anonymous visitors */}
+      <GuestChatWidget serviceCenterId="default-service-center" />
     </div>
   );
 }

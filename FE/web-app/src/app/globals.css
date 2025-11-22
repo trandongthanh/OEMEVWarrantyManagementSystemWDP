@@ -48,6 +48,30 @@ html {
   scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }
 
+/* Custom scrollbar for component warranties */
+.scrollbar-component-warranties::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-component-warranties::-webkit-scrollbar-track {
+  background: #f3f4f6; /* gray-100 */
+}
+
+.scrollbar-component-warranties::-webkit-scrollbar-thumb {
+  background: #d1d5db; /* gray-300 */
+  border-radius: 3px;
+  transition: background 0.3s ease;
+}
+
+.scrollbar-component-warranties::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af; /* gray-400 */
+}
+
+.scrollbar-component-warranties {
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db #f3f4f6; /* thumb track */
+}
+
 /* Enhanced Loading Animation */
 @keyframes shimmer {
   0% {
