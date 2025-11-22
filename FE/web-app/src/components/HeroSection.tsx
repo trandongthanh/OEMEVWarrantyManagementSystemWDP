@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { motion, useMotionValue, useSpring } from "framer-motion";
-import { ArrowRight, Play } from "lucide-react";
+
 // import ModelViewer from "./ModelViewer";
 
 export function HeroSection() {
@@ -146,82 +146,6 @@ export function HeroSection() {
                 </div>
               </motion.div>
             </div>
-
-            {/* Premium Action Buttons */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1, delay: 0.8 }}
-              className="flex flex-col sm:flex-row gap-6"
-            >
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="group relative bg-gradient-to-r from-blue-500 to-purple-600 text-white px-10 py-5 rounded-full overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-blue-500/25"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-700 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                <div className="relative flex items-center justify-center gap-3">
-                  <span className="font-medium tracking-wide">
-                    Explore Coverage
-                  </span>
-                  <ArrowRight className="h-5 w-5 group-hover:translate-x-2 transition-transform duration-300" />
-                </div>
-              </motion.button>
-
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="group relative border border-white/30 text-white px-10 py-5 rounded-full backdrop-blur-sm hover:bg-white/10 hover:border-white/50 transition-all duration-500"
-              >
-                <div className="flex items-center justify-center gap-3">
-                  <Play className="h-5 w-5 group-hover:scale-110 transition-transform duration-300" />
-                  <span className="font-medium tracking-wide">Watch Demo</span>
-                </div>
-              </motion.button>
-            </motion.div>
-
-            {/* Enhanced Stats with Premium Design */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1, delay: 1 }}
-              className="grid grid-cols-3 gap-8 pt-12 border-t border-white/10"
-            >
-              {[
-                { value: "50K+", label: "Vehicles Protected", accent: "blue" },
-                {
-                  value: "99.8%",
-                  label: "Customer Satisfaction",
-                  accent: "green",
-                },
-                { value: "24/7", label: "Support Available", accent: "purple" },
-              ].map((stat, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: 1.2 + index * 0.1 }}
-                  className="group text-center relative"
-                >
-                  <div className="relative bg-gradient-to-br from-gray-800/20 to-gray-900/20 backdrop-blur-sm border border-gray-700/20 rounded-xl p-4 hover:border-gray-600/30 transition-all duration-300">
-                    <div
-                      className={`text-4xl font-extralight text-transparent bg-clip-text bg-gradient-to-r ${
-                        stat.accent === "blue"
-                          ? "from-blue-400 to-blue-200"
-                          : stat.accent === "green"
-                          ? "from-emerald-400 to-emerald-200"
-                          : "from-purple-400 to-purple-200"
-                      } mb-2 group-hover:scale-105 transition-transform duration-300`}
-                    >
-                      {stat.value}
-                    </div>
-                    <div className="text-sm text-gray-400 font-light tracking-wide">
-                      {stat.label}
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
           </motion.div>
 
           {/* Right Content - Simple 3D Model (Original Style) */}

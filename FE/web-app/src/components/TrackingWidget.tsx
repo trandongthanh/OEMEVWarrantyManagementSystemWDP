@@ -126,7 +126,7 @@ export function TrackingWidget() {
   };
 
   return (
-    <section className="relative py-24 overflow-hidden">
+    <section id="tracking" className="relative py-24 overflow-hidden">
       {/* Background Elements */}
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-blue-500/5 to-transparent"></div>
 

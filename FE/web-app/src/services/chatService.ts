@@ -42,6 +42,7 @@ export interface Conversation {
     name?: string; // Optional since Guest table only has guestId
   };
   status: ConversationStatus;
+  serviceCenterId?: string; // TODO: Backend will add this field
   lastMessage?: {
     content: string;
     sentAt: string;

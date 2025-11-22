@@ -255,7 +255,7 @@ const coverageAreas = [
 
 export function WarrantyTypesSection() {
   return (
-    <section className="py-24 relative">
+    <section id="warranty-types" className="py-24 relative">
       {/* Subtle section-specific accent only */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_60%,rgba(59,130,246,0.06),transparent_70%)]"></div>
 
@@ -461,7 +461,7 @@ export function WarrantyTypesSection() {
               </p>
 
               {/* Stats row */}
-              <div className="flex justify-center items-center gap-8 mb-8 text-sm">
+              <div className="flex justify-center items-center gap-8 text-sm">
                 <div className="flex items-center gap-2 text-emerald-400">
                   <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
                   <span>50K+ Protected EVs</span>
@@ -474,16 +474,6 @@ export function WarrantyTypesSection() {
                   <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
                   <span>24/7 Support</span>
                 </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <button className="group relative bg-gradient-to-r from-blue-500 to-purple-600 text-white font-medium py-4 px-8 rounded-xl hover:shadow-lg hover:shadow-blue-500/25 hover:scale-105 transition-all duration-300 overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  <span className="relative z-10">Get Started Today</span>
-                </button>
-                <button className="group border border-gray-600 text-white font-medium py-4 px-8 rounded-xl hover:border-white hover:bg-white hover:text-black transition-all duration-300">
-                  Learn More
-                </button>
               </div>
             </div>
           </div>

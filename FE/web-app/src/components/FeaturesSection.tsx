@@ -5,7 +5,7 @@ import MagicBento from "./MagicBento";
 
 export function FeaturesSection() {
   return (
-    <section className="py-24 relative">
+    <section id="features" className="py-24 relative">
       {/* Subtle section-specific accent only */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_30%,rgba(16,185,129,0.04),transparent_60%)]"></div>
 

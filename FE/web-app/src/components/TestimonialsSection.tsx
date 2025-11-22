@@ -69,7 +69,7 @@ const stats = [
 
 export function TestimonialsSection() {
   return (
-    <section className="py-24 relative">
+    <section id="testimonials" className="py-24 relative">
       {/* Subtle section-specific accent only */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_70%,rgba(16,185,129,0.05),transparent_60%)]"></div>
 

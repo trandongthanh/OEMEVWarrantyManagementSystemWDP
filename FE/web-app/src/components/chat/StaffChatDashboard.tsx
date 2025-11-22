@@ -59,7 +59,7 @@ export default function StaffChatDashboard({
   const authToken =
     typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
 
-  // Get userId from userInfo JSON object
+  // Get userId and serviceCenterId from userInfo JSON object
   const currentUserId = (() => {
     if (typeof window === "undefined") return null;
     const userInfoStr = localStorage.getItem("userInfo");
@@ -67,6 +67,18 @@ export default function StaffChatDashboard({
     try {
       const userInfo = JSON.parse(userInfoStr);
       return userInfo.userId;
+    } catch {
+      return null;
+    }
+  })();
+
+  const currentServiceCenterId = (() => {
+    if (typeof window === "undefined") return null;
+    const userInfoStr = localStorage.getItem("userInfo");
+    if (!userInfoStr) return null;
+    try {
+      const userInfo = JSON.parse(userInfoStr);
+      return userInfo.serviceCenterId;
     } catch {
       return null;
     }
@@ -315,7 +327,30 @@ export default function StaffChatDashboard({
     setLoading(true);
     try {
       const convs = await getMyConversations(selectedTab);
-      setConversations(convs);
+
+      // Filter conversations by service center
+      // UNASSIGNED: Show only if serviceCenterId matches staff's service center
+      // ACTIVE/CLOSED: Show only if assigned to this staff (backend filters this)
+      const filteredConvs = convs.filter((conv) => {
+        // For UNASSIGNED conversations, filter by service center
+        if (conv.status === "UNASSIGNED") {
+          // If backend has implemented serviceCenterId, use it for filtering
+          if (conv.serviceCenterId) {
+            return conv.serviceCenterId === currentServiceCenterId;
+          }
+          // If no serviceCenterId yet, show all (temporary fallback)
+          return true;
+        }
+
+        // Show ACTIVE/CLOSED conversations (backend already filters by staffId)
+        return true;
+      });
+
+      console.log(
+        `[Staff] Loaded ${convs.length} conversations, showing ${filteredConvs.length} for service center ${currentServiceCenterId}`
+      );
+
+      setConversations(filteredConvs);
     } catch (err) {
       console.error("Failed to load conversations:", err);
     } finally {

@@ -1,7 +1,8 @@
 import apiClient from "@/lib/apiClient";
 
 export interface WarrantyComponent {
-  warrantyComponentId: string;
+  warrantyComponentId?: string;
+  id?: string; // Backend returns 'id' instead of 'warrantyComponentId'
   vehicleModelId: string;
   typeComponentId: string;
   quantity: number;
@@ -13,13 +14,13 @@ export interface WarrantyComponent {
     typeComponentId: string;
     name: string;
     sku: string;
-    category: string;
-    price: number;
+    category?: string;
+    price?: number;
   };
   vehicleModel?: {
     vehicleModelId: string;
     vehicleModelName: string;
-    sku: string;
+    sku?: string;
     makeBrand?: string;
   };
 }

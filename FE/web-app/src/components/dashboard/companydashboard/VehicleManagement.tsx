@@ -20,12 +20,19 @@ import {
   MapPin,
   ChevronRight,
   X,
+  Hash,
+  Gauge,
+  Edit2,
+  Trash2,
 } from "lucide-react";
 import VehicleBulkUpload from "./VehicleBulkUpload";
 import vehicleModelService, {
   VehicleModel,
 } from "@/services/vehicleModelService";
 import inventoryService from "@/services/inventoryService";
+import warrantyComponentService, {
+  type WarrantyComponent,
+} from "@/services/warrantyComponentService";
 import { authService } from "@/services";
 import { toast } from "sonner";
 
@@ -280,7 +287,7 @@ function CreateVehicleModelModal({
           vehicleModelData
         );
 
-        // Step 2: Add warranty components to the created vehicle model
+        // Step 2: Set warranty terms for components on the created vehicle model
         const warrantyComponentsData = components.map((c) => {
           const baseData = {
             durationMonth: parseInt(c.durationMonth),
@@ -396,7 +403,7 @@ function CreateVehicleModelModal({
                 <p className="text-sm text-gray-600 mt-1">
                   {currentStep === 1
                     ? "Step 1: Basic Information"
-                    : "Step 2: Warranty Components"}
+                    : "Step 2: Warranty Terms"}
                 </p>
                 {/* Step Indicator */}
                 <div className="flex items-center gap-2 mt-3">
@@ -431,7 +438,7 @@ function CreateVehicleModelModal({
                     >
                       2
                     </div>
-                    <span className="text-xs font-medium">Components</span>
+                    <span className="text-xs font-medium">Warranty Terms</span>
                   </div>
                 </div>
               </div>
@@ -724,14 +731,14 @@ function CreateVehicleModelModal({
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                       <Shield className="w-4 h-4 text-green-600" />
-                      Configure Warranty Components
+                      Configure Warranty Terms
                     </h3>
                     <button
                       onClick={addComponent}
                       className="flex items-center gap-2 px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                     >
                       <Plus className="w-4 h-4" />
-                      Add Component
+                      Add Warranty Term
                     </button>
                   </div>
 
@@ -739,17 +746,18 @@ function CreateVehicleModelModal({
                     <div className="text-center py-8 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl">
                       <Package className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                       <p className="text-sm text-gray-600 mb-2">
-                        No warranty components added yet
+                        No warranty terms configured yet
                       </p>
                       <p className="text-xs text-gray-500 mb-4">
-                        Add at least one component to continue
+                        Add at least one component with warranty terms to
+                        continue
                       </p>
                       <button
                         onClick={addComponent}
                         className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
                       >
                         <Plus className="w-4 h-4" />
-                        Add First Component
+                        Add First Warranty Term
                       </button>
                     </div>
                   ) : (
@@ -761,7 +769,7 @@ function CreateVehicleModelModal({
                         >
                           <div className="flex items-start justify-between mb-3">
                             <span className="text-sm font-semibold text-gray-900">
-                              Component #{index + 1}
+                              Warranty Term #{index + 1}
                             </span>
                             <button
                               onClick={() => removeComponent(index)}
@@ -1042,7 +1050,7 @@ function CreateVehicleModelModal({
                     disabled={loading}
                     className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                   >
-                    Next: Add Components
+                    Next: Set Warranty Terms
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 </>
@@ -1098,6 +1106,34 @@ export default function VehicleManagement() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedModel, setSelectedModel] = useState<VehicleModel | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showWarrantyModal, setShowWarrantyModal] = useState(false);
+  const [showAddWarrantyModal, setShowAddWarrantyModal] = useState(false);
+  const [warrantyComponents, setWarrantyComponents] = useState<
+    WarrantyComponent[]
+  >([]);
+  const [loadingWarranty, setLoadingWarranty] = useState(false);
+  const [addWarrantyLoading, setAddWarrantyLoading] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [componentToDelete, setComponentToDelete] =
+    useState<WarrantyComponent | null>(null);
+  const [newWarrantyTerm, setNewWarrantyTerm] = useState({
+    isNew: false,
+    typeComponentId: "",
+    name: "",
+    price: "",
+    sku: "",
+    category: "",
+    makeBrand: "",
+    durationMonth: "",
+    mileageLimit: "",
+    quantity: "1",
+  });
+  const [availableComponents, setAvailableComponents] = useState<
+    Array<{
+      typeComponentId: string;
+      typeComponent: { name: string; sku: string };
+    }>
+  >([]);
 
   useEffect(() => {
     fetchVehicleModels();
@@ -1731,7 +1767,32 @@ export default function VehicleManagement() {
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200">
+            <div className="flex items-center justify-between gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200">
+              <button
+                onClick={async () => {
+                  setShowDetailModal(false);
+                  setLoadingWarranty(true);
+                  setShowWarrantyModal(true);
+                  try {
+                    const response =
+                      await warrantyComponentService.getWarrantyComponents({
+                        vehicleModelId: selectedModel.vehicleModelId,
+                        page: 1,
+                        limit: 100,
+                      });
+                    setWarrantyComponents(response.data.items || []);
+                  } catch (error) {
+                    console.error("Error loading warranty components:", error);
+                    toast.error("Failed to load warranty terms");
+                  } finally {
+                    setLoadingWarranty(false);
+                  }
+                }}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Shield className="w-4 h-4" />
+                Manage Warranty Terms
+              </button>
               <button
                 onClick={() => {
                   setShowDetailModal(false);
@@ -1745,6 +1806,842 @@ export default function VehicleManagement() {
           </motion.div>
         </div>
       )}
+
+      {/* Warranty Terms Management Modal */}
+      {showWarrantyModal && selectedModel && (
+        <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-[60] p-4 overflow-y-auto">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl my-8"
+          >
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <Shield className="w-6 h-6 text-blue-600" />
+                  Warranty Terms for {selectedModel.vehicleModelName}
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Configure warranty components and terms for this vehicle model
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowWarrantyModal(false);
+                  setWarrantyComponents([]);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="px-6 py-4 max-h-[70vh] overflow-y-auto">
+              {loadingWarranty ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                </div>
+              ) : warrantyComponents.length === 0 ? (
+                <div className="text-center py-12">
+                  <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    No Warranty Terms Yet
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-6">
+                    This vehicle model doesn&apos;t have any warranty components
+                    configured yet.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setShowAddWarrantyModal(true);
+                    }}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  >
+                    <Plus className="w-5 h-5" />
+                    Add Warranty Terms
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {warrantyComponents.length} Warranty Term
+                      {warrantyComponents.length !== 1 ? "s" : ""}
+                    </h3>
+                    <button
+                      onClick={() => {
+                        setShowAddWarrantyModal(true);
+                      }}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add New Term
+                    </button>
+                  </div>
+
+                  {warrantyComponents.map((component, index) => {
+                    const componentId =
+                      component.warrantyComponentId || component.id;
+                    return (
+                      <motion.div
+                        key={componentId || index}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:shadow-md transition-all bg-gradient-to-r from-white to-gray-50"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 space-y-3">
+                            {/* Vehicle Model */}
+                            <div className="flex items-center gap-2">
+                              <Car className="w-5 h-5 text-blue-600" />
+                              <div>
+                                <span className="text-sm font-semibold text-gray-900">
+                                  {component.vehicleModel?.vehicleModelName}
+                                </span>
+                                {component.vehicleModel?.makeBrand && (
+                                  <span className="text-gray-500 text-sm ml-2">
+                                    ({component.vehicleModel.makeBrand})
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Component Name */}
+                            <div className="flex items-center gap-2">
+                              <Package className="w-5 h-5 text-purple-600" />
+                              <div>
+                                <span className="text-sm font-medium text-gray-900">
+                                  {component.typeComponent?.name}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* SKU */}
+                            <div className="flex items-center gap-2">
+                              <Hash className="w-5 h-5 text-gray-500" />
+                              <span className="text-sm text-gray-600 font-mono">
+                                {component.typeComponent?.sku}
+                              </span>
+                            </div>
+
+                            {/* Warranty Terms */}
+                            <div className="grid grid-cols-3 gap-4 mt-3 pt-3 border-t border-gray-200">
+                              <div className="flex items-center gap-2">
+                                <Package className="w-4 h-4 text-green-600" />
+                                <div>
+                                  <p className="text-xs text-gray-500">
+                                    Quantity
+                                  </p>
+                                  <p className="text-sm font-semibold text-gray-900">
+                                    {component.quantity}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Clock className="w-4 h-4 text-blue-600" />
+                                <div>
+                                  <p className="text-xs text-gray-500">
+                                    Duration
+                                  </p>
+                                  <p className="text-sm font-semibold text-gray-900">
+                                    {component.durationMonth} months
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Gauge className="w-4 h-4 text-orange-600" />
+                                <div>
+                                  <p className="text-xs text-gray-500">
+                                    Mileage
+                                  </p>
+                                  <p className="text-sm font-semibold text-gray-900">
+                                    {component.mileageLimit.toLocaleString()} km
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex flex-col gap-2 relative z-10">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toast.info("Edit functionality coming soon");
+                              }}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                              title="Edit"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setComponentToDelete(component);
+                                setShowDeleteModal(true);
+                              }}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowWarrantyModal(false);
+                  setWarrantyComponents([]);
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Add Warranty Terms Modal */}
+      {showAddWarrantyModal && selectedModel && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[80] p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowAddWarrantyModal(false);
+              setNewWarrantyTerm({
+                isNew: false,
+                typeComponentId: "",
+                name: "",
+                price: "",
+                sku: "",
+                category: "",
+                makeBrand: "",
+                durationMonth: "",
+                mileageLimit: "",
+                quantity: "1",
+              });
+            }
+          }}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-white">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <Plus className="w-6 h-6 text-green-600" />
+                  Add Warranty Term
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  {selectedModel.vehicleModelName}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAddWarrantyModal(false);
+                  setNewWarrantyTerm({
+                    isNew: false,
+                    typeComponentId: "",
+                    name: "",
+                    price: "",
+                    sku: "",
+                    category: "",
+                    makeBrand: "",
+                    durationMonth: "",
+                    mileageLimit: "",
+                    quantity: "1",
+                  });
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Content - Form */}
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+
+                  // Validate required fields
+                  if (newWarrantyTerm.isNew) {
+                    if (!newWarrantyTerm.name.trim()) {
+                      toast.error("Component name is required");
+                      return;
+                    }
+                    if (!newWarrantyTerm.sku.trim()) {
+                      toast.error("SKU is required");
+                      return;
+                    }
+                    if (
+                      !newWarrantyTerm.price ||
+                      parseFloat(newWarrantyTerm.price) <= 0
+                    ) {
+                      toast.error("Valid price is required");
+                      return;
+                    }
+                    if (!newWarrantyTerm.category) {
+                      toast.error("Category is required");
+                      return;
+                    }
+                    if (!newWarrantyTerm.makeBrand.trim()) {
+                      toast.error("Make/Brand is required");
+                      return;
+                    }
+                  } else {
+                    if (!newWarrantyTerm.typeComponentId) {
+                      toast.error("Please select a component");
+                      return;
+                    }
+                  }
+
+                  // Validate common fields
+                  if (
+                    !newWarrantyTerm.quantity ||
+                    parseInt(newWarrantyTerm.quantity) <= 0
+                  ) {
+                    toast.error("Valid quantity is required");
+                    return;
+                  }
+                  if (
+                    !newWarrantyTerm.durationMonth ||
+                    parseInt(newWarrantyTerm.durationMonth) <= 0
+                  ) {
+                    toast.error("Valid warranty duration is required");
+                    return;
+                  }
+                  if (
+                    !newWarrantyTerm.mileageLimit ||
+                    parseInt(newWarrantyTerm.mileageLimit) <= 0
+                  ) {
+                    toast.error("Valid mileage limit is required");
+                    return;
+                  }
+
+                  setAddWarrantyLoading(true);
+
+                  try {
+                    // Build payload - ONLY include relevant fields for each mode
+                    let payload;
+
+                    if (newWarrantyTerm.isNew) {
+                      // New component - send all fields
+                      payload = [
+                        {
+                          quantity: parseInt(newWarrantyTerm.quantity),
+                          durationMonth: parseInt(
+                            newWarrantyTerm.durationMonth
+                          ),
+                          mileageLimit: parseInt(newWarrantyTerm.mileageLimit),
+                          name: newWarrantyTerm.name,
+                          price: parseFloat(newWarrantyTerm.price),
+                          sku: newWarrantyTerm.sku,
+                          category: newWarrantyTerm.category,
+                          makeBrand: newWarrantyTerm.makeBrand,
+                        },
+                      ];
+                    } else {
+                      // Existing component - ONLY send typeComponentId and warranty terms
+                      payload = [
+                        {
+                          typeComponentId: newWarrantyTerm.typeComponentId,
+                          quantity: parseInt(newWarrantyTerm.quantity),
+                          durationMonth: parseInt(
+                            newWarrantyTerm.durationMonth
+                          ),
+                          mileageLimit: parseInt(newWarrantyTerm.mileageLimit),
+                        },
+                      ];
+                    }
+
+                    console.log(
+                      "Payload being sent:",
+                      JSON.stringify(payload, null, 2)
+                    );
+                    console.log("isNew:", newWarrantyTerm.isNew);
+
+                    await vehicleModelService.addWarrantyComponents(
+                      selectedModel.vehicleModelId,
+                      payload
+                    );
+
+                    toast.success("Warranty term added successfully");
+                    setShowAddWarrantyModal(false);
+
+                    // Reload warranty components
+                    const response =
+                      await warrantyComponentService.getWarrantyComponents({
+                        vehicleModelId: selectedModel.vehicleModelId,
+                        page: 1,
+                        limit: 100,
+                      });
+                    setWarrantyComponents(response.data.items || []);
+
+                    // Reset form
+                    setNewWarrantyTerm({
+                      isNew: false,
+                      typeComponentId: "",
+                      name: "",
+                      price: "",
+                      sku: "",
+                      category: "",
+                      makeBrand: "",
+                      durationMonth: "",
+                      mileageLimit: "",
+                      quantity: "1",
+                    });
+                  } catch (error) {
+                    console.error("Error adding warranty term:", error);
+                    toast.error("Failed to add warranty term");
+                  } finally {
+                    setAddWarrantyLoading(false);
+                  }
+                }}
+                className="space-y-5"
+              >
+                {/* Component Selection Mode */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Component Source
+                  </label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        checked={!newWarrantyTerm.isNew}
+                        onChange={() =>
+                          setNewWarrantyTerm({
+                            ...newWarrantyTerm,
+                            isNew: false,
+                          })
+                        }
+                        className="w-4 h-4 text-blue-600"
+                      />
+                      <span className="text-sm text-gray-700">
+                        Existing Component
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        checked={newWarrantyTerm.isNew}
+                        onChange={() =>
+                          setNewWarrantyTerm({
+                            ...newWarrantyTerm,
+                            isNew: true,
+                          })
+                        }
+                        className="w-4 h-4 text-blue-600"
+                      />
+                      <span className="text-sm text-gray-700">
+                        Create New Component
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Existing Component Selection */}
+                {!newWarrantyTerm.isNew && (
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Select Component <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      required
+                      value={newWarrantyTerm.typeComponentId}
+                      onChange={(e) => {
+                        setNewWarrantyTerm({
+                          ...newWarrantyTerm,
+                          typeComponentId: e.target.value,
+                        });
+                      }}
+                      onFocus={async () => {
+                        if (availableComponents.length === 0) {
+                          try {
+                            const componentsData =
+                              await inventoryService.getTypeComponents("");
+                            const uniqueComponents = Array.from(
+                              new Map(
+                                componentsData.map((c) => [
+                                  c.typeComponentId,
+                                  c,
+                                ])
+                              ).values()
+                            );
+                            setAvailableComponents(uniqueComponents);
+                          } catch (error) {
+                            console.error("Error loading components:", error);
+                          }
+                        }
+                      }}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 [&>option]:bg-white [&>option]:text-gray-900"
+                    >
+                      <option value="">Select a component...</option>
+                      {availableComponents.map((c) => (
+                        <option
+                          key={c.typeComponentId}
+                          value={c.typeComponentId}
+                        >
+                          {c.typeComponent?.name} - {c.typeComponent?.sku}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* New Component Fields */}
+                {newWarrantyTerm.isNew && (
+                  <div className="space-y-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-medium text-gray-700 block mb-1">
+                          Component Name <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={newWarrantyTerm.name}
+                          onChange={(e) =>
+                            setNewWarrantyTerm({
+                              ...newWarrantyTerm,
+                              name: e.target.value,
+                            })
+                          }
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                          placeholder="e.g., Battery Pack 60kWh"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-medium text-gray-700 block mb-1">
+                          SKU <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={newWarrantyTerm.sku}
+                          onChange={(e) =>
+                            setNewWarrantyTerm({
+                              ...newWarrantyTerm,
+                              sku: e.target.value,
+                            })
+                          }
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                          placeholder="e.g., BAT-60KWH-001"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-medium text-gray-700 block mb-1">
+                          Category <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          required
+                          value={newWarrantyTerm.category}
+                          onChange={(e) =>
+                            setNewWarrantyTerm({
+                              ...newWarrantyTerm,
+                              category: e.target.value,
+                            })
+                          }
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                        >
+                          <option value="">Select category...</option>
+                          {CATEGORIES.map((cat) => (
+                            <option key={cat.value} value={cat.value}>
+                              {cat.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-700 block mb-1">
+                          Price <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          required
+                          value={newWarrantyTerm.price}
+                          onChange={(e) =>
+                            setNewWarrantyTerm({
+                              ...newWarrantyTerm,
+                              price: e.target.value,
+                            })
+                          }
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                          placeholder="e.g., 15000"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-700 block mb-1">
+                        Make/Brand <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={newWarrantyTerm.makeBrand}
+                        onChange={(e) =>
+                          setNewWarrantyTerm({
+                            ...newWarrantyTerm,
+                            makeBrand: e.target.value,
+                          })
+                        }
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                        placeholder="e.g., CATL"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Warranty Terms */}
+                <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <h4 className="font-medium text-gray-900 text-sm flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-blue-600" />
+                    Warranty Terms
+                  </h4>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Quantity <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        required
+                        value={newWarrantyTerm.quantity}
+                        onChange={(e) =>
+                          setNewWarrantyTerm({
+                            ...newWarrantyTerm,
+                            quantity: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border text-black border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Duration (months){" "}
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        placeholder="36"
+                        min="1"
+                        required
+                        value={newWarrantyTerm.durationMonth}
+                        onChange={(e) =>
+                          setNewWarrantyTerm({
+                            ...newWarrantyTerm,
+                            durationMonth: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border text-black border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Mileage (km) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="100000"
+                        required
+                        value={newWarrantyTerm.mileageLimit}
+                        onChange={(e) =>
+                          setNewWarrantyTerm({
+                            ...newWarrantyTerm,
+                            mileageLimit: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border text-black border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer Buttons */}
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddWarrantyModal(false);
+                      setNewWarrantyTerm({
+                        isNew: false,
+                        typeComponentId: "",
+                        name: "",
+                        price: "",
+                        sku: "",
+                        category: "",
+                        makeBrand: "",
+                        durationMonth: "",
+                        mileageLimit: "",
+                        quantity: "1",
+                      });
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={addWarrantyLoading}
+                    className="flex items-center gap-2 px-6 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {addWarrantyLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4" />
+                        Add Warranty Term
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteModal && componentToDelete && selectedModel && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[90] p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl shadow-2xl max-w-md w-full"
+            >
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+                      <AlertCircle className="w-6 h-6 text-red-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900">
+                        Confirm Deletion
+                      </h2>
+                      <p className="text-sm text-gray-500 mt-0.5">
+                        This action cannot be undone
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowDeleteModal(false);
+                      setComponentToDelete(null);
+                    }}
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5 text-gray-500" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6">
+                <p className="text-gray-700 mb-4">
+                  Are you sure you want to remove the warranty term for:
+                </p>
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-2">
+                  <p className="font-semibold text-gray-900">
+                    {componentToDelete.typeComponent?.name}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    SKU: {componentToDelete.typeComponent?.sku}
+                  </p>
+                  <div className="flex items-center gap-4 mt-2 pt-2 border-t border-gray-200">
+                    <span className="text-xs text-gray-500">
+                      Duration: {componentToDelete.durationMonth} months
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      Mileage: {componentToDelete.mileageLimit.toLocaleString()}{" "}
+                      km
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-gray-200 flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setComponentToDelete(null);
+                  }}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    const componentId =
+                      componentToDelete.warrantyComponentId ||
+                      componentToDelete.id;
+                    if (!componentId) {
+                      toast.error("Invalid component ID");
+                      return;
+                    }
+
+                    try {
+                      await warrantyComponentService.deleteWarrantyComponent(
+                        componentId
+                      );
+                      toast.success("Warranty term deleted successfully");
+                      setShowDeleteModal(false);
+                      setComponentToDelete(null);
+
+                      // Reload warranty components
+                      const response =
+                        await warrantyComponentService.getWarrantyComponents({
+                          vehicleModelId: selectedModel.vehicleModelId,
+                          page: 1,
+                          limit: 100,
+                        });
+                      setWarrantyComponents(response.data.items || []);
+                    } catch (error) {
+                      console.error("Error deleting warranty term:", error);
+                      toast.error("Failed to delete warranty term");
+                    }
+                  }}
+                  className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                >
+                  Delete
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

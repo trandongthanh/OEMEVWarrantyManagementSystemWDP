@@ -54,31 +54,31 @@ export function Header() {
           {/* Enhanced Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
             <a
-              href="#vehicles"
+              href="#warranty-types"
               className="text-gray-300 hover:text-blue-400 transition-colors duration-300 relative group"
             >
-              <span>Vehicles</span>
+              <span>Warranty Plans</span>
               <div className="absolute -bottom-1 left-0 w-0 h-px bg-gradient-to-r from-blue-400 to-purple-400 group-hover:w-full transition-all duration-300"></div>
             </a>
             <a
-              href="#coverage"
+              href="#features"
               className="text-gray-300 hover:text-emerald-400 transition-colors duration-300 relative group"
             >
-              <span>Coverage</span>
+              <span>Features</span>
               <div className="absolute -bottom-1 left-0 w-0 h-px bg-gradient-to-r from-emerald-400 to-blue-400 group-hover:w-full transition-all duration-300"></div>
             </a>
             <a
-              href="#claims"
+              href="#tracking"
               className="text-gray-300 hover:text-purple-400 transition-colors duration-300 relative group"
             >
-              <span>Claims</span>
+              <span>Track Repair</span>
               <div className="absolute -bottom-1 left-0 w-0 h-px bg-gradient-to-r from-purple-400 to-pink-400 group-hover:w-full transition-all duration-300"></div>
             </a>
             <a
-              href="#support"
+              href="#testimonials"
               className="text-gray-300 hover:text-indigo-400 transition-colors duration-300 relative group"
             >
-              <span>Support</span>
+              <span>Testimonials</span>
               <div className="absolute -bottom-1 left-0 w-0 h-px bg-gradient-to-r from-indigo-400 to-blue-400 group-hover:w-full transition-all duration-300"></div>
             </a>
           </div>
@@ -122,36 +122,36 @@ export function Header() {
           >
             <div className="flex flex-col space-y-4">
               <a
-                href="#vehicles"
+                href="#warranty-types"
                 className="text-gray-300 hover:text-blue-400 transition-colors px-4 py-3 rounded-lg hover:bg-white/5 flex items-center gap-3"
                 onClick={() => setIsMenuOpen(false)}
               >
                 <div className="w-1 h-1 bg-blue-400 rounded-full"></div>
-                <span>Vehicles</span>
+                <span>Warranty Plans</span>
               </a>
               <a
-                href="#coverage"
+                href="#features"
                 className="text-gray-300 hover:text-emerald-400 transition-colors px-4 py-3 rounded-lg hover:bg-white/5 flex items-center gap-3"
                 onClick={() => setIsMenuOpen(false)}
               >
                 <div className="w-1 h-1 bg-emerald-400 rounded-full"></div>
-                <span>Coverage</span>
+                <span>Features</span>
               </a>
               <a
-                href="#claims"
+                href="#tracking"
                 className="text-gray-300 hover:text-purple-400 transition-colors px-4 py-3 rounded-lg hover:bg-white/5 flex items-center gap-3"
                 onClick={() => setIsMenuOpen(false)}
               >
                 <div className="w-1 h-1 bg-purple-400 rounded-full"></div>
-                <span>Claims</span>
+                <span>Track Repair</span>
               </a>
               <a
-                href="#support"
+                href="#testimonials"
                 className="text-gray-300 hover:text-indigo-400 transition-colors px-4 py-3 rounded-lg hover:bg-white/5 flex items-center gap-3"
                 onClick={() => setIsMenuOpen(false)}
               >
                 <div className="w-1 h-1 bg-indigo-400 rounded-full"></div>
-                <span>Support</span>
+                <span>Testimonials</span>
               </a>
               <div className="flex flex-col space-y-3 px-4 pt-4 border-t border-gray-700/30">
                 <Link

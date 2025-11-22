@@ -36,6 +36,15 @@ export default function WarrantyComponentConfig() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
+  // Check URL parameters on mount to pre-filter by vehicle model
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const vehicleModelId = urlParams.get("vehicleModelId");
+    if (vehicleModelId) {
+      setSelectedVehicleModel(vehicleModelId);
+    }
+  }, []);
+
   const loadComponents = async () => {
     try {
       setLoading(true);
@@ -227,9 +236,11 @@ export default function WarrantyComponentConfig() {
                                   <span className="font-semibold text-gray-900">
                                     {component.vehicleModel?.vehicleModelName}
                                   </span>
-                                  <span className="text-gray-500 text-sm ml-2">
-                                    ({component.vehicleModel?.makeBrand})
-                                  </span>
+                                  {component.vehicleModel?.makeBrand && (
+                                    <span className="text-gray-500 text-sm ml-2">
+                                      ({component.vehicleModel.makeBrand})
+                                    </span>
+                                  )}
                                 </div>
                               </div>
 

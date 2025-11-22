@@ -1,4 +1,5 @@
 import apiClient from "@/lib/apiClient";
+import axios from "axios";
 
 export interface ServiceCenter {
   serviceCenterId: string;
@@ -7,6 +8,9 @@ export interface ServiceCenter {
   phone?: string;
   email?: string;
   vehicleCompanyId?: string;
+  vehicleCompany?: {
+    name: string;
+  };
   createdAt?: string;
   updatedAt?: string;
 }
@@ -15,6 +19,48 @@ export interface ServiceCentersResponse {
   serviceCenters: ServiceCenter[];
   total: number;
 }
+
+/**
+ * Get all service centers using the public API endpoint (for guest users)
+ * This endpoint does not require authentication
+ */
+export const getPublicServiceCenters = async (): Promise<ServiceCenter[]> => {
+  try {
+    // Use axios directly for the public endpoint since it's at /api/public (not /api/v1)
+    const baseUrl =
+      process.env.NEXT_PUBLIC_API_URL || "https://dongthanh.space/api/v1";
+    const publicUrl = baseUrl.replace("/api/v1", "/api/public");
+
+    const response = await axios.get<{
+      status: string;
+      data: Array<{
+        service_center_id: string;
+        name: string;
+        address: string;
+        phone: string;
+        vehicle_company_id: string;
+        vehicleCompany?: {
+          name: string;
+        };
+      }>;
+    }>(`${publicUrl}/service-centers`);
+
+    // Map the backend response to our ServiceCenter interface
+    const serviceCenters: ServiceCenter[] = response.data.data.map((sc) => ({
+      serviceCenterId: sc.service_center_id,
+      name: sc.name,
+      address: sc.address,
+      phone: sc.phone,
+      vehicleCompanyId: sc.vehicle_company_id,
+      vehicleCompany: sc.vehicleCompany,
+    }));
+
+    return serviceCenters;
+  } catch (error) {
+    console.error("Error fetching public service centers:", error);
+    throw error;
+  }
+};
 
 /**
  * Get all service centers for the company
@@ -88,6 +134,7 @@ export const getServiceCenterById = async (
 export const serviceCenterService = {
   getServiceCenters,
   getServiceCenterById,
+  getPublicServiceCenters,
 };
 
 export default serviceCenterService;

@@ -28,6 +28,10 @@ import {
 } from "@/services/chatService";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { decodeFileFromContent } from "@/lib/fileMessageUtils";
+import {
+  getPublicServiceCenters,
+  ServiceCenter,
+} from "@/services/serviceCenterService";
 
 // Lazy-load socket functions to prevent chunk 153 bundling
 const getSocketFunctions = async () => {
@@ -40,7 +44,7 @@ interface GuestChatWidgetProps {
 }
 
 export default function GuestChatWidget({
-  serviceCenterId = "default-sc-1",
+  serviceCenterId: defaultServiceCenterId = "default-sc-1",
 }: GuestChatWidgetProps) {
   const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -65,7 +69,36 @@ export default function GuestChatWidget({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
+  // Service Center Selection
+  const [serviceCenters, setServiceCenters] = useState<ServiceCenter[]>([]);
+  const [selectedServiceCenterId, setSelectedServiceCenterId] =
+    useState<string>(defaultServiceCenterId);
+  const [loadingServiceCenters, setLoadingServiceCenters] = useState(false);
+
   const guestId = getOrCreateGuestId();
+
+  // Fetch service centers on mount
+  useEffect(() => {
+    const fetchServiceCenters = async () => {
+      setLoadingServiceCenters(true);
+      try {
+        const centers = await getPublicServiceCenters();
+        setServiceCenters(centers);
+
+        // If no default is set and we have centers, use the first one
+        if (!defaultServiceCenterId && centers.length > 0) {
+          setSelectedServiceCenterId(centers[0].serviceCenterId);
+        }
+      } catch (error) {
+        console.error("Failed to load service centers:", error);
+        // Keep default if loading fails
+      } finally {
+        setLoadingServiceCenters(false);
+      }
+    };
+
+    fetchServiceCenters();
+  }, [defaultServiceCenterId]);
 
   // Restore previous session on mount
   useEffect(() => {
@@ -292,7 +325,7 @@ export default function GuestChatWidget({
       // If no email, pass the temporary guestId
       const session = await startAnonymousChat(
         guestEmail.trim() ? undefined : guestId,
-        serviceCenterId,
+        selectedServiceCenterId,
         guestEmail.trim() || undefined
       );
 
@@ -864,8 +897,8 @@ export default function GuestChatWidget({
                 </div>
               ) : (
                 /* Initial Form */
-                <div className="relative flex-1 flex items-center justify-center p-8 overflow-y-auto">
-                  <div className="w-full max-w-sm space-y-6 relative z-10">
+                <div className="relative flex-1 overflow-y-auto">
+                  <div className="w-full max-w-sm mx-auto space-y-6 relative z-10 p-8 pt-12">
                     <div className="text-center mb-8">
                       <motion.div
                         initial={{ scale: 0 }}
@@ -893,6 +926,56 @@ export default function GuestChatWidget({
                       </motion.p>
                     </div>
 
+                    {/* Service Center Selection */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.4 }}
+                    >
+                      <label className="block text-sm font-medium text-gray-300 mb-3">
+                        Select Service Center *
+                      </label>
+                      <select
+                        value={selectedServiceCenterId}
+                        onChange={(e) =>
+                          setSelectedServiceCenterId(e.target.value)
+                        }
+                        disabled={loadingServiceCenters}
+                        className="w-full px-5 py-4 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer [&>option]:bg-gray-800 [&>option]:text-white"
+                        style={{
+                          backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                          backgroundPosition: "right 1rem center",
+                          backgroundRepeat: "no-repeat",
+                          backgroundSize: "1.5em 1.5em",
+                        }}
+                      >
+                        {loadingServiceCenters ? (
+                          <option>Loading service centers...</option>
+                        ) : serviceCenters.length === 0 ? (
+                          <option>No service centers available</option>
+                        ) : (
+                          serviceCenters.map((center) => (
+                            <option
+                              key={center.serviceCenterId}
+                              value={center.serviceCenterId}
+                            >
+                              {center.name}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                      {!loadingServiceCenters && serviceCenters.length > 0 && (
+                        <p className="text-xs text-gray-400 mt-2">
+                          {
+                            serviceCenters.find(
+                              (sc) =>
+                                sc.serviceCenterId === selectedServiceCenterId
+                            )?.address
+                          }
+                        </p>
+                      )}
+                    </motion.div>
+
                     {/* Email Input (optional) */}
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
@@ -900,7 +983,7 @@ export default function GuestChatWidget({
                       transition={{ delay: 0.45 }}
                     >
                       <label className="block text-sm font-medium text-gray-300 mb-3">
-                        Your Email
+                        Your Email (Optional)
                       </label>
                       <input
                         type="email"
@@ -927,7 +1010,11 @@ export default function GuestChatWidget({
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.5 }}
                       onClick={handleStartChat}
-                      disabled={isConnecting}
+                      disabled={
+                        isConnecting ||
+                        loadingServiceCenters ||
+                        serviceCenters.length === 0
+                      }
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       className="w-full bg-gradient-to-r from-blue-500 via-blue-600 to-emerald-500 text-white py-4 rounded-xl hover:shadow-lg hover:shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-3 font-semibold text-base relative overflow-hidden group"
