@@ -65,9 +65,22 @@ class WarehouseService {
       )
       .map(({ typeComponentId }) => typeComponentId);
 
+    const quantityLimitMap = new Map();
+    for (const item of componentWarranties) {
+      if (item.typeComponentId) {
+        quantityLimitMap.set(item.typeComponentId, item.quantityLimit);
+      }
+    }
+
     for (const typeComponent of typeComponents) {
       if (typeComponentsUnderWarranty.includes(typeComponent.typeComponentId)) {
         typeComponent.isUnderWarranty = true;
+      }
+
+      if (quantityLimitMap.has(typeComponent.typeComponentId)) {
+        typeComponent.quantityLimit = quantityLimitMap.get(
+          typeComponent.typeComponentId
+        );
       }
     }
 

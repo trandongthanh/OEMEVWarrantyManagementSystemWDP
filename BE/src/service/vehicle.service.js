@@ -489,6 +489,7 @@ class VehicleService {
             typeComponentId: component.typeComponentId,
             componentName: component.name,
             category: component.category || null,
+            quantityLimit: null,
             policy: {
               durationMonths: 0,
               mileageLimit: 0,
@@ -521,6 +522,7 @@ class VehicleService {
           typeComponentId: component.typeComponentId,
           componentName: component.name,
           category: component.category || null,
+          quantityLimit: warrantyComponent.quantity || null,
           policy: {
             durationMonths: warrantyComponent.durationMonth,
             mileageLimit: warrantyComponent.mileageLimit,

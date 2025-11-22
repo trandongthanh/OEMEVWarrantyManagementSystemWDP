@@ -479,13 +479,66 @@ class StockTransferRequestService {
       );
 
       const stockUpdates = [];
+      const stockUpdatesMap = new Map();
+
+      // Group reservations by stockId to decrement quantityReserved
       for (const reservation of reservations) {
-        stockUpdates.push({
-          stockId: reservation.stockId,
-          quantityInStock: -reservation.quantityReserved,
-          quantityReserved: -reservation.quantityReserved,
-        });
+        const stockId = reservation.stockId;
+        if (!stockUpdatesMap.has(stockId)) {
+          stockUpdatesMap.set(stockId, {
+            stockId,
+            quantityInStock: 0,
+            quantityReserved: 0,
+          });
+        }
+        const update = stockUpdatesMap.get(stockId);
+        update.quantityReserved -= reservation.quantityReserved;
       }
+
+      // Group shipped components by stockId to decrement quantityInStock (Actual Pick)
+      // Note: component.stockId is not directly available on Component model,
+      // but we verified they belong to the warehouse.
+      // We need to find which stock item each component belongs to.
+      // Since we don't have stockId on component, we have to infer it or update based on TypeComponent and Warehouse.
+      // But bulkUpdateStockQuantities uses stockId.
+      // We must find the stockId for each component.
+      // However, components don't carry stockId. They carry warehouseId and typeComponentId.
+      // The warehouseRepository.findStockByWarehouseAndTypeComponent can be used.
+      // Since we already fetched componentsDb, we can group them by type.
+
+      for (const component of componentsDb) {
+        // Ideally we should know exactly which stock ID this component is part of.
+        // If multiple stocks exist for same type in same warehouse (e.g. different price/lot), it's tricky without explicit link.
+        // Assuming standard FIFO or single stock per type per warehouse for simplicity if no link exists.
+        // OR we try to use the reservation's stockId if it matches.
+        // But the whole point is to handle mismatch.
+
+        // Best effort: Find the stock record for this component's type in the source warehouse.
+        const stockItem =
+          await this.#warehouseRepository.findStockByWarehouseAndTypeComponent(
+            {
+              warehouseId: existingRequest.sourceWarehouseId,
+              typeComponentId: component.typeComponentId,
+            },
+            transaction,
+            Transaction.LOCK.UPDATE
+          );
+
+        if (stockItem) {
+          const stockId = stockItem.stockId;
+          if (!stockUpdatesMap.has(stockId)) {
+            stockUpdatesMap.set(stockId, {
+              stockId,
+              quantityInStock: 0,
+              quantityReserved: 0,
+            });
+          }
+          const update = stockUpdatesMap.get(stockId);
+          update.quantityInStock -= 1;
+        }
+      }
+
+      stockUpdates.push(...stockUpdatesMap.values());
 
       await this.#warehouseRepository.bulkUpdateStockQuantities(
         stockUpdates,

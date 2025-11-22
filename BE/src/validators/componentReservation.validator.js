@@ -26,5 +26,5 @@ export const pickupReservedComponentSchema = Joi.object({
 });
 
 export const installComponentSchema = Joi.object({
-  oldComponentSerialNumber: Joi.string().required(),
+  oldComponentSerialNumber: Joi.string().optional(),
 });

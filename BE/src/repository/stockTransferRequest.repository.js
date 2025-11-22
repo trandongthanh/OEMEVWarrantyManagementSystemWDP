@@ -2,7 +2,15 @@ import dayjs from "dayjs";
 import db from "../models/index.cjs";
 import { formatUTCtzHCM } from "../util/formatUTCtzHCM.js";
 
-const { StockTransferRequest, StockTransferRequestItem, User, Warehouse } = db;
+const {
+  StockTransferRequest,
+  StockTransferRequestItem,
+  User,
+  Warehouse,
+  StockReservation,
+  Stock,
+  TypeComponent,
+} = db;
 
 class StockTransferRequestRepository {
   createStockTransferRequest = async (
@@ -195,6 +203,24 @@ class StockTransferRequestRepository {
             "typeComponentId",
             "quantityRequested",
             "caselineId",
+          ],
+          required: false,
+        },
+        {
+          model: StockReservation,
+          as: "reservations",
+          include: [
+            {
+              model: Stock,
+              as: "stock",
+              include: [
+                {
+                  model: TypeComponent,
+                  as: "typeComponent",
+                  attributes: ["typeComponentId", "name", "sku"],
+                },
+              ],
+            },
           ],
           required: false,
         },

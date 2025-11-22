@@ -1148,14 +1148,20 @@ class CaseLineService {
 
       const normalizedId = String(typeComponentId).toLowerCase();
       const isUnderWarranty = Boolean(component?.isUnderWarranty);
+      const quantityLimit = component?.quantityLimit || null;
 
       if (!map.has(normalizedId)) {
-        map.set(normalizedId, isUnderWarranty);
+        map.set(normalizedId, { isUnderWarranty, quantityLimit });
         continue;
       }
 
+      const existing = map.get(normalizedId);
       if (isUnderWarranty) {
-        map.set(normalizedId, true);
+        existing.isUnderWarranty = true;
+      }
+      // Prefer non-null quantity limit if duplicate
+      if (quantityLimit !== null) {
+        existing.quantityLimit = quantityLimit;
       }
     }
 
@@ -1244,7 +1250,19 @@ class CaseLineService {
         const isUnderWarrantyByTech =
           caseline.warrantyStatus === "ELIGIBLE" ? true : false;
 
-        const isUnderWarrantyBySystem = typeComponentsMap.get(normalizedId);
+        const componentInfo = typeComponentsMap.get(normalizedId);
+        const isUnderWarrantyBySystem = componentInfo?.isUnderWarranty;
+        const quantityLimit = componentInfo?.quantityLimit;
+
+        if (
+          quantityLimit !== null &&
+          quantityLimit !== undefined &&
+          caseline.quantity > quantityLimit
+        ) {
+          throw new ConflictError(
+            `Quantity ${caseline.quantity} exceeds the limit of ${quantityLimit} for this component`
+          );
+        }
 
         if (!isUnderWarrantyBySystem && isUnderWarrantyByTech) {
           throw new ConflictError(
@@ -1267,9 +1285,10 @@ class CaseLineService {
         ? String(newCaseline.typeComponentId).toLowerCase()
         : null;
 
-      const systemWarrantyStatus = normalizedId
+      const componentInfo = normalizedId
         ? typeComponentsMap.get(normalizedId)
         : undefined;
+      const systemWarrantyStatus = componentInfo?.isUnderWarranty;
 
       let initialStatus;
 
