@@ -157,6 +157,7 @@ const VEHICLE_MODELS_DATA = [
   {
     key: "vfE34",
     vehicleModelName: "VF e34",
+    sku: "VF_E34",
     yearOfLaunch: new Date("2021-12-01"),
     generalWarrantyDuration: 60,
     generalWarrantyMileage: 120000,
@@ -164,6 +165,7 @@ const VEHICLE_MODELS_DATA = [
   {
     key: "vf8",
     vehicleModelName: "VF 8",
+    sku: "VF_8",
     yearOfLaunch: new Date("2022-10-01"),
     generalWarrantyDuration: 120,
     generalWarrantyMileage: 200000,
@@ -171,6 +173,7 @@ const VEHICLE_MODELS_DATA = [
   {
     key: "vf9",
     vehicleModelName: "VF 9",
+    sku: "VF_9",
     yearOfLaunch: new Date("2023-03-01"),
     generalWarrantyDuration: 120,
     generalWarrantyMileage: 200000,
@@ -425,7 +428,7 @@ async function ensureManufacturerInventory({
         where: {
           warehouseId: warehouse.warehouseId,
           typeComponentId,
-          status: "IN_WAREHOUSE",
+          status: "IN_STOCK",
         },
         transaction,
       });
@@ -465,7 +468,7 @@ async function ensureManufacturerInventory({
             typeComponentId,
             serialNumber,
             warehouseId: warehouse.warehouseId,
-            status: "IN_WAREHOUSE",
+            status: "IN_STOCK",
           },
           transaction,
         });
@@ -500,6 +503,8 @@ async function ensureManufacturerInventory({
 async function seedDatabase() {
   const transaction = await sequelize.transaction();
   try {
+    await sequelize.query("SET FOREIGN_KEY_CHECKS = 0;", { transaction });
+
     const models = sequelize.models;
     const {
       VehicleCompany,
@@ -516,6 +521,24 @@ async function seedDatabase() {
       Component,
       WorkSchedule,
     } = models;
+
+    console.log("🗑️ Đang xóa dữ liệu cũ...");
+    await Promise.all([
+      Component.destroy({ where: {}, truncate: true, transaction }),
+      Stock.destroy({ where: {}, truncate: true, transaction }),
+      WorkSchedule.destroy({ where: {}, truncate: true, transaction }),
+      Vehicle.destroy({ where: {}, truncate: true, transaction }),
+      WarrantyComponent.destroy({ where: {}, truncate: true, transaction }),
+      User.destroy({ where: {}, truncate: true, transaction }),
+      Role.destroy({ where: {}, truncate: true, transaction }),
+      Customer.destroy({ where: {}, truncate: true, transaction }),
+      TypeComponent.destroy({ where: {}, truncate: true, transaction }),
+      Warehouse.destroy({ where: {}, truncate: true, transaction }),
+      ServiceCenter.destroy({ where: {}, truncate: true, transaction }),
+      VehicleModel.destroy({ where: {}, truncate: true, transaction }),
+      VehicleCompany.destroy({ where: {}, truncate: true, transaction }),
+    ]);
+    console.log("✅ Đã xóa dữ liệu cũ.");
 
     console.log("🌱 Bắt đầu seed dữ liệu thực tế...");
 
@@ -765,6 +788,7 @@ async function seedDatabase() {
           name: user.name,
           email: `${user.username}@vinfast.vn`,
           phone: `0907${String(index + 1).padStart(4, "0")}`,
+          employeeCode: `EMP_${user.username.toUpperCase()}`,
           address: user.serviceCenterId ? "Trung tâm dịch vụ" : "Trụ sở chính",
           roleId: roles[user.role].roleId,
           serviceCenterId: user.serviceCenterId ?? null,
@@ -860,7 +884,7 @@ async function seedDatabase() {
               typeComponentId: componentRecord.typeComponentId,
               serialNumber,
               warehouseId: warehouse.warehouseId,
-              status: "IN_WAREHOUSE",
+              status: "IN_STOCK",
             },
             transaction,
           });
@@ -870,7 +894,7 @@ async function seedDatabase() {
           where: {
             warehouseId: warehouse.warehouseId,
             typeComponentId: componentRecord.typeComponentId,
-            status: "IN_WAREHOUSE",
+            status: "IN_STOCK",
           },
           transaction,
         });
@@ -945,6 +969,7 @@ async function seedDatabase() {
       }
     }
 
+    await sequelize.query("SET FOREIGN_KEY_CHECKS = 1;", { transaction });
     await transaction.commit();
 
     console.log("✅ Seed thành công.");
@@ -952,7 +977,7 @@ async function seedDatabase() {
     console.log(`   • Components đã lắp trên xe: ${installedComponents}`);
     console.log(`   • Lịch làm việc mới tạo: ${createdWorkSchedules}`);
     console.log(
-      "   • Mỗi Stock.quantityInStock đã khớp với số component IN_WAREHOUSE tương ứng."
+      "   • Mỗi Stock.quantityInStock đã khớp với số component IN_STOCK tương ứng."
     );
   } catch (error) {
     await transaction.rollback();
