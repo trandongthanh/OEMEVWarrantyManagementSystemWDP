@@ -161,7 +161,7 @@ class ComponentRepository {
         {
           model: Warehouse,
           as: "warehouse",
-          attributes: ["warehouseId", "name", "location"],
+          attributes: ["warehouseId", "name", "address"],
         },
         {
           model: StockTransferComponent,
@@ -181,12 +181,12 @@ class ComponentRepository {
                 {
                   model: Warehouse,
                   as: "sourceWarehouse",
-                  attributes: ["warehouseId", "name", "location"],
+                  attributes: ["warehouseId", "name", "address"],
                 },
                 {
                   model: Warehouse,
                   as: "requestingWarehouse",
-                  attributes: ["warehouseId", "name", "location"],
+                  attributes: ["warehouseId", "name", "address"],
                 },
               ],
             },
