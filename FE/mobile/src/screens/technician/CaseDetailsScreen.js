@@ -13,7 +13,6 @@ import {
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-// --- SỬA IMPORT ---
 import * as ImagePicker from 'expo-image-picker'; 
 import { Picker } from "@react-native-picker/picker";
 
@@ -55,16 +54,14 @@ const CaseLineForm = ({
     }
   };
 
-  // --- CẬP NHẬT HÀM NÀY ---
   const handleImagePicker = async () => { 
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Lỗi', 'Quyền truy cập thư viện ảnh đã bị từ chối.');
+      Alert.alert('Error', 'Photo library access denied.');
       return;
     }
 
     let result = await ImagePicker.launchImageLibraryAsync({
-      // Dùng mảng string cho phiên bản mới
       mediaTypes: ['images'], 
       allowsMultipleSelection: true,
       selectionLimit: 5,
@@ -76,13 +73,12 @@ const CaseLineForm = ({
       onImageSelect(index, result.assets || []);
     }
   };
-  // --- KẾT THÚC CẬP NHẬT ---
 
   return (
     <View style={styles.caseLineCard}>
       <View style={styles.caseLineHeader}>
         <View>
-          <Text style={styles.caseLineTitle}>Hạng mục {index + 1}</Text>
+          <Text style={styles.caseLineTitle}>Item {index + 1}</Text>
           <View style={styles.statusContainer}>
             <Text style={styles.statusLabel}>Status: </Text>
             <Text style={[
@@ -103,32 +99,32 @@ const CaseLineForm = ({
         )}
       </View>
 
-      <Text style={styles.label}>Chẩn đoán *</Text>
+      <Text style={styles.label}>Diagnosis *</Text>
       <TextInput
         style={[styles.input, styles.textArea, isReadOnly && styles.inputDisabled]}
         value={caseLine.diagnosisText}
         onChangeText={(val) => onCaseLineChange(index, "diagnosisText", val)}
-        placeholder="Mô tả vấn đề..."
+        placeholder="Describe the issue..."
         multiline
         editable={!isReadOnly} 
       />
 
-      <Text style={styles.label}>Cách khắc phục *</Text>
+      <Text style={styles.label}>Correction *</Text>
       <TextInput
         style={[styles.input, styles.textArea, isReadOnly && styles.inputDisabled]}
         value={caseLine.correctionText}
         onChangeText={(val) => onCaseLineChange(index, "correctionText", val)}
-        placeholder="Mô tả hành động sửa chữa..."
+        placeholder="Describe the repair action..."
         multiline
         editable={!isReadOnly} 
       />
 
-      <Text style={styles.label}>Linh kiện *</Text>
+      <Text style={styles.label}>Component *</Text>
       <View style={styles.componentSearchRow}>
         <TextInput
           style={[styles.input, styles.inputDisabled, { flex: 1 }]}
           value={caseLine.componentName || ""}
-          placeholder="Chưa chọn linh kiện"
+          placeholder="No component selected"
           editable={false}
         />
         {!isReadOnly && (
@@ -141,7 +137,7 @@ const CaseLineForm = ({
         )}
       </View>
 
-      <Text style={styles.label}>Số lượng *</Text>
+      <Text style={styles.label}>Quantity *</Text>
       <TextInput
         style={[styles.input, isReadOnly && styles.inputDisabled]}
         value={String(caseLine.quantity)}
@@ -152,7 +148,7 @@ const CaseLineForm = ({
         editable={!isReadOnly} 
       />
 
-      <Text style={styles.label}>Trạng thái bảo hành</Text>
+      <Text style={styles.label}>Warranty Status</Text>
       <View style={styles.warrantyBox(caseLine.isUnderWarranty)}>
         <Ionicons
           name={
@@ -163,8 +159,8 @@ const CaseLineForm = ({
         />
         <Text style={styles.warrantyBoxText(caseLine.isUnderWarranty)}>
           {caseLine.isUnderWarranty
-            ? "Linh kiện còn bảo hành"
-            : "Linh kiện không bảo hành"}
+            ? "Component under warranty"
+            : "Component not under warranty"}
         </Text>
       </View>
 
@@ -176,29 +172,29 @@ const CaseLineForm = ({
             enabled={!isReadOnly} 
             style={styles.picker}
           >
-            <Picker.Item label="Đủ điều kiện" value="ELIGIBLE" />
-            <Picker.Item label="Không đủ điều kiện" value="INELIGIBLE" />
+            <Picker.Item label="Eligible" value="ELIGIBLE" />
+            <Picker.Item label="Ineligible" value="INELIGIBLE" />
           </Picker>
         </View>
       )}
 
       {caseLine.warrantyStatus === "INELIGIBLE" && (
         <>
-          <Text style={styles.label}>Lý do từ chối *</Text>
+          <Text style={styles.label}>Rejection Reason *</Text>
           <TextInput
             style={[styles.input, styles.textArea, isReadOnly && styles.inputDisabled]}
             value={caseLine.rejectionReason}
             onChangeText={(val) =>
               onCaseLineChange(index, "rejectionReason", val)
             }
-            placeholder="Giải thích lý do từ chối bảo hành..."
+            placeholder="Explain why warranty is rejected..."
             multiline
             editable={!isReadOnly} 
           />
         </>
       )}
 
-      <Text style={styles.label}>Hình ảnh bằng chứng</Text>
+      <Text style={styles.label}>Evidence Photos</Text>
       <View style={styles.imageGrid}>
         {caseLine.evidenceImageUrls?.map((url, idx) => (
           <Image key={`exist-${idx}`} source={{ uri: url }} style={styles.imagePreview} />
@@ -223,7 +219,7 @@ const CaseLineForm = ({
           onPress={handleImagePicker}
         >
           <Ionicons name="images-outline" size={20} color="#374151" />
-          <Text style={styles.uploadButtonText}>Tải ảnh từ thư viện</Text>
+          <Text style={styles.uploadButtonText}>Upload from Library</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -289,7 +285,7 @@ const ComponentSearch = ({ onClose, onSelectComponent, recordId }) => {
   return (
     <View style={styles.searchContainer}>
       <View style={styles.searchHeader}>
-        <Text style={styles.searchTitle}>Tìm linh kiện</Text>
+        <Text style={styles.searchTitle}>Search Component</Text>
         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
           <Ionicons name="close" size={24} color="#6B7280" />
         </TouchableOpacity>
@@ -298,7 +294,7 @@ const ComponentSearch = ({ onClose, onSelectComponent, recordId }) => {
         <Ionicons name="search-outline" size={20} color="#9CA3AF" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Tìm theo tên..."
+          placeholder="Search by name..."
           value={searchQuery}
           onChangeText={setSearchQuery}
           autoFocus={true}
@@ -325,7 +321,7 @@ const ComponentSearch = ({ onClose, onSelectComponent, recordId }) => {
               </TouchableOpacity>
             ))
           ) : (
-            <Text style={styles.emptyText}>Không tìm thấy linh kiện.</Text>
+            <Text style={styles.emptyText}>No components found.</Text>
           )}
         </ScrollView>
       )}
@@ -354,7 +350,7 @@ export default function CaseDetailsScreen() {
   useEffect(() => {
     const loadCaseData = async () => {
       if (!caseId || !recordId) {
-        setErrorMessage("Case ID hoặc Record ID không hợp lệ.");
+        setErrorMessage("Invalid Case ID or Record ID.");
         setIsLoading(false);
         return;
       }
@@ -398,7 +394,7 @@ export default function CaseDetailsScreen() {
         }
       } catch (error) {
         console.error("Error loading case line data:", error);
-        setErrorMessage("Không thể tải dữ liệu hạng mục.");
+        setErrorMessage("Unable to load case items.");
       } finally {
         setIsLoading(false);
       }
@@ -483,7 +479,7 @@ export default function CaseDetailsScreen() {
     );
 
     if (hasInvalidLines) {
-      setErrorMessage("Vui lòng điền tất cả các trường bắt buộc (*).");
+      setErrorMessage("Please fill in all required fields (*).");
       return;
     }
 
@@ -539,13 +535,13 @@ export default function CaseDetailsScreen() {
         }
       }
 
-      Alert.alert("Thành công", "Đã lưu chẩn đoán và cập nhật kho thành công.", [
+      Alert.alert("Success", "Diagnosis saved and stock updated successfully.", [
         { text: "OK", onPress: () => navigation.goBack() }
       ]);
       setDiagnosisImages(new Map()); 
     } catch (error) {
       console.error("Error saving case lines:", error);
-      setErrorMessage(error.response?.data?.message || "Không thể lưu chẩn đoán.");
+      setErrorMessage(error.response?.data?.message || "Unable to save diagnosis.");
     } finally {
       setIsSaving(false);
     }
@@ -555,7 +551,7 @@ export default function CaseDetailsScreen() {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#1D4ED8" />
-        <Text style={styles.loadingText}>Đang tải chi tiết...</Text>
+        <Text style={styles.loadingText}>Loading details...</Text>
       </View>
     );
   }
@@ -574,7 +570,7 @@ export default function CaseDetailsScreen() {
         </TouchableOpacity>
         <View>
           <Text style={styles.headerTitle}>
-            {isReadOnly ? "Xem chẩn đoán" : "Sửa chẩn đoán"}
+            {isReadOnly ? "View Diagnosis" : "Edit Diagnosis"}
           </Text>
           <Text style={styles.headerSubtitle}>VIN: {vin}</Text>
         </View>
@@ -584,7 +580,7 @@ export default function CaseDetailsScreen() {
         {isReadOnly && (
           <View style={styles.infoBox}>
             <Ionicons name="lock-closed-outline" size={20} color="#F59E0B" />
-            <Text style={styles.infoText}>Chẩn đoán đã gửi. Chỉ xem.</Text>
+            <Text style={styles.infoText}>Diagnosis submitted. Read-only.</Text>
           </View>
         )}
         {errorMessage ? (
@@ -608,7 +604,7 @@ export default function CaseDetailsScreen() {
         {!isReadOnly && (
           <TouchableOpacity style={styles.addButton} onPress={handleAddCaseLine}>
             <Ionicons name="add" size={20} color="#1D4ED8" />
-            <Text style={styles.addButtonText}>Thêm hạng mục</Text>
+            <Text style={styles.addButtonText}>Add Item</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -617,7 +613,7 @@ export default function CaseDetailsScreen() {
         <View style={styles.footer}>
           <TouchableOpacity style={[styles.saveButton, isSaving && styles.disabledButton]} onPress={handleSubmit} disabled={isSaving}>
             {isSaving ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Ionicons name="save-outline" size={20} color="#FFFFFF" />}
-            <Text style={styles.saveButtonText}>Lưu thay đổi</Text>
+            <Text style={styles.saveButtonText}>Save Changes</Text>
           </TouchableOpacity>
         </View>
       )}

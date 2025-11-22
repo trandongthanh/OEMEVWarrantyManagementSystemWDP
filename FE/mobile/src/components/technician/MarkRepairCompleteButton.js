@@ -32,43 +32,37 @@ export default function MarkRepairCompleteButton({
 
   const handleImageSelect = async () => { 
     try {
-      console.log("--- BẮT ĐẦU CHỌN ẢNH ---");
-      
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert(
-          'Thiếu quyền truy cập', 
-          'Vui lòng vào Cài đặt > Ứng dụng > [Tên App] > Quyền > Ảnh và Video để cấp quyền.'
+          'Permission Missing', 
+          'Please go to Settings > Apps > [App Name] > Permissions > Photos and Video to grant access.'
         );
         return;
       }
 
       let result = await ImagePicker.launchImageLibraryAsync({
-        // --- CẬP NHẬT: Dùng mảng string thay vì Enum cũ để hết Warning ---
         mediaTypes: ['images'], 
-        // -----------------------------------------------------------------
         allowsMultipleSelection: true,
         selectionLimit: 5,
         quality: 0.5, 
         base64: false,
       });
 
-      console.log("Kết quả trả về:", result.canceled ? "Đã hủy" : "Đã chọn");
-
       if (!result.canceled) {
         const newAssets = result.assets || [];
         setImageFiles(prevImages => {
           const combined = [...prevImages, ...newAssets];
           if (combined.length > 5) {
-            Alert.alert("Giới hạn", "Chỉ được tải lên tối đa 5 ảnh.");
+            Alert.alert("Limit Reached", "You can only upload a maximum of 5 photos.");
             return combined.slice(0, 5); 
           }
           return combined;
         });
       }
     } catch (error) {
-      console.error("LỖI MỞ THƯ VIỆN:", error);
-      Alert.alert("Lỗi Kỹ Thuật", "Không thể mở thư viện ảnh: " + error.message);
+      console.error("GALLERY ERROR:", error);
+      Alert.alert("Technical Error", "Cannot open photo library: " + error.message);
     }
   };
 
@@ -86,8 +80,8 @@ export default function MarkRepairCompleteButton({
     setError(null);
     
     if (imageFiles.length === 0) {
-      setError("Vui lòng tải lên ít nhất 1 ảnh làm bằng chứng.");
-      Alert.alert("Lỗi", "Vui lòng tải lên ít nhất 1 ảnh làm bằng chứng.");
+      setError("Please upload at least 1 proof photo.");
+      Alert.alert("Error", "Please upload at least 1 proof photo.");
       return;
     }
 
@@ -109,8 +103,8 @@ export default function MarkRepairCompleteButton({
 
       if (showNextSteps && pendingRepairsCount > 0) {
         Alert.alert(
-          "Hoàn tất!",
-          `Bạn còn ${pendingRepairsCount} mục sửa chữa khác đang chờ.`
+          "Completed!",
+          `You have ${pendingRepairsCount} other repairs pending.`
         );
         onSuccess?.();
       } else {
@@ -122,9 +116,9 @@ export default function MarkRepairCompleteButton({
     } catch (err) {
       console.error("Failed to mark repair as complete:", err);
       const message =
-        err.response?.data?.message || "Không thể đánh dấu hoàn tất sửa chữa";
+        err.response?.data?.message || "Cannot mark repair as complete";
       setError(message);
-      Alert.alert("Lỗi", message);
+      Alert.alert("Error", message);
     } finally {
       setIsSubmitting(false);
     }
@@ -147,7 +141,7 @@ export default function MarkRepairCompleteButton({
           <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
         )}
         <Text style={styles.buttonText}>
-          {isSubmitting ? "Đang lưu..." : "Mark Complete"}
+          {isSubmitting ? "Saving..." : "Mark Complete"}
         </Text>
       </TouchableOpacity>
 
@@ -166,7 +160,7 @@ export default function MarkRepairCompleteButton({
               <View style={styles.headerIconWrapper}>
                 <Ionicons name="checkmark-circle" size={20} color="#16A34A" />
               </View>
-              <Text style={styles.modalTitle}>Xác nhận hoàn tất</Text>
+              <Text style={styles.modalTitle}>Confirm Completion</Text>
               <TouchableOpacity
                 onPress={() => setShowConfirmModal(false)}
                 style={styles.closeButton}
@@ -183,13 +177,12 @@ export default function MarkRepairCompleteButton({
                   color="#0284C7"
                 />
                 <Text style={styles.infoText}>
-                  Hãy chắc chắn rằng linh kiện đã được lắp đặt và mọi công việc
-                  sửa chữa đã kết thúc.
+                  Please ensure the component is installed and all repair work is finished.
                 </Text>
               </View>
 
-              <Text style={styles.label}>Ảnh bằng chứng lắp đặt *</Text>
-              <Text style={styles.labelSubText}>(Tối đa 5 ảnh)</Text>
+              <Text style={styles.label}>Proof of Installation *</Text>
+              <Text style={styles.labelSubText}>(Max 5 photos)</Text>
               <View style={styles.imageGrid}>
                 {imageFiles.map((img, idx) => (
                   <View key={idx} style={styles.imagePreviewContainer}>
@@ -209,7 +202,7 @@ export default function MarkRepairCompleteButton({
                 disabled={imageFiles.length >= 5} 
               >
                 <Ionicons name="camera-outline" size={20} color="#374151" />
-                <Text style={styles.uploadButtonText}>Chọn ảnh ({imageFiles.length}/5)</Text>
+                <Text style={styles.uploadButtonText}>Select Photos ({imageFiles.length}/5)</Text>
               </TouchableOpacity>
               
               {error && (
@@ -221,7 +214,7 @@ export default function MarkRepairCompleteButton({
               {pendingRepairsCount > 0 && (
                 <View style={styles.pendingBox}>
                   <Text style={styles.pendingText}>
-                    Bạn còn {pendingRepairsCount} mục sửa chữa khác đang chờ.
+                    You have {pendingRepairsCount} other repairs pending.
                   </Text>
                 </View>
               )}
@@ -232,7 +225,7 @@ export default function MarkRepairCompleteButton({
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setShowConfirmModal(false)}
               >
-                <Text style={styles.cancelButtonText}>Hủy</Text>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalButton, styles.confirmButton]}
@@ -241,7 +234,7 @@ export default function MarkRepairCompleteButton({
               >
                 <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
                 <Text style={styles.confirmButtonText}>
-                  {isSubmitting ? "Đang..." : "Xác nhận"}
+                  {isSubmitting ? "Processing..." : "Confirm"}
                 </Text>
               </TouchableOpacity>
             </View>

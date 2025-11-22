@@ -22,7 +22,7 @@ const getInitials = (name) => {
 const AvatarLogoutMenu = () => {
   const navigation = useNavigation();
   const [userName, setUserName] = useState("Technician");
-  const [userRole, setUserRole] = useState("Technician"); // Thêm state cho role
+  const [userRole, setUserRole] = useState("Technician"); 
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
   const avatarRef = useRef(null);
@@ -57,12 +57,12 @@ const AvatarLogoutMenu = () => {
   const onLogoutPress = () => {
     setMenuVisible(false);
     Alert.alert(
-      "Đăng xuất",
-      "Bạn có chắc chắn muốn đăng xuất?",
+      "Logout",
+      "Are you sure you want to logout?",
       [
-        { text: "Hủy", style: "cancel" },
+        { text: "Cancel", style: "cancel" },
         {
-          text: "Đăng xuất",
+          text: "Logout",
           style: "destructive",
           onPress: async () => {
             try {
@@ -101,7 +101,7 @@ const AvatarLogoutMenu = () => {
             <View style={styles.menuDivider} />
             <TouchableOpacity style={styles.menuButton} onPress={onLogoutPress}>
               <Ionicons name="log-out-outline" size={20} color="#EF4444" />
-              <Text style={styles.menuButtonText}>Đăng xuất</Text>
+              <Text style={styles.menuButtonText}>Logout</Text>
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -118,7 +118,6 @@ const AvatarLogoutMenu = () => {
   );
 };
 
-// --- Styles cho component ---
 const styles = StyleSheet.create({
   avatarButton: {
     width: 44,

@@ -56,11 +56,11 @@ export default function ComponentsToPickup() {
           <Ionicons name="cube-outline" size={24} color="#C2410C" />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.mainTitle}>Cần lấy hàng</Text>
+          <Text style={styles.mainTitle}>To Pickup</Text>
           <Text style={styles.mainSubtitle}>
             {reservations.length > 0 
-              ? `Vui lòng đến kho để nhận ${reservations.length} linh kiện`
-              : "Không có linh kiện nào cần lấy"}
+              ? `Please visit the warehouse to pick up ${reservations.length} components`
+              : "No components to pick up"}
           </Text>
         </View>
         <View style={styles.countBadge}>
@@ -73,18 +73,24 @@ export default function ComponentsToPickup() {
           <View style={styles.divider} />
           <View style={styles.listContainer}>
             {reservations.map((res) => {
-              const componentName = res.component?.typeComponent?.name || "Unknown Component";
-              const serial = res.component?.serialNumber || "Chưa gán";
-              const warehouseName = res.warehouse?.name || "Kho trung tâm";
-              const warehouseAddress = res.warehouse?.address || "Liên hệ thủ kho";
+              const componentName = res.component?.typeComponent?.name || "";
+              const serial = res.component?.serialNumber || "Unassigned";
+              const warehouse = 
+                res.component?.stockTransferRequest?.requestingWarehouse || 
+                res.component?.warehouse || 
+                res.warehouse;
+
+              const warehouseName = warehouse?.name || warehouse?.warehouseName || "Central Warehouse";
+              const warehouseAddress = warehouse?.address || "Contact warehouse keeper";
+
               const vin = res.caseLine?.guaranteeCase?.vehicleProcessingRecord?.vin || "N/A";
 
               return (
                 <View key={res.reservationId} style={styles.itemCard}>
                   <View style={styles.itemHeaderRow}>
-                    <Text style={styles.itemLabel}>Linh kiện</Text>
+                    <Text style={styles.itemLabel}>Component</Text>
                     <View style={styles.statusBadge}>
-                      <Text style={styles.statusText}>Chờ xuất kho</Text>
+                      <Text style={styles.statusText}>Ready for Pickup</Text>
                     </View>
                   </View>
 
@@ -94,7 +100,7 @@ export default function ComponentsToPickup() {
                   <View style={styles.locationBox}>
                     <View style={styles.locationHeader}>
                       <Ionicons name="location-outline" size={16} color="#C2410C" style={{marginTop: 2}} />
-                      <Text style={styles.locationTitle}>Địa điểm nhận</Text>
+                      <Text style={styles.locationTitle}>Pickup Location</Text>
                     </View>
                     <View style={styles.locationContent}>
                       <Text style={styles.warehouseName}>{warehouseName}</Text>
@@ -102,12 +108,12 @@ export default function ComponentsToPickup() {
                     </View>
                   </View>
 
-                  <Text style={styles.vinText}>Xe: {vin}</Text>
+                  <Text style={styles.vinText}>Vehicle: {vin}</Text>
                   
                   <View style={styles.instructionBox}>
                     <Ionicons name="information-circle-outline" size={16} color="#B45309" />
                     <Text style={styles.instructionText}>
-                       Hãy gặp thủ kho để nhận hàng.
+                        Please contact the warehouse keeper to pick up items.
                     </Text>
                   </View>
                 </View>
@@ -119,8 +125,8 @@ export default function ComponentsToPickup() {
         <View style={styles.emptyState}>
             <View style={styles.divider} />
             <Ionicons name="cube-outline" size={48} color="#E5E7EB" />
-            <Text style={styles.emptyText}>Chưa có yêu cầu lấy hàng</Text>
-            <Text style={styles.emptySubText}>Linh kiện sẽ xuất hiện ở đây sau khi được duyệt</Text>
+            <Text style={styles.emptyText}>No pickup requests</Text>
+            <Text style={styles.emptySubText}>Components will appear here once approved</Text>
         </View>
       )}
     </View>
@@ -184,7 +190,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   itemCard: {
-    // Style cho thẻ item
+    // Style item card
   },
   itemHeaderRow: {
     flexDirection: "row",

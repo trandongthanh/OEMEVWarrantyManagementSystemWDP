@@ -20,7 +20,6 @@ export default function ComponentInstallModal({
   componentName,
   vehicleVin = "",
   componentSerial = "", 
-  // Nhận thêm các props này từ ComponentsToInstall
   quantity = 1,
   caseId = "",
   status = "IN_REPAIR",
@@ -218,7 +217,7 @@ const styles = StyleSheet.create({
   headerIconWrapper: {
     width: 40,
     height: 40,
-    backgroundColor: "#F3E8FF", // Purple 100
+    backgroundColor: "#F3E8FF", 
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
@@ -270,7 +269,7 @@ const styles = StyleSheet.create({
     color: '#111827',
   },
   diagBox: {
-    backgroundColor: '#EFF6FF', // Blue 50
+    backgroundColor: '#EFF6FF', 
     padding: 12,
     borderRadius: 8,
     marginBottom: 8,
@@ -286,7 +285,7 @@ const styles = StyleSheet.create({
     color: '#1E3A8A',
   },
   correctBox: {
-    backgroundColor: '#F0FDF4', // Green 50
+    backgroundColor: '#F0FDF4', 
     padding: 12,
     borderRadius: 8,
     marginBottom: 20,
@@ -379,7 +378,7 @@ const styles = StyleSheet.create({
     color: "#374151",
   },
   submitButton: {
-    backgroundColor: "#9333EA", // Purple
+    backgroundColor: "#9333EA", 
   },
   submitButtonText: {
     fontSize: 14,

@@ -105,7 +105,7 @@ export default function MyScheduleScreen() {
       setSchedules(schedulesData || []);
     } catch (error) {
       console.error("Error loading schedule:", error);
-      Alert.alert("Lỗi", "Không thể tải lịch làm việc.");
+      Alert.alert("Error", "Unable to load work schedule.");
     } finally {
       setLoading(false);
       setRefreshing(false); 
@@ -138,16 +138,16 @@ export default function MyScheduleScreen() {
       const { startDate, endDate } = getDateRange();
       const start = new Date(startDate);
       const end = new Date(endDate);
-      return `${start.toLocaleDateString("vi-VN", {
+      return `${start.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
-      })} - ${end.toLocaleDateString("vi-VN", {
+      })} - ${end.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
         year: "numeric",
       })}`;
     } else {
-      return currentDate.toLocaleDateString("vi-VN", {
+      return currentDate.toLocaleDateString("en-US", {
         month: "long",
         year: "numeric",
       });
@@ -191,7 +191,7 @@ export default function MyScheduleScreen() {
                   isToday && styles.todayText,
                 ]}
               >
-                {date.toLocaleDateString("vi-VN", { weekday: "short" })}
+                {date.toLocaleDateString("en-US", { weekday: "short" })}
               </Text>
               <Text
                 style={[
@@ -237,7 +237,7 @@ export default function MyScheduleScreen() {
 
     return (
       <View style={styles.monthContainer}>
-        {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((day) => (
+        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
           <View key={day} style={[styles.dayHeader, { width: daySize }]}>
             <Text style={styles.dayHeaderText}>{day}</Text>
           </View>
@@ -356,16 +356,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F4F6",
   },
   header: {
-    backgroundColor: "#FFFFFF",
-    paddingVertical: 12, 
-    paddingHorizontal: 16,
-    paddingTop: 40, 
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-    flexDirection: "row", 
-    justifyContent: "space-between", 
-    alignItems: "center", 
-  },
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 12, 
+    paddingHorizontal: 16,
+    paddingTop: 40, 
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    alignItems: "center", 
+  },
   headerTitle: {
     fontSize: 28,
     fontWeight: "bold",

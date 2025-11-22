@@ -150,7 +150,7 @@ export default function MyTasksScreen() {
 
         {task.guaranteeCases && task.guaranteeCases.length > 0 && (
           <View style={styles.caseContainer}>
-            <Text style={styles.caseHeaderTitle}>HỒ SƠ BẢO HÀNH ({task.guaranteeCases.length})</Text>
+            <Text style={styles.caseHeaderTitle}>WARRANTY CASES ({task.guaranteeCases.length})</Text>
             
             {task.guaranteeCases.map((gc) => {
               const caseLinesByStatus = gc.caseLines?.reduce((acc, cl) => {
@@ -281,13 +281,6 @@ export default function MyTasksScreen() {
         </View>
         
         <View style={styles.statusFilterListContainer}>
-          <FlatList
-            data={['ALL', 'CHECKED_IN', 'IN_DIAGNOSIS', 'WAITING_FOR_PARTS', 'IN_REPAIR']}
-            renderItem={renderStatusFilterItem}
-            keyExtractor={(item) => item}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-          />
         </View>
       </View>
     </View>
@@ -364,4 +357,4 @@ const styles = StyleSheet.create({
   metaContainer: { flexDirection: "row", justifyContent: "space-between", flexWrap: "wrap", borderTopWidth: 1, borderTopColor: "#F3F4F6", paddingTop: 12 },
   metaItem: { flexDirection: "row", alignItems: "center", marginRight: 12, marginBottom: 4 },
   metaText: { fontSize: 12, color: "#6B7280", marginLeft: 4, fontWeight: "500" },
-});
+}); 

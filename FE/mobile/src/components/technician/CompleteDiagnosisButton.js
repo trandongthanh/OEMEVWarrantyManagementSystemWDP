@@ -18,36 +18,28 @@ export default function CompleteDiagnosisButton({
   disabled = false,
   onNavigateToInstall,
   caseLines = [], 
-  style, // Thêm prop style để custom layout nếu cần
+  style, 
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false); 
 
-  // --- LOGIC KIỂM TRA ĐIỀU KIỆN DISABLE ---
   const isReadyToComplete = useMemo(() => {
-    if (!caseLines || caseLines.length === 0) return false; // Không có hạng mục nào -> Disable
+    if (!caseLines || caseLines.length === 0) return false; 
 
-    // Lọc các hạng mục đang ở trạng thái DRAFT (cần điền)
     const draftLines = caseLines.filter(cl => !cl.status || cl.status === 'DRAFT');
     
-    // Nếu không có draft nào (đã complete hết rồi hoặc rỗng), có thể coi là OK hoặc không tùy logic, 
-    // nhưng ở đây ta giả sử nếu có draft thì phải điền hết.
     if (draftLines.length === 0) return true;
 
-    // Kiểm tra xem có draft nào thiếu diagnosisText không
     const hasMissingInfo = draftLines.some(cl => !cl.diagnosisText || cl.diagnosisText.trim() === '');
     
-    return !hasMissingInfo; // Nếu KHÔNG thiếu thông tin -> Ready -> True
+    return !hasMissingInfo; 
   }, [caseLines]);
 
-  // Nút bị disable nếu: props disabled = true HOẶC đang submit HOẶC đang validate HOẶC chưa điền đủ thông tin
   const isButtonDisabled = disabled || isSubmitting || isValidating || !isReadyToComplete;
-  // ----------------------------------------
 
   const handleCompleteDiagnosis = async () => {
-    // Logic validate (giữ nguyên để double-check)
     const draftCaseLines = caseLines.filter(
       (cl) => cl.status === "DRAFT" || !cl.status
     );
@@ -56,19 +48,17 @@ export default function CompleteDiagnosisButton({
     );
 
     if (missingDiagnosis.length > 0) {
-      Alert.alert("Chưa hoàn tất", `${missingDiagnosis.length} hạng mục thiếu mô tả chẩn đoán.`);
+      Alert.alert("Incomplete", `${missingDiagnosis.length} items are missing a diagnosis description.`);
       return;
     }
 
-    // Validate toàn diện với Backend
     setIsValidating(true);
     try {
-      // ... (Logic gọi API check recordDetails giữ nguyên)
       const recordResponse = await technicianService.getRecordDetails(recordId);
       const fullRecord = recordResponse.data?.record;
 
       if (!fullRecord || !fullRecord.guaranteeCases) {
-        Alert.alert("Lỗi", "Không thể kiểm tra thông tin phiếu. Vui lòng thử lại.");
+        Alert.alert("Error", "Cannot verify record information. Please try again.");
         setIsValidating(false);
         return;
       }
@@ -89,8 +79,8 @@ export default function CompleteDiagnosisButton({
 
       if (undiagnosedCases.length > 0) {
         Alert.alert(
-          "Chưa hoàn tất", 
-          `Còn hồ sơ bảo hành chưa được chẩn đoán. Vui lòng kiểm tra lại.`
+          "Incomplete", 
+          `There are undiagnosed warranty cases. Please check again.`
         );
         setIsValidating(false);
         return;
@@ -100,7 +90,7 @@ export default function CompleteDiagnosisButton({
 
     } catch (err) {
       console.error("Failed to validate:", err);
-      Alert.alert("Lỗi", "Không thể kiểm tra trạng thái phiếu.");
+      Alert.alert("Error", "Cannot verify record status.");
     } finally {
       setIsValidating(false);
     }
@@ -114,7 +104,7 @@ export default function CompleteDiagnosisButton({
       setShowSuccessModal(true);
     } catch (err) {
       console.error("Failed:", err);
-      Alert.alert("Lỗi", "Không thể hoàn tất chẩn đoán.");
+      Alert.alert("Error", "Cannot complete diagnosis.");
     } finally {
       setIsSubmitting(false);
     }
@@ -138,7 +128,7 @@ export default function CompleteDiagnosisButton({
         disabled={isButtonDisabled}
         style={[
           styles.button,
-          isButtonDisabled && styles.disabledButton, // Áp dụng style disable
+          isButtonDisabled && styles.disabledButton, 
           style,
         ]}
       >
@@ -148,12 +138,11 @@ export default function CompleteDiagnosisButton({
           <Ionicons name="checkmark-done-circle-outline" size={20} color="#FFFFFF" />
         )}
         <Text style={styles.buttonText}>
-          {isValidating ? "Đang kiểm tra..." : isSubmitting ? "Đang xử lý..." : "Hoàn tất Chẩn đoán"}
+          {isValidating ? "Validating..." : isSubmitting ? "Processing..." : "Complete Diagnosis"}
         </Text>
       </TouchableOpacity>
 
-      {/* --- Modal Confirm & Success giữ nguyên --- */}
-      {/* (Bạn giữ nguyên phần code Modal ở dưới nhé, không thay đổi gì) */}
+      {/* --- Modal Confirm & Success --- */}
       <Modal
         visible={showConfirmModal}
         transparent={true}
@@ -166,7 +155,7 @@ export default function CompleteDiagnosisButton({
         >
           <Pressable style={styles.modalContent} onPress={() => {}}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Hoàn tất Chẩn đoán</Text>
+              <Text style={styles.modalTitle}>Complete Diagnosis</Text>
               <TouchableOpacity
                 onPress={() => setShowConfirmModal(false)}
                 style={styles.closeButton}
@@ -182,8 +171,7 @@ export default function CompleteDiagnosisButton({
                   color="#1D4ED8"
                 />
                 <Text style={styles.infoText}>
-                  Hành động này sẽ gửi tất cả hạng mục chẩn đoán đi duyệt và
-                  không thể hoàn tác. Bạn có chắc chắn?
+                  This action will submit all diagnosis items for approval and cannot be undone. Are you sure?
                 </Text>
               </View>
             </View>
@@ -192,7 +180,7 @@ export default function CompleteDiagnosisButton({
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setShowConfirmModal(false)}
               >
-                <Text style={styles.cancelButtonText}>Hủy</Text>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalButton, styles.confirmButton]}
@@ -200,7 +188,7 @@ export default function CompleteDiagnosisButton({
                 disabled={isSubmitting}
               >
                 <Text style={styles.confirmButtonText}>
-                  {isSubmitting ? "Đang..." : "Xác nhận"}
+                  {isSubmitting ? "Processing..." : "Confirm"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -220,9 +208,9 @@ export default function CompleteDiagnosisButton({
               <View style={styles.successIconWrapper}>
                 <Ionicons name="checkmark-circle" size={32} color="#16A34A" />
               </View>
-              <Text style={styles.successTitle}>Chẩn đoán Hoàn tất!</Text>
+              <Text style={styles.successTitle}>Diagnosis Completed!</Text>
               <Text style={styles.successSubtitle}>
-                Các hạng mục đã được gửi đi duyệt. Bạn muốn làm gì tiếp theo?
+                Items have been submitted for approval. What would you like to do next?
               </Text>
             </View>
             <View style={styles.successBody}>
@@ -234,10 +222,10 @@ export default function CompleteDiagnosisButton({
                   <Ionicons name="cube-outline" size={20} color="#1D4ED8" />
                   <View style={styles.nextStepTextContainer}>
                     <Text style={styles.nextStepTitle}>
-                      Xem Linh kiện chờ Lắp đặt
+                      View Components to Install
                     </Text>
                     <Text style={styles.nextStepSubtitle}>
-                      Kiểm tra các linh kiện đã được duyệt
+                      Check components approved for installation
                     </Text>
                   </View>
                   <Ionicons name="arrow-forward" size={20} color="#1D4ED8" />
@@ -247,7 +235,7 @@ export default function CompleteDiagnosisButton({
                 style={[styles.modalButton, styles.cancelButton, { width: "100%" }]}
                 onPress={handleSuccessClose}
               >
-                <Text style={styles.cancelButtonText}>Quay lại Dashboard</Text>
+                <Text style={styles.cancelButtonText}>Back to My Tasks</Text>
               </TouchableOpacity>
             </View>
           </Pressable>
@@ -268,7 +256,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   disabledButton: {
-    backgroundColor: "#93C5FD", // Màu xanh nhạt hơn khi disable (Blue 300)
+    backgroundColor: "#93C5FD", 
     opacity: 0.8,
   },
   buttonText: {
@@ -277,7 +265,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginLeft: 8,
   },
-  // ... (Giữ nguyên các styles Modal cũ)
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0, 0, 0, 0.5)", justifyContent: "center", alignItems: "center", padding: 20 },
   modalContent: { width: "100%", backgroundColor: "#FFFFFF", borderRadius: 12 },
   modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" },

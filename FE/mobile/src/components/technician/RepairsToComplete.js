@@ -27,7 +27,7 @@ const RepairDetailModal = ({ visible, item, onClose, onMarkCompleteSuccess }) =>
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.modalTitle}>Repair Completion Details</Text>
-              <Text style={styles.modalSubtitle}>{item.typeComponent?.name || "Linh kiện"}</Text>
+              <Text style={styles.modalSubtitle}>{item.typeComponent?.name || "Component"}</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Ionicons name="close" size={24} color="#6B7280" />
@@ -160,7 +160,7 @@ export default function RepairsToComplete() {
       return (
         <View style={styles.centeredView}>
           <Ionicons name="checkmark-done-outline" size={24} color="#9CA3AF" />
-          <Text style={styles.emptyText}>Không có mục nào chờ hoàn tất</Text>
+          <Text style={styles.emptyText}>No items pending completion</Text>
         </View>
       );
     }
@@ -177,7 +177,7 @@ export default function RepairsToComplete() {
                    <Ionicons name="construct-outline" size={18} color="#16A34A" />
                 </View>
                 <Text style={styles.itemName} numberOfLines={1}>
-                  {caseLine.typeComponent?.name || "Linh kiện"}
+                  {caseLine.typeComponent?.name || "Component"}
                 </Text>
               </View>
 

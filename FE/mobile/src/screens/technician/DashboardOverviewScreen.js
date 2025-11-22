@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
-import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect } from "@react-navigation/native";
 import { technicianService } from "../../services/technician"; 
 import ComponentsToInstall from "../../components/technician/ComponentsToInstall";
 import RepairsToComplete from "../../components/technician/RepairsToComplete";
@@ -18,7 +18,13 @@ export default function DashboardOverviewScreen() {
   const [processingRecords, setProcessingRecords] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const triggerRefresh = useCallback(() => {
+    setRefreshKey((prev) => prev + 1);
+    loadProcessingRecords();
+  }, []);
+
   const loadProcessingRecords = async () => {
     if (!refreshing) setIsLoading(true);
     try {
@@ -26,7 +32,7 @@ export default function DashboardOverviewScreen() {
       const allRecords = response.data?.records?.records || [];
       setProcessingRecords(allRecords);
     } catch (err) {
-      console.error("Lỗi khi tải thống kê:", err);
+      console.error("Error loading stats:", err);
     } finally {
       setIsLoading(false);
       setRefreshing(false); 
@@ -41,7 +47,8 @@ export default function DashboardOverviewScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    loadProcessingRecords();
+    await loadProcessingRecords();
+    setRefreshKey((prev) => prev + 1);
   }, []);
 
   const stats = useMemo(() => {
@@ -75,7 +82,7 @@ export default function DashboardOverviewScreen() {
               {isLoading ? "-" : stats.totalCount}
             </Text>
             <Text style={[styles.statLabel, { color: "#1E3A8A" }]}>
-              Tổng cộng
+              Total
             </Text>
           </View>
           <View style={[styles.statBox, { backgroundColor: "#F3E8FF" }]}>
@@ -88,16 +95,27 @@ export default function DashboardOverviewScreen() {
             <Text style={[styles.statNumber, { color: "#065F46" }]}>
               {isLoading ? "-" : stats.completedCount}
             </Text>
-            <Text style={[styles.statLabel, { color: "#044229" }]}>Hoàn thành</Text>
+            <Text style={[styles.statLabel, { color: "#044229" }]}>Done</Text>
           </View>
         </View>
 
         <View style={styles.actionItemsContainer}>
-            <ComponentsToPickup />
+            <ComponentsToPickup 
+              key={`pickup-${refreshKey}`} 
+              onActionSuccess={triggerRefresh} 
+            />
             <View style={{ height: 16 }} />
-            <ComponentsToInstall />
+            
+            <ComponentsToInstall 
+              key={`install-${refreshKey}`} 
+              onActionSuccess={triggerRefresh} 
+            />
             <View style={{ height: 16 }} />
-            <RepairsToComplete />
+            
+            <RepairsToComplete 
+              key={`complete-${refreshKey}`} 
+              onActionSuccess={triggerRefresh}
+            />
         </View>
 
       </ScrollView>

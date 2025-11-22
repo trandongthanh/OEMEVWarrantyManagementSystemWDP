@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   Modal,
   Pressable,
 } from "react-native";
-import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import { technicianService, processingRecordService } from "../../services/technician";
@@ -60,7 +60,7 @@ export default function PartsInventoryScreen() {
       setAvailableRecords(activeRecords);
     } catch (err) {
       console.error("Failed to load records:", err);
-      setError("Không thể tải danh sách xe");
+      setError("Unable to load vehicle list");
     } finally {
       setIsLoadingRecords(false);
     }
@@ -105,7 +105,7 @@ export default function PartsInventoryScreen() {
       }
       setComponents(results);
     } catch (err) {
-      setError("Không thể tải danh sách linh kiện");
+      setError("Unable to load parts list");
       console.error(err);
       setComponents([]);
     } finally {
@@ -176,7 +176,7 @@ export default function PartsInventoryScreen() {
       return (
         <View style={styles.centeredContainer}>
           <ActivityIndicator size="large" color="#1D4ED8" />
-          <Text style={styles.loadingText}>Đang tải linh kiện...</Text>
+          <Text style={styles.loadingText}>Loading parts...</Text>
         </View>
       );
     }
@@ -184,9 +184,9 @@ export default function PartsInventoryScreen() {
       return (
         <View style={styles.centeredContainer}>
           <Ionicons name="car-outline" size={64} color="#9CA3AF" />
-          <Text style={styles.emptyText}>Vui lòng chọn xe</Text>
+          <Text style={styles.emptyText}>Please select a vehicle</Text>
           <Text style={styles.emptySubText}>
-            Chọn một xe để xem linh kiện tương thích.
+            Select a vehicle to view compatible parts.
           </Text>
         </View>
       );
@@ -203,9 +203,9 @@ export default function PartsInventoryScreen() {
       return (
         <View style={styles.centeredContainer}>
           <Ionicons name="cube-outline" size={64} color="#9CA3AF" />
-          <Text style={styles.emptyText}>Không tìm thấy linh kiện</Text>
+          <Text style={styles.emptyText}>No parts found</Text>
           <Text style={styles.emptySubText}>
-            Không có linh kiện nào phù hợp với bộ lọc.
+            No parts match your filter criteria.
           </Text>
         </View>
       );
@@ -214,7 +214,7 @@ export default function PartsInventoryScreen() {
     return (
       <View style={styles.listContainer}>
         <Text style={styles.resultCountText}>
-          Tìm thấy {filteredComponents.length} linh kiện
+          Found {filteredComponents.length} parts
         </Text>
         {filteredComponents.map((component) => (
           <TouchableOpacity
@@ -235,12 +235,12 @@ export default function PartsInventoryScreen() {
               {component.isUnderWarranty ? (
                 <View style={styles.warrantyBadgeGood}>
                   <Ionicons name="shield-checkmark" size={14} color="#16A34A" />
-                  <Text style={styles.warrantyTextGood}>Bảo hành</Text>
+                  <Text style={styles.warrantyTextGood}>Warranty</Text>
                 </View>
               ) : (
                 <View style={styles.warrantyBadgeBad}>
                   <Ionicons name="shield-outline" size={14} color="#EF4444" />
-                  <Text style={styles.warrantyTextBad}>Không BH</Text>
+                  <Text style={styles.warrantyTextBad}>No Warranty</Text>
                 </View>
               )}
             </View>
@@ -267,13 +267,13 @@ export default function PartsInventoryScreen() {
           <Ionicons name="information-circle-outline" size={20} color="#1D4ED8" />
           <Text style={styles.infoText}>
             {currentVehicleInfo
-              ? `Đang hiển thị linh kiện cho: ${currentVehicleInfo.model}`
-              : "Chọn xe để bắt đầu tìm linh kiện."}
+              ? `Showing parts for: ${currentVehicleInfo.model}`
+              : "Select a vehicle to start searching for parts."}
           </Text>
         </View>
         
         <View style={styles.filterSection}>
-          <Text style={styles.label}>Chọn xe</Text>
+          <Text style={styles.label}>Select Vehicle</Text>
           <View style={styles.pickerContainer}>
             <Picker
               selectedValue={currentRecordId}
@@ -281,7 +281,7 @@ export default function PartsInventoryScreen() {
               style={styles.picker}
               enabled={!isLoadingRecords}
             >
-              <Picker.Item label={isLoadingRecords ? "Đang tải xe..." : "-- Chọn xe --"} value={null} />
+              <Picker.Item label={isLoadingRecords ? "Loading vehicles..." : "-- Select Vehicle --"} value={null} />
               {availableRecords.map((record) => (
                 <Picker.Item
                   key={record.vehicleProcessingRecordId}
@@ -292,7 +292,7 @@ export default function PartsInventoryScreen() {
             </Picker>
           </View>
 
-          <Text style={styles.label}>Tìm kiếm linh kiện</Text>
+          <Text style={styles.label}>Search Parts</Text>
           <View style={styles.searchInputContainer}>
             <Ionicons
               name="search-outline"
@@ -302,7 +302,7 @@ export default function PartsInventoryScreen() {
             />
             <TextInput
               style={styles.searchInput}
-              placeholder="Tìm theo tên linh kiện..."
+              placeholder="Search by part name..."
               placeholderTextColor="#9CA3AF"
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -310,7 +310,7 @@ export default function PartsInventoryScreen() {
             />
           </View>
 
-          <Text style={styles.label}>Lọc theo danh mục</Text>
+          <Text style={styles.label}>Filter by Category</Text>
           <View style={styles.pickerContainer}>
             <Picker
               selectedValue={categoryFilter}
@@ -318,7 +318,7 @@ export default function PartsInventoryScreen() {
               style={styles.picker}
               enabled={!!currentRecordId}
             >
-              <Picker.Item label="-- Chọn danh mục --" value="" />
+              <Picker.Item label="-- Select Category --" value="" />
               {COMPONENT_CATEGORIES.map((cat) => (
                 <Picker.Item
                   key={cat.value}
@@ -336,12 +336,12 @@ export default function PartsInventoryScreen() {
           <InfoCard
             icon="search-outline"
             title="How to Search"
-            text="Chọn xe để tìm linh kiện tương thích."
+            text="Select a vehicle to find compatible parts."
           />
           <InfoCard
             icon="shield-checkmark-outline"
             title="Warranty Status"
-            text="Kiểm tra trạng thái bảo hành của linh kiện."
+            text="Check the warranty status of the component."
           />
         </View>
       </ScrollView>
@@ -358,7 +358,7 @@ export default function PartsInventoryScreen() {
         >
           <Pressable style={styles.modalContent} onPress={() => {}}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chi tiết linh kiện</Text>
+              <Text style={styles.modalTitle}>Component Details</Text>
               <TouchableOpacity
                 onPress={() => setShowDetailsModal(false)}
                 style={styles.closeButton}
@@ -369,7 +369,7 @@ export default function PartsInventoryScreen() {
             <View style={styles.modalBody}>
               {selectedComponent && (
                 <>
-                  <Text style={styles.modalLabel}>Tên linh kiện</Text>
+                  <Text style={styles.modalLabel}>Part Name</Text>
                   <Text style={styles.modalValue}>
                     {selectedComponent.name}
                   </Text>
@@ -377,7 +377,7 @@ export default function PartsInventoryScreen() {
                   <Text style={styles.modalValue}>
                     {selectedComponent.typeComponentId}
                   </Text>
-                  <Text style={styles.modalLabel}>Trạng thái bảo hành</Text>
+                  <Text style={styles.modalLabel}>Warranty Status</Text>
                   {selectedComponent.isUnderWarranty ? (
                     <View style={styles.warrantyBoxGood}>
                       <Ionicons
@@ -386,14 +386,14 @@ export default function PartsInventoryScreen() {
                         color="#16A34A"
                       />
                       <Text style={styles.warrantyBoxTextGood}>
-                        Còn bảo hành
+                        Under Warranty
                       </Text>
                     </View>
                   ) : (
                     <View style={styles.warrantyBoxBad}>
                       <Ionicons name="shield-outline" size={18} color="#EF4444" />
                       <Text style={styles.warrantyBoxTextBad}>
-                        Không bảo hành
+                        No Warranty
                       </Text>
                     </View>
                   )}
@@ -421,16 +421,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F4F6",
   },
   header: {
-    backgroundColor: "#FFFFFF",
-    paddingVertical: 12, 
-    paddingHorizontal: 16,
-    paddingTop: 40, 
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-    flexDirection: "row", 
-    justifyContent: "space-between", 
-    alignItems: "center", 
-  },
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 12, 
+    paddingHorizontal: 16,
+    paddingTop: 40, 
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    alignItems: "center", 
+  },
   headerTitle: {
     fontSize: 28,
     fontWeight: "bold",
@@ -590,7 +590,6 @@ const styles = StyleSheet.create({
     color: "#EF4444",
     marginLeft: 4,
   },
-  // Info Cards
   infoCardsContainer: {
     padding: 16,
   },
@@ -613,7 +612,6 @@ const styles = StyleSheet.create({
     color: "#4B5563",
     marginTop: 4,
   },
-  // Modal Styles
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",

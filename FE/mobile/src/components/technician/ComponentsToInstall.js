@@ -63,26 +63,26 @@ export default function ComponentsToInstall() {
       (res) => res.status === "PICKED_UP"
     );
     if (!reservation || !reservation.reservationId) {
-      Alert.alert("Lỗi", "Không tìm thấy dữ liệu linh kiện.");
+      Alert.alert("Error", "Component data not found.");
       return;
     }
 
     Alert.alert(
-      "Xác nhận lắp đặt",
-      `Bạn có chắc chắn muốn lắp đặt "${component.typeComponent?.name}"?`,
+      "Confirm Installation",
+      `Are you sure you want to install "${component.typeComponent?.name}"?`,
       [
-        { text: "Hủy", style: "cancel" },
+        { text: "Cancel", style: "cancel" },
         {
-          text: "Lắp đặt ngay",
+          text: "Install Now",
           onPress: async () => {
             setProcessingId(component.id || component.caseLineId);
             try {
               await componentReservationService.installComponent(reservation.reservationId);
-              Alert.alert("Thành công", "Linh kiện đã được lắp đặt.");
+              Alert.alert("Success", "Component installed successfully.");
               loadComponentsToInstall();
             } catch (err) {
-              console.error("Lỗi lắp đặt:", err);
-              Alert.alert("Lỗi", "Không thể lắp đặt linh kiện.");
+              console.error("Error installing:", err);
+              Alert.alert("Error", "Cannot install component.");
             } finally {
               setProcessingId(null);
             }
@@ -113,7 +113,7 @@ export default function ComponentsToInstall() {
   const handleInstallSuccess = () => {
     setSelectedComponent(null);
     loadComponentsToInstall();
-    Alert.alert("Thành công", "Linh kiện đã được lắp đặt.");
+    Alert.alert("Success", "Component installed successfully.");
   };
 
   const allReservationIds = useMemo(() => 
@@ -145,7 +145,7 @@ export default function ComponentsToInstall() {
 
   const handleBulkInstall = async () => {
     if (selectedForBulkInstall.size === 0) {
-      Alert.alert("Lỗi", "Vui lòng chọn ít nhất một linh kiện.");
+      Alert.alert("Error", "Please select at least one component.");
       return;
     }
 
@@ -163,7 +163,7 @@ export default function ComponentsToInstall() {
       }
     }
 
-    Alert.alert("Hoàn tất", `Đã xử lý ${successCount} linh kiện.`);
+    Alert.alert("Completed", `Processed ${successCount} components.`);
     
     setSelectedForBulkInstall(new Set());
     setIsBulkInstalling(false);
@@ -175,7 +175,7 @@ export default function ComponentsToInstall() {
       return (
         <View style={styles.centeredView}>
           <ActivityIndicator size="small" color="#9333EA" />
-          <Text style={styles.loadingText}>Đang tải linh kiện...</Text>
+          <Text style={styles.loadingText}>Loading components...</Text>
         </View>
       );
     }
@@ -184,7 +184,7 @@ export default function ComponentsToInstall() {
       return (
         <View style={styles.centeredView}>
           <Ionicons name="cube-outline" size={24} color="#9CA3AF" />
-          <Text style={styles.emptyText}>Không có linh kiện chờ lắp đặt</Text>
+          <Text style={styles.emptyText}>No components pending installation</Text>
         </View>
       );
     }
@@ -229,17 +229,17 @@ export default function ComponentsToInstall() {
 
                   <View style={styles.itemMeta}>
                     <Text style={styles.metaText} numberOfLines={1}>
-                      <Text style={styles.metaLabel}>Chẩn đoán:</Text> {component.diagnosisText || "N/A"}
+                      <Text style={styles.metaLabel}>Diagnosis:</Text> {component.diagnosisText || "N/A"}
                     </Text>
                     <Text style={styles.metaText}>
-                      <Text style={styles.metaLabel}>Số lượng:</Text> {pickedUpCount}
+                      <Text style={styles.metaLabel}>Qty:</Text> {pickedUpCount}
                     </Text>
                     <Text style={styles.metaText} numberOfLines={1}>
                       <Text style={styles.metaLabel}>Case:</Text> {component.guaranteeCaseId}
                     </Text>
                     {serialNumber && (
                       <Text style={styles.serialText} numberOfLines={1}>
-                         ✓ Sẵn sàng lắp: {serialNumber}
+                         ✓ Ready to Install: {serialNumber}
                       </Text>
                     )}
                   </View>
@@ -250,7 +250,7 @@ export default function ComponentsToInstall() {
                       onPress={() => handleViewDetails(component)}
                     >
                       <Ionicons name="eye-outline" size={16} color="#374151" />
-                      <Text style={styles.viewDetailsText}>Chi tiết</Text>
+                      <Text style={styles.viewDetailsText}>Details</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -263,7 +263,7 @@ export default function ComponentsToInstall() {
                       ) : (
                         <>
                           <Ionicons name="construct" size={16} color="#FFFFFF" style={{marginRight: 4}} /> 
-                          <Text style={styles.installButtonText}>Lắp đặt</Text>
+                          <Text style={styles.installButtonText}>Install</Text>
                         </>
                       )}
                     </TouchableOpacity>
@@ -284,8 +284,8 @@ export default function ComponentsToInstall() {
           <Ionicons name="cube" size={20} color="#9333EA" />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>Chờ lắp đặt</Text>
-          <Text style={styles.subtitle}>Linh kiện đã lấy từ kho</Text>
+          <Text style={styles.title}>To Install</Text>
+          <Text style={styles.subtitle}>Components picked up from warehouse</Text>
         </View>
         <View style={styles.countBadge}>
           <Text style={styles.countText}>{components.length}</Text>
@@ -304,7 +304,7 @@ export default function ComponentsToInstall() {
               color="#4B5563"
             />
             <Text style={styles.selectAllText}>
-              Chọn tất cả ({selectedForBulkInstall.size})
+              Select All ({selectedForBulkInstall.size})
             </Text>
           </TouchableOpacity>
 
@@ -320,7 +320,7 @@ export default function ComponentsToInstall() {
                 <Ionicons name="construct" size={16} color="#FFFFFF" />
               )}
               <Text style={styles.bulkInstallButtonText}>
-                 Lắp đặt hàng loạt
+                 Bulk Install
               </Text>
             </TouchableOpacity>
           )}
@@ -490,7 +490,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     backgroundColor: "#9333EA", 
     paddingVertical: 8,
-    paddingHorizontal: 16, // Nút chính nên to hơn chút
+    paddingHorizontal: 16, // Main button slightly larger
     borderRadius: 8,
     alignItems: "center",
   },
