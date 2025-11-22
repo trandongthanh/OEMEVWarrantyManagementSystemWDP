@@ -51,9 +51,6 @@ class WarrantyComponentRepository {
 
     if (vehicleModelId) where.vehicleModelId = vehicleModelId;
     if (typeComponentId) where.typeComponentId = typeComponentId;
-    // Assuming validation of companyId ownership is done in service layer or implied by vehicleModel ownership
-    // If vehicleModel belongs to company, we could filter by checking VehicleModel association.
-    // For simplicity, we'll rely on vehicleModelId filter or assume super admin/company admin context is handled.
 
     const { count, rows } = await WarrantyComponent.findAndCountAll({
       where,
@@ -68,7 +65,7 @@ class WarrantyComponentRepository {
         {
           model: VehicleModel,
           as: "vehicleModel",
-          attributes: ["name", "vehicleModelId"],
+          attributes: ["vehicleModelName", "vehicleModelId"],
         },
       ],
     });

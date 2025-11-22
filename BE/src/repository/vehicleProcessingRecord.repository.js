@@ -10,6 +10,7 @@ const {
   CaseLine,
   VehicleCompany,
   TypeComponent,
+  Customer,
 } = db;
 
 class VehicleProcessingRecordRepository {
@@ -400,6 +401,13 @@ class VehicleProcessingRecordRepository {
               model: VehicleModel,
               as: "model",
               attributes: [["vehicle_model_name", "name"], "vehicleModelId"],
+              required: false,
+            },
+
+            {
+              model: Customer,
+              as: "owner",
+              attributes: ["id", "fullName", "email"],
               required: false,
             },
           ],

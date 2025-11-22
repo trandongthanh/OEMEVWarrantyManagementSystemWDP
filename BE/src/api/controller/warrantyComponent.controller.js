@@ -27,7 +27,7 @@ class WarrantyComponentController {
 
   getAllWarrantyComponents = async (req, res, next) => {
     const { page, limit, vehicleModelId, typeComponentId } = req.query;
-    const { companyId } = req.user; // Assuming user info is attached to req
+    const { companyId } = req.user;
 
     const result = await this.#warrantyComponentService.getWarrantyComponents({
       page,
@@ -45,9 +45,8 @@ class WarrantyComponentController {
 
   getWarrantyComponentById = async (req, res, next) => {
     const { id } = req.params;
-    const result = await this.#warrantyComponentService.getWarrantyComponentById(
-      id
-    );
+    const result =
+      await this.#warrantyComponentService.getWarrantyComponentById(id);
     res.status(200).json({
       status: "success",
       data: result,
