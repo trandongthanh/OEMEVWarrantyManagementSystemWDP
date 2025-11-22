@@ -18,9 +18,9 @@ import technicianService, {
   TechnicianProcessingRecord,
 } from "@/services/technicianService";
 import { CaseDetailsModal } from "./CaseDetailsModal";
-import { ComponentsToInstall } from "./ComponentsToInstall";
+// import { ComponentsToInstall } from "./ComponentsToInstall";
 import { ComponentsToPickup } from "./ComponentsToPickup";
-import { RepairsToComplete } from "./RepairsToComplete";
+// import { RepairsToComplete } from "./RepairsToComplete";
 import { usePolling } from "@/hooks/usePolling";
 import { CompleteDiagnosisButton } from "./CompleteDiagnosisButton";
 
@@ -579,16 +579,15 @@ export function DashboardOverview() {
           </div>
         </div>
 
-        {/* Action Items Section - Install & Complete in 2 columns - Full Width Below */}
+        {/* Action Items Section - Install & Complete - Moved to RepairWorkflow */}
+        {/* 
         <div className="mt-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Components to Install */}
             <ComponentsToInstall />
-
-            {/* Repairs to Complete */}
             <RepairsToComplete />
           </div>
         </div>
+        */}
 
         {/* Case Details Modal */}
         {selectedCase && (

@@ -46,15 +46,18 @@ export function ComponentPickupList({
 
       const reservationsList = response.data.reservations || [];
       const items: ReservationItem[] = reservationsList.map((reservation) => ({
-        caseLineId: reservation.caselineId,
+        caseLineId: reservation.caseLineId,
         reservationId: reservation.reservationId,
         componentName: reservation.component?.serialNumber || "Component",
         componentId: reservation.componentId,
-        quantity: reservation.quantityReserved,
+        quantity: reservation.caseLine?.quantity || 1,
         status: reservation.status,
         createdAt: reservation.createdAt,
-        vehicleVin: reservation.caseLine?.id || "",
-        caseNumber: reservation.caselineId,
+        vehicleVin:
+          reservation.caseLine?.guaranteeCase?.vehicleProcessingRecord?.vin ||
+          "",
+        caseNumber:
+          reservation.caseLine?.guaranteeCaseId || reservation.caseLineId,
         typeComponentId: reservation.componentId,
         repairTechId: reservation.caseLine?.repairTechId,
         repairTechName: reservation.caseLine?.repairTechnician?.name,
@@ -90,15 +93,18 @@ export function ComponentPickupList({
 
       // Transform reservations into pickup items
       const items: ReservationItem[] = reservationsList.map((reservation) => ({
-        caseLineId: reservation.caselineId,
+        caseLineId: reservation.caseLineId,
         reservationId: reservation.reservationId,
         componentName: reservation.component?.serialNumber || "Component",
         componentId: reservation.componentId,
-        quantity: reservation.quantityReserved,
+        quantity: reservation.caseLine?.quantity || 1,
         status: reservation.status,
         createdAt: reservation.createdAt,
-        vehicleVin: reservation.caseLine?.id || "",
-        caseNumber: reservation.caselineId,
+        vehicleVin:
+          reservation.caseLine?.guaranteeCase?.vehicleProcessingRecord?.vin ||
+          "",
+        caseNumber:
+          reservation.caseLine?.guaranteeCaseId || reservation.caseLineId,
         typeComponentId: reservation.componentId,
         repairTechId: reservation.caseLine?.repairTechId,
         repairTechName: reservation.caseLine?.repairTechnician?.name,

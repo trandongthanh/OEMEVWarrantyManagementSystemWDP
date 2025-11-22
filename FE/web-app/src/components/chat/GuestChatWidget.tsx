@@ -417,7 +417,7 @@ export default function GuestChatWidget({
       }
 
       // Join the chat room AFTER listeners are set up
-      joinChatRoom(session.conversationId, session.guestId, "guest");
+      await joinChatRoom(session.conversationId, session.guestId, "guest");
 
       // Add welcome message
       setMessages([
