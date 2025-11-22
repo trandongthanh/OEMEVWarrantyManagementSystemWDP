@@ -427,7 +427,8 @@ export function CaseLineOperations() {
 
   const handleSelectAllApproved = () => {
     const approvedCaseLines = filteredCaseLines.filter(
-      (cl: any) => cl.status === "CUSTOMER_APPROVED"
+      (cl: any) =>
+        cl.status === "CUSTOMER_APPROVED" || cl.status === "PARTS_AVAILABLE"
     );
     if (
       selectedCaseLineIds.size === approvedCaseLines.length &&
