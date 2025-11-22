@@ -2,6 +2,7 @@ import express from "express";
 import {
   authentication,
   authorizationByRole,
+  attachCompanyContext,
   validate,
 } from "../middleware/index.js";
 import { warrantyComponentSchema } from "../../validators/warrantyComponent.validator.js";
@@ -116,6 +117,7 @@ router.post(
   "/:vehicleModelId",
   authentication,
   authorizationByRole(["parts_coordinator_company"]),
+  attachCompanyContext,
   validate(warrantyComponentSchema, "body"),
   async (req, res, next) => {
     const warrantyComponentController = req.container.resolve(
