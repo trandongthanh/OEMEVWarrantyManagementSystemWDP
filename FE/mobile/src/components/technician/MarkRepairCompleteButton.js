@@ -11,44 +11,10 @@ import {
   Image,
   ScrollView,
   Platform, 
-  PermissionsAndroid, 
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons"; 
-import { launchImageLibrary } from "react-native-image-picker"; 
-import { caseLineService, imageUploadService } from "../../services/technician"; 
-
-const requestGalleryPermission = async () => {
-  if (Platform.OS !== 'android') {
-    return true; 
-  }
-  try {
-    let granted = await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES,
-      {
-        title: "Yêu cầu quyền truy cập Thư viện",
-        message: "Ứng dụng cần quyền truy cập ảnh của bạn để tải bằng chứng.",
-        buttonPositive: "Đồng ý",
-      }
-    );
-
-    if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-      granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
-        {
-          title: "Yêu cầu quyền truy cập Bộ nhớ",
-          message: "Ứng dụng cần quyền truy cập ảnh của bạn để tải bằng chứng.",
-          buttonPositive: "Đồng ý",
-        }
-      );
-    }
-    
-    return granted === PermissionsAndroid.RESULTS.GRANTED;
-    
-  } catch (err) {
-    console.warn(err);
-    return false;
-  }
-};
+import * as ImagePicker from 'expo-image-picker'; 
+import { caseLineService, imageUploadService } from "../../services/technician";
 
 export default function MarkRepairCompleteButton({
   caseLineId,
@@ -62,33 +28,48 @@ export default function MarkRepairCompleteButton({
   const [error, setError] = useState(null); 
   const [showConfirmModal, setShowConfirmModal] = useState(false); 
   const [showSuccess, setShowSuccess] = useState(false); 
-  
   const [imageFiles, setImageFiles] = useState([]); 
 
-  const handleImageSelect = async () => {
-    const hasPermission = await requestGalleryPermission();
-    if (!hasPermission) {
-      Alert.alert("Lỗi", "Bạn đã từ chối quyền truy cập thư viện ảnh.");
-      return;
-    }
-    
-    launchImageLibrary({ mediaType: "photo", quality: 0.7, selectionLimit: 5 }, (response) => {
-      if (response.didCancel) {
-        console.log("User cancelled image picker");
-      } else if (response.errorCode) {
-        console.log("ImagePicker Error: ", response.errorMessage);
-      } else {
-        const newAssets = response.assets || [];
+  const handleImageSelect = async () => { 
+    try {
+      console.log("--- BẮT ĐẦU CHỌN ẢNH ---");
+      
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Thiếu quyền truy cập', 
+          'Vui lòng vào Cài đặt > Ứng dụng > [Tên App] > Quyền > Ảnh và Video để cấp quyền.'
+        );
+        return;
+      }
+
+      let result = await ImagePicker.launchImageLibraryAsync({
+        // --- CẬP NHẬT: Dùng mảng string thay vì Enum cũ để hết Warning ---
+        mediaTypes: ['images'], 
+        // -----------------------------------------------------------------
+        allowsMultipleSelection: true,
+        selectionLimit: 5,
+        quality: 0.5, 
+        base64: false,
+      });
+
+      console.log("Kết quả trả về:", result.canceled ? "Đã hủy" : "Đã chọn");
+
+      if (!result.canceled) {
+        const newAssets = result.assets || [];
         setImageFiles(prevImages => {
           const combined = [...prevImages, ...newAssets];
           if (combined.length > 5) {
-            Alert.alert("Lỗi", "Chỉ được tải lên tối đa 5 ảnh.");
-            return prevImages;
+            Alert.alert("Giới hạn", "Chỉ được tải lên tối đa 5 ảnh.");
+            return combined.slice(0, 5); 
           }
           return combined;
         });
       }
-    });
+    } catch (error) {
+      console.error("LỖI MỞ THƯ VIỆN:", error);
+      Alert.alert("Lỗi Kỹ Thuật", "Không thể mở thư viện ảnh: " + error.message);
+    }
   };
 
   const removeImage = (index) => {
@@ -105,9 +86,8 @@ export default function MarkRepairCompleteButton({
     setError(null);
     
     if (imageFiles.length === 0) {
-      const errorMsg = "Vui lòng tải lên ít nhất 1 ảnh làm bằng chứng.";
-      setError(errorMsg);
-      Alert.alert("Lỗi", errorMsg);
+      setError("Vui lòng tải lên ít nhất 1 ảnh làm bằng chứng.");
+      Alert.alert("Lỗi", "Vui lòng tải lên ít nhất 1 ảnh làm bằng chứng.");
       return;
     }
 
@@ -116,7 +96,12 @@ export default function MarkRepairCompleteButton({
     try {
       const imageUrls = [];
       for (const file of imageFiles) {
-        const url = await imageUploadService.uploadImage(file);
+        const fileToUpload = {
+          uri: file.uri,
+          type: file.mimeType || 'image/jpeg',
+          fileName: file.fileName || file.uri.split('/').pop(),
+        };
+        const url = await imageUploadService.uploadImage(fileToUpload);
         imageUrls.push(url);
       }
       
@@ -221,6 +206,7 @@ export default function MarkRepairCompleteButton({
               <TouchableOpacity
                 style={styles.uploadButton}
                 onPress={handleImageSelect}
+                disabled={imageFiles.length >= 5} 
               >
                 <Ionicons name="camera-outline" size={20} color="#374151" />
                 <Text style={styles.uploadButtonText}>Chọn ảnh ({imageFiles.length}/5)</Text>
@@ -321,14 +307,14 @@ const styles = StyleSheet.create({
   },
   modalBodyScroll: {
     padding: 16,
-    maxHeight: 400, // Giới hạn chiều cao
+    maxHeight: 400, 
   },
   modalBody: {
     padding: 16,
   },
   infoBox: {
     flexDirection: "row",
-    backgroundColor: "#EFF6FF", //
+    backgroundColor: "#EFF6FF", 
     padding: 12,
     borderRadius: 8,
     alignItems: "flex-start",
@@ -347,7 +333,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   pendingBox: {
-    backgroundColor: "#FFFBEB", //
+    backgroundColor: "#FFFBEB", 
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
@@ -394,7 +380,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   
-  // --- STYLES MỚI CHO TẢI ẢNH ---
   label: {
     fontSize: 14,
     fontWeight: "500",

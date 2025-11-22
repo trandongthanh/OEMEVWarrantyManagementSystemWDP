@@ -6,7 +6,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import LoginScreen from "../screens/LoginScreen";
 import ManagerDashboardTabs from "../screens/manager/ManagerDashboardTabs";
 import StaffDashboardTabs from "../screens/staff/StaffDashboardTabs";
-import TechnicianTabNavigator from "./TechnicianTabNavigator";
+import TechnicianStackNavigator from "./TechnicianStackNavigator";
 import StaffChatScreen from "../screens/staff/StaffChatScreen";
 import TrackingScreen from "../screens/customer/TrackingScreen"; // ⭐ NEW SCREEN
 import SupportChatScreen from "../screens/customer/SupportChatScreen";
@@ -61,7 +61,7 @@ export default function AppNavigator() {
         {/* Technician */}
         <Stack.Screen
           name="TechnicianDashboard"
-          component={TechnicianTabNavigator}
+          component={TechnicianStackNavigator}
           options={{
             headerShown: false,
           }}

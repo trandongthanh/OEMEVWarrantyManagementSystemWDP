@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   TouchableOpacity,
   Text,
@@ -18,14 +18,36 @@ export default function CompleteDiagnosisButton({
   disabled = false,
   onNavigateToInstall,
   caseLines = [], 
+  style, // Thêm prop style để custom layout nếu cần
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isValidating, setIsValidating] = useState(false); // State mới cho loading khi validate
-  const [error, setError] = useState(null);
+  const [isValidating, setIsValidating] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false); 
 
+  // --- LOGIC KIỂM TRA ĐIỀU KIỆN DISABLE ---
+  const isReadyToComplete = useMemo(() => {
+    if (!caseLines || caseLines.length === 0) return false; // Không có hạng mục nào -> Disable
+
+    // Lọc các hạng mục đang ở trạng thái DRAFT (cần điền)
+    const draftLines = caseLines.filter(cl => !cl.status || cl.status === 'DRAFT');
+    
+    // Nếu không có draft nào (đã complete hết rồi hoặc rỗng), có thể coi là OK hoặc không tùy logic, 
+    // nhưng ở đây ta giả sử nếu có draft thì phải điền hết.
+    if (draftLines.length === 0) return true;
+
+    // Kiểm tra xem có draft nào thiếu diagnosisText không
+    const hasMissingInfo = draftLines.some(cl => !cl.diagnosisText || cl.diagnosisText.trim() === '');
+    
+    return !hasMissingInfo; // Nếu KHÔNG thiếu thông tin -> Ready -> True
+  }, [caseLines]);
+
+  // Nút bị disable nếu: props disabled = true HOẶC đang submit HOẶC đang validate HOẶC chưa điền đủ thông tin
+  const isButtonDisabled = disabled || isSubmitting || isValidating || !isReadyToComplete;
+  // ----------------------------------------
+
   const handleCompleteDiagnosis = async () => {
+    // Logic validate (giữ nguyên để double-check)
     const draftCaseLines = caseLines.filter(
       (cl) => cl.status === "DRAFT" || !cl.status
     );
@@ -38,9 +60,10 @@ export default function CompleteDiagnosisButton({
       return;
     }
 
+    // Validate toàn diện với Backend
     setIsValidating(true);
     try {
-      console.log("🔍 Validating all guarantee cases for recordId:", recordId);
+      // ... (Logic gọi API check recordDetails giữ nguyên)
       const recordResponse = await technicianService.getRecordDetails(recordId);
       const fullRecord = recordResponse.data?.record;
 
@@ -65,20 +88,18 @@ export default function CompleteDiagnosisButton({
       });
 
       if (undiagnosedCases.length > 0) {
-        const caseNumbers = undiagnosedCases.map((_, index) => `Case ${index + 1}`).join(", ");
         Alert.alert(
           "Chưa hoàn tất", 
-          `Có ${undiagnosedCases.length} hồ sơ bảo hành chưa được chẩn đoán (${caseNumbers}). Vui lòng xử lý tất cả trước khi hoàn tất.`
+          `Còn hồ sơ bảo hành chưa được chẩn đoán. Vui lòng kiểm tra lại.`
         );
         setIsValidating(false);
         return;
       }
 
-      setError(null);
       setShowConfirmModal(true);
 
     } catch (err) {
-      console.error("Failed to validate guarantee cases:", err);
+      console.error("Failed to validate:", err);
       Alert.alert("Lỗi", "Không thể kiểm tra trạng thái phiếu.");
     } finally {
       setIsValidating(false);
@@ -87,18 +108,13 @@ export default function CompleteDiagnosisButton({
 
   const handleConfirmComplete = async () => {
     setShowConfirmModal(false);
-    setError(null);
     setIsSubmitting(true);
-
     try {
       await processingRecordService.completeDiagnosis(recordId);
       setShowSuccessModal(true);
     } catch (err) {
-      console.error("Failed to complete diagnosis:", err);
-      const message =
-        err.response?.data?.message || "Failed to complete diagnosis";
-      setError(message);
-      Alert.alert("Lỗi", message);
+      console.error("Failed:", err);
+      Alert.alert("Lỗi", "Không thể hoàn tất chẩn đoán.");
     } finally {
       setIsSubmitting(false);
     }
@@ -119,10 +135,11 @@ export default function CompleteDiagnosisButton({
     <>
       <TouchableOpacity
         onPress={handleCompleteDiagnosis}
-        disabled={disabled || isSubmitting || isValidating}
+        disabled={isButtonDisabled}
         style={[
           styles.button,
-          (disabled || isSubmitting || isValidating) && styles.disabledButton,
+          isButtonDisabled && styles.disabledButton, // Áp dụng style disable
+          style,
         ]}
       >
         {isSubmitting || isValidating ? (
@@ -135,6 +152,8 @@ export default function CompleteDiagnosisButton({
         </Text>
       </TouchableOpacity>
 
+      {/* --- Modal Confirm & Success giữ nguyên --- */}
+      {/* (Bạn giữ nguyên phần code Modal ở dưới nhé, không thay đổi gì) */}
       <Modal
         visible={showConfirmModal}
         transparent={true}
@@ -249,7 +268,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   disabledButton: {
-    backgroundColor: "#60A5FA", 
+    backgroundColor: "#93C5FD", // Màu xanh nhạt hơn khi disable (Blue 300)
+    opacity: 0.8,
   },
   buttonText: {
     color: "#FFFFFF",
@@ -257,133 +277,28 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginLeft: 8,
   },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  modalContent: {
-    width: "100%",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  closeButton: {
-    padding: 4,
-  },
-  modalBody: {
-    padding: 16,
-  },
-  infoBox: {
-    flexDirection: "row",
-    backgroundColor: "#EFF6FF",
-    padding: 12,
-    borderRadius: 8,
-    alignItems: "flex-start", 
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 14,
-    color: "#1E40AF",
-    marginLeft: 8,
-    lineHeight: 20,
-  },
-  modalFooter: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
-  },
-  modalButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginLeft: 8,
-  },
-  cancelButton: {
-    backgroundColor: "#F3F4F6",
-    borderWidth: 1,
-    borderColor: "#D1D5DB",
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#374151",
-    textAlign: "center",
-  },
-  confirmButton: {
-    backgroundColor: "#1D4ED8",
-  },
-  confirmButtonText: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#FFFFFF",
-  },
-  successHeader: {
-    alignItems: "center",
-    padding: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  successIconWrapper: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "#F0FDF4",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-  },
-  successTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#111827",
-    marginBottom: 8,
-  },
-  successSubtitle: {
-    fontSize: 14,
-    color: "#6B7280",
-    textAlign: "center",
-  },
-  successBody: {
-    padding: 16,
-  },
-  nextStepButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 16,
-    backgroundColor: "#EFF6FF",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#DBEAFE",
-    marginBottom: 12,
-  },
-  nextStepTextContainer: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  nextStepTitle: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#111827",
-  },
-  nextStepSubtitle: {
-    fontSize: 12,
-    color: "#6B7280",
-  },
+  // ... (Giữ nguyên các styles Modal cũ)
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(0, 0, 0, 0.5)", justifyContent: "center", alignItems: "center", padding: 20 },
+  modalContent: { width: "100%", backgroundColor: "#FFFFFF", borderRadius: 12 },
+  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" },
+  modalTitle: { fontSize: 18, fontWeight: "600", color: "#111827" },
+  closeButton: { padding: 4 },
+  modalBody: { padding: 16 },
+  infoBox: { flexDirection: "row", backgroundColor: "#EFF6FF", padding: 12, borderRadius: 8, alignItems: "flex-start" },
+  infoText: { flex: 1, fontSize: 14, color: "#1E40AF", marginLeft: 8, lineHeight: 20 },
+  modalFooter: { flexDirection: "row", justifyContent: "flex-end", padding: 16, borderTopWidth: 1, borderTopColor: "#E5E7EB" },
+  modalButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, marginLeft: 8 },
+  cancelButton: { backgroundColor: "#F3F4F6", borderWidth: 1, borderColor: "#D1D5DB" },
+  cancelButtonText: { fontSize: 16, fontWeight: "500", color: "#374151", textAlign: "center" },
+  confirmButton: { backgroundColor: "#1D4ED8" },
+  confirmButtonText: { fontSize: 16, fontWeight: "500", color: "#FFFFFF" },
+  successHeader: { alignItems: "center", padding: 24, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" },
+  successIconWrapper: { width: 64, height: 64, borderRadius: 32, backgroundColor: "#F0FDF4", alignItems: "center", justifyContent: "center", marginBottom: 16 },
+  successTitle: { fontSize: 20, fontWeight: "bold", color: "#111827", marginBottom: 8 },
+  successSubtitle: { fontSize: 14, color: "#6B7280", textAlign: "center" },
+  successBody: { padding: 16 },
+  nextStepButton: { flexDirection: "row", alignItems: "center", padding: 16, backgroundColor: "#EFF6FF", borderRadius: 12, borderWidth: 1, borderColor: "#DBEAFE", marginBottom: 12 },
+  nextStepTextContainer: { flex: 1, marginLeft: 12 },
+  nextStepTitle: { fontSize: 16, fontWeight: "500", color: "#111827" },
+  nextStepSubtitle: { fontSize: 12, color: "#6B7280" },
 });

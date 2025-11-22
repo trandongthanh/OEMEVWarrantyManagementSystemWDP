@@ -5,9 +5,9 @@ import {
   StyleSheet,
   Modal,
   TouchableOpacity,
-  TextInput,
   ActivityIndicator,
   Pressable,
+  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { componentReservationService } from "../../services/technician";
@@ -18,28 +18,27 @@ export default function ComponentInstallModal({
   onSuccess,
   reservationId,
   componentName,
-  vehicleVin: initialVin = "",
+  vehicleVin = "",
   componentSerial = "", 
+  // Nhận thêm các props này từ ComponentsToInstall
+  quantity = 1,
+  caseId = "",
+  status = "IN_REPAIR",
+  diagnosis = "",
+  correction = "",
+  warehouseName = "",
 }) {
-  const [vehicleVin, setVehicleVin] = useState(initialVin);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     if (isOpen) {
-      setVehicleVin(initialVin);
       setError(null);
     }
-  }, [isOpen, initialVin]);
+  }, [isOpen]);
 
   const handleSubmit = async () => {
     setError(null);
-
-    if (!vehicleVin.trim()) {
-      setError("Vehicle VIN is required"); 
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
@@ -56,6 +55,8 @@ export default function ComponentInstallModal({
     }
   };
 
+  if (!isOpen) return null;
+
   return (
     <Modal
       visible={isOpen}
@@ -65,12 +66,13 @@ export default function ComponentInstallModal({
     >
       <Pressable style={styles.modalBackdrop} onPress={onClose}>
         <Pressable style={styles.modalContent} onPress={() => {}}>
+          {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerIconWrapper}>
-              <Ionicons name="cube-outline" size={20} color="#16A34A" />
+              <Ionicons name="cube-outline" size={24} color="#9333EA" />
             </View>
             <View style={styles.headerTextContainer}>
-              <Text style={styles.title}>Lắp đặt linh kiện</Text>
+              <Text style={styles.title}>Component Installation Details</Text>
               <Text style={styles.subtitle}>{componentName}</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -78,55 +80,93 @@ export default function ComponentInstallModal({
             </TouchableOpacity>
           </View>
 
-          <View style={styles.body}>
-            <View style={styles.infoBox}>
-              <Ionicons
-                name="alert-circle-outline"
-                size={20}
-                color="#0284C7"
-              />
-              <Text style={styles.infoText}>
-                Hành động này sẽ đánh dấu linh kiện là ĐÃ LẮP ĐẶT. Serial number
-                được theo dõi tự động.
-              </Text>
+          <ScrollView style={styles.body}>
+            {/* Basic Info */}
+            <Text style={styles.sectionTitle}>Basic Information</Text>
+            <View style={styles.infoGrid}>
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Component Type</Text>
+                <Text style={styles.infoValue}>{componentName}</Text>
+              </View>
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Quantity</Text>
+                <Text style={styles.infoValue}>{quantity}</Text>
+              </View>
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Case ID</Text>
+                <Text style={styles.infoValue} numberOfLines={1} ellipsizeMode="middle">
+                  {caseId}
+                </Text>
+              </View>
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Status</Text>
+                <Text style={styles.infoValue}>{status}</Text>
+              </View>
+            </View>
+
+            {/* Diagnosis & Correction */}
+            {(diagnosis || correction) && (
+              <>
+                <Text style={styles.sectionTitle}>Diagnosis & Correction</Text>
+                {diagnosis ? (
+                  <View style={styles.diagBox}>
+                    <Text style={styles.diagLabel}>Diagnosis</Text>
+                    <Text style={styles.diagText}>{diagnosis}</Text>
+                  </View>
+                ) : null}
+                {correction ? (
+                  <View style={styles.correctBox}>
+                    <Text style={styles.correctLabel}>Correction</Text>
+                    <Text style={styles.correctText}>{correction}</Text>
+                  </View>
+                ) : null}
+              </>
+            )}
+
+            {/* Reservation Details */}
+            <Text style={styles.sectionTitle}>Reservation Details</Text>
+            <View style={styles.serialBox}>
+              <Text style={styles.infoLabel}>Serial Number</Text>
+              <Text style={styles.serialValue}>{componentSerial || "N/A"}</Text>
+              {warehouseName && (
+                 <Text style={[styles.infoLabel, {marginTop: 8}]}>Picked Up From: {warehouseName}</Text>
+              )}
+            </View>
+
+            {/* Vehicle Info */}
+            <Text style={styles.sectionTitle}>Vehicle Information</Text>
+            <View style={styles.vehicleBox}>
+               <Text style={styles.infoLabel}>VIN</Text>
+               <Text style={styles.infoValue}>{vehicleVin}</Text>
+            </View>
+
+            {/* Instruction Warning */}
+            <View style={styles.instructionBox}>
+              <Ionicons name="information-circle-outline" size={20} color="#2563EB" />
+              <View style={{flex: 1, marginLeft: 8}}>
+                 <Text style={styles.instructionTitle}>Installation Instructions</Text>
+                 <Text style={styles.instructionText}>
+                   Verify component serial number before installation. Once installed, the old component will be marked as removed.
+                 </Text>
+              </View>
             </View>
 
             {error && (
               <View style={styles.errorBox}>
-                <Ionicons name="warning-outline" size={20} color="#DC2626" />
                 <Text style={styles.errorText}>{error}</Text>
               </View>
             )}
 
-            <View style={styles.fieldContainer}>
-              <Text style={styles.label}>
-                Vehicle VIN * (Tự động điền)
-              </Text>
-              <TextInput
-                style={[styles.input, styles.inputDisabled]}
-                value={vehicleVin}
-                placeholder="Vehicle VIN"
-                editable={false} 
-              />
-            </View>
+          </ScrollView>
 
-            {componentSerial && (
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Component Serial Number</Text>
-                <View style={styles.serialBox}>
-                  <Text style={styles.serialText}>{componentSerial}</Text>
-                </View>
-              </View>
-            )}
-          </View>
-
+          {/* Footer */}
           <View style={styles.footer}>
             <TouchableOpacity
               style={[styles.button, styles.cancelButton]}
               onPress={onClose}
               disabled={isSubmitting}
             >
-              <Text style={styles.cancelButtonText}>Hủy</Text>
+              <Text style={styles.cancelButtonText}>Close</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
@@ -140,7 +180,10 @@ export default function ComponentInstallModal({
               {isSubmitting ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <Text style={styles.submitButtonText}>Lắp đặt</Text>
+                <>
+                  <Ionicons name="cube" size={16} color="#FFFFFF" style={{marginRight: 6}} />
+                  <Text style={styles.submitButtonText}>Install Component</Text>
+                </>
               )}
             </TouchableOpacity>
           </View>
@@ -161,112 +204,169 @@ const styles = StyleSheet.create({
   modalContent: {
     width: "100%",
     backgroundColor: "#FFFFFF",
-    borderRadius: 12, //
+    borderRadius: 16,
+    maxHeight: '85%',
+    overflow: 'hidden',
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16, //
+    padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
   },
   headerIconWrapper: {
-    padding: 8,
-    backgroundColor: "#F0FDF4", //
+    width: 40,
+    height: 40,
+    backgroundColor: "#F3E8FF", // Purple 100
     borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 12,
   },
   headerTextContainer: {
     flex: 1,
   },
   title: {
-    fontSize: 18, //
-    fontWeight: "600",
+    fontSize: 16,
+    fontWeight: "700",
     color: "#111827",
   },
   subtitle: {
-    fontSize: 14,
-    color: "#4B5563",
+    fontSize: 13,
+    color: "#6B7280",
+    marginTop: 2,
   },
   closeButton: {
     padding: 4,
   },
   body: {
-    padding: 16, //
+    padding: 16,
   },
-  infoBox: {
-    flexDirection: "row",
-    backgroundColor: "#EFF6FF", //
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  infoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    marginBottom: 20,
+  },
+  infoItem: {
+    width: '45%',
+  },
+  infoLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 2,
+  },
+  infoValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#111827',
+  },
+  diagBox: {
+    backgroundColor: '#EFF6FF', // Blue 50
     padding: 12,
     borderRadius: 8,
-    alignItems: "flex-start", //
-    marginBottom: 16,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 13, //
-    color: "#0284C7", //
-    marginLeft: 8,
-  },
-  errorBox: {
-    flexDirection: "row",
-    backgroundColor: "#FEF2F2",
-    padding: 12,
-    borderRadius: 8,
-    alignItems: "flex-start",
-    marginBottom: 16,
-  },
-  errorText: {
-    flex: 1,
-    fontSize: 14,
-    color: "#DC2626",
-    marginLeft: 8,
-  },
-  fieldContainer: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#374151",
     marginBottom: 8,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: "#D1D5DB",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: "#111827",
+  diagLabel: {
+    fontSize: 12,
+    color: '#1E40AF',
+    marginBottom: 4,
+    fontWeight: '600',
   },
-  inputDisabled: {
-    backgroundColor: "#F3F4F6", //
-    color: "#6B7280",
-    borderColor: "#E5E7EB", //
+  diagText: {
+    fontSize: 14,
+    color: '#1E3A8A',
+  },
+  correctBox: {
+    backgroundColor: '#F0FDF4', // Green 50
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  correctLabel: {
+    fontSize: 12,
+    color: '#166534',
+    marginBottom: 4,
+    fontWeight: '600',
+  },
+  correctText: {
+    fontSize: 14,
+    color: '#14532D',
   },
   serialBox: {
-    backgroundColor: "#F3F4F6",
+    backgroundColor: '#F0FDF4',
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#E5E7EB", //
+    borderColor: '#DCFCE7',
+    marginBottom: 20,
   },
-  serialText: {
-    fontSize: 16,
-    color: "#374151",
+  serialValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#166534',
+  },
+  vehicleBox: {
+    backgroundColor: '#F9FAFB',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 20,
+  },
+  instructionBox: {
+    flexDirection: 'row',
+    backgroundColor: '#EFF6FF',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    marginBottom: 10,
+  },
+  instructionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1E40AF',
+    marginBottom: 2,
+  },
+  instructionText: {
+    fontSize: 12,
+    color: '#1E3A8A',
+    lineHeight: 16,
+  },
+  errorBox: {
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 8,
+  },
+  errorText: {
+    color: '#DC2626',
+    textAlign: 'center',
+    fontSize: 13,
   },
   footer: {
     flexDirection: "row",
     justifyContent: "flex-end",
-    padding: 16, //
+    padding: 16,
     borderTopWidth: 1,
     borderTopColor: "#E5E7EB",
+    gap: 12,
   },
   button: {
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
-    marginLeft: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   cancelButton: {
     backgroundColor: "#F3F4F6",
@@ -274,19 +374,19 @@ const styles = StyleSheet.create({
     borderColor: "#D1D5DB",
   },
   cancelButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "500",
     color: "#374151",
   },
   submitButton: {
-    backgroundColor: "#16A34A", //
+    backgroundColor: "#9333EA", // Purple
   },
   submitButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "500",
     color: "#FFFFFF",
   },
   disabledButton: {
-    backgroundColor: "#166534",
+    backgroundColor: "#A855F7",
   },
 });

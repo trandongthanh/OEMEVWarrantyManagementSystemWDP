@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,10 +9,11 @@ import {
   ActivityIndicator,
   Image,
   Alert,
-  Platform,
+  Platform, 
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+// --- SỬA IMPORT ---
 import * as ImagePicker from 'expo-image-picker'; 
 import { Picker } from "@react-native-picker/picker";
 
@@ -21,7 +22,6 @@ import {
   caseLineService,
   imageUploadService,
 } from "../../services/technician";
-import CompleteDiagnosisButton from "../../components/technician/CompleteDiagnosisButton"; 
 
 const COMPONENT_CATEGORIES = [
   { value: "HIGH_VOLTAGE_BATTERY", label: "High Voltage Battery & BMS" },
@@ -55,6 +55,7 @@ const CaseLineForm = ({
     }
   };
 
+  // --- CẬP NHẬT HÀM NÀY ---
   const handleImagePicker = async () => { 
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -63,21 +64,35 @@ const CaseLineForm = ({
     }
 
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      // Dùng mảng string cho phiên bản mới
+      mediaTypes: ['images'], 
       allowsMultipleSelection: true,
       selectionLimit: 5,
       quality: 0.5,
+      allowsEditing: false,
     });
 
     if (!result.canceled) {
       onImageSelect(index, result.assets || []);
     }
   };
+  // --- KẾT THÚC CẬP NHẬT ---
 
   return (
     <View style={styles.caseLineCard}>
       <View style={styles.caseLineHeader}>
-        <Text style={styles.caseLineTitle}>Hạng mục {index + 1}</Text>
+        <View>
+          <Text style={styles.caseLineTitle}>Hạng mục {index + 1}</Text>
+          <View style={styles.statusContainer}>
+            <Text style={styles.statusLabel}>Status: </Text>
+            <Text style={[
+              styles.statusValue, 
+              { color: caseLine.status === 'COMPLETED' ? '#16A34A' : '#D97706' }
+            ]}>
+              {caseLine.status || 'DRAFT'}
+            </Text>
+          </View>
+        </View>
         {caseLinesLength > 1 && !isReadOnly && (
           <TouchableOpacity
             style={styles.removeButton}
@@ -215,11 +230,7 @@ const CaseLineForm = ({
   );
 };
 
-const ComponentSearch = ({
-  onClose,
-  onSelectComponent,
-  recordId,
-}) => {
+const ComponentSearch = ({ onClose, onSelectComponent, recordId }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [allComponents, setAllComponents] = useState([]);
   const [filteredComponents, setFilteredComponents] = useState([]);
@@ -283,7 +294,6 @@ const ComponentSearch = ({
           <Ionicons name="close" size={24} color="#6B7280" />
         </TouchableOpacity>
       </View>
-
       <View style={styles.searchInputContainer}>
         <Ionicons name="search-outline" size={20} color="#9CA3AF" style={styles.searchIcon} />
         <TextInput
@@ -294,9 +304,7 @@ const ComponentSearch = ({
           autoFocus={true}
         />
       </View>
-
       {error && <Text style={styles.errorText}>{error}</Text>}
-
       {isSearching ? (
         <ActivityIndicator size="large" color="#1D4ED8" style={{marginTop: 24}} />
       ) : (
@@ -310,11 +318,7 @@ const ComponentSearch = ({
               >
                 <Text style={styles.componentName}>{component.name}</Text>
                 <Ionicons
-                  name={
-                    component.isUnderWarranty
-                      ? "shield-checkmark"
-                      : "shield-outline"
-                  }
+                  name={component.isUnderWarranty ? "shield-checkmark" : "shield-outline"}
                   size={20}
                   color={component.isUnderWarranty ? "#16A34A" : "#EF4444"}
                 />
@@ -332,29 +336,18 @@ const ComponentSearch = ({
 export default function CaseDetailsScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-  
   const params = route.params?.params || route.params;
   const { vin, recordId, caseId } = params;
 
-  const [caseLines, setCaseLines] = useState([
-    {
-      diagnosisText: "",
-      correctionText: "",
-      typeComponentId: null,
-      componentName: "",
-      quantity: 1,
-      warrantyStatus: "ELIGIBLE",
-      isUnderWarranty: true,
-      newImages: [],
-      evidenceImageUrls: [],
-    },
-  ]);
+  const [caseLines, setCaseLines] = useState([{
+    diagnosisText: "", correctionText: "", typeComponentId: null, componentName: "",
+    quantity: 1, warrantyStatus: "ELIGIBLE", isUnderWarranty: true, newImages: [], evidenceImageUrls: []
+  }]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [showComponentSearch, setShowComponentSearch] = useState(false);
   const [activeLineIndex, setActiveLineIndex] = useState(null);
-  const [showCompleteDiagnosis, setShowCompleteDiagnosis] = useState(false);
   const [isReadOnly, setIsReadOnly] = useState(false); 
   const [diagnosisImages, setDiagnosisImages] = useState(new Map());
 
@@ -365,23 +358,17 @@ export default function CaseDetailsScreen() {
         setIsLoading(false);
         return;
       }
-      
       setIsLoading(true);
       try {
         const recordResponse = await technicianService.getRecordDetails(recordId);
         const fullRecord = recordResponse.data?.record;
-        const guaranteeCase = fullRecord?.guaranteeCases?.find(
-          (gc) => gc.guaranteeCaseId === caseId
-        );
+        const guaranteeCase = fullRecord?.guaranteeCases?.find((gc) => gc.guaranteeCaseId === caseId);
 
         if (guaranteeCase && guaranteeCase.caseLines?.length > 0) {
           const validCaseLines = guaranteeCase.caseLines.filter(cl => cl.id);
-          
           const detailedCaseLines = await Promise.all(
             validCaseLines.map(async (cl) => {
-              const detailResponse = await caseLineService.getCaseLineById(
-                cl.id
-              );
+              const detailResponse = await caseLineService.getCaseLineById(cl.id);
               const d = detailResponse.data.caseLine;
               return {
                 caseLineId: d.id,
@@ -399,29 +386,15 @@ export default function CaseDetailsScreen() {
               };
             })
           );
-          
           setCaseLines(detailedCaseLines);
           const allDraft = detailedCaseLines.every((cl) => cl.status === "DRAFT");
           setIsReadOnly(!allDraft);
-          if (allDraft) {
-            setShowCompleteDiagnosis(true);
-          }
         } else {
-          setShowCompleteDiagnosis(false);
           setIsReadOnly(false); 
-          setCaseLines([ 
-            {
-              diagnosisText: "",
-              correctionText: "",
-              typeComponentId: null,
-              componentName: "",
-              quantity: 1,
-              warrantyStatus: "ELIGIBLE",
-              isUnderWarranty: true,
-              newImages: [],
-              evidenceImageUrls: [],
-            },
-          ]);
+          setCaseLines([{
+            diagnosisText: "", correctionText: "", typeComponentId: null, componentName: "",
+            quantity: 1, warrantyStatus: "ELIGIBLE", isUnderWarranty: true, newImages: [], evidenceImageUrls: []
+          }]);
         }
       } catch (error) {
         console.error("Error loading case line data:", error);
@@ -430,7 +403,6 @@ export default function CaseDetailsScreen() {
         setIsLoading(false);
       }
     };
-
     loadCaseData();
   }, [recordId, caseId]);
 
@@ -441,20 +413,10 @@ export default function CaseDetailsScreen() {
   };
 
   const handleAddCaseLine = () => {
-    setCaseLines([
-      ...caseLines,
-      {
-        diagnosisText: "",
-        correctionText: "",
-        typeComponentId: null,
-        componentName: "",
-        quantity: 1,
-        warrantyStatus: "ELIGIBLE",
-        isUnderWarranty: true,
-        newImages: [],
-        evidenceImageUrls: [],
-      },
-    ]);
+    setCaseLines([...caseLines, {
+      diagnosisText: "", correctionText: "", typeComponentId: null, componentName: "",
+      quantity: 1, warrantyStatus: "ELIGIBLE", isUnderWarranty: true, newImages: [], evidenceImageUrls: []
+    }]);
   };
 
   const handleRemoveCaseLine = (index) => {
@@ -473,7 +435,6 @@ export default function CaseDetailsScreen() {
       type: a.mimeType || 'image/jpeg',
       fileName: a.fileName || a.uri.split('/').pop(),
     }));
-    
     setDiagnosisImages(prev => {
       const updated = new Map(prev);
       const existing = updated.get(index) || [];
@@ -516,13 +477,9 @@ export default function CaseDetailsScreen() {
 
   const handleSubmit = async () => {
     setErrorMessage("");
-    const hasInvalidLines = caseLines.some(
-      (line) =>
-        !line.diagnosisText.trim() ||
-        !line.correctionText.trim() ||
-        !line.typeComponentId ||
-        line.quantity <= 0 ||
-        (line.warrantyStatus === "INELIGIBLE" && !line.rejectionReason?.trim())
+    const hasInvalidLines = caseLines.some((line) =>
+      !line.diagnosisText.trim() || !line.correctionText.trim() || !line.typeComponentId ||
+      line.quantity <= 0 || (line.warrantyStatus === "INELIGIBLE" && !line.rejectionReason?.trim())
     );
 
     if (hasInvalidLines) {
@@ -553,72 +510,47 @@ export default function CaseDetailsScreen() {
         const allUrls = [...existingUrls, ...newUrls];
 
         const payload = {
-          caseId: caseId, 
-          diagnosisText: line.diagnosisText,
-          correctionText: line.correctionText,
-          typeComponentId: line.typeComponentId || null,
-          quantity: line.quantity,
-          warrantyStatus: line.warrantyStatus,
-          rejectionReason: line.rejectionReason || null,
+          caseId: caseId, diagnosisText: line.diagnosisText, correctionText: line.correctionText,
+          typeComponentId: line.typeComponentId || null, quantity: line.quantity,
+          warrantyStatus: line.warrantyStatus, rejectionReason: line.rejectionReason || null,
           evidenceImageUrls: allUrls.length > 0 ? allUrls : undefined,
         };
 
         if (line.caseLineId) {
-          updatePromises.push(
-            caseLineService.updateCaseLine(line.caseLineId, payload)
-          );
+          updatePromises.push(caseLineService.updateCaseLine(line.caseLineId, payload));
         } else {
           const { caseId: ignored, ...createPayload } = payload;
           linesToCreate.push(createPayload);
         }
       });
       
-      if (updatePromises.length > 0) {
-        await Promise.all(updatePromises);
-      }
+      if (updatePromises.length > 0) await Promise.all(updatePromises);
       
       if (linesToCreate.length > 0) {
-        const createResponse = await technicianService.createCaseLines(caseId, {
-          caselines: linesToCreate,
-        });
-
+        const createResponse = await technicianService.createCaseLines(caseId, { caselines: linesToCreate });
         const createdCaseLines = createResponse.data.caseLines;
         
-        const linesWithComponents = createdCaseLines.filter(
-          (line) => line.componentId && line.quantity > 0
-        );
-
+        const linesWithComponents = createdCaseLines.filter(line => line.componentId && line.quantity > 0);
         if (linesWithComponents.length > 0 && caseId) {
           const stockData = linesWithComponents.map((line) => ({
-            id: line.caseLineId,
-            componentId: line.componentId,
-            quantity: line.quantity,
+            id: line.caseLineId, componentId: line.componentId, quantity: line.quantity,
           }));
-
           await technicianService.updateStockQuantities(caseId, stockData);
         }
       }
 
-      Alert.alert(
-        "Thành công",
-        "Đã lưu chẩn đoán và cập nhật kho thành công."
-      );
-      setShowCompleteDiagnosis(true); 
+      Alert.alert("Thành công", "Đã lưu chẩn đoán và cập nhật kho thành công.", [
+        { text: "OK", onPress: () => navigation.goBack() }
+      ]);
       setDiagnosisImages(new Map()); 
     } catch (error) {
       console.error("Error saving case lines:", error);
-      setErrorMessage(
-        error.response?.data?.message || "Không thể lưu chẩn đoán."
-      );
+      setErrorMessage(error.response?.data?.message || "Không thể lưu chẩn đoán.");
     } finally {
       setIsSaving(false);
     }
   };
   
-  const handleNavigateToInstall = () => {
-    navigation.navigate("DashboardTab");
-  };
-
   if (isLoading) {
     return (
       <View style={styles.centered}>
@@ -630,11 +562,7 @@ export default function CaseDetailsScreen() {
 
   if (showComponentSearch) {
     return (
-      <ComponentSearch
-        onClose={() => setShowComponentSearch(false)}
-        onSelectComponent={handleSelectComponent}
-        recordId={recordId}
-      />
+      <ComponentSearch onClose={() => setShowComponentSearch(false)} onSelectComponent={handleSelectComponent} recordId={recordId} />
     );
   }
 
@@ -646,19 +574,17 @@ export default function CaseDetailsScreen() {
         </TouchableOpacity>
         <View>
           <Text style={styles.headerTitle}>
-            {isReadOnly ? "Xem chẩn đoán" : "Chẩn đoán sửa chữa"}
+            {isReadOnly ? "Xem chẩn đoán" : "Sửa chẩn đoán"}
           </Text>
           <Text style={styles.headerSubtitle}>VIN: {vin}</Text>
         </View>
       </View>
 
-      <ScrollView style={styles.scrollContainer}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         {isReadOnly && (
           <View style={styles.infoBox}>
             <Ionicons name="lock-closed-outline" size={20} color="#F59E0B" />
-            <Text style={styles.infoText}>
-              Chẩn đoán đã được gửi. Chế độ chỉ xem.
-            </Text>
+            <Text style={styles.infoText}>Chẩn đoán đã gửi. Chỉ xem.</Text>
           </View>
         )}
         {errorMessage ? (
@@ -671,57 +597,28 @@ export default function CaseDetailsScreen() {
         {caseLines.map((caseLine, index) => (
           <CaseLineForm
             key={caseLine.caseLineId || index}
-            caseLine={caseLine}
-            index={index}
-            onCaseLineChange={handleCaseLineChange}
-            onRemoveCaseLine={handleRemoveCaseLine}
-            onOpenComponentSearch={handleOpenComponentSearch}
-            onImageSelect={handleImageSelect}
-            isReadOnly={isReadOnly}
-            caseLinesLength={caseLines.length}
-            diagnosisImages={diagnosisImages.get(index) || []}
-            onRemoveImage={handleRemoveImage}
+            caseLine={caseLine} index={index}
+            onCaseLineChange={handleCaseLineChange} onRemoveCaseLine={handleRemoveCaseLine}
+            onOpenComponentSearch={handleOpenComponentSearch} onImageSelect={handleImageSelect}
+            isReadOnly={isReadOnly} caseLinesLength={caseLines.length}
+            diagnosisImages={diagnosisImages.get(index) || []} onRemoveImage={handleRemoveImage}
           />
         ))}
 
         {!isReadOnly && (
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={handleAddCaseLine}
-          >
+          <TouchableOpacity style={styles.addButton} onPress={handleAddCaseLine}>
             <Ionicons name="add" size={20} color="#1D4ED8" />
             <Text style={styles.addButtonText}>Thêm hạng mục</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
 
-      {!isReadOnly && !showCompleteDiagnosis && (
+      {!isReadOnly && (
         <View style={styles.footer}>
-          <TouchableOpacity
-            style={[styles.saveButton, isSaving && styles.disabledButton]}
-            onPress={handleSubmit}
-            disabled={isSaving}
-          >
-            {isSaving ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Ionicons name="save-outline" size={20} color="#FFFFFF" />
-            )}
-            <Text style={styles.saveButtonText}>Lưu chẩn đoán</Text>
+          <TouchableOpacity style={[styles.saveButton, isSaving && styles.disabledButton]} onPress={handleSubmit} disabled={isSaving}>
+            {isSaving ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Ionicons name="save-outline" size={20} color="#FFFFFF" />}
+            <Text style={styles.saveButtonText}>Lưu thay đổi</Text>
           </TouchableOpacity>
-        </View>
-      )}
-
-      {showCompleteDiagnosis && !isReadOnly && (
-        <View style={styles.footer}>
-          <CompleteDiagnosisButton
-            recordId={recordId}
-            caseLines={caseLines} 
-            onSuccess={() => {
-              navigation.goBack();
-            }}
-            onNavigateToInstall={handleNavigateToInstall}
-          />
         </View>
       )}
     </View>
@@ -729,297 +626,56 @@ export default function CaseDetailsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F3F4F6",
-  },
-  centered: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: "#4B5563",
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    paddingTop: 40, 
-    paddingBottom: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  backButton: {
-    padding: 8,
-    marginRight: 8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: "#6B7280",
-  },
-  scrollContainer: {
-    flex: 1,
-    padding: 16,
-  },
-  infoBox: {
-    flexDirection: "row",
-    backgroundColor: "#FFFBEB",
-    padding: 12,
-    borderRadius: 8,
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 14,
-    color: "#B45309",
-    marginLeft: 8,
-  },
-  errorBox: {
-    flexDirection: "row",
-    backgroundColor: "#FEF2F2",
-    padding: 12,
-    borderRadius: 8,
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  errorText: {
-    flex: 1,
-    fontSize: 14,
-    color: "#DC2626",
-    marginLeft: 8,
-  },
-  caseLineCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  caseLineHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-    paddingBottom: 8,
-    marginBottom: 12,
-  },
-  caseLineTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  removeButton: {
-    padding: 4,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#374151",
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#D1D5DB",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: "#111827",
-    backgroundColor: "#FFFFFF",
-    marginBottom: 12,
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: "top",
-  },
-  inputDisabled: {
-    backgroundColor: "#F3F4F6", 
-    color: "#6B7280",
-  },
-  componentSearchRow: {
-    flexDirection: "row",
-  },
-  searchButton: {
-    backgroundColor: "#1D4ED8",
-    padding: 12,
-    borderRadius: 8,
-    marginLeft: 8,
-    justifyContent: "center",
-  },
-  warrantyBox: (isUnderWarranty) => ({
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: isUnderWarranty ? "#F0FDF4" : "#FEF2F2",
-    borderWidth: 1,
-    borderColor: isUnderWarranty ? "#A7F3D0" : "#FECACA",
-    marginBottom: 12,
-  }),
-  warrantyBoxText: (isUnderWarranty) => ({
-    marginLeft: 8,
-    fontSize: 14,
-    fontWeight: "500",
-    color: isUnderWarranty ? "#16A34A" : "#EF4444",
-  }),
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: "#D1D5DB",
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  picker: {
-    height: 50,
-  },
-  imageGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginBottom: 8,
-  },
-  imagePreviewContainer: {
-    position: "relative",
-  },
-  imagePreview: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    margin: 4,
-  },
-  removeImageButton: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    borderRadius: 12,
-  },
-  uploadButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F3F4F6",
-    padding: 12,
-    borderRadius: 8,
-  },
-  uploadButtonText: {
-    marginLeft: 8,
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#374151",
-  },
-  addButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#E0E7FF",
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#C7D2FE",
-  },
-  addButtonText: {
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#1D4ED8",
-  },
-  footer: {
-    backgroundColor: "#FFFFFF",
-    padding: 16,
-    paddingBottom: 24, 
-    borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
-  },
-  saveButton: {
-    flexDirection: "row",
-    backgroundColor: "#1D4ED8",
-    padding: 14,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  saveButtonText: {
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#FFFFFF",
-  },
-  disabledButton: {
-    backgroundColor: "#60A5FA",
-  },
-  
-  searchContainer: {
-    flex: 1,
-    backgroundColor: "#F3F4F6",
-    paddingTop: 40, 
-  },
-  searchHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    backgroundColor: "#FFFFFF",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  searchTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  closeButton: {
-    padding: 4,
-  },
-  searchInputContainer: {
-    flexDirection: "row",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    margin: 16,
-  },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    height: 48,
-    fontSize: 16,
-    color: "#111827",
-  },
-  componentList: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  componentItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  componentName: {
-    fontSize: 16,
-    color: "#111827",
-    flex: 1,
-  },
-  emptyText: {
-    textAlign: "center",
-    marginTop: 20,
-    fontSize: 16,
-    color: "#6B7280",
-  },
+  container: { flex: 1, backgroundColor: "#F3F4F6" },
+  centered: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loadingText: { marginTop: 16, fontSize: 16, color: "#4B5563" },
+  header: { flexDirection: "row", alignItems: "center", backgroundColor: "#FFFFFF", paddingTop: 40, paddingBottom: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" },
+  backButton: { padding: 8, marginRight: 8 },
+  headerTitle: { fontSize: 20, fontWeight: "600", color: "#111827" },
+  headerSubtitle: { fontSize: 14, color: "#6B7280" },
+  scrollContent: { padding: 16, paddingBottom: 100 },
+  infoBox: { flexDirection: "row", backgroundColor: "#FFFBEB", padding: 12, borderRadius: 8, alignItems: "center", marginBottom: 16 },
+  infoText: { flex: 1, fontSize: 14, color: "#B45309", marginLeft: 8 },
+  errorBox: { flexDirection: "row", backgroundColor: "#FEF2F2", padding: 12, borderRadius: 8, alignItems: "center", marginBottom: 16 },
+  errorText: { flex: 1, fontSize: 14, color: "#DC2626", marginLeft: 8 },
+  caseLineCard: { backgroundColor: "#FFFFFF", borderRadius: 12, padding: 16, marginBottom: 16 },
+  caseLineHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 1, borderBottomColor: "#E5E7EB", paddingBottom: 8, marginBottom: 12 },
+  caseLineTitle: { fontSize: 16, fontWeight: "600", color: "#111827" },
+  statusContainer: { flexDirection: "row", alignItems: "center", marginTop: 4 },
+  statusLabel: { fontSize: 12, color: "#6B7280" },
+  statusValue: { fontSize: 12, fontWeight: "bold", marginLeft: 4 },
+  removeButton: { padding: 4 },
+  label: { fontSize: 14, fontWeight: "500", color: "#374151", marginBottom: 8 },
+  input: { borderWidth: 1, borderColor: "#D1D5DB", borderRadius: 8, padding: 12, fontSize: 16, color: "#111827", backgroundColor: "#FFFFFF", marginBottom: 12 },
+  textArea: { height: 100, textAlignVertical: "top" },
+  inputDisabled: { backgroundColor: "#F3F4F6", color: "#6B7280" },
+  componentSearchRow: { flexDirection: "row" },
+  searchButton: { backgroundColor: "#1D4ED8", padding: 12, borderRadius: 8, marginLeft: 8, justifyContent: "center" },
+  warrantyBox: (isUnderWarranty) => ({ flexDirection: "row", alignItems: "center", padding: 12, borderRadius: 8, backgroundColor: isUnderWarranty ? "#F0FDF4" : "#FEF2F2", borderWidth: 1, borderColor: isUnderWarranty ? "#A7F3D0" : "#FECACA", marginBottom: 12 }),
+  warrantyBoxText: (isUnderWarranty) => ({ marginLeft: 8, fontSize: 14, fontWeight: "500", color: isUnderWarranty ? "#16A34A" : "#EF4444" }),
+  pickerContainer: { borderWidth: 1, borderColor: "#D1D5DB", borderRadius: 8, marginBottom: 12 },
+  picker: { height: 50 },
+  imageGrid: { flexDirection: "row", flexWrap: "wrap", marginBottom: 8 },
+  imagePreviewContainer: { position: "relative" },
+  imagePreview: { width: 60, height: 60, borderRadius: 8, borderWidth: 1, borderColor: "#E5E7EB", margin: 4 },
+  removeImageButton: { position: "absolute", top: 0, right: 0, backgroundColor: 'rgba(255, 255, 255, 0.7)', borderRadius: 12 },
+  uploadButton: { flexDirection: "row", alignItems: "center", backgroundColor: "#F3F4F6", padding: 12, borderRadius: 8 },
+  uploadButtonText: { marginLeft: 8, fontSize: 14, fontWeight: "500", color: "#374151" },
+  addButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: "#E0E7FF", padding: 12, borderRadius: 8, borderWidth: 1, borderColor: "#C7D2FE" },
+  addButtonText: { marginLeft: 8, fontSize: 16, fontWeight: "500", color: "#1D4ED8" },
+  footer: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: "#FFFFFF", padding: 16, borderTopWidth: 1, borderTopColor: "#E5E7EB", elevation: 5 },
+  saveButton: { flexDirection: "row", backgroundColor: "#1D4ED8", padding: 14, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  saveButtonText: { marginLeft: 8, fontSize: 16, fontWeight: "600", color: "#FFFFFF" },
+  disabledButton: { backgroundColor: "#60A5FA" },
+  searchContainer: { flex: 1, backgroundColor: "#F3F4F6", paddingTop: 40 },
+  searchHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, backgroundColor: "#FFFFFF", borderBottomWidth: 1, borderBottomColor: "#E5E7EB" },
+  searchTitle: { fontSize: 20, fontWeight: "600", color: "#111827" },
+  closeButton: { padding: 4 },
+  searchInputContainer: { flexDirection: "row", backgroundColor: "#FFFFFF", borderRadius: 8, borderWidth: 1, borderColor: "#E5E7EB", alignItems: "center", paddingHorizontal: 12, margin: 16 },
+  searchIcon: { marginRight: 8 },
+  searchInput: { flex: 1, height: 48, fontSize: 16, color: "#111827" },
+  componentList: { flex: 1, paddingHorizontal: 16 },
+  componentItem: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#FFFFFF", padding: 16, borderRadius: 8, marginBottom: 8 },
+  componentName: { fontSize: 16, color: "#111827", flex: 1 },
+  emptyText: { textAlign: "center", marginTop: 20, fontSize: 16, color: "#6B7280" },
 });

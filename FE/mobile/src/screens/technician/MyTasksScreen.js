@@ -7,12 +7,13 @@ import {
   ActivityIndicator,
   RefreshControl,
   TextInput,
-  FlatList, // <-- SỬ DỤNG FLATLIST
+  FlatList,
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { technicianService } from "../../services/technician";
 import AvatarLogoutMenu from "../../components/technician/AvatarLogoutMenu";
+import CompleteDiagnosisButton from "../../components/technician/CompleteDiagnosisButton";
 
 const statusConfig = {
   CHECKED_IN: { label: "Checked In", color: "#1D4ED8", bg: "#EFF6FF", icon: "checkmark-circle-outline" },
@@ -120,7 +121,6 @@ export default function MyTasksScreen() {
     });
   };
 
-  // --- RENDER ITEM (Từng thẻ công việc) ---
   const renderTaskItem = ({ item: task }) => {
     const statusInfo = getStatusInfo(task.status);
     const checkInDate = new Date(task.checkInDate).toLocaleDateString();
@@ -148,7 +148,6 @@ export default function MyTasksScreen() {
           </View>
         </View>
 
-        {/* Danh sách hồ sơ bảo hành với chi tiết trạng thái */}
         {task.guaranteeCases && task.guaranteeCases.length > 0 && (
           <View style={styles.caseContainer}>
             <Text style={styles.caseHeaderTitle}>HỒ SƠ BẢO HÀNH ({task.guaranteeCases.length})</Text>
@@ -169,7 +168,6 @@ export default function MyTasksScreen() {
                     • {gc.contentGuarantee}
                   </Text>
 
-                  {/* Hiển thị các thẻ trạng thái nhỏ (Chips) */}
                   {hasCaseLines && (
                     <View style={styles.statusChipsContainer}>
                       {Object.entries(caseLinesByStatus).map(([status, lines]) => {
@@ -196,6 +194,19 @@ export default function MyTasksScreen() {
                 </View>
               );
             })}
+
+            {task.status === "IN_DIAGNOSIS" && (
+              <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#E5E7EB" }}>
+                <CompleteDiagnosisButton
+                  recordId={task.vehicleProcessingRecordId}
+                  caseLines={task.guaranteeCases.flatMap(gc => gc.caseLines || [])}
+                  onSuccess={() => {
+                    loadTasks();
+                  }}
+                  style={{ width: '100%' }} 
+                />
+              </View>
+            )}
           </View>
         )}
 
@@ -219,7 +230,23 @@ export default function MyTasksScreen() {
     );
   };
 
-  // --- RENDER HEADER (Stats & Filter) ---
+  const renderStatusFilterItem = ({ item: status }) => (
+    <TouchableOpacity
+      style={[
+        styles.statusFilterButton,
+        statusFilter === status && styles.statusFilterActive,
+      ]}
+      onPress={() => setStatusFilter(status)}
+    >
+      <Text style={[
+        styles.statusFilterText,
+        statusFilter === status && styles.statusFilterTextActive,
+      ]}>
+        {statusConfig[status]?.label || status.replace(/_/g, " ")}
+      </Text>
+    </TouchableOpacity>
+  );
+
   const renderHeader = () => (
     <View>
       <View style={styles.statsContainer}>
@@ -246,31 +273,22 @@ export default function MyTasksScreen() {
           <Ionicons name="search-outline" size={20} color="#9CA3AF" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search VIN, model..."
+            placeholder="Search by VIN, model..."
             placeholderTextColor="#9CA3AF"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statusFilterScroll}>
-          {['ALL', 'CHECKED_IN', 'IN_DIAGNOSIS', 'WAITING_FOR_PARTS', 'IN_REPAIR'].map((status) => (
-            <TouchableOpacity
-              key={status}
-              style={[
-                styles.statusFilterButton,
-                statusFilter === status && styles.statusFilterActive,
-              ]}
-              onPress={() => setStatusFilter(status)}
-            >
-              <Text style={[
-                styles.statusFilterText,
-                statusFilter === status && styles.statusFilterTextActive,
-              ]}>
-                {statusConfig[status]?.label || status}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        
+        <View style={styles.statusFilterListContainer}>
+          <FlatList
+            data={['ALL', 'CHECKED_IN', 'IN_DIAGNOSIS', 'WAITING_FOR_PARTS', 'IN_REPAIR']}
+            renderItem={renderStatusFilterItem}
+            keyExtractor={(item) => item}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+          />
+        </View>
       </View>
     </View>
   );
@@ -282,7 +300,6 @@ export default function MyTasksScreen() {
         <AvatarLogoutMenu />
       </View>
 
-      {/* FLATLIST THAY THẾ SCROLLVIEW */}
       {loading && !refreshing ? (
         <ActivityIndicator size="large" color="#1D4ED8" style={{ marginTop: 32 }} />
       ) : (
@@ -297,9 +314,9 @@ export default function MyTasksScreen() {
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="clipboard-outline" size={64} color="#E5E7EB" />
+              <Ionicons name="clipboard-outline" size={64} color="#9CA3AF" />
               <Text style={styles.emptyText}>No tasks found</Text>
-              <Text style={styles.emptySubText}>Try adjusting your search or filters</Text>
+              <Text style={styles.emptySubText}>Try adjusting your search or filters.</Text>
             </View>
           }
         />
@@ -312,45 +329,39 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F3F4F6" },
   header: { backgroundColor: "#FFFFFF", paddingVertical: 12, paddingHorizontal: 16, paddingTop: 40, borderBottomWidth: 1, borderBottomColor: "#E5E7EB", flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   headerTitle: { fontSize: 28, fontWeight: "bold", color: "#111827" },
-  
-  // Sửa lại style cho container của list
-  listContentContainer: { paddingBottom: 24 },
-
+  listContentContainer: { paddingBottom: 20 },
   statsContainer: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", paddingHorizontal: 12, marginTop: 16 },
   statBox: { width: "23%", backgroundColor: "#FFFFFF", paddingVertical: 12, borderRadius: 12, alignItems: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 2, marginHorizontal: "1%" },
   statNumber: { fontSize: 20, fontWeight: "bold", color: "#1D4ED8" },
-  statLabel: { fontSize: 11, color: "#6B7280", marginTop: 2 },
-  
-  filterContainer: { paddingHorizontal: 16, marginTop: 16, marginBottom: 8 }, // Thêm margin bottom cho header
+  statLabel: { fontSize: 11, color: "#6B7280", marginTop: 2, textAlign: "center" },
+  filterContainer: { paddingHorizontal: 16, marginTop: 16, marginBottom: 8 },
   searchInputContainer: { flexDirection: "row", backgroundColor: "#FFFFFF", borderRadius: 12, borderWidth: 1, borderColor: "#E5E7EB", alignItems: "center", paddingHorizontal: 12 },
   searchIcon: { marginRight: 8 },
   searchInput: { flex: 1, height: 44, fontSize: 15, color: "#111827" },
-  statusFilterScroll: { marginTop: 12 },
-  statusFilterButton: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 20, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E5E7EB", marginRight: 8 },
+  statusFilterListContainer: { marginTop: 12 }, 
+  statusFilterButton: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E5E7EB", marginRight: 8 },
   statusFilterActive: { backgroundColor: "#1D4ED8", borderColor: "#1D4ED8" },
-  statusFilterText: { fontSize: 13, fontWeight: "500", color: "#374151" },
+  statusFilterText: { fontSize: 13, fontWeight: "500", color: "#374151", textTransform: "capitalize" },
   statusFilterTextActive: { color: "#FFFFFF" },
-  
-  emptyContainer: { marginTop: 64, alignItems: "center" },
+  emptyContainer: { marginTop: 64, alignItems: "center", justifyContent: "center" },
   emptyText: { fontSize: 18, fontWeight: "600", color: "#111827", marginTop: 16 },
-  emptySubText: { fontSize: 14, color: "#6B7280", marginTop: 4 },
-  
+  emptySubText: { fontSize: 14, color: "#6B7280", marginTop: 4, textAlign: "center" },
   taskCard: { backgroundColor: "#FFFFFF", borderRadius: 16, padding: 16, marginBottom: 16, marginHorizontal: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 3, borderWidth: 1, borderColor: "#F3F4F6" },
   cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 },
   cardTitleContainer: { flex: 1, flexDirection: "row", alignItems: "center" },
   iconBox: { width: 36, height: 36, backgroundColor: "#EFF6FF", borderRadius: 10, alignItems: "center", justifyContent: "center", marginRight: 10 },
-  cardTitle: { fontSize: 16, fontWeight: "700", color: "#111827" },
+  cardTitle: { fontSize: 16, fontWeight: "700", color: "#111827", marginLeft: 8 },
   cardVin: { fontSize: 13, color: "#6B7280", marginTop: 2 },
-  statusBadge: { flexDirection: "row", alignItems: "center", paddingVertical: 4, paddingHorizontal: 8, borderRadius: 8, marginLeft: 8 },
+  statusBadge: { flexDirection: "row", alignItems: "center", paddingVertical: 4, paddingHorizontal: 8, borderRadius: 12, marginLeft: 8 },
   statusText: { fontSize: 11, fontWeight: "600", marginLeft: 4 },
-  caseContainer: { backgroundColor: "#F9FAFB", borderRadius: 12, padding: 12, marginBottom: 12 },
+  caseContainer: { marginBottom: 12, paddingLeft: 4 },
   caseHeaderTitle: { fontSize: 11, fontWeight: "700", color: "#9CA3AF", marginBottom: 8, textTransform: "uppercase" },
   caseItem: { marginBottom: 10 },
   caseText: { fontSize: 14, color: "#374151", fontWeight: "500", marginBottom: 6 },
   statusChipsContainer: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginLeft: 8 },
   statusChip: { flexDirection: "row", alignItems: "center", paddingVertical: 3, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1 },
   statusChipText: { fontSize: 11, fontWeight: "600" },
-  metaContainer: { flexDirection: "row", justifyContent: "space-between", borderTopWidth: 1, borderTopColor: "#F3F4F6", paddingTop: 12 },
-  metaItem: { flexDirection: "row", alignItems: "center" },
+  metaContainer: { flexDirection: "row", justifyContent: "space-between", flexWrap: "wrap", borderTopWidth: 1, borderTopColor: "#F3F4F6", paddingTop: 12 },
+  metaItem: { flexDirection: "row", alignItems: "center", marginRight: 12, marginBottom: 4 },
   metaText: { fontSize: 12, color: "#6B7280", marginLeft: 4, fontWeight: "500" },
 });

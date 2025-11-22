@@ -3,8 +3,6 @@ import api from "../api";
 /**
  * Lấy các phiếu sửa chữa đã được gán cho kỹ thuật viên (người đã đăng nhập)
  * API: GET /processing-records
- * * CẬP NHẬT: Đã đồng bộ với web. Bỏ tất cả logic params (page, limit, userId...).
- * Backend sẽ tự động lọc dựa trên token của KTV.
  */
 const getAssignedRecords = async () => { 
   try {

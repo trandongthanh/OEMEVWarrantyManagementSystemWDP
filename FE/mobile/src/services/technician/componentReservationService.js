@@ -1,4 +1,5 @@
 import api from "../api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 /**
  * Lấy danh sách các yêu cầu đặt trước linh kiện
@@ -18,14 +19,16 @@ const getComponentReservations = async (params) => {
 };
 
 /**
- * Lấy (pickup) linh kiện từ kho (Dành cho Kỹ thuật viên)
+ * Lấy (pickup) linh kiện từ kho
  * API: PATCH /reservations/pickup
- * CẬP NHẬT: Gửi một mảng reservationIds. BE sẽ tự lấy techId từ token.
  */
 const pickupComponents = async (reservationIds) => {
   try {
+    const userId = await AsyncStorage.getItem("userId");
+    
     const response = await api.patch(`/reservations/pickup`, {
       reservationIds,
+      pickedUpByTechId: userId,
     });
     return response.data;
   } catch (error) {
@@ -40,9 +43,17 @@ const pickupComponents = async (reservationIds) => {
  */
 const installComponent = async (reservationId) => {
   try {
+    const userId = await AsyncStorage.getItem("userId");
+    
+    if (!userId) {
+      throw new Error("Không tìm thấy thông tin người dùng (userId). Vui lòng đăng nhập lại.");
+    }
+
     const response = await api.patch(
-      `/reservations/${reservationId}/installComponent`
+      `/reservations/${reservationId}/installComponent`,
+      { userId: userId }
     );
+    
     return response.data;
   } catch (error) {
     console.error("Lỗi khi lắp đặt linh kiện (installComponent):", error);
@@ -52,7 +63,6 @@ const installComponent = async (reservationId) => {
 
 /**
  * Lấy chi tiết một yêu cầu đặt trước
- * API: GET /reservations/{reservationId}
  */
 const getReservationById = async (reservationId) => {
   try {
@@ -67,7 +77,6 @@ const getReservationById = async (reservationId) => {
   }
 };
 
-// Đóng gói các hàm thành một đối tượng service để export
 const componentReservationService = {
   getComponentReservations,
   pickupComponents, 
