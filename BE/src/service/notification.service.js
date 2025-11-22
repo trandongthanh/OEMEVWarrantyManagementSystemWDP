@@ -94,14 +94,12 @@ class NotificationService {
   };
 
   #getUserRooms = (user = {}) => {
-    const { userId, role, serviceCenterId, companyId } = user;
+    const { userId, roleName, serviceCenterId, companyId } = user;
     const roomSet = new Set();
 
     if (userId) {
       roomSet.add(`user_${userId}`);
     }
-
-    const roleName = role?.roleName;
 
     switch (roleName) {
       case "emv_staff":
@@ -129,9 +127,9 @@ class NotificationService {
           roomSet.add(`service_center_staff_${serviceCenterId}`);
         }
         break;
-      case "technician":
+      case "service_center_technician":
         if (serviceCenterId) {
-          roomSet.add(`technician_service_center_${serviceCenterId}`);
+          roomSet.add(`service_center_technician_${serviceCenterId}`);
         }
         break;
       default:
