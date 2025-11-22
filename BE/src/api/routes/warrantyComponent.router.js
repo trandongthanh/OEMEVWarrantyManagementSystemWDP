@@ -114,7 +114,7 @@ const router = express.Router();
  *         description: Conflict (Duplicate SKU or TypeComponentId)
  */
 router.post(
-  "/:vehicleModelId",
+  "/",
   authentication,
   authorizationByRole(["parts_coordinator_company"]),
   attachCompanyContext,
