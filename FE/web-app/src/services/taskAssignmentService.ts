@@ -10,11 +10,15 @@ import apiClient from "@/lib/apiClient";
 
 export interface TaskAssignment {
   id: string;
-  caseLineId: string;
+  taskAssignmentId?: string;
+  caseLineId: string | null;
   technicianId: string;
+  vehicleProcessingRecordId?: string;
   assignedAt: string;
   completedAt?: string;
   status: string;
+  taskType?: string; // DIAGNOSIS or REPAIR
+  isActive?: boolean;
   createdAt: string;
   updatedAt: string;
   // Relations
@@ -23,6 +27,17 @@ export interface TaskAssignment {
     name: string;
     email?: string;
     phone?: string;
+    serviceCenterId?: string;
+  };
+  vehicleProcessingRecord?: {
+    vehicleProcessingRecordId: string;
+    vin: string;
+    status: string;
+    createdByStaffId?: string;
+    vehicle?: {
+      vin: string;
+      vehicleModelId: string;
+    };
   };
   caseLine?: {
     id: string;

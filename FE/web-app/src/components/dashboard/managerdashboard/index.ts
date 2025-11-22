@@ -7,4 +7,5 @@ export { StockTransferRequestList } from "./StockTransferRequestList";
 export { CreateStockTransferRequestModal } from "./CreateStockTransferRequestModal";
 export { AllCaseLinesList } from "./AllCaseLinesList";
 export { WarehouseOverview } from "./WarehouseOverview";
-export { CreateUserAccount } from "./CreateUserAccount";
+export { ManagerCreateUserAccount  } from "./CreateUserAccount";
+export { MostProblematicModels } from "./MostProblematicModels";

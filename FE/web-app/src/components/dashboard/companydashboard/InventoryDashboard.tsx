@@ -10,34 +10,28 @@ import {
   Building2,
   Lock,
   CheckCircle,
-  ArrowRight,
-  Send,
   Loader,
+  Upload,
 } from "lucide-react";
+import InventoryBulkUpload from "@/components/dashboard/partscoordinatordashboard/InventoryBulkUpload";
 
-interface Props {
-  onOpenAllocate: () => void;
-  onOpenTransfer: () => void;
-}
-
-export default function InventoryDashboard({
-  onOpenAllocate,
-  onOpenTransfer,
-}: Props) {
+export default function InventoryDashboard() {
   const [data, setData] = useState<InventorySummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
+
+  const fetchData = async () => {
+    try {
+      const res = await inventoryService.getInventorySummary();
+      setData(res);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function fetchData() {
-      try {
-        const res = await inventoryService.getInventorySummary();
-        setData(res);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    }
     fetchData();
   }, []);
 
@@ -74,22 +68,13 @@ export default function InventoryDashboard({
             All warehouses across the company
           </p>
         </div>
-        <div className="flex gap-3">
-          <button
-            onClick={onOpenAllocate}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-700 hover:border-gray-300 hover:bg-gray-50 transition-all font-medium text-sm"
-          >
-            <Send className="w-4 h-4" />
-            Allocate
-          </button>
-          <button
-            onClick={onOpenTransfer}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-all font-medium text-sm"
-          >
-            <ArrowRight className="w-4 h-4" />
-            Transfer
-          </button>
-        </div>
+        <button
+          onClick={() => setShowBulkUpload(true)}
+          className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium shadow-sm"
+        >
+          <Upload className="w-5 h-5" />
+          Bulk Import
+        </button>
       </div>
 
       {/* Summary Stats */}
@@ -223,6 +208,16 @@ export default function InventoryDashboard({
           )}
         </div>
       </div>
+
+      {/* Bulk Upload Modal */}
+      <InventoryBulkUpload
+        isOpen={showBulkUpload}
+        onClose={() => setShowBulkUpload(false)}
+        onSuccess={() => {
+          setShowBulkUpload(false);
+          fetchData(); // Refresh inventory summary
+        }}
+      />
     </div>
   );
 }

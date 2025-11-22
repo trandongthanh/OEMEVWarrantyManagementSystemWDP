@@ -23,6 +23,7 @@ import {
 } from "@/services/chatService";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { decodeFileFromContent } from "@/lib/fileMessageUtils";
+import { toast } from "sonner";
 
 // Lazy-load socket functions to prevent chunk 153 bundling
 const getSocketFunctions = async () => {
@@ -260,23 +261,24 @@ export default function StaffChatDashboard({
         senderType: data.newMessage.senderType.toLowerCase() as
           | "guest"
           | "staff",
+        // Backend sends createdAt but frontend expects sentAt
+        sentAt:
+          (data.newMessage as unknown as { createdAt?: string }).createdAt ||
+          data.newMessage.sentAt,
       };
       setMessages((prev) => [...prev, normalizedMessage]);
       setIsTyping(false);
     });
 
     // Listen for typing indicator
-    socket.on("userTyping", (data: { conversationId: string }) => {
-      // Only process typing for the current active conversation
-      if (data.conversationId === activeConversation.conversationId) {
-        setIsTyping(true);
-        if (typingTimeoutRef.current) {
-          clearTimeout(typingTimeoutRef.current);
-        }
-        typingTimeoutRef.current = setTimeout(() => {
-          setIsTyping(false);
-        }, 3000);
+    socket.on("userTyping", () => {
+      setIsTyping(true);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
       }
+      typingTimeoutRef.current = setTimeout(() => {
+        setIsTyping(false);
+      }, 3000);
     });
 
     // Listen for guest leaving
@@ -325,9 +327,12 @@ export default function StaffChatDashboard({
     try {
       const msgs = await getConversationMessages(conversationId);
       // Normalize senderType to lowercase for frontend consistency
+      // Backend sends createdAt but frontend expects sentAt
       const normalizedMsgs = msgs.map((msg) => ({
         ...msg,
         senderType: msg.senderType.toLowerCase() as "guest" | "staff",
+        sentAt:
+          (msg as unknown as { createdAt?: string }).createdAt || msg.sentAt,
       }));
       setMessages(normalizedMsgs);
     } catch (err) {
@@ -369,7 +374,7 @@ export default function StaffChatDashboard({
     if (!socket || !socket.connected) {
       console.error("[Staff] Socket not connected! Reinitializing...");
       initializeChatSocket(authToken || undefined).catch(console.error);
-      alert("Connection lost. Please try again in a moment.");
+      toast.warning("Connection lost. Please try again in a moment.");
       return;
     }
 
@@ -404,7 +409,7 @@ export default function StaffChatDashboard({
           console.log("[Staff] Message send response:", response);
           if (!response.success) {
             console.error("[Staff] Failed to send message:", response.error);
-            alert("Failed to send message: " + response.error);
+            toast.error("Failed to send message: " + response.error);
           }
         }
       );
@@ -455,10 +460,33 @@ export default function StaffChatDashboard({
     if (file) {
       // Check file size (limit to 10MB)
       if (file.size > 10 * 1024 * 1024) {
-        alert("File size must be less than 10MB");
+        toast.error("File size must be less than 10MB");
         return;
       }
       setSelectedFile(file);
+    }
+  };
+
+  const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = event.clipboardData?.items;
+    if (!items) return;
+
+    // Look for image in clipboard
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.indexOf("image") !== -1) {
+        event.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          // Check file size (limit to 10MB)
+          if (file.size > 10 * 1024 * 1024) {
+            toast.error("Image size must be less than 10MB");
+            return;
+          }
+          setSelectedFile(file);
+        }
+        break;
+      }
     }
   };
 
@@ -479,7 +507,9 @@ export default function StaffChatDashboard({
   };
 
   const formatTime = (dateString: string) => {
+    if (!dateString) return "";
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "";
     return date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
@@ -487,7 +517,9 @@ export default function StaffChatDashboard({
   };
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return "";
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "";
     const now = new Date();
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
 
@@ -836,29 +868,30 @@ export default function StaffChatDashboard({
                                     </div>
                                   </div>
                                 ) : (
-                                  <div className="flex items-center gap-3 p-3 bg-gray-100 rounded-lg">
-                                    <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                                      <span className="text-blue-300">📎</span>
+                                  <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
+                                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                      <span className="text-xl">📎</span>
                                     </div>
-                                    <div className="flex-1">
-                                      <p className="text-sm font-medium">
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium text-gray-900 truncate">
                                         {file.name}
                                       </p>
-                                      <p className="text-xs text-blue-100">
+                                      <p className="text-xs text-gray-500">
                                         File attachment
                                       </p>
                                     </div>
-                                    {/* Only show download button for messages not from current user */}
-                                    {message.senderId !== currentUserId && (
-                                      <button
-                                        onClick={() =>
-                                          window.open(file.url, "_blank")
-                                        }
-                                        className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                                    {/* Download button - only show for guest messages */}
+                                    {message.senderType !== "staff" && (
+                                      <a
+                                        href={file.url}
+                                        download
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="p-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex-shrink-0 shadow-sm hover:shadow-md"
                                         title="Download file"
                                       >
-                                        <Download size={16} />
-                                      </button>
+                                        <Download size={18} />
+                                      </a>
                                     )}
                                   </div>
                                 )}
@@ -872,8 +905,11 @@ export default function StaffChatDashboard({
                               </p>
                             )}
 
+                            {/* Timestamp - always show */}
                             <p
-                              className={`text-xs mt-2 ${
+                              className={`text-xs ${
+                                text || !file ? "mt-2" : "mt-0"
+                              } ${
                                 message.senderType === "staff"
                                   ? "text-blue-100"
                                   : "text-gray-500"
@@ -898,35 +934,43 @@ export default function StaffChatDashboard({
                     exit={{ opacity: 0 }}
                     className="flex justify-start"
                   >
-                    <div className="bg-white border border-gray-200 rounded-2xl px-5 py-3 shadow-sm">
-                      <div className="flex gap-1.5">
-                        <motion.div
-                          animate={{ y: [0, -5, 0] }}
-                          transition={{
-                            repeat: Infinity,
-                            duration: 0.6,
-                            delay: 0,
-                          }}
-                          className="w-2 h-2 bg-gray-400 rounded-full"
-                        />
-                        <motion.div
-                          animate={{ y: [0, -5, 0] }}
-                          transition={{
-                            repeat: Infinity,
-                            duration: 0.6,
-                            delay: 0.2,
-                          }}
-                          className="w-2 h-2 bg-gray-400 rounded-full"
-                        />
-                        <motion.div
-                          animate={{ y: [0, -5, 0] }}
-                          transition={{
-                            repeat: Infinity,
-                            duration: 0.6,
-                            delay: 0.4,
-                          }}
-                          className="w-2 h-2 bg-gray-400 rounded-full"
-                        />
+                    <div className="inline-flex flex-col gap-1">
+                      <p className="text-xs text-gray-500 font-medium whitespace-nowrap">
+                        Guest is typing...
+                      </p>
+                      <div className="bg-white border border-gray-200 rounded-2xl px-5 py-3 shadow-sm w-fit">
+                        <div className="flex gap-1.5">
+                          <motion.div
+                            key="typing-dot-1"
+                            animate={{ y: [0, -5, 0] }}
+                            transition={{
+                              repeat: Infinity,
+                              duration: 0.6,
+                              delay: 0,
+                            }}
+                            className="w-2 h-2 bg-gray-400 rounded-full"
+                          />
+                          <motion.div
+                            key="typing-dot-2"
+                            animate={{ y: [0, -5, 0] }}
+                            transition={{
+                              repeat: Infinity,
+                              duration: 0.6,
+                              delay: 0.2,
+                            }}
+                            className="w-2 h-2 bg-gray-400 rounded-full"
+                          />
+                          <motion.div
+                            key="typing-dot-3"
+                            animate={{ y: [0, -5, 0] }}
+                            transition={{
+                              repeat: Infinity,
+                              duration: 0.6,
+                              delay: 0.4,
+                            }}
+                            className="w-2 h-2 bg-gray-400 rounded-full"
+                          />
+                        </div>
                       </div>
                     </div>
                   </motion.div>
@@ -994,6 +1038,7 @@ export default function StaffChatDashboard({
                         }
                       }}
                       onKeyDown={handleKeyPress}
+                      onPaste={handlePaste}
                       placeholder="Type your message..."
                       rows={1}
                       className="flex-1 resize-none rounded-xl border-2 border-gray-200 px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"

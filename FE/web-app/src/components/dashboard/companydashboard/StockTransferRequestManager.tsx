@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Package,
   Building2,
-  Clock,
   CheckCircle,
   XCircle,
   User,
@@ -16,6 +15,7 @@ import {
   Eye,
 } from "lucide-react";
 import apiClient from "@/lib/apiClient";
+import { authService } from "@/services";
 import StockTransferRequestDetailModal from "./StockTransferRequestDetailModal";
 
 interface StockTransferRequest {
@@ -50,10 +50,12 @@ interface StockTransferRequest {
   };
   items?: Array<{
     itemId: string;
-    typeComponent: {
+    component: {
       typeComponentId: string;
       name: string;
-      partNumber: string;
+      sku: string;
+      category?: string;
+      makeBrand?: string;
     };
     quantityRequested: number;
     quantityApproved?: number;
@@ -70,14 +72,22 @@ export default function StockTransferRequestManager() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
+  // Get current user role
+  const currentUser = authService.getUserInfo() || authService.getCurrentUser();
+  const isEMVStaff = currentUser?.roleName === "emv_staff";
+  const isPartsCoordinatorCompany =
+    currentUser?.roleName === "parts_coordinator_company";
+
   // Modal states
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showShipModal, setShowShipModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
     null
   );
   const [rejectionReason, setRejectionReason] = useState("");
+  const [estimatedDeliveryDate, setEstimatedDeliveryDate] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -141,6 +151,13 @@ export default function StockTransferRequestManager() {
     setActionError(null);
   };
 
+  const openShipModal = (id: string) => {
+    setSelectedRequestId(id);
+    setShowShipModal(true);
+    setEstimatedDeliveryDate("");
+    setActionError(null);
+  };
+
   const openDetailModal = (id: string) => {
     setSelectedRequestId(id);
     setShowDetailModal(true);
@@ -149,9 +166,11 @@ export default function StockTransferRequestManager() {
   const closeModals = () => {
     setShowApproveModal(false);
     setShowRejectModal(false);
+    setShowShipModal(false);
     setShowDetailModal(false);
     setSelectedRequestId(null);
     setRejectionReason("");
+    setEstimatedDeliveryDate("");
     setActionError(null);
     setActionLoading(false);
   };
@@ -199,6 +218,31 @@ export default function StockTransferRequestManager() {
       setActionError(
         error.response?.data?.message || "Failed to reject request"
       );
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleShip = async () => {
+    if (!selectedRequestId || !estimatedDeliveryDate.trim()) {
+      setActionError("Please provide an estimated delivery date");
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      setActionError(null);
+      await apiClient.patch(
+        `/stock-transfer-requests/${selectedRequestId}/ship`,
+        {
+          estimatedDeliveryDate: estimatedDeliveryDate.trim(),
+        }
+      );
+      await loadRequests();
+      closeModals();
+    } catch (err) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setActionError(error.response?.data?.message || "Failed to ship request");
     } finally {
       setActionLoading(false);
     }
@@ -360,8 +404,7 @@ export default function StockTransferRequestManager() {
                         className="text-sm text-gray-600 flex justify-between"
                       >
                         <span>
-                          {item.typeComponent.name} (
-                          {item.typeComponent.partNumber})
+                          {item.component.name} (SKU: {item.component.sku})
                         </span>
                         <span className="font-medium">
                           Qty: {item.quantityRequested}
@@ -379,7 +422,7 @@ export default function StockTransferRequestManager() {
 
               {/* Actions */}
               <div className="pt-4 border-t border-gray-200">
-                {request.status === "PENDING_APPROVAL" && (
+                {request.status === "PENDING_APPROVAL" && isEMVStaff && (
                   <div className="flex gap-3 mb-3">
                     <button
                       onClick={() => openApproveModal(request.id)}
@@ -398,11 +441,16 @@ export default function StockTransferRequestManager() {
                   </div>
                 )}
 
-                {request.status === "APPROVED" && (
-                  <p className="text-sm text-blue-600 font-medium flex items-center gap-2 mb-3">
-                    <Clock className="w-4 h-4" />
-                    Approved - Awaiting shipment
-                  </p>
+                {request.status === "APPROVED" && isPartsCoordinatorCompany && (
+                  <div className="mb-3">
+                    <button
+                      onClick={() => openShipModal(request.id)}
+                      className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Package className="w-4 h-4" />
+                      Ship Request
+                    </button>
+                  </div>
                 )}
 
                 <button
@@ -420,7 +468,7 @@ export default function StockTransferRequestManager() {
 
       {/* Approve Confirmation Modal */}
       {showApproveModal && (
-        <div className="fixed inset-0 bg-black/20 bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/20 bg-opacity-50 flex items-center justify-center z-[70] p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative animate-fadeIn">
             <button
               onClick={closeModals}
@@ -489,7 +537,7 @@ export default function StockTransferRequestManager() {
 
       {/* Reject Modal */}
       {showRejectModal && (
-        <div className="fixed inset-0 bg-black/20 bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/20 bg-opacity-50 flex items-center justify-center z-[70] p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative animate-fadeIn">
             <button
               onClick={closeModals}
@@ -555,6 +603,74 @@ export default function StockTransferRequestManager() {
                   <>
                     <XCircle className="w-4 h-4" />
                     Confirm Rejection
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ship Request Modal */}
+      {showShipModal && (
+        <div className="fixed inset-0 bg-black/20 bg-opacity-50 flex items-center justify-center z-[70] p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                <Package className="w-6 h-6 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">
+                  Ship Request
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Request #{selectedRequestId?.slice(0, 8)}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-gray-600 mb-4">
+              Please provide an estimated delivery date for this shipment:
+            </p>
+
+            <input
+              type="date"
+              value={estimatedDeliveryDate}
+              onChange={(e) => setEstimatedDeliveryDate(e.target.value)}
+              min={new Date().toISOString().split("T")[0]}
+              className="w-full px-4 text-black py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
+              disabled={actionLoading}
+            />
+
+            {actionError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-800">{actionError}</p>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={closeModals}
+                className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                disabled={actionLoading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleShip}
+                className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                disabled={actionLoading || !estimatedDeliveryDate.trim()}
+              >
+                {actionLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Shipping...
+                  </>
+                ) : (
+                  <>
+                    <Package className="w-4 h-4" />
+                    Confirm Shipment
                   </>
                 )}
               </button>

@@ -6,15 +6,11 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
-  Mail,
-  Shield,
   Loader2,
-  ArrowRight,
   FileCheck,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import caseLineService from "@/services/caseLineService";
-import { sendOtp, verifyOtp } from "@/services/mailService";
 
 interface ApproveCaseLinesModalProps {
   isOpen: boolean;
@@ -22,8 +18,6 @@ interface ApproveCaseLinesModalProps {
   caseLineIds: string[];
   action: "approve" | "reject";
   onSuccess?: () => void;
-  customerEmail?: string; // Customer email for OTP verification
-  vin?: string; // Vehicle VIN for OTP verification
   pendingApprovalsCount?: number; // Number of remaining pending approvals
 }
 
@@ -33,51 +27,23 @@ export function ApproveCaseLinesModal({
   caseLineIds,
   action,
   onSuccess,
-  customerEmail,
-  vin,
   pendingApprovalsCount = 0,
 }: ApproveCaseLinesModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reason, setReason] = useState("");
-  const [step, setStep] = useState<"confirm" | "otp" | "success">("confirm");
-  const [email, setEmail] = useState(customerEmail || "");
-  const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [countdown, setCountdown] = useState(0);
-
-  // Auto-fill email when modal opens or customerEmail changes
-  useEffect(() => {
-    if (customerEmail && email !== customerEmail) {
-      setEmail(customerEmail);
-    }
-  }, [customerEmail, email]);
-
-  // Countdown timer for OTP resend
-  useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [countdown]);
+  const [step, setStep] = useState<"confirm" | "success">("confirm");
 
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setStep("confirm");
-      // Don't reset email if customerEmail is available
-      if (!customerEmail) {
-        setEmail("");
-      }
-      setOtp("");
-      setOtpSent(false);
-      setCountdown(0);
       setError(null);
       setReason("");
     }
-  }, [isOpen, customerEmail]);
+  }, [isOpen]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!caseLineIds || caseLineIds.length === 0) {
       setError("No case lines selected");
       return;
@@ -88,56 +54,15 @@ export function ApproveCaseLinesModal({
       return;
     }
 
-    // Move to OTP step
-    setStep("otp");
-    setError(null);
-  };
-
-  const handleSendOTP = async () => {
-    if (!email || !email.includes("@")) {
-      setError("Please enter a valid email address");
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
     try {
-      await sendOtp(email, vin);
-      setOtpSent(true);
-      setCountdown(60);
-    } catch (err) {
-      console.error("Error sending OTP:", err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to send OTP. Please try again."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyAndSubmit = async () => {
-    if (!otp || otp.length !== 6) {
-      setError("Please enter a valid 6-digit OTP code");
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Verify OTP first
-      await verifyOtp(email, otp);
-
-      // Now proceed with the actual approval/rejection
       const payload = {
         approvedCaseLineIds:
           action === "approve" ? caseLineIds.map((id) => ({ id })) : [],
         rejectedCaseLineIds:
           action === "reject" ? caseLineIds.map((id) => ({ id })) : [],
-        approverEmail: email,
       };
 
       await caseLineService.approveCaseLines(payload);
@@ -172,7 +97,7 @@ export function ApproveCaseLinesModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[90] flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
           onClick={onClose}
         >
           <motion.div
@@ -317,7 +242,7 @@ export function ApproveCaseLinesModal({
                         onChange={(e) => setReason(e.target.value)}
                         placeholder="Please explain why these case lines are being rejected..."
                         rows={4}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none text-sm"
+                        className="w-full px-4 py-3 border text-black border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none text-sm"
                       />
                     </div>
                   )}
@@ -337,85 +262,9 @@ export function ApproveCaseLinesModal({
                         onChange={(e) => setReason(e.target.value)}
                         placeholder="Add any notes or comments about this approval..."
                         rows={3}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none text-sm"
+                        className="w-full px-4 text-black py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none text-sm"
                       />
                     </div>
-                  )}
-                </>
-              )}
-
-              {/* OTP Verification Step */}
-              {step === "otp" && (
-                <>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
-                    <Shield className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                    <div className="text-sm text-blue-800">
-                      <p className="font-semibold mb-1">
-                        Verification Required
-                      </p>
-                      <p>
-                        Please verify your email to{" "}
-                        {isApprove ? "approve" : "reject"} the selected case
-                        lines.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email Address
-                    </label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="your.email@example.com"
-                        disabled={otpSent || loading}
-                        className="w-full pl-10 pr-4 py-3 border text-black border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
-                      />
-                    </div>
-                  </div>
-
-                  {otpSent && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                    >
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Verification Code
-                      </label>
-                      <input
-                        type="text"
-                        value={otp}
-                        onChange={(e) => {
-                          const value = e.target.value
-                            .replace(/\D/g, "")
-                            .slice(0, 6);
-                          setOtp(value);
-                        }}
-                        placeholder="Enter 6-digit code"
-                        maxLength={6}
-                        className="w-full px-4 py-3 border text-black border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-2xl font-mono tracking-widest"
-                      />
-                      <p className="mt-2 text-sm text-gray-600">
-                        {countdown > 0 ? (
-                          <span>
-                            Resend code in{" "}
-                            <span className="font-semibold">{countdown}s</span>
-                          </span>
-                        ) : (
-                          <button
-                            onClick={handleSendOTP}
-                            disabled={loading}
-                            className="text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50"
-                          >
-                            Resend code
-                          </button>
-                        )}
-                      </p>
-                    </motion.div>
                   )}
                 </>
               )}
@@ -451,40 +300,6 @@ export function ApproveCaseLinesModal({
                       : "bg-red-600 text-white hover:bg-red-700"
                   }`}
                 >
-                  Continue to Verification
-                </button>
-              )}
-
-              {step === "otp" && !otpSent && (
-                <button
-                  onClick={handleSendOTP}
-                  disabled={loading || !email}
-                  className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Sending...
-                    </>
-                  ) : (
-                    <>
-                      <Mail className="w-4 h-4" />
-                      Send Verification Code
-                    </>
-                  )}
-                </button>
-              )}
-
-              {step === "otp" && otpSent && (
-                <button
-                  onClick={handleVerifyAndSubmit}
-                  disabled={loading || otp.length !== 6}
-                  className={`px-5 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${
-                    isApprove
-                      ? "bg-green-600 text-white hover:bg-green-700"
-                      : "bg-red-600 text-white hover:bg-red-700"
-                  }`}
-                >
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -497,7 +312,7 @@ export function ApproveCaseLinesModal({
                       ) : (
                         <XCircle className="w-4 h-4" />
                       )}
-                      Verify & {isApprove ? "Approve" : "Reject"}
+                      {isApprove ? "Approve" : "Reject"}
                     </>
                   )}
                 </button>

@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Package, Loader2, AlertCircle, X } from "lucide-react";
 import componentReservationService from "@/services/componentReservationService";
 import { toast } from "sonner";
-import { useAuth } from "@/hooks/useAuth";
 
 interface ComponentPickupModalProps {
   isOpen: boolean;
@@ -18,7 +17,6 @@ export function ComponentPickupModal({
   onClose,
   onSuccess,
 }: ComponentPickupModalProps) {
-  const { user } = useAuth();
   const [reservationId, setReservationId] = useState("");
   const [pickingUp, setPickingUp] = useState(false);
 
@@ -28,18 +26,41 @@ export function ComponentPickupModal({
       return;
     }
 
-    if (!user?.userId) {
-      toast.error("User ID not available");
-      return;
-    }
-
     setPickingUp(true);
     try {
+      // First fetch the reservation to get the repair technician ID
+      const reservations =
+        await componentReservationService.getComponentReservations({
+          status: "RESERVED",
+          limit: 100,
+        });
+
+      // Find the specific reservation by ID
+      const reservation = reservations.data.reservations?.find(
+        (r) => r.reservationId === reservationId.trim()
+      );
+      if (!reservation) {
+        toast.error("Reservation not found");
+        return;
+      }
+
+      const repairTechId = reservation.caseLine?.repairTechId;
+      if (!repairTechId) {
+        toast.error(
+          "No repair technician assigned to this reservation. Please assign a technician first."
+        );
+        return;
+      }
+
+      // Pickup with the repair technician's ID
       await componentReservationService.pickupComponent(
         reservationId.trim(),
-        user.userId
+        repairTechId
       );
-      toast.success("Component picked up successfully!");
+
+      const techName =
+        reservation.caseLine?.repairTechnician?.name || "technician";
+      toast.success(`Component picked up successfully by ${techName}!`);
       setReservationId("");
       onSuccess?.();
       onClose();
@@ -64,7 +85,7 @@ export function ComponentPickupModal({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}

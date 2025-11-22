@@ -1,4 +1,5 @@
 import apiClient from "@/lib/apiClient";
+import * as authService from "./authService";
 
 /**
  * Component Reservation Service
@@ -20,12 +21,11 @@ export interface ComponentReservation {
   warehouseId: string;
   componentId: string;
   quantityReserved: number;
-  status: "RESERVED" | "PICKED_UP" | "INSTALLED" | "RETURNED";
+  status: "RESERVED" | "PICKED_UP" | "INSTALLED";
   pickedUpBy?: string | null;
   pickedUpAt?: string | null;
   installedAt?: string | null;
   oldComponentSerial?: string | null;
-  oldComponentReturned?: boolean;
   returnedAt?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -36,9 +36,44 @@ export interface ComponentReservation {
     status: string;
     vehicleVin?: string | null;
   };
+  pickedUpByTech?: {
+    userId: string;
+    name: string;
+    email?: string;
+    phone?: string;
+  } | null;
   caseLine?: {
     id: string;
     status: string;
+    repairTechId?: string;
+    repairTechnician?: {
+      userId: string;
+      name: string;
+      email?: string;
+      phone?: string;
+    };
+    diagnosticTechId?: string;
+    diagnosticTechnician?: {
+      userId: string;
+      name: string;
+      email?: string;
+      phone?: string;
+    };
+    guaranteeCase?: {
+      guaranteeCaseId: string;
+      status: string;
+      vehicleProcessingRecordId?: string;
+      vehicleProcessingRecord?: {
+        vehicleProcessingRecordId: string;
+        vin: string;
+        createdByStaffId?: string;
+        createdByStaff?: {
+          userId: string;
+          serviceCenterId: string;
+          name: string;
+        };
+      };
+    };
   };
   warehouse?: {
     warehouseId: string;
@@ -79,7 +114,7 @@ export interface InstallComponentResponse {
 export interface GetComponentReservationsParams {
   page?: number;
   limit?: number;
-  status?: "RESERVED" | "PICKED_UP" | "INSTALLED" | "RETURNED" | "CANCELLED";
+  status?: "RESERVED" | "PICKED_UP" | "INSTALLED" | "CANCELLED";
   warehouseId?: string;
   typeComponentId?: string;
   caseLineId?: string;
@@ -212,14 +247,24 @@ class ComponentReservationService {
    * - Reservation: PICKED_UP → INSTALLED
    * - Component: status → INSTALLED, links to vehicle VIN
    *
+   * Note: Backend does not accept installationImageUrls parameter.
+   * Images should be uploaded when marking repair complete via markRepairCompleted endpoint.
+   *
    * @role service_center_technician
    */
   async installComponent(
     reservationId: string
   ): Promise<InstallComponentResponse> {
     try {
+      // Get userId from auth token
+      const user = authService.getCurrentUser();
+      if (!user?.userId) {
+        throw new Error("User not authenticated");
+      }
+
       const response = await apiClient.patch(
-        `/reservations/${reservationId}/installComponent`
+        `/reservations/${reservationId}/installComponent`,
+        { userId: user.userId }
       );
       return response.data;
     } catch (error: unknown) {

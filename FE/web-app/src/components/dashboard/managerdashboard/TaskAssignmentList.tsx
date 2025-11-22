@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import taskAssignmentService, {
   TaskAssignment,
 } from "@/services/taskAssignmentService";
@@ -12,13 +12,24 @@ import {
   CheckCircle2,
   AlertCircle,
   Filter,
+  Calendar,
+  Clock,
+  Car,
+  Wrench,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
+import { WorkflowTimeline } from "@/components/shared/WorkflowTimeline";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function TaskAssignmentList() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<TaskAssignment[]>([]);
+  const [filteredTasks, setFilteredTasks] = useState<TaskAssignment[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
 
   const [pagination, setPagination] = useState({
     total: 0,
@@ -28,17 +39,35 @@ export default function TaskAssignmentList() {
   });
 
   useEffect(() => {
-    loadTasks(1, statusFilter);
-  }, [statusFilter]);
+    loadTasks(1);
+  }, []);
 
-  const loadTasks = async (page: number, status?: string) => {
+  // Filter tasks on client-side for technicians
+  useEffect(() => {
+    if (!tasks.length) {
+      setFilteredTasks([]);
+      return;
+    }
+
+    // If user is a technician, filter to show only their tasks
+    if (user?.roleName === "service_center_technician" && user?.userId) {
+      const myTasks = tasks.filter(
+        (task) => task.technician?.userId === user.userId
+      );
+      setFilteredTasks(myTasks);
+    } else {
+      // Managers and staff see all tasks
+      setFilteredTasks(tasks);
+    }
+  }, [tasks, user]);
+
+  const loadTasks = async (page: number) => {
     try {
       setLoading(true);
 
       const result = await taskAssignmentService.getTaskAssignments({
         page,
         limit: 20,
-        status: status || undefined,
       });
 
       setTasks(result.tasks || []);
@@ -71,24 +100,367 @@ export default function TaskAssignmentList() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const styles: Record<string, { bg: string; text: string }> = {
-      PENDING: { bg: "bg-yellow-100", text: "text-yellow-700" },
-      IN_PROGRESS: { bg: "bg-blue-100", text: "text-blue-700" },
-      COMPLETED: { bg: "bg-green-100", text: "text-green-700" },
-      CANCELLED: { bg: "bg-red-100", text: "text-red-700" },
+  // Helper function to get case lines for DIAGNOSIS tasks
+  const getDiagnosisCaseLines = (task: TaskAssignment) => {
+    if (task.taskType !== "DIAGNOSIS" || !task.vehicleProcessingRecord) {
+      return [];
+    }
+
+    const guaranteeCases = (
+      task.vehicleProcessingRecord as Record<string, unknown>
+    )?.guaranteeCases;
+    if (!guaranteeCases || !Array.isArray(guaranteeCases)) {
+      return [];
+    }
+
+    // Get all case lines from all guarantee cases for this vehicle
+    const allCaseLines = guaranteeCases.flatMap(
+      (gc: Record<string, unknown>) =>
+        (gc.caseLines as Record<string, unknown>[]) || []
+    );
+
+    // Filter to case lines created by this technician
+    return allCaseLines.filter(
+      (cl: Record<string, unknown>) => cl.diagnosticTechId === task.technicianId
+    );
+  };
+
+  // Helper function to check if diagnosis task is completed
+  const isDiagnosisCompleted = (task: TaskAssignment) => {
+    if (task.taskType !== "DIAGNOSIS") return false;
+    const caseLines = getDiagnosisCaseLines(task);
+    return (
+      caseLines.length > 0 &&
+      caseLines.some((cl: Record<string, unknown>) => cl.diagnosisText)
+    );
+  };
+
+  const getTimelineEvents = (task: TaskAssignment) => {
+    const events: Array<{
+      status: string;
+      timestamp: string | null;
+      label: string;
+      user: { userId: string; name: string } | null;
+      description: string;
+    }> = [
+      {
+        status: "ASSIGNED",
+        timestamp: task.assignedAt || null,
+        label: "Task Assigned",
+        user: task.technician
+          ? { userId: task.technician.userId, name: task.technician.name }
+          : null,
+        description: `${
+          task.taskType === "DIAGNOSIS" ? "Diagnosis" : "Repair"
+        } task assigned to technician`,
+      },
+    ];
+
+    // Add vehicle check-in event if processing record exists
+    if (task.vehicleProcessingRecord) {
+      events.push({
+        status: "CHECKED_IN",
+        timestamp: task.assignedAt as string, // Use assignment time as check-in proxy
+        label: "Vehicle Check-In",
+        user: null,
+        description: `VIN: ${task.vehicleProcessingRecord.vin}`,
+      });
+    }
+
+    // Add case line events if available
+    if (task.caseLine) {
+      if (task.caseLine.diagnosisText) {
+        events.push({
+          status: "DIAGNOSED",
+          timestamp: task.caseLine.diagnosisText
+            ? (task.createdAt as string)
+            : null,
+          label: "Diagnosis Complete",
+          user: task.technician
+            ? { userId: task.technician.userId, name: task.technician.name }
+            : null,
+          description: task.caseLine.diagnosisText?.substring(0, 50) + "...",
+        });
+      }
+    } else if (task.taskType === "DIAGNOSIS") {
+      // For DIAGNOSIS tasks, check case lines from vehicle processing record
+      const diagnosisCaseLines = getDiagnosisCaseLines(task);
+      if (diagnosisCaseLines.length > 0) {
+        const firstCaseLine = diagnosisCaseLines[0];
+        if (firstCaseLine.diagnosisText) {
+          events.push({
+            status: "DIAGNOSED",
+            timestamp: task.updatedAt as string,
+            label: "Diagnosis Complete",
+            user: task.technician
+              ? { userId: task.technician.userId, name: task.technician.name }
+              : null,
+            description: `${diagnosisCaseLines.length} issue(s) diagnosed`,
+          });
+
+          // Check if any case line has been approved
+          const hasApproved = diagnosisCaseLines.some(
+            (cl: Record<string, unknown>) =>
+              cl.status === "CUSTOMER_APPROVED" ||
+              cl.status === "WAITING_FOR_PARTS" ||
+              cl.status === "PARTS_AVAILABLE" ||
+              cl.status === "READY_FOR_REPAIR" ||
+              cl.status === "IN_REPAIR" ||
+              cl.status === "COMPLETED"
+          );
+
+          if (hasApproved) {
+            // Get the most recent approval timestamp
+            const approvedCaseLine = diagnosisCaseLines.find(
+              (cl: Record<string, unknown>) =>
+                cl.status === "CUSTOMER_APPROVED" ||
+                cl.status === "WAITING_FOR_PARTS" ||
+                cl.status === "PARTS_AVAILABLE" ||
+                cl.status === "READY_FOR_REPAIR" ||
+                cl.status === "IN_REPAIR" ||
+                cl.status === "COMPLETED"
+            );
+
+            events.push({
+              status: "APPROVED",
+              timestamp:
+                (approvedCaseLine?.updatedAt as string) ||
+                (task.updatedAt as string),
+              label: "Customer Approved",
+              user: null,
+              description: "Customer approved the diagnosis and repair plan",
+            });
+          }
+        }
+      }
+    }
+
+    // Add approval and repair events
+    if (task.caseLine) {
+      if (
+        task.caseLine.status === "CUSTOMER_APPROVED" ||
+        task.caseLine.status === "WAITING_FOR_PARTS" ||
+        task.caseLine.status === "PARTS_AVAILABLE" ||
+        task.caseLine.status === "READY_FOR_REPAIR" ||
+        task.caseLine.status === "IN_REPAIR" ||
+        task.caseLine.status === "COMPLETED"
+      ) {
+        events.push({
+          status: "APPROVED",
+          timestamp: (task.caseLine as Record<string, unknown>).updatedAt
+            ? ((task.caseLine as Record<string, unknown>).updatedAt as string)
+            : (task.updatedAt as string),
+          label: "Customer Approved",
+          user: null,
+          description: "Customer approved the repair work",
+        });
+      }
+
+      if (task.caseLine.correctionText) {
+        events.push({
+          status: "REPAIRED",
+          timestamp:
+            task.caseLine.status === "COMPLETED"
+              ? ((task.caseLine as Record<string, unknown>).updatedAt as string)
+              : null,
+          label: "Repair Complete",
+          user: task.technician
+            ? { userId: task.technician.userId, name: task.technician.name }
+            : null,
+          description: task.caseLine.correctionText?.substring(0, 50) + "...",
+        });
+      }
+    }
+
+    // Add completion event
+    const completionTimestamp =
+      task.completedAt ||
+      (task.caseLine?.status === "COMPLETED"
+        ? ((task.caseLine as Record<string, unknown>).updatedAt as string)
+        : null) ||
+      (task.vehicleProcessingRecord?.status === "COMPLETED" ||
+      task.vehicleProcessingRecord?.status === "READY_FOR_PICKUP"
+        ? (task.updatedAt as string)
+        : null);
+
+    events.push({
+      status: "COMPLETED",
+      timestamp: completionTimestamp,
+      label: "Task Completed",
+      user:
+        completionTimestamp && task.technician
+          ? { userId: task.technician.userId, name: task.technician.name }
+          : null,
+      description: completionTimestamp
+        ? "Task successfully completed"
+        : "Awaiting completion",
+    });
+
+    // Add vehicle ready for pickup if applicable
+    if (
+      task.vehicleProcessingRecord?.status === "READY_FOR_PICKUP" ||
+      task.vehicleProcessingRecord?.status === "COMPLETED"
+    ) {
+      events.push({
+        status: "READY_FOR_PICKUP",
+        timestamp:
+          task.vehicleProcessingRecord.status === "READY_FOR_PICKUP" ||
+          task.vehicleProcessingRecord.status === "COMPLETED"
+            ? (task.updatedAt as string)
+            : null,
+        label: "Ready for Pickup",
+        user: null,
+        description: "Vehicle repair completed and ready for customer pickup",
+      });
+    }
+
+    return events;
+  };
+
+  const getTaskStatus = (task: TaskAssignment): string => {
+    if (task.completedAt) return "COMPLETED";
+
+    // For DIAGNOSIS tasks without direct case line, check vehicle processing record
+    if (task.taskType === "DIAGNOSIS" && !task.caseLine) {
+      const diagnosisCompleted = isDiagnosisCompleted(task);
+      if (diagnosisCompleted) {
+        return "WAITING"; // Diagnosis done, waiting for approval
+      }
+      // Check if vehicle processing record is completed
+      if (task.vehicleProcessingRecord?.status === "COMPLETED") {
+        return "COMPLETED";
+      }
+    }
+
+    // Check case line status first (most accurate)
+    if (task.caseLine) {
+      const status = task.caseLine.status;
+
+      // COMPLETED status takes priority
+      if (status === "COMPLETED") return "COMPLETED";
+
+      // For DIAGNOSIS tasks
+      if (task.taskType === "DIAGNOSIS") {
+        if (
+          task.caseLine.diagnosisText &&
+          (status === "PENDING_APPROVAL" || status === "CUSTOMER_APPROVED")
+        ) {
+          return "WAITING"; // Diagnosis done, waiting for approval/next step
+        }
+      }
+
+      // For REPAIR tasks
+      if (task.taskType === "REPAIR") {
+        if (status === "WAITING_FOR_PARTS") return "BLOCKED";
+        if (status === "PARTS_AVAILABLE" || status === "READY_FOR_REPAIR")
+          return "READY";
+        if (status === "IN_REPAIR") return "IN_PROGRESS";
+      }
+    }
+
+    // Fallback to task assignment status
+    if (task.isActive) return "IN_PROGRESS";
+
+    return "PENDING";
+  };
+
+  const getFilteredTasks = () => {
+    // First filter by technician (if applicable), then by status filter
+    const baseTasks = filteredTasks;
+    if (!statusFilter) return baseTasks;
+    return baseTasks.filter((task) => getTaskStatus(task) === statusFilter);
+  };
+
+  const getStatusBadge = (task: TaskAssignment) => {
+    let status:
+      | "PENDING"
+      | "IN_PROGRESS"
+      | "COMPLETED"
+      | "WAITING"
+      | "BLOCKED"
+      | "READY" = "PENDING";
+    let label = "Not Started";
+
+    if (task.completedAt) {
+      status = "COMPLETED";
+      label = "Completed";
+    } else if (task.caseLine?.status === "COMPLETED") {
+      // Case line completed
+      status = "COMPLETED";
+      label = "Completed";
+    } else if (task.taskType === "DIAGNOSIS") {
+      // Check if diagnosis was completed via vehicle processing record
+      const diagnosisCompleted = isDiagnosisCompleted(task);
+      if (diagnosisCompleted) {
+        status = "WAITING";
+        label = "Awaiting Approval";
+      } else if (
+        task.vehicleProcessingRecord?.status === "COMPLETED" ||
+        task.vehicleProcessingRecord?.status === "READY_FOR_PICKUP"
+      ) {
+        status = "COMPLETED";
+        label = "Completed";
+      } else if (task.caseLine?.diagnosisText) {
+        status = "WAITING";
+        label = "Awaiting Approval";
+      } else if (task.isActive) {
+        status = "IN_PROGRESS";
+        label = "In Progress";
+      }
+    } else if (task.taskType === "REPAIR" && task.caseLine) {
+      // Repair tasks
+      const caseLineStatus = task.caseLine.status;
+      if (caseLineStatus === "WAITING_FOR_PARTS") {
+        status = "BLOCKED";
+        label = "Waiting for Parts";
+      } else if (
+        caseLineStatus === "PARTS_AVAILABLE" ||
+        caseLineStatus === "READY_FOR_REPAIR"
+      ) {
+        status = "READY";
+        label = "Ready to Start";
+      } else if (caseLineStatus === "IN_REPAIR") {
+        status = "IN_PROGRESS";
+        label = "In Repair";
+      }
+    } else if (task.isActive) {
+      status = "IN_PROGRESS";
+      label = "In Progress";
+    }
+
+    const styles: Record<
+      "PENDING" | "IN_PROGRESS" | "COMPLETED" | "WAITING" | "BLOCKED" | "READY",
+      { bg: string; text: string; icon: typeof Clock }
+    > = {
+      PENDING: { bg: "bg-gray-100", text: "text-gray-700", icon: Clock },
+      WAITING: { bg: "bg-yellow-100", text: "text-yellow-700", icon: Clock },
+      BLOCKED: {
+        bg: "bg-orange-100",
+        text: "text-orange-700",
+        icon: AlertCircle,
+      },
+      READY: { bg: "bg-teal-100", text: "text-teal-700", icon: CheckCircle2 },
+      IN_PROGRESS: {
+        bg: "bg-blue-100",
+        text: "text-blue-700",
+        icon: AlertCircle,
+      },
+      COMPLETED: {
+        bg: "bg-green-100",
+        text: "text-green-700",
+        icon: CheckCircle2,
+      },
     };
 
-    const style = styles[status] || {
-      bg: "bg-gray-100",
-      text: "text-gray-700",
-    };
+    const style = styles[status];
+    const Icon = style.icon;
 
     return (
       <span
-        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${style.bg} ${style.text}`}
+        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${style.bg} ${style.text}`}
       >
-        {status.replace("_", " ")}
+        <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+        {label}
       </span>
     );
   };
@@ -127,10 +499,12 @@ export default function TaskAssignmentList() {
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
                 <option value="">All Status</option>
-                <option value="PENDING">Pending</option>
+                <option value="PENDING">Not Started</option>
+                <option value="WAITING">Awaiting Approval</option>
+                <option value="BLOCKED">Waiting for Parts</option>
+                <option value="READY">Ready to Start</option>
                 <option value="IN_PROGRESS">In Progress</option>
                 <option value="COMPLETED">Completed</option>
-                <option value="CANCELLED">Cancelled</option>
               </select>
             </div>
           </div>
@@ -154,7 +528,7 @@ export default function TaskAssignmentList() {
                 <button
                   onClick={() => {
                     setError(null);
-                    loadTasks(1, statusFilter);
+                    loadTasks(1);
                   }}
                   className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                 >
@@ -166,7 +540,7 @@ export default function TaskAssignmentList() {
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
             </div>
-          ) : tasks.length === 0 ? (
+          ) : getFilteredTasks().length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               <ClipboardList className="w-12 h-12 mx-auto mb-3 text-gray-300" />
               <p className="text-lg font-medium">No task assignments found</p>
@@ -178,152 +552,538 @@ export default function TaskAssignmentList() {
             </div>
           ) : (
             <>
-              <div className="divide-y divide-gray-200">
-                {tasks.map((task, index) => (
-                  <motion.div
-                    key={task.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="p-6 hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        {/* Status and Completion */}
-                        <div className="flex items-center gap-3 mb-4">
-                          {getStatusBadge(task.status)}
-                          {task.completedAt && (
-                            <span className="flex items-center gap-1.5 text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-md">
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              Completed
-                            </span>
-                          )}
-                        </div>
+              <div className="space-y-8 p-6">
+                {(() => {
+                  // Group tasks by VIN - handle both DIAGNOSIS (vehicleProcessingRecord) and REPAIR (caseLine) tasks
+                  const groupedByVin = getFilteredTasks().reduce(
+                    (acc, task) => {
+                      let vin = "standalone";
 
-                        <div className="grid grid-cols-3 gap-4 mb-4">
-                          {/* Technician Info */}
-                          {task.technician && (
-                            <div>
-                              <p className="text-xs text-gray-500 mb-1">
-                                Assigned Technician
-                              </p>
-                              <div className="flex items-center gap-2">
-                                <User className="w-4 h-4 text-gray-400" />
-                                <div>
-                                  <p className="font-medium text-gray-900">
-                                    {task.technician.name}
-                                  </p>
-                                  {task.technician.phone && (
-                                    <p className="text-xs text-gray-500">
-                                      {task.technician.phone}
-                                    </p>
-                                  )}
-                                </div>
+                      // DIAGNOSIS tasks: get VIN from vehicleProcessingRecord
+                      if (task.vehicleProcessingRecord?.vehicle?.vin) {
+                        vin = task.vehicleProcessingRecord.vehicle.vin;
+                      }
+                      // REPAIR tasks: get VIN from caseLine's guarantee case
+                      else if (task.caseLine) {
+                        // Try to find VIN from caseLine's parent guarantee case
+                        const guaranteeCase = task.caseLine
+                          .guaranteeCase as Record<string, unknown>;
+                        if (guaranteeCase?.vehicleProcessingRecord) {
+                          const vpr =
+                            guaranteeCase.vehicleProcessingRecord as Record<
+                              string,
+                              unknown
+                            >;
+                          if (vpr?.vehicle) {
+                            const vehicle = vpr.vehicle as Record<
+                              string,
+                              unknown
+                            >;
+                            if (vehicle?.vin) {
+                              vin = vehicle.vin as string;
+                            }
+                          }
+                        }
+                      }
+
+                      if (!acc[vin]) acc[vin] = [];
+                      acc[vin].push(task);
+                      return acc;
+                    },
+                    {} as Record<string, typeof tasks>
+                  );
+
+                  return Object.entries(groupedByVin).map(([vin, vinTasks]) => (
+                    <div
+                      key={vin}
+                      className="border-2 border-gray-200 rounded-xl overflow-hidden"
+                    >
+                      {/* Vehicle Header */}
+                      {vin !== "standalone" ? (
+                        <div className="bg-gradient-to-r from-gray-900 to-gray-700 px-6 py-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
+                                <Car className="w-5 h-5 text-white" />
+                              </div>
+                              <div>
+                                <h3 className="text-white font-bold font-mono text-lg">
+                                  {vin}
+                                </h3>
+                                <p className="text-gray-300 text-sm">
+                                  {vinTasks.length} task
+                                  {vinTasks.length > 1 ? "s" : ""}
+                                </p>
                               </div>
                             </div>
-                          )}
-
-                          {/* Assigned Date */}
-                          <div>
-                            <p className="text-xs text-gray-500 mb-1">
-                              Assigned At
-                            </p>
-                            <p className="text-sm text-gray-900">
-                              {new Date(task.assignedAt).toLocaleString()}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              {vinTasks.some(
+                                (t) => t.taskType === "DIAGNOSIS"
+                              ) && (
+                                <span className="px-3 py-1.5 bg-blue-500 text-white text-sm rounded-lg font-bold shadow-lg">
+                                  DIAGNOSIS
+                                </span>
+                              )}
+                              {vinTasks.some(
+                                (t) => t.taskType === "REPAIR"
+                              ) && (
+                                <span className="px-3 py-1.5 bg-purple-500 text-white text-sm rounded-lg font-bold shadow-lg">
+                                  REPAIR
+                                </span>
+                              )}
+                            </div>
                           </div>
-
-                          {/* Completed Date */}
-                          {task.completedAt && (
+                        </div>
+                      ) : (
+                        <div className="bg-gradient-to-r from-purple-900 to-purple-700 px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <Wrench className="w-5 h-5 text-white" />
                             <div>
-                              <p className="text-xs text-gray-500 mb-1">
-                                Completed At
-                              </p>
-                              <p className="text-sm text-gray-900">
-                                {new Date(task.completedAt).toLocaleString()}
+                              <h3 className="text-white font-bold text-lg">
+                                Individual Repair Tasks
+                              </h3>
+                              <p className="text-purple-200 text-sm">
+                                {vinTasks.length} repair task
+                                {vinTasks.length > 1 ? "s" : ""} without vehicle
+                                context
                               </p>
                             </div>
-                          )}
+                          </div>
                         </div>
+                      )}
 
-                        {/* Case Line Details */}
-                        {task.caseLine && (
-                          <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <p className="text-xs font-medium text-purple-700 mb-1">
-                                  Diagnosis
-                                </p>
-                                <p className="text-sm text-purple-900">
-                                  {task.caseLine.diagnosisText ||
-                                    "No diagnosis provided"}
-                                </p>
-                              </div>
-
-                              {task.caseLine.correctionText && (
-                                <div>
-                                  <p className="text-xs font-medium text-purple-700 mb-1">
-                                    Correction
-                                  </p>
-                                  <p className="text-sm text-purple-900">
-                                    {task.caseLine.correctionText}
-                                  </p>
-                                </div>
-                              )}
-
-                              {task.caseLine.guaranteeCase
-                                ?.vehicleProcessingRecord && (
-                                <div>
-                                  <p className="text-xs font-medium text-purple-700 mb-1">
-                                    Vehicle
-                                  </p>
-                                  <p className="text-sm text-purple-900 font-mono">
-                                    VIN:{" "}
-                                    {
-                                      task.caseLine.guaranteeCase
-                                        .vehicleProcessingRecord.vin
-                                    }
-                                  </p>
-                                  {task.caseLine.guaranteeCase
-                                    .vehicleProcessingRecord.customerName && (
-                                    <p className="text-xs text-purple-700">
-                                      Customer:{" "}
-                                      {
-                                        task.caseLine.guaranteeCase
-                                          .vehicleProcessingRecord.customerName
-                                      }
-                                    </p>
+                      {/* Tasks for this vehicle */}
+                      <div className="divide-y divide-gray-200">
+                        {vinTasks.map((task, index, array) => {
+                          const uniqueTaskId = `${vin}-${task.id || index}`;
+                          return (
+                            <motion.div
+                              key={uniqueTaskId}
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: index * 0.05 }}
+                              className="p-4 hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="flex gap-4 max-w-full overflow-hidden">
+                                {/* Timeline Column */}
+                                <div className="flex flex-col items-center">
+                                  <div
+                                    className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                                      task.taskType === "DIAGNOSIS"
+                                        ? "bg-blue-100 text-blue-600"
+                                        : "bg-purple-100 text-purple-600"
+                                    }`}
+                                  >
+                                    {task.taskType === "DIAGNOSIS" ? (
+                                      <ClipboardList className="w-6 h-6" />
+                                    ) : (
+                                      <Wrench className="w-6 h-6" />
+                                    )}
+                                  </div>
+                                  {index < array.length - 1 && (
+                                    <div className="w-0.5 flex-1 bg-gray-200 mt-2" />
                                   )}
                                 </div>
-                              )}
 
-                              <div>
-                                <p className="text-xs font-medium text-purple-700 mb-1">
-                                  Case Line Status
-                                </p>
-                                <p className="text-sm text-purple-900">
-                                  {task.caseLine.status}
-                                  {task.caseLine.warrantyStatus && (
-                                    <span
-                                      className={`ml-2 px-2 py-0.5 rounded text-xs ${
-                                        task.caseLine.warrantyStatus ===
-                                        "ELIGIBLE"
-                                          ? "bg-green-100 text-green-700"
-                                          : "bg-red-100 text-red-700"
+                                {/* Content Column */}
+                                <div className="flex-1">
+                                  {/* Header: Task Type, Status, Component */}
+                                  <div className="flex items-start justify-between mb-4">
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-3 mb-2">
+                                        <span
+                                          className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${
+                                            task.taskType === "DIAGNOSIS"
+                                              ? "bg-blue-600 text-white"
+                                              : "bg-purple-600 text-white"
+                                          }`}
+                                        >
+                                          {task.taskType?.replace(/_/g, " ") ||
+                                            "Task"}
+                                        </span>
+                                        {getStatusBadge(task)}
+                                      </div>
+                                      {/* Show component name for REPAIR tasks */}
+                                      {task.taskType === "REPAIR" &&
+                                        task.caseLine &&
+                                        (
+                                          task.caseLine as Record<
+                                            string,
+                                            unknown
+                                          >
+                                        ).typeComponent && (
+                                          <div className="flex items-center gap-2 mt-2 px-3 py-2 bg-purple-50 rounded-lg border-2 border-purple-200 max-w-md">
+                                            <Wrench className="w-4 h-4 text-purple-600 flex-shrink-0" />
+                                            <span className="font-bold text-purple-900 truncate">
+                                              {String(
+                                                (
+                                                  (
+                                                    task.caseLine as Record<
+                                                      string,
+                                                      unknown
+                                                    >
+                                                  ).typeComponent as Record<
+                                                    string,
+                                                    unknown
+                                                  >
+                                                ).name || ""
+                                              )}
+                                            </span>
+                                          </div>
+                                        )}
+                                    </div>
+                                    <button
+                                      onClick={() =>
+                                        setExpandedTaskId(
+                                          expandedTaskId === uniqueTaskId
+                                            ? null
+                                            : uniqueTaskId
+                                        )
+                                      }
+                                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-gray-300 hover:border-blue-300 whitespace-nowrap"
+                                    >
+                                      {expandedTaskId === uniqueTaskId ? (
+                                        <>
+                                          <ChevronUp className="w-3.5 h-3.5" />
+                                          Hide
+                                        </>
+                                      ) : (
+                                        <>
+                                          <ChevronDown className="w-3.5 h-3.5" />
+                                          Timeline
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+
+                                  {/* Timeline Information */}
+                                  <div className="grid grid-cols-3 gap-4 mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                    {/* Technician */}
+                                    {task.technician && (
+                                      <div>
+                                        <p className="text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1">
+                                          <User className="w-3.5 h-3.5" />
+                                          Technician
+                                        </p>
+                                        <p className="font-semibold text-gray-900 text-sm">
+                                          {task.technician.name}
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    {/* Assigned Date */}
+                                    <div>
+                                      <p className="text-xs font-medium text-gray-500 mb-1.5 flex items-center gap-1.5">
+                                        <Calendar className="w-3.5 h-3.5" />
+                                        Assigned At
+                                      </p>
+                                      <p className="text-sm text-gray-900">
+                                        {new Date(
+                                          task.assignedAt
+                                        ).toLocaleDateString("en-US", {
+                                          month: "short",
+                                          day: "numeric",
+                                          year: "numeric",
+                                        })}
+                                      </p>
+                                      <p className="text-xs text-gray-500 mt-0.5">
+                                        {new Date(
+                                          task.assignedAt
+                                        ).toLocaleTimeString("en-US", {
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                        })}
+                                      </p>
+                                    </div>
+
+                                    {/* Duration or Completion */}
+                                    <div>
+                                      <p className="text-xs font-medium text-gray-500 mb-1.5 flex items-center gap-1.5">
+                                        <Clock className="w-3.5 h-3.5" />
+                                        {task.completedAt
+                                          ? "Completed At"
+                                          : "Duration"}
+                                      </p>
+                                      {task.completedAt ? (
+                                        <>
+                                          <p className="text-sm text-gray-900">
+                                            {new Date(
+                                              task.completedAt
+                                            ).toLocaleDateString("en-US", {
+                                              month: "short",
+                                              day: "numeric",
+                                              year: "numeric",
+                                            })}
+                                          </p>
+                                          <p className="text-xs text-gray-500 mt-0.5">
+                                            {new Date(
+                                              task.completedAt
+                                            ).toLocaleTimeString("en-US", {
+                                              hour: "2-digit",
+                                              minute: "2-digit",
+                                            })}
+                                          </p>
+                                        </>
+                                      ) : (
+                                        <p className="text-sm text-gray-900">
+                                          {Math.floor(
+                                            (Date.now() -
+                                              new Date(
+                                                task.assignedAt
+                                              ).getTime()) /
+                                              (1000 * 60 * 60)
+                                          )}
+                                          h{" "}
+                                          {Math.floor(
+                                            ((Date.now() -
+                                              new Date(
+                                                task.assignedAt
+                                              ).getTime()) %
+                                              (1000 * 60 * 60)) /
+                                              (1000 * 60)
+                                          )}
+                                          m
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Workflow Timeline - Expandable */}
+                                  <AnimatePresence>
+                                    {expandedTaskId === uniqueTaskId && (
+                                      <motion.div
+                                        key={`timeline-${uniqueTaskId}`}
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: "auto" }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        transition={{ duration: 0.2 }}
+                                        className="mb-4 p-5 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 rounded-xl border border-blue-200 shadow-sm"
+                                      >
+                                        <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                          <Clock className="w-4 h-4 text-blue-600" />
+                                          Workflow Timeline
+                                        </h4>
+                                        <div className="overflow-x-auto">
+                                          <WorkflowTimeline
+                                            events={getTimelineEvents(task)}
+                                            currentStatus={
+                                              task.vehicleProcessingRecord
+                                                ?.status ===
+                                                "READY_FOR_PICKUP" ||
+                                              task.vehicleProcessingRecord
+                                                ?.status === "COMPLETED"
+                                                ? "READY_FOR_PICKUP"
+                                                : task.completedAt
+                                                ? "COMPLETED"
+                                                : task.caseLine?.status ===
+                                                  "COMPLETED"
+                                                ? "COMPLETED"
+                                                : isDiagnosisCompleted(task)
+                                                ? "APPROVED"
+                                                : task.caseLine?.diagnosisText
+                                                ? "DIAGNOSED"
+                                                : task.isActive
+                                                ? "ASSIGNED"
+                                                : "PENDING"
+                                            }
+                                            variant="horizontal"
+                                          />
+                                        </div>
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
+
+                                  {/* Processing Record Status */}
+                                  {task.vehicleProcessingRecord && (
+                                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                      <div className="flex items-center justify-between">
+                                        <div>
+                                          <p className="text-xs font-medium text-blue-700 mb-1">
+                                            Vehicle Status
+                                          </p>
+                                          <p className="text-sm font-semibold text-blue-900">
+                                            {task.vehicleProcessingRecord.status?.replace(
+                                              /_/g,
+                                              " "
+                                            )}
+                                          </p>
+                                        </div>
+                                        {task.vehicleProcessingRecord
+                                          .createdByStaffId && (
+                                          <p className="text-xs text-blue-600">
+                                            ID:{" "}
+                                            {task.vehicleProcessingRecord.vehicleProcessingRecordId?.substring(
+                                              0,
+                                              8
+                                            )}
+                                            ...
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Case Line Status - Important for Managers */}
+                                  {task.caseLine && task.caseLine.status && (
+                                    <div
+                                      className={`mb-4 p-3 rounded-lg border ${
+                                        task.caseLine.status ===
+                                        "WAITING_FOR_PARTS"
+                                          ? "bg-orange-50 border-orange-200"
+                                          : task.caseLine.status ===
+                                            "PARTS_AVAILABLE"
+                                          ? "bg-green-50 border-green-200"
+                                          : task.caseLine.status ===
+                                            "READY_FOR_REPAIR"
+                                          ? "bg-purple-50 border-purple-200"
+                                          : task.caseLine.status === "IN_REPAIR"
+                                          ? "bg-blue-50 border-blue-200"
+                                          : "bg-gray-50 border-gray-200"
                                       }`}
                                     >
-                                      {task.caseLine.warrantyStatus}
-                                    </span>
+                                      <div className="flex items-center gap-2">
+                                        <div
+                                          className={`w-2 h-2 rounded-full ${
+                                            task.caseLine.status ===
+                                            "WAITING_FOR_PARTS"
+                                              ? "bg-orange-500 animate-pulse"
+                                              : task.caseLine.status ===
+                                                "PARTS_AVAILABLE"
+                                              ? "bg-green-500"
+                                              : task.caseLine.status ===
+                                                "READY_FOR_REPAIR"
+                                              ? "bg-purple-500"
+                                              : task.caseLine.status ===
+                                                "IN_REPAIR"
+                                              ? "bg-blue-500 animate-pulse"
+                                              : "bg-gray-500"
+                                          }`}
+                                        />
+                                        <p
+                                          className={`text-xs font-medium mb-1 ${
+                                            task.caseLine.status ===
+                                            "WAITING_FOR_PARTS"
+                                              ? "text-orange-700"
+                                              : task.caseLine.status ===
+                                                "PARTS_AVAILABLE"
+                                              ? "text-green-700"
+                                              : task.caseLine.status ===
+                                                "READY_FOR_REPAIR"
+                                              ? "text-purple-700"
+                                              : task.caseLine.status ===
+                                                "IN_REPAIR"
+                                              ? "text-blue-700"
+                                              : "text-gray-700"
+                                          }`}
+                                        >
+                                          Work Item Status
+                                        </p>
+                                      </div>
+                                      <p
+                                        className={`text-sm font-semibold ml-4 ${
+                                          task.caseLine.status ===
+                                          "WAITING_FOR_PARTS"
+                                            ? "text-orange-900"
+                                            : task.caseLine.status ===
+                                              "PARTS_AVAILABLE"
+                                            ? "text-green-900"
+                                            : task.caseLine.status ===
+                                              "READY_FOR_REPAIR"
+                                            ? "text-purple-900"
+                                            : task.caseLine.status ===
+                                              "IN_REPAIR"
+                                            ? "text-blue-900"
+                                            : "text-gray-900"
+                                        }`}
+                                      >
+                                        {task.caseLine.status.replace(
+                                          /_/g,
+                                          " "
+                                        )}
+                                      </p>
+                                      {task.caseLine.status ===
+                                        "WAITING_FOR_PARTS" && (
+                                        <p className="text-xs text-orange-600 ml-4 mt-1">
+                                          ⚠️ Parts transfer request in progress
+                                          - technician cannot proceed yet
+                                        </p>
+                                      )}
+                                      {task.caseLine.status ===
+                                        "PARTS_AVAILABLE" && (
+                                        <p className="text-xs text-green-600 ml-4 mt-1">
+                                          ✓ Parts received - technician can
+                                          start repair
+                                        </p>
+                                      )}
+                                    </div>
                                   )}
-                                </p>
+
+                                  {/* Case Line Details */}
+                                  {task.caseLine && (
+                                    <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                                      <p className="text-xs font-semibold text-purple-700 mb-3">
+                                        Case Line Details
+                                      </p>
+                                      <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                          <p className="text-xs font-medium text-purple-600 mb-1">
+                                            Diagnosis
+                                          </p>
+                                          <p className="text-sm text-purple-900">
+                                            {task.caseLine.diagnosisText ||
+                                              "No diagnosis provided"}
+                                          </p>
+                                        </div>
+
+                                        {task.caseLine.correctionText && (
+                                          <div>
+                                            <p className="text-xs font-medium text-purple-600 mb-1">
+                                              Correction
+                                            </p>
+                                            <p className="text-sm text-purple-900">
+                                              {task.caseLine.correctionText}
+                                            </p>
+                                          </div>
+                                        )}
+
+                                        <div>
+                                          <p className="text-xs font-medium text-purple-600 mb-1">
+                                            Status
+                                          </p>
+                                          <div className="flex items-center gap-2">
+                                            <p className="text-sm text-purple-900">
+                                              {task.caseLine.status?.replace(
+                                                /_/g,
+                                                " "
+                                              )}
+                                            </p>
+                                            {task.caseLine.warrantyStatus && (
+                                              <span
+                                                className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                                  task.caseLine
+                                                    .warrantyStatus ===
+                                                  "ELIGIBLE"
+                                                    ? "bg-green-100 text-green-700"
+                                                    : "bg-red-100 text-red-700"
+                                                }`}
+                                              >
+                                                {task.caseLine.warrantyStatus}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          </div>
-                        )}
+                            </motion.div>
+                          );
+                        })}
                       </div>
                     </div>
-                  </motion.div>
-                ))}
+                  ));
+                })()}
               </div>
 
               {/* PAGINATION */}
@@ -335,18 +1095,14 @@ export default function TaskAssignmentList() {
                   </p>
                   <div className="flex gap-2">
                     <button
-                      onClick={() =>
-                        loadTasks(pagination.page - 1, statusFilter)
-                      }
+                      onClick={() => loadTasks(pagination.page - 1)}
                       disabled={pagination.page === 1}
                       className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Previous
                     </button>
                     <button
-                      onClick={() =>
-                        loadTasks(pagination.page + 1, statusFilter)
-                      }
+                      onClick={() => loadTasks(pagination.page + 1)}
                       disabled={pagination.page === pagination.totalPages}
                       className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >

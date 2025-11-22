@@ -24,6 +24,9 @@ import stockTransferService from "@/services/stockTransferService";
 import type { StockTransferRequest } from "@/services/stockTransferService";
 import { CreateStockTransferRequestModal } from "./CreateStockTransferRequestModal";
 import StockTransferRequestDetailModal from "../companydashboard/StockTransferRequestDetailModal";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { PromptDialog } from "@/components/ui/PromptDialog";
 
 interface StockTransferRequestListProps {
   userRole: string;
@@ -65,6 +68,16 @@ export function StockTransferRequestList({
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
     null
   );
+
+  // Dialog states
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [shipDialogOpen, setShipDialogOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [confirmReceiveDialogOpen, setConfirmReceiveDialogOpen] =
+    useState(false);
+  const [pendingActionRequestId, setPendingActionRequestId] = useState<
+    string | null
+  >(null);
 
   const fetchRequests = async (status?: string) => {
     try {
@@ -131,88 +144,113 @@ export function StockTransferRequestList({
       setActionLoading(requestId);
       await stockTransferService.approveRequest(requestId);
       await fetchRequests();
+      toast.success("Request approved successfully");
     } catch (error) {
       console.error("Failed to approve request:", error);
-      alert("Failed to approve request");
+      toast.error("Failed to approve request");
     } finally {
       setActionLoading(null);
     }
   };
 
   const handleReject = async (requestId: string) => {
-    const reason = prompt("Enter rejection reason:");
-    if (!reason) return;
+    setPendingActionRequestId(requestId);
+    setRejectDialogOpen(true);
+  };
+
+  const handleRejectConfirm = async (reason: string) => {
+    if (!pendingActionRequestId) return;
 
     try {
-      setActionLoading(requestId);
-      await stockTransferService.rejectRequest(requestId, {
+      setActionLoading(pendingActionRequestId);
+      await stockTransferService.rejectRequest(pendingActionRequestId, {
         rejectionReason: reason,
       });
       await fetchRequests();
+      toast.success("Request rejected");
     } catch (error) {
       console.error("Failed to reject request:", error);
-      alert("Failed to reject request");
+      toast.error("Failed to reject request");
     } finally {
       setActionLoading(null);
+      setPendingActionRequestId(null);
     }
   };
 
   const handleShip = async (requestId: string) => {
-    const deliveryDate = prompt("Enter estimated delivery date (YYYY-MM-DD):");
-    if (!deliveryDate) return;
+    setPendingActionRequestId(requestId);
+    setShipDialogOpen(true);
+  };
+
+  const handleShipConfirm = async (deliveryDate: string) => {
+    if (!pendingActionRequestId) return;
 
     try {
-      setActionLoading(requestId);
-      await stockTransferService.shipRequest(requestId, {
+      setActionLoading(pendingActionRequestId);
+      await stockTransferService.shipRequest(pendingActionRequestId, {
         estimatedDeliveryDate: deliveryDate,
       });
       await fetchRequests();
+      toast.success("Request shipped successfully");
     } catch (error) {
       console.error("Failed to ship request:", error);
-      alert("Failed to ship request");
+      toast.error("Failed to ship request");
     } finally {
       setActionLoading(null);
+      setPendingActionRequestId(null);
     }
   };
 
   const handleReceive = async (requestId: string) => {
-    if (!confirm("Mark this shipment as received?")) return;
+    setPendingActionRequestId(requestId);
+    setConfirmReceiveDialogOpen(true);
+  };
+
+  const handleReceiveConfirm = async () => {
+    if (!pendingActionRequestId) return;
 
     try {
-      setActionLoading(requestId);
-      await stockTransferService.receiveRequest(requestId);
+      setActionLoading(pendingActionRequestId);
+      await stockTransferService.receiveRequest(pendingActionRequestId);
       await fetchRequests();
+      toast.success("Shipment marked as received");
     } catch (error) {
       console.error("Failed to receive request:", error);
-      alert("Failed to receive request");
+      toast.error("Failed to receive request");
     } finally {
       setActionLoading(null);
+      setPendingActionRequestId(null);
     }
   };
 
   const handleCancel = async (requestId: string) => {
-    const reason = prompt("Enter cancellation reason:");
-    if (!reason) return;
+    setPendingActionRequestId(requestId);
+    setCancelDialogOpen(true);
+  };
+
+  const handleCancelConfirm = async (reason: string) => {
+    if (!pendingActionRequestId) return;
 
     try {
-      setActionLoading(requestId);
-      await stockTransferService.cancelRequest(requestId, {
+      setActionLoading(pendingActionRequestId);
+      await stockTransferService.cancelRequest(pendingActionRequestId, {
         cancellationReason: reason,
       });
       await fetchRequests();
+      toast.success("Request cancelled");
     } catch (error) {
       console.error("Failed to cancel request:", error);
-      alert("Failed to cancel request");
+      toast.error("Failed to cancel request");
     } finally {
       setActionLoading(null);
+      setPendingActionRequestId(null);
     }
   };
 
   const canApproveReject = userRole === "emv_staff";
   const canShip = userRole === "parts_coordinator_company";
   const canReceive = userRole === "parts_coordinator_service_center";
-  const canCancel =
-    userRole === "emv_staff" || userRole === "service_center_manager";
+  const canCancel = userRole === "service_center_manager";
 
   if (loading) {
     return (
@@ -452,20 +490,32 @@ export function StockTransferRequestList({
                             </button>
                           )}
 
-                          {/* Manager/EMV: Cancel */}
-                          {canCancel &&
-                            !["RECEIVED", "REJECTED", "CANCELLED"].includes(
-                              request.status
-                            ) && (
-                              <button
-                                onClick={() => handleCancel(request.id)}
-                                disabled={isProcessing}
-                                className="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                <Ban className="w-4 h-4" />
-                                Cancel
-                              </button>
-                            )}
+                          {/* Manager Only: Cancel */}
+                          {canCancel && (
+                            <button
+                              onClick={() => handleCancel(request.id)}
+                              disabled={
+                                isProcessing ||
+                                ["RECEIVED", "REJECTED", "CANCELLED"].includes(
+                                  request.status
+                                ) ||
+                                request.status !== "PENDING_APPROVAL"
+                              }
+                              title={
+                                ["RECEIVED", "REJECTED", "CANCELLED"].includes(
+                                  request.status
+                                )
+                                  ? `Cannot cancel ${request.status.toLowerCase()} request`
+                                  : request.status !== "PENDING_APPROVAL"
+                                  ? "Manager can only cancel pending approval requests"
+                                  : "Cancel this request"
+                              }
+                              className="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <Ban className="w-4 h-4" />
+                              Cancel
+                            </button>
+                          )}
 
                           {/* View Details */}
                           <button
@@ -510,6 +560,67 @@ export function StockTransferRequestList({
           onClose={() => setShowDetailModal(false)}
         />
       )}
+
+      {/* Reject Dialog */}
+      <PromptDialog
+        isOpen={rejectDialogOpen}
+        onClose={() => {
+          setRejectDialogOpen(false);
+          setPendingActionRequestId(null);
+        }}
+        onConfirm={handleRejectConfirm}
+        title="Reject Request"
+        message="Please provide a reason for rejecting this request:"
+        placeholder="Enter rejection reason..."
+        required
+      />
+
+      {/* Ship Dialog */}
+      <PromptDialog
+        isOpen={shipDialogOpen}
+        onClose={() => {
+          setShipDialogOpen(false);
+          setPendingActionRequestId(null);
+        }}
+        onConfirm={handleShipConfirm}
+        title="Ship Request"
+        message="Enter the estimated delivery date:"
+        placeholder="YYYY-MM-DD"
+        inputType="date"
+        required
+      />
+
+      {/* Cancel Dialog */}
+      <PromptDialog
+        isOpen={cancelDialogOpen}
+        onClose={() => {
+          setCancelDialogOpen(false);
+          setPendingActionRequestId(null);
+        }}
+        onConfirm={handleCancelConfirm}
+        title="Cancel Request"
+        message="Please provide a detailed reason for cancelling this stock transfer request:"
+        placeholder="Enter cancellation reason (e.g., parts no longer needed, alternative sourcing, etc.)..."
+        inputType="textarea"
+        rows={4}
+        minLength={10}
+        maxLength={500}
+        required
+      />
+
+      {/* Confirm Receive Dialog */}
+      <ConfirmDialog
+        isOpen={confirmReceiveDialogOpen}
+        onClose={() => {
+          setConfirmReceiveDialogOpen(false);
+          setPendingActionRequestId(null);
+        }}
+        onConfirm={handleReceiveConfirm}
+        title="Confirm Receipt"
+        message="Mark this shipment as received? This action will update the stock levels."
+        confirmText="Confirm"
+        variant="info"
+      />
     </div>
   );
 }

@@ -4,14 +4,18 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Package,
-  RotateCcw,
   Truck,
   AlertCircle,
-  Clock,
   TrendingUp,
   Activity,
+  FileText,
+  CheckCircle,
 } from "lucide-react";
 import componentReservationService from "@/services/componentReservationService";
+import stockTransferService from "@/services/stockTransferService";
+import inventoryService from "@/services/inventoryService";
+import { authService } from "@/services";
+import MostUsedComponents from "../MostUsedComponents";
 
 interface DashboardOverviewProps {
   onNavigate?: (nav: string) => void;
@@ -20,108 +24,168 @@ interface DashboardOverviewProps {
 export function DashboardOverview({}: DashboardOverviewProps) {
   const [stats, setStats] = useState({
     pendingPickups: 0,
-    inTransit: 0,
-    awaitingReturn: 0,
-    returnedToday: 0,
+    pendingTransfers: 0,
+    incomingShipments: 0,
+    lowStockItems: 0,
   });
 
   const [loading, setLoading] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
+    const user = authService.getUserInfo() || authService.getCurrentUser();
+    setUserRole(user?.roleName || null);
     loadDashboardData();
   }, []);
 
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      // ✅ Backend chỉ hỗ trợ 3 trạng thái sau trong filter
-      // RESERVED, PICKED_UP, INSTALLED
-      const [reserved, pickedUp, installed, allReservations] =
-        await Promise.all([
-          componentReservationService.getComponentReservations({
-            status: "RESERVED",
-            limit: 1,
-          }),
-          componentReservationService.getComponentReservations({
-            status: "PICKED_UP",
-            limit: 1,
-          }),
-          componentReservationService.getComponentReservations({
-            status: "INSTALLED",
-            limit: 1,
-          }),
+      const currentUser =
+        authService.getUserInfo() || authService.getCurrentUser();
+      const isServiceCenter =
+        currentUser?.roleName === "parts_coordinator_service_center";
 
-          // ✅ Gọi ALL để lọc RETURNED thủ công
-          componentReservationService.getComponentReservations({
-            limit: 100,
-          }),
-        ]);
+      // Load component reservations (pending pickups)
+      const reservationsPromise = componentReservationService
+        .getComponentReservations({
+          status: "RESERVED",
+          limit: 1,
+        })
+        .catch(() => ({ data: { pagination: { total: 0 } } }));
 
-      // ✅ Tính số returnedToday
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      // Load stock transfer requests
+      const transfersPromise = stockTransferService
+        .getRequests({
+          status: isServiceCenter ? "PENDING_APPROVAL" : "APPROVED",
+          limit: 1,
+        })
+        .catch(() => ({ data: { pagination: { total: 0 } } }));
 
-      const returnedTodayCount = allReservations.data.reservations.filter(
-        (r) => {
-          if (r.status !== "RETURNED") return false;
-          if (!r.returnedAt) return false;
+      // Load incoming shipments (only for service center)
+      const shipmentsPromise = isServiceCenter
+        ? stockTransferService
+            .getRequests({
+              status: "SHIPPED",
+              limit: 1,
+            })
+            .catch(() => ({
+              data: { requests: [], stockTransferRequests: [] },
+            }))
+        : Promise.resolve({
+            data: { requests: [], stockTransferRequests: [] },
+          });
 
-          const returnDate = new Date(r.returnedAt);
-          returnDate.setHours(0, 0, 0, 0);
+      // Load inventory to check low stock (get user's warehouse)
+      const warehouseId =
+        currentUser?.serviceCenterId || currentUser?.companyId || "";
 
-          return returnDate.getTime() === today.getTime();
-        }
+      const inventoryPromise = warehouseId
+        ? inventoryService.getTypeComponents(warehouseId).catch(() => [])
+        : Promise.resolve([]);
+
+      const [reservations, transfers, shipments, inventory] = await Promise.all(
+        [
+          reservationsPromise,
+          transfersPromise,
+          shipmentsPromise,
+          inventoryPromise,
+        ]
+      );
+
+      // Count low stock items (quantityAvailable < 10)
+      const lowStock = inventory.filter(
+        (stock) => stock.quantityAvailable < 10
       ).length;
 
+      // Get shipments count
+      const shipmentsCount =
+        shipments.data.requests?.length ||
+        shipments.data.stockTransferRequests?.length ||
+        0;
+
       setStats({
-        pendingPickups: reserved.data.pagination.total,
-        inTransit: pickedUp.data.pagination.total,
-        awaitingReturn: installed.data.pagination.total,
-        returnedToday: returnedTodayCount,
+        pendingPickups: reservations.data.pagination?.total || 0,
+        pendingTransfers: transfers.data.pagination?.total || 0,
+        incomingShipments: shipmentsCount,
+        lowStockItems: lowStock,
       });
     } catch (error) {
       console.error("Error loading dashboard data:", error);
       setStats({
         pendingPickups: 0,
-        inTransit: 0,
-        awaitingReturn: 0,
-        returnedToday: 0,
+        pendingTransfers: 0,
+        incomingShipments: 0,
+        lowStockItems: 0,
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const statCards = [
-    {
-      label: "Pending Pickups",
-      value: stats.pendingPickups,
-      icon: Package,
-      bgColor: "bg-blue-100",
-      textColor: "text-blue-600",
-    },
-    {
-      label: "Components in Transit",
-      value: stats.inTransit,
-      icon: Truck,
-      bgColor: "bg-purple-100",
-      textColor: "text-purple-600",
-    },
-    {
-      label: "Awaiting Return",
-      value: stats.awaitingReturn,
-      icon: Clock,
-      bgColor: "bg-yellow-100",
-      textColor: "text-yellow-600",
-    },
-    {
-      label: "Returned Today",
-      value: stats.returnedToday,
-      icon: RotateCcw,
-      bgColor: "bg-green-100",
-      textColor: "text-green-600",
-    },
-  ];
+  const isServiceCenter = userRole === "parts_coordinator_service_center";
+
+  const statCards = isServiceCenter
+    ? [
+        {
+          label: "Pending Component Pickups",
+          value: stats.pendingPickups,
+          icon: Package,
+          bgColor: "bg-blue-100",
+          textColor: "text-blue-600",
+        },
+        {
+          label: "Pending Transfer Requests",
+          value: stats.pendingTransfers,
+          icon: FileText,
+          bgColor: "bg-orange-100",
+          textColor: "text-orange-600",
+        },
+        {
+          label: "Incoming Shipments",
+          value: stats.incomingShipments,
+          icon: Truck,
+          bgColor: "bg-purple-100",
+          textColor: "text-purple-600",
+        },
+        {
+          label: "Low Stock Items",
+          value: stats.lowStockItems,
+          icon: AlertCircle,
+          bgColor: "bg-red-100",
+          textColor: "text-red-600",
+        },
+      ]
+    : [
+        {
+          label: "Pending Component Pickups",
+          value: stats.pendingPickups,
+          icon: Package,
+          bgColor: "bg-blue-100",
+          textColor: "text-blue-600",
+        },
+        {
+          label: "Ready to Ship",
+          value: stats.pendingTransfers,
+          icon: Truck,
+          bgColor: "bg-green-100",
+          textColor: "text-green-600",
+        },
+        {
+          label: "Low Stock Items",
+          value: stats.lowStockItems,
+          icon: AlertCircle,
+          bgColor: "bg-red-100",
+          textColor: "text-red-600",
+        },
+        {
+          label: "Total Active Reservations",
+          value: stats.pendingPickups,
+          icon: CheckCircle,
+          bgColor: "bg-purple-100",
+          textColor: "text-purple-600",
+        },
+      ];
 
   return (
     <div className="flex-1 overflow-auto">
@@ -139,7 +203,9 @@ export function DashboardOverview({}: DashboardOverviewProps) {
                 Parts Coordinator Dashboard
               </h1>
               <p className="text-sm text-gray-500 mt-1">
-                Manage component pickups, installations, and returns
+                {isServiceCenter
+                  ? "Manage inventory, stock transfers, and component reservations"
+                  : "Manage company inventory and fulfill stock transfer requests"}
               </p>
             </motion.div>
 
@@ -186,34 +252,51 @@ export function DashboardOverview({}: DashboardOverviewProps) {
                   <Activity className="w-5 h-5 text-purple-600" />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900">
-                  Today&apos;s Activity
+                  Quick Stats
                 </h3>
               </div>
 
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">
-                    Components Picked Up
-                  </span>
-                  <span className="text-sm font-semibold text-gray-900">
-                    {stats.inTransit}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Parts Returned</span>
-                  <span className="text-sm font-semibold text-gray-900">
-                    {stats.returnedToday}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Pending Actions</span>
                   <span className="text-sm font-semibold text-gray-900">
-                    {stats.pendingPickups + stats.awaitingReturn}
+                    {stats.pendingPickups + stats.pendingTransfers}
+                  </span>
+                </div>
+
+                {isServiceCenter && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">
+                      Items in Transit
+                    </span>
+                    <span className="text-sm font-semibold text-gray-900">
+                      {stats.incomingShipments}
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">
+                    Low Stock Alerts
+                  </span>
+                  <span
+                    className={`text-sm font-semibold ${
+                      stats.lowStockItems > 0 ? "text-red-600" : "text-gray-900"
+                    }`}
+                  >
+                    {stats.lowStockItems}
                   </span>
                 </div>
               </div>
+            </motion.div>
+
+            {/* Most Used Components */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.15 }}
+            >
+              <MostUsedComponents limit={5} showDateFilter={false} />
             </motion.div>
 
             {/* Workflow Instructions */}
@@ -225,26 +308,48 @@ export function DashboardOverview({}: DashboardOverviewProps) {
             >
               <h3 className="text-lg font-semibold text-blue-900 mb-3 flex items-center gap-2">
                 <AlertCircle className="w-5 h-5" />
-                Workflow Instructions
+                {isServiceCenter
+                  ? "Service Center Workflow"
+                  : "Company Workflow"}
               </h3>
 
-              <div className="space-y-3">
-                <InstructionStep
-                  number="1"
-                  title="Pickup"
-                  desc="Go to “Component Pickups” to mark components as picked up"
-                />
-                <InstructionStep
-                  number="2"
-                  title="Install"
-                  desc="Technician installs the component on the vehicle"
-                />
-                <InstructionStep
-                  number="3"
-                  title="Return"
-                  desc="Go to “Component Returns” to return old components"
-                />
-              </div>
+              {isServiceCenter ? (
+                <div className="space-y-3">
+                  <InstructionStep
+                    number="1"
+                    title="Request Parts"
+                    desc="Create stock transfer requests when inventory is low"
+                  />
+                  <InstructionStep
+                    number="2"
+                    title="Receive Shipments"
+                    desc="Process incoming shipments from company warehouse"
+                  />
+                  <InstructionStep
+                    number="3"
+                    title="Handle Pickups"
+                    desc="Mark components as picked up by technicians"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <InstructionStep
+                    number="1"
+                    title="Monitor Inventory"
+                    desc="Keep track of stock levels across all components"
+                  />
+                  <InstructionStep
+                    number="2"
+                    title="Process Requests"
+                    desc="Review and approve transfer requests from service centers"
+                  />
+                  <InstructionStep
+                    number="3"
+                    title="Ship Parts"
+                    desc="Ship approved requests to service centers"
+                  />
+                </div>
+              )}
             </motion.div>
           </div>
         </div>

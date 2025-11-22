@@ -14,15 +14,22 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import io from "socket.io-client";
+import { jwtDecode } from "jwt-decode";
+
+import {
+  initSocket,
+  joinConversation,
+  sendMessageSocket,
+  onNewMessage,
+  disconnectSocket,
+} from "../../services/socketService";
+
 import {
   getMessagesByConversationId,
   closeConversation,
-  acceptAnonymousChat, // ✅ import thêm
+  acceptAnonymousChat,
 } from "../../services/chatService";
 import ConfirmCloseModal from "../../components/ConfirmCloseModal";
-
-const SOCKET_URL = "http://10.0.2.2:3000";
 
 const COLORS = {
   bg: "#0B0F14",
@@ -38,34 +45,49 @@ const COLORS = {
 
 export default function StaffChatScreen({ route, navigation }) {
   const { conversationId, token, status: initialStatus, guest } = route.params;
+
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [chatStatus, setChatStatus] = useState(initialStatus);
   const [closing, setClosing] = useState(false);
-  const [accepting, setAccepting] = useState(false); // ✅ state accept
+  const [accepting, setAccepting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const socketRef = useRef(null);
   const flatListRef = useRef(null);
 
-  // 🧩 Socket
+  // 🧠 Decode token để lấy staffId
+  let staffId = "";
+  try {
+    const decoded = jwtDecode(token);
+    staffId =
+      decoded?.userId?.toString() ||
+      decoded?.staffId?.toString() ||
+      decoded?.id?.toString() ||
+      "";
+    console.log("👤 Decoded staffId:", staffId);
+  } catch (err) {
+    console.warn("⚠️ Token decode failed:", err.message);
+  }
+
   useEffect(() => {
-    if (!token || !conversationId) return;
-    const socket = io(SOCKET_URL, {
-      transports: ["websocket"],
-      auth: { token },
+    console.log("🧾 Token received:", token);
+    console.log("📄 Token type:", typeof token);
+  }, [token]);
+
+  // 🧩 Kết nối socket & realtime
+  useEffect(() => {
+    const socket = initSocket(token);
+    joinConversation(conversationId);
+
+    onNewMessage((msg) => {
+      console.log("📩 New message:", msg);
+      setMessages((prev) => [...prev, msg]);
     });
-    socketRef.current = socket;
-    socket.emit("joinConversation", { conversationId });
 
-    socket.on("newMessage", (msg) => setMessages((prev) => [...prev, msg]));
-    socket.on("connect", () => console.log("🟢 Socket connected"));
-    socket.on("disconnect", () => console.log("🔴 Socket disconnected"));
-
-    return () => socket.disconnect();
+    return () => disconnectSocket();
   }, [conversationId, token]);
 
-  // 🧩 Load messages
+  // 🧩 Load tin nhắn cũ
   useEffect(() => {
     const fetchMessages = async () => {
       try {
@@ -73,7 +95,7 @@ export default function StaffChatScreen({ route, navigation }) {
         const res = await getMessagesByConversationId(conversationId, token);
         setMessages(res || []);
       } catch (err) {
-        console.error("❌ Failed to load messages:", err);
+        console.error("❌ Error fetching messages:", err);
       } finally {
         setLoading(false);
       }
@@ -81,32 +103,36 @@ export default function StaffChatScreen({ route, navigation }) {
     fetchMessages();
   }, [conversationId]);
 
-  // 🧩 Send message
+  // 🧩 Gửi tin nhắn
   const handleSend = () => {
-    if (chatStatus === "CLOSED" || chatStatus === "WAITING") return; // ⛔ Không gửi khi chưa accept
-    if (!input.trim() || !socketRef.current) return;
+    if (!input.trim() || chatStatus !== "ACTIVE") return;
+    if (!staffId) {
+      console.warn("⚠️ Missing senderId — token decode failed");
+      return;
+    }
 
     const newMsg = {
-      content: input.trim(),
       conversationId,
+      senderId: staffId,
       senderType: "STAFF",
+      content: input.trim(),
       createdAt: new Date().toISOString(),
     };
 
-    socketRef.current.emit("sendMessage", newMsg);
+    sendMessageSocket(newMsg);
     setMessages((prev) => [...prev, newMsg]);
     setInput("");
     Keyboard.dismiss();
   };
 
-  // 🧩 Auto scroll
+  // 🧩 Auto scroll khi có tin nhắn mới
   useEffect(() => {
     if (flatListRef.current && messages.length > 0) {
       flatListRef.current.scrollToEnd({ animated: true });
     }
   }, [messages]);
 
-  // 🧩 Status color
+  // 🧩 Đổi màu theo trạng thái
   const getStatusColor = () => {
     switch (chatStatus) {
       case "ACTIVE":
@@ -118,38 +144,42 @@ export default function StaffChatScreen({ route, navigation }) {
     }
   };
 
-  // 🧩 Accept chat
   const handleAcceptChat = async () => {
     try {
       setAccepting(true);
-      const res = await acceptAnonymousChat(conversationId, token);
-      console.log("✅ Chat accepted:", res);
+      await acceptAnonymousChat(conversationId, token);
       setChatStatus("ACTIVE");
     } catch (err) {
-      console.error("❌ Error accepting chat:", err.response?.data || err);
+      console.error("❌ Error accepting chat:", err);
     } finally {
       setAccepting(false);
     }
   };
 
-  // 🧩 Confirm close
   const handleConfirmClose = async () => {
     try {
       setClosing(true);
-      const res = await closeConversation(conversationId, token);
-      console.log("✅ Conversation closed:", res);
+      await closeConversation(conversationId, token);
       setChatStatus("CLOSED");
       setShowConfirm(false);
     } catch (err) {
-      console.error("❌ Error closing chat:", err.response?.data || err);
+      console.error("❌ Error closing chat:", err);
     } finally {
       setClosing(false);
     }
   };
 
-  // 🧩 Render message
+  /* ---------------------------------------------------------- */
+  /* 🧩 RENDER MESSAGE (ĐÃ THÊM HỖ TRỢ HIỂN THỊ ẢNH)             */
+  /* ---------------------------------------------------------- */
   const renderMessage = ({ item }) => {
     const isStaff = item.senderType === "STAFF";
+
+    // Detect if content is an image URL
+    const isImage =
+      typeof item.content === "string" &&
+      item.content.match(/\.(jpeg|jpg|png|gif|webp|svg)$/i);
+
     return (
       <View
         style={[
@@ -157,14 +187,23 @@ export default function StaffChatScreen({ route, navigation }) {
           isStaff ? styles.staffBubble : styles.customerBubble,
         ]}
       >
-        <Text style={{ color: isStaff ? "#fff" : COLORS.text, fontSize: 15 }}>
-          {item.content}
-        </Text>
+        {isImage ? (
+          <Image
+            source={{ uri: item.content }}
+            style={{ width: 220, height: 220, borderRadius: 10 }}
+            resizeMode="cover"
+          />
+        ) : (
+          <Text style={{ color: isStaff ? "#fff" : COLORS.text, fontSize: 15 }}>
+            {item.content}
+          </Text>
+        )}
       </View>
     );
   };
 
-  // 🧩 Guest info
+  /* ---------------------------------------------------------- */
+
   const displayName = guest?.full_name || guest?.name || "Anonymous Guest";
   const avatarSource = guest?.avatar ? { uri: guest.avatar } : null;
   const avatarLetter = displayName?.charAt(0)?.toUpperCase() || "?";
@@ -195,11 +234,9 @@ export default function StaffChatScreen({ route, navigation }) {
               style={[styles.statusDot, { backgroundColor: getStatusColor() }]}
             />
           </View>
-
           <Text style={styles.name}>{displayName}</Text>
         </View>
 
-        {/* ✅ Action button theo trạng thái */}
         {chatStatus === "ACTIVE" && (
           <TouchableOpacity
             onPress={() => setShowConfirm(true)}
@@ -244,14 +281,11 @@ export default function StaffChatScreen({ route, navigation }) {
           keyExtractor={(item, index) =>
             item?._id?.toString() || `${item.senderType}-${index}`
           }
-          contentContainerStyle={{
-            padding: 12,
-            paddingBottom: 90,
-          }}
+          contentContainerStyle={{ padding: 12, paddingBottom: 90 }}
         />
       )}
 
-      {/* INPUT / CLOSED */}
+      {/* INPUT */}
       {chatStatus === "CLOSED" ? (
         <LinearGradient
           colors={["#EF4444", "#7F1D1D"]}
@@ -274,7 +308,7 @@ export default function StaffChatScreen({ route, navigation }) {
             placeholderTextColor={COLORS.textMuted}
             value={input}
             onChangeText={setInput}
-            editable={chatStatus === "ACTIVE"} // ⛔ Không cho nhập khi WAITING
+            editable={chatStatus === "ACTIVE"}
           />
           <TouchableOpacity
             style={[
@@ -289,7 +323,6 @@ export default function StaffChatScreen({ route, navigation }) {
         </View>
       )}
 
-      {/* 🧩 Modal confirm close */}
       <ConfirmCloseModal
         visible={showConfirm}
         closing={closing}
@@ -300,7 +333,7 @@ export default function StaffChatScreen({ route, navigation }) {
   );
 }
 
-/* 🎨 Styles */
+/* STYLES giữ nguyên */
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.bg },
   header: {
@@ -365,11 +398,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   input: { flex: 1, color: COLORS.text, fontSize: 15, paddingHorizontal: 10 },
-  sendBtn: {
-    backgroundColor: COLORS.accent,
-    padding: 10,
-    borderRadius: 8,
-  },
+  sendBtn: { backgroundColor: COLORS.accent, padding: 10, borderRadius: 8 },
   closedBar: {
     flexDirection: "row",
     alignItems: "center",

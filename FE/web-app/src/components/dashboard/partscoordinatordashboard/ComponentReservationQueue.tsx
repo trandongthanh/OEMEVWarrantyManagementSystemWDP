@@ -20,6 +20,12 @@ export default function ComponentReservationQueue() {
   const [reservations, setReservations] = useState<ComponentReservation[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [selectedReservations, setSelectedReservations] = useState<Set<string>>(
+    new Set()
+  );
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
   const [pagination, setPagination] = useState({
     total: 0,
@@ -41,14 +47,12 @@ export default function ComponentReservationQueue() {
         (statusFilter === "RESERVED" ||
           statusFilter === "PICKED_UP" ||
           statusFilter === "INSTALLED" ||
-          statusFilter === "RETURNED" ||
           statusFilter === "CANCELLED")
       ) {
         params.status = statusFilter as
           | "RESERVED"
           | "PICKED_UP"
           | "INSTALLED"
-          | "RETURNED"
           | "CANCELLED";
       }
 
@@ -68,7 +72,7 @@ export default function ComponentReservationQueue() {
       return result.data.reservations;
     },
     {
-      interval: 30000, // Poll every 30 seconds
+      interval: 120000, // Poll every 2 minutes
       enabled: !loading,
       onError: (err) => {
         console.error("❌ Reservation polling error:", err);
@@ -94,14 +98,12 @@ export default function ComponentReservationQueue() {
         (status === "RESERVED" ||
           status === "PICKED_UP" ||
           status === "INSTALLED" ||
-          status === "RETURNED" ||
           status === "CANCELLED")
       ) {
         params.status = status as
           | "RESERVED"
           | "PICKED_UP"
           | "INSTALLED"
-          | "RETURNED"
           | "CANCELLED";
       }
 
@@ -127,16 +129,125 @@ export default function ComponentReservationQueue() {
   };
 
   const handlePickup = async (reservationId: string) => {
-    const techId = prompt("Enter Technician ID:");
-    if (!techId) return;
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    // Find the reservation to get technician ID
+    const reservation = reservations.find(
+      (r) => r.reservationId === reservationId
+    );
+
+    if (!reservation) {
+      setErrorMessage("Reservation not found");
+      return;
+    }
+
+    // Get technician ID from the case line's repair technician
+    const techId = reservation.caseLine?.repairTechId;
+
+    if (!techId) {
+      setErrorMessage(
+        "No technician assigned to this repair. Please assign a technician first in Case Line Operations."
+      );
+      return;
+    }
 
     try {
       await componentReservationService.pickupComponent(reservationId, techId);
+      setSuccessMessage(
+        `Component picked up successfully by ${
+          reservation.caseLine?.repairTechnician?.name || "technician"
+        }`
+      );
       setCurrentPage(pagination.page); // Keep current page
       loadReservations(pagination.page, statusFilter);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error picking up component:", err);
-      alert("Failed to pick up component");
+      const error = err as { response?: { data?: { message?: string } } };
+      setErrorMessage(
+        error?.response?.data?.message || "Failed to pick up component"
+      );
+    }
+  };
+
+  const handleBulkPickup = async () => {
+    if (selectedReservations.size === 0) {
+      setErrorMessage("Please select reservations to pick up");
+      return;
+    }
+
+    setErrorMessage("");
+    setSuccessMessage("");
+    setIsBulkProcessing(true);
+
+    try {
+      // Group reservations by technician ID
+      const reservationsByTech = new Map<string, string[]>();
+      const reservationsToProcess = reservations.filter((r) =>
+        selectedReservations.has(r.reservationId)
+      );
+
+      // Validate all have assigned technicians and group by tech
+      for (const reservation of reservationsToProcess) {
+        const techId = reservation.caseLine?.repairTechId;
+        if (!techId) {
+          setErrorMessage(
+            `Cannot process: Some reservations don't have assigned technicians. Please assign technicians first.`
+          );
+          setIsBulkProcessing(false);
+          return;
+        }
+        if (!reservationsByTech.has(techId)) {
+          reservationsByTech.set(techId, []);
+        }
+        reservationsByTech.get(techId)!.push(reservation.reservationId);
+      }
+
+      // Process pickups for each technician
+      const pickupPromises = Array.from(reservationsByTech.entries()).map(
+        ([techId, reservationIds]) =>
+          componentReservationService.pickupComponents(reservationIds, techId)
+      );
+
+      await Promise.all(pickupPromises);
+
+      setSuccessMessage(
+        `Successfully picked up ${selectedReservations.size} component(s)`
+      );
+      setSelectedReservations(new Set());
+      loadReservations(pagination.page, statusFilter);
+    } catch (err: unknown) {
+      console.error("Error during bulk pickup:", err);
+      const error = err as { response?: { data?: { message?: string } } };
+      setErrorMessage(
+        error?.response?.data?.message || "Failed to pick up some components"
+      );
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
+  const toggleSelection = (reservationId: string) => {
+    const newSelected = new Set(selectedReservations);
+    if (newSelected.has(reservationId)) {
+      newSelected.delete(reservationId);
+    } else {
+      newSelected.add(reservationId);
+    }
+    setSelectedReservations(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    const reservedItems = reservations.filter((r) => r.status === "RESERVED");
+    if (
+      selectedReservations.size === reservedItems.length &&
+      reservedItems.length > 0
+    ) {
+      setSelectedReservations(new Set());
+    } else {
+      setSelectedReservations(
+        new Set(reservedItems.map((r) => r.reservationId))
+      );
     }
   };
 
@@ -145,7 +256,6 @@ export default function ComponentReservationQueue() {
       RESERVED: "bg-blue-100 text-blue-700",
       PICKED_UP: "bg-yellow-100 text-yellow-700",
       INSTALLED: "bg-green-100 text-green-700",
-      RETURNED: "bg-purple-100 text-purple-700",
       CANCELLED: "bg-red-100 text-red-700",
     };
 
@@ -203,12 +313,87 @@ export default function ComponentReservationQueue() {
                   <option value="RESERVED">Reserved</option>
                   <option value="PICKED_UP">Picked Up</option>
                   <option value="INSTALLED">Installed</option>
-                  <option value="RETURNED">Returned</option>
                   <option value="CANCELLED">Cancelled</option>
                 </select>
               </div>
             </div>
           </div>
+
+          {/* ERROR/SUCCESS MESSAGES */}
+          {errorMessage && (
+            <div className="mx-6 mt-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-red-900">Error</p>
+                <p className="text-sm text-red-700 mt-1">{errorMessage}</p>
+              </div>
+              <button
+                onClick={() => setErrorMessage("")}
+                className="text-red-400 hover:text-red-600 transition-colors"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="mx-6 mt-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
+              <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-green-900">Success</p>
+                <p className="text-sm text-green-700 mt-1">{successMessage}</p>
+              </div>
+              <button
+                onClick={() => setSuccessMessage("")}
+                className="text-green-400 hover:text-green-600 transition-colors"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {/* BULK ACTIONS BAR */}
+          {!loading && reservations.some((r) => r.status === "RESERVED") && (
+            <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={
+                    reservations.filter((r) => r.status === "RESERVED").length >
+                      0 &&
+                    selectedReservations.size ===
+                      reservations.filter((r) => r.status === "RESERVED").length
+                  }
+                  onChange={toggleSelectAll}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <span className="text-sm font-medium text-gray-700">
+                  {selectedReservations.size > 0
+                    ? `${selectedReservations.size} selected`
+                    : "Select all reserved"}
+                </span>
+              </div>
+              {selectedReservations.size > 0 && (
+                <button
+                  onClick={handleBulkPickup}
+                  disabled={isBulkProcessing}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isBulkProcessing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      Pick Up Selected ({selectedReservations.size})
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          )}
 
           {loading ? (
             <div className="flex items-center justify-center py-20">
@@ -232,125 +417,146 @@ export default function ComponentReservationQueue() {
                     key={reservation.reservationId}
                     className="p-6 hover:bg-gray-50 transition"
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-4">
-                          {getStatusBadge(reservation.status)}
-                          {reservation.status === "RESERVED" && (
-                            <span className="flex items-center gap-1 text-xs text-orange-600">
-                              <AlertCircle className="w-4 h-4" />
-                              Ready for Pickup
-                            </span>
-                          )}
-                          {reservation.installedAt && (
-                            <span className="flex items-center gap-1 text-xs text-green-600">
-                              <CheckCircle2 className="w-4 h-4" />
-                              Installed
-                            </span>
-                          )}
+                    <div className="flex items-start gap-4">
+                      {/* Checkbox for RESERVED items */}
+                      {reservation.status === "RESERVED" && (
+                        <div className="pt-1">
+                          <input
+                            type="checkbox"
+                            checked={selectedReservations.has(
+                              reservation.reservationId
+                            )}
+                            onChange={() =>
+                              toggleSelection(reservation.reservationId)
+                            }
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
                         </div>
+                      )}
+                      {reservation.status !== "RESERVED" && (
+                        <div className="w-4" />
+                      )}
 
-                        <div className="grid grid-cols-3 gap-4 mb-4">
-                          {/* Component Info */}
-                          {reservation.component && (
-                            <div>
-                              <p className="text-xs text-gray-500 mb-1">
-                                Component
-                              </p>
-                              <p className="font-medium text-gray-900">
-                                Serial: {reservation.component.serialNumber}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                Status: {reservation.component.status}
-                              </p>
-                            </div>
-                          )}
-
-                          {/* Warehouse */}
-                          {reservation.warehouse && (
-                            <div>
-                              <p className="text-xs text-gray-500 mb-1">
-                                Warehouse
-                              </p>
-                              <p className="text-sm text-gray-900">
-                                {reservation.warehouse.warehouseName}
-                              </p>
-                            </div>
-                          )}
-
-                          {/* Quantity */}
-                          <div>
-                            <p className="text-xs text-gray-500 mb-1">
-                              Quantity
-                            </p>
-                            <p className="text-sm text-gray-900 font-semibold">
-                              {reservation.quantityReserved} unit
-                              {reservation.quantityReserved > 1 ? "s" : ""}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Pickup Info */}
-                        {reservation.pickedUpAt && (
-                          <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200 mb-4">
-                            <p className="text-xs font-medium text-yellow-700 mb-1">
-                              Picked Up
-                            </p>
-                            <p className="text-sm text-yellow-900">
-                              {new Date(
-                                reservation.pickedUpAt
-                              ).toLocaleString()}
-                              {reservation.pickedUpBy &&
-                                ` by Tech ID: ${reservation.pickedUpBy}`}
-                            </p>
-                          </div>
-                        )}
-
-                        {/* Installation Info */}
-                        {reservation.installedAt && (
-                          <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                            <p className="text-xs font-medium text-green-700 mb-1">
-                              Installed
-                            </p>
-                            <p className="text-sm text-green-900">
-                              {new Date(
-                                reservation.installedAt
-                              ).toLocaleString()}
-                              {reservation.component?.vehicleVin &&
-                                ` on VIN: ${reservation.component.vehicleVin}`}
-                            </p>
-                            {reservation.oldComponentSerial && (
-                              <p className="text-xs text-green-700 mt-1">
-                                Replaced: {reservation.oldComponentSerial}
-                                {reservation.oldComponentReturned &&
-                                  " (Returned)"}
-                              </p>
+                      <div className="flex items-start justify-between flex-1">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-4">
+                            {getStatusBadge(reservation.status)}
+                            {reservation.status === "RESERVED" && (
+                              <span className="flex items-center gap-1 text-xs text-orange-600">
+                                <AlertCircle className="w-4 h-4" />
+                                Ready for Pickup
+                              </span>
+                            )}
+                            {reservation.installedAt && (
+                              <span className="flex items-center gap-1 text-xs text-green-600">
+                                <CheckCircle2 className="w-4 h-4" />
+                                Installed
+                              </span>
                             )}
                           </div>
-                        )}
 
-                        {/* Case Line Info */}
-                        {reservation.caseLine && (
-                          <div className="mt-3 text-xs text-gray-500">
-                            Case Line: {reservation.caseLine.id} | Status:{" "}
-                            {reservation.caseLine.status}
+                          <div className="grid grid-cols-3 gap-4 mb-4">
+                            {/* Component Info */}
+                            {reservation.component && (
+                              <div>
+                                <p className="text-xs text-gray-500 mb-1">
+                                  Component
+                                </p>
+                                <p className="font-medium text-gray-900">
+                                  Serial: {reservation.component.serialNumber}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  Status: {reservation.component.status}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Warehouse */}
+                            {reservation.warehouse && (
+                              <div>
+                                <p className="text-xs text-gray-500 mb-1">
+                                  Warehouse
+                                </p>
+                                <p className="text-sm text-gray-900">
+                                  {reservation.warehouse.warehouseName}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Serial Number */}
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">
+                                Serial Number
+                              </p>
+                              <p className="text-sm text-gray-900 font-mono font-semibold">
+                                {reservation.component?.serialNumber || "N/A"}
+                              </p>
+                            </div>
                           </div>
-                        )}
-                      </div>
 
-                      {/* ACTION BUTTONS */}
-                      <div className="ml-4">
-                        {reservation.status === "RESERVED" && (
-                          <button
-                            onClick={() =>
-                              handlePickup(reservation.reservationId)
-                            }
-                            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-                          >
-                            <CheckCircle2 className="w-4 h-4" />
-                            Mark Picked Up
-                          </button>
-                        )}
+                          {/* Pickup Info */}
+                          {reservation.pickedUpAt && (
+                            <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200 mb-4">
+                              <p className="text-xs font-medium text-yellow-700 mb-1">
+                                Picked Up
+                              </p>
+                              <p className="text-sm text-yellow-900">
+                                {new Date(
+                                  reservation.pickedUpAt
+                                ).toLocaleString()}
+                                {reservation.pickedUpByTech && (
+                                  <span className="block mt-1">
+                                    by {reservation.pickedUpByTech.name}
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Installation Info */}
+                          {reservation.installedAt && (
+                            <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                              <p className="text-xs font-medium text-green-700 mb-1">
+                                Installed
+                              </p>
+                              <p className="text-sm text-green-900">
+                                {new Date(
+                                  reservation.installedAt
+                                ).toLocaleString()}
+                                {reservation.component?.vehicleVin &&
+                                  ` on VIN: ${reservation.component.vehicleVin}`}
+                              </p>
+                              {reservation.oldComponentSerial && (
+                                <p className="text-xs text-green-700 mt-1">
+                                  Replaced: {reservation.oldComponentSerial}
+                                </p>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Case Line Info */}
+                          {reservation.caseLine && (
+                            <div className="mt-3 text-xs text-gray-500">
+                              Case Line: {reservation.caseLine.id} | Status:{" "}
+                              {reservation.caseLine.status}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* ACTION BUTTONS */}
+                        <div className="ml-4">
+                          {reservation.status === "RESERVED" && (
+                            <button
+                              onClick={() =>
+                                handlePickup(reservation.reservationId)
+                              }
+                              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                              Mark Picked Up
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

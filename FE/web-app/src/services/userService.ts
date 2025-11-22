@@ -71,10 +71,19 @@ export const getTechnicians = async (
       status: string;
       data: Technician[];
     }>("/users/technicians", { params });
-    return response.data.data;
+
+    // Handle different response structures
+    if (response.data.data) {
+      return response.data.data;
+    } else if (Array.isArray(response.data)) {
+      return response.data;
+    } else {
+      console.warn("Unexpected response structure:", response.data);
+      return [];
+    }
   } catch (error) {
     console.error("Error fetching technicians:", error);
-    throw error;
+    return []; // Return empty array instead of throwing
   }
 };
 

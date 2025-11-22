@@ -3,6 +3,7 @@ import { useEffect, useRef, useCallback } from "react";
 interface UsePollingOptions {
   interval?: number; // in milliseconds, default 5000 (5 seconds)
   enabled?: boolean; // whether polling is active, default true
+  immediate?: boolean; // whether to fetch immediately on start, default false
   onError?: (error: Error) => void;
 }
 
@@ -23,7 +24,12 @@ export function usePolling<T>(
   fetchFn: () => Promise<T>,
   options: UsePollingOptions = {}
 ) {
-  const { interval = 5000, enabled = true, onError } = options;
+  const {
+    interval = 5000,
+    enabled = true,
+    immediate = false,
+    onError,
+  } = options;
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
@@ -44,14 +50,16 @@ export function usePolling<T>(
   const startPolling = useCallback(() => {
     if (intervalRef.current) return; // Already polling
 
-    // Initial fetch
-    poll();
+    // Initial fetch only if immediate is true
+    if (immediate) {
+      poll();
+    }
 
     // Set up interval
     intervalRef.current = setInterval(() => {
       poll();
     }, interval);
-  }, [poll, interval]);
+  }, [poll, interval, immediate]);
 
   const stopPolling = useCallback(() => {
     if (intervalRef.current) {

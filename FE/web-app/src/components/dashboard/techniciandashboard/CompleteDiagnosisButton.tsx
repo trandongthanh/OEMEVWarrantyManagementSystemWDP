@@ -3,6 +3,7 @@
 import { CheckCircle, AlertCircle, X, ArrowRight, Package } from "lucide-react";
 import { useState } from "react";
 import processingRecordService from "@/services/processingRecordService";
+import technicianService from "@/services/technicianService";
 
 interface CompleteDiagnosisButtonProps {
   recordId: string;
@@ -10,6 +11,7 @@ interface CompleteDiagnosisButtonProps {
   disabled?: boolean;
   userRole?: string;
   onNavigateToInstall?: () => void; // Optional callback to navigate to install components
+  caseLines?: Array<{ diagnosisText?: string; status?: string }>; // For validation
 }
 
 export function CompleteDiagnosisButton({
@@ -18,6 +20,7 @@ export function CompleteDiagnosisButton({
   disabled = false,
   userRole,
   onNavigateToInstall,
+  caseLines = [],
 }: CompleteDiagnosisButtonProps) {
   // Backend only allows service_center_manager and service_center_staff
   const canCompleteDiagnosis = userRole
@@ -27,9 +30,91 @@ export function CompleteDiagnosisButton({
   const [error, setError] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
 
-  const handleCompleteDiagnosis = () => {
-    setShowConfirmModal(true);
+  const handleCompleteDiagnosis = async () => {
+    setError(null);
+    setIsValidating(true);
+
+    try {
+      // Bug #2 Fix: Validate all DRAFT case lines have diagnosisText
+      const draftCaseLines = caseLines.filter(
+        (cl) => cl.status === "DRAFT" || !cl.status
+      );
+      const missingDiagnosis = draftCaseLines.filter(
+        (cl) => !cl.diagnosisText || cl.diagnosisText.trim() === ""
+      );
+
+      if (missingDiagnosis.length > 0) {
+        setError(
+          `Cannot complete diagnosis: ${missingDiagnosis.length} case line(s) are missing diagnosis text. Please provide diagnosis for all case lines before completing.`
+        );
+        return;
+      }
+
+      // Frontend-only fix for multiple guarantee cases:
+      // Fetch full record to validate ALL guarantee cases have diagnosis
+      console.log("🔍 Validating all guarantee cases for recordId:", recordId);
+      const recordResponse = await technicianService.getRecordDetails(recordId);
+      const fullRecord = recordResponse.data?.record;
+
+      if (!fullRecord || !fullRecord.guaranteeCases) {
+        setError("Unable to validate guarantee cases. Please try again.");
+        return;
+      }
+
+      // Check each guarantee case has at least one case line with diagnosis
+      const guaranteeCasesInDiagnosis = fullRecord.guaranteeCases.filter(
+        (gc: { status: string }) => gc.status === "IN_DIAGNOSIS"
+      );
+
+      if (guaranteeCasesInDiagnosis.length === 0) {
+        // No guarantee cases in diagnosis - this shouldn't happen but handle gracefully
+        setError("No guarantee cases are currently in diagnosis status.");
+        return;
+      }
+
+      interface CaseLine {
+        diagnosisText?: string;
+      }
+
+      interface GuaranteeCase {
+        caseLines?: CaseLine[];
+      }
+
+      const undiagnosedCases = guaranteeCasesInDiagnosis.filter(
+        (gc: GuaranteeCase) => {
+          // Check if this guarantee case has any case lines with diagnosis
+          const hasNoCaseLines = !gc.caseLines || gc.caseLines.length === 0;
+          if (hasNoCaseLines) return true;
+
+          // Check if all case lines are missing diagnosis
+          const allMissingDiagnosis = gc.caseLines?.every(
+            (cl: CaseLine) =>
+              !cl.diagnosisText || cl.diagnosisText.trim() === ""
+          );
+          return allMissingDiagnosis;
+        }
+      );
+
+      if (undiagnosedCases.length > 0) {
+        const caseNumbers = undiagnosedCases
+          .map((_gc: GuaranteeCase, index: number) => `Case ${index + 1}`)
+          .join(", ");
+        setError(
+          `Cannot complete diagnosis: ${undiagnosedCases.length} guarantee case(s) have not been diagnosed yet (${caseNumbers}). Please diagnose all guarantee cases before completing.`
+        );
+        return;
+      }
+
+      console.log("✅ All guarantee cases validated successfully");
+      setShowConfirmModal(true);
+    } catch (err) {
+      console.error("Failed to validate guarantee cases:", err);
+      setError("Failed to validate guarantee cases. Please try again.");
+    } finally {
+      setIsValidating(false);
+    }
   };
 
   const handleConfirmComplete = async () => {
@@ -70,11 +155,17 @@ export function CompleteDiagnosisButton({
     <div>
       <button
         onClick={handleCompleteDiagnosis}
-        disabled={disabled || isSubmitting || !canCompleteDiagnosis}
+        disabled={
+          disabled || isSubmitting || isValidating || !canCompleteDiagnosis
+        }
         className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <CheckCircle className="w-4 h-4" />
-        {isSubmitting ? "Completing..." : "Complete Diagnosis"}
+        {isValidating
+          ? "Validating..."
+          : isSubmitting
+          ? "Completing..."
+          : "Complete Diagnosis"}
       </button>
 
       {!canCompleteDiagnosis && userRole && (
@@ -92,7 +183,7 @@ export function CompleteDiagnosisButton({
 
       {/* Custom Confirmation Modal */}
       {showConfirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">
@@ -143,7 +234,7 @@ export function CompleteDiagnosisButton({
 
       {/* Success Modal with Next Steps */}
       {showSuccessModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
             <div className="flex flex-col items-center text-center mb-6">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">

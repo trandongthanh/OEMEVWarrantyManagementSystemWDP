@@ -37,7 +37,7 @@ export interface TypeComponentStock {
   availableQuantity: number;
 }
 
-// ✅ Raw API response structure for stock items
+// Raw API structure
 export interface StockItemFromAPI {
   stockId: string;
   warehouseId: string;
@@ -87,28 +87,79 @@ export interface TransferData {
 
 export interface InventoryAdjustmentSummary {
   adjustmentId: string;
-  warehouseId: string;
+  stockId: string;
+  warehouseId?: string;
+  adjustmentType: "IN" | "OUT";
+  quantity: number;
   reason: string;
-  adjustmentType: string;
-  createdAt: string;
-}
-
-export interface InventoryAdjustmentDetail {
-  adjustmentId: string;
-
-  adjustedBy: {
+  note: string | null;
+  adjustedByUserId: string;
+  adjustedAt: string;
+  created_at: string;
+  updated_at: string;
+  stock?: {
+    stockId: string;
+    quantityAvailable: number;
+    quantityInStock: number;
+    quantityReserved: number;
+    typeComponentId: string;
+    warehouseId: string;
+    warehouse?: {
+      warehouseId: string;
+      name: string;
+      address: string;
+      serviceCenterId: string;
+    };
+    typeComponent?: {
+      typeComponentId: string;
+      name: string;
+      sku: string;
+      category: string;
+      price: number;
+      makeBrand: string;
+    };
+  };
+  adjustedBy?: {
     userId: string;
     name: string;
     email: string;
   };
+}
 
-  warehouseId: string;
-  adjustmentType: string;
+export interface InventoryAdjustmentDetail {
+  adjustmentId: string;
+  stockId: string;
+  adjustedBy?: {
+    userId: string;
+    name: string;
+    email: string;
+  };
+  warehouseId?: string;
+  adjustmentType: "IN" | "OUT";
+  quantity: number;
   reason: string;
   note: string | null;
+  adjustedAt: string;
   createdAt: string;
-
-  items: {
+  stock?: {
+    stockId: string;
+    quantityAvailable: number;
+    quantityInStock: number;
+    typeComponentId: string;
+    warehouse?: {
+      warehouseId: string;
+      name: string;
+      address: string;
+    };
+    typeComponent?: {
+      typeComponentId: string;
+      name: string;
+      sku: string;
+      category: string;
+      price: number;
+    };
+  };
+  items?: {
     componentId: string;
     typeComponentId: string;
     serialNumber: string;
@@ -133,10 +184,52 @@ export interface InventoryAdjustmentListResponse {
 // ======================= STOCK HISTORY ======================
 
 export interface StockHistoryItem {
-  eventType: string;
+  adjustmentId: string;
+  stockId: string;
+  adjustmentType: "IN" | "OUT";
+  quantity: number;
   quantityChange: number;
-  eventDate: string;
-  details: Record<string, unknown>;
+  reason: string;
+  note?: string;
+  adjustedByUserId?: string;
+  adjustedAt?: string;
+  created_at?: string;
+  updated_at?: string;
+  stock_id?: string;
+  adjusted_by_user_id?: string;
+  adjustedBy?: {
+    userId: string;
+    name: string;
+    email: string;
+  };
+  adjustedByUser?: {
+    userId: string;
+    name: string;
+    email: string;
+  };
+  createdAt?: string;
+  eventType: string;
+  stock?: {
+    stockId: string;
+    warehouseId: string;
+    typeComponentId: string;
+    quantityInStock: number;
+    quantityReserved: number;
+    quantityAvailable: number;
+    warehouse?: {
+      warehouseId: string;
+      name: string;
+      address?: string;
+    };
+    typeComponent?: {
+      typeComponentId: string;
+      name: string;
+      price: number;
+      sku: string;
+      category: string;
+      makeBrand?: string;
+    };
+  };
 }
 
 export interface StockHistoryPagination {
@@ -147,6 +240,14 @@ export interface StockHistoryPagination {
 }
 
 export interface StockHistoryResponse {
+  stock?: {
+    stockId: string;
+    warehouseId: string;
+    typeComponentId: string;
+    quantityInStock: number;
+    quantityReserved: number;
+    quantityAvailable: number;
+  };
   history: StockHistoryItem[];
   pagination: StockHistoryPagination;
 }
@@ -170,6 +271,16 @@ export interface CreateAdjustmentOUT {
 }
 
 export type CreateAdjustmentRequest = CreateAdjustmentIN | CreateAdjustmentOUT;
+
+// ============================================================
+// ⭐ NEW: MOST USED TYPE COMPONENTS
+// ============================================================
+
+export interface MostUsedTypeComponentItem {
+  typeComponentId: string;
+  typeComponentName: string;
+  totalUsed: number;
+}
 
 // ============================================================
 // ✅ HELPERS – CLEAN PARAMS
@@ -291,6 +402,96 @@ export async function getStockHistory(
 }
 
 // ============================================================
+// ⭐ NEW API — MOST USED TYPE COMPONENTS
+// ============================================================
+
+export async function getMostUsedTypeComponents(
+  params?: Partial<{
+    limit: number;
+    page: number;
+    startDate: string;
+    endDate: string;
+  }>
+): Promise<{
+  items: MostUsedTypeComponentItem[];
+  pagination: { totalItems: number; totalPages: number; currentPage: number };
+}> {
+  const response = await apiClient.get("/inventory/most-used-type-components", {
+    params: cleanParams(params ?? {}),
+  });
+
+  return response.data.data;
+}
+
+// ============================================================
+// ⭐ BULK ADJUSTMENT IMPORT
+// ============================================================
+
+/**
+ * Download bulk adjustment import template
+ */
+export async function downloadBulkAdjustmentTemplate(): Promise<Blob> {
+  const response = await apiClient.get(
+    "/inventory/adjustments/import/template",
+    {
+      params: { template: "true" },
+      responseType: "blob",
+    }
+  );
+
+  return response.data;
+}
+
+/**
+ * Bulk create inventory adjustments from Excel file
+ */
+export async function bulkCreateAdjustments(data: {
+  file: File;
+  warehouseId: string;
+  adjustmentType: "IN" | "OUT";
+  reason: string;
+  note?: string;
+}): Promise<{
+  status: string;
+  data: Array<{
+    adjustment: {
+      inventoryAdjustmentId: string;
+      stockId: string;
+      adjustmentType: string;
+      quantity: number;
+      reason: string;
+      note?: string;
+      adjustedByUserId: string;
+      createdAt: string;
+    };
+    updatedStock: Record<string, unknown>;
+    stock: Record<string, unknown>;
+    quantity: number;
+  }>;
+}> {
+  const formData = new FormData();
+  formData.append("file", data.file);
+  formData.append("warehouseId", data.warehouseId);
+  formData.append("adjustmentType", data.adjustmentType);
+  formData.append("reason", data.reason);
+  if (data.note) {
+    formData.append("note", data.note);
+  }
+
+  const response = await apiClient.post(
+    "/inventory/adjustments/import",
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }
+  );
+
+  return response.data;
+}
+
+// ============================================================
 // ✅ EXPORT
 // ============================================================
 
@@ -304,6 +505,9 @@ const inventoryService = {
   getAdjustmentById,
   createAdjustment,
   getStockHistory,
+  getMostUsedTypeComponents,
+  downloadBulkAdjustmentTemplate, // ⭐ NEW
+  bulkCreateAdjustments, // ⭐ NEW
 };
 
 export default inventoryService;

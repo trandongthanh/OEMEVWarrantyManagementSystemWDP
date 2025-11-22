@@ -146,9 +146,14 @@ export function NotificationPanel({
     notification: Notification,
     onNavigate?: (navId: string) => void
   ) => {
+    console.log("📬 Notification clicked:", notification);
+
     // Mark as read
     if (!notification.read) {
+      console.log("✅ Marking as read:", notification.id);
       markAsRead(notification.id);
+    } else {
+      console.log("ℹ️ Already read");
     }
 
     // Handle navigation action from notification data
@@ -157,7 +162,14 @@ export function NotificationPanel({
       | undefined;
     const navigationId = notification.data?.navigationId as string | undefined;
 
+    console.log("🧭 Navigation details:", {
+      navigationAction,
+      navigationId,
+      onNavigate: !!onNavigate,
+    });
+
     if (navigationAction && onNavigate) {
+      console.log("🎯 Navigating to tab:", navigationAction);
       // Switch to the correct tab
       onNavigate(navigationAction);
 
@@ -166,13 +178,20 @@ export function NotificationPanel({
       if (navigationId) {
         sessionStorage.setItem("selectedItemId", navigationId);
         sessionStorage.setItem("selectedItemType", navigationAction);
+        console.log("💾 Stored in sessionStorage:", {
+          selectedItemId: navigationId,
+          selectedItemType: navigationAction,
+        });
       }
 
       onClose();
     } else if (notification.actionUrl) {
+      console.log("🔗 Navigating to URL:", notification.actionUrl);
       // Fallback to URL navigation
       router.push(notification.actionUrl);
       onClose();
+    } else {
+      console.warn("⚠️ No navigation action found");
     }
   };
 

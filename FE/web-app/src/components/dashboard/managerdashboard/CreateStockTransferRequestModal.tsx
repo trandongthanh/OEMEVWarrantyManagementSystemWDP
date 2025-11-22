@@ -1,3 +1,4 @@
+// ⬇ FULL CODE — ĐÃ THÊM SELECT WAREHOUSE
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
@@ -58,6 +59,7 @@ export function CreateStockTransferRequestModal({
   const [availableComponents, setAvailableComponents] = useState<
     TypeComponent[]
   >([]);
+
   const [componentSearch, setComponentSearch] = useState<string[]>(
     items.map(() => "")
   );
@@ -65,21 +67,51 @@ export function CreateStockTransferRequestModal({
     items.map(() => false)
   );
 
-  // Fetch case lines when modal opens (only if no caseLineId provided)
+  // ⬇⬇⬇ NEW: LOAD WAREHOUSE
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [selectedWarehouse, setSelectedWarehouse] = useState(warehouseId || "");
+
+  useEffect(() => {
+    const loadWarehouses = async () => {
+      try {
+        const res = await warehouseService.getWarehouseInfo();
+        setWarehouses(res.warehouses || []);
+      } catch (err) {
+        console.error("Load warehouse failed:", err);
+      }
+    };
+    if (isOpen) loadWarehouses();
+  }, [isOpen]);
+  // ⬆⬆⬆ END NEW
+
+  // Fetch case lines
   useEffect(() => {
     const fetchCaseLines = async () => {
-      if (caseLineId) return; // Skip if caseLineId already provided
+      if (caseLineId) return;
 
       setLoadingCaseLines(true);
       try {
-        const response = await caseLineService.getCaseLinesList({
-          status: "WAITING_FOR_PARTS", // Only show case lines waiting for parts
-          page: 1,
-          limit: 100,
-        });
+        // Bug #7 Fix: Fetch both CUSTOMER_APPROVED and REJECTED_BY_OEM case lines
+        // This allows creating new stock requests after OEM rejection
+        const [approvedResponse, rejectedResponse] = await Promise.all([
+          caseLineService.getCaseLinesList({
+            status: "CUSTOMER_APPROVED",
+            page: 1,
+            limit: 100,
+          }),
+          caseLineService.getCaseLinesList({
+            status: "REJECTED_BY_OEM",
+            page: 1,
+            limit: 100,
+          }),
+        ]);
 
-        // Filter case lines that have a component type specified
-        const caseLinesWithComponents = response.data.caseLines.filter(
+        const allCaseLines = [
+          ...(approvedResponse.data.caseLines || []),
+          ...(rejectedResponse.data.caseLines || []),
+        ];
+
+        const caseLinesWithComponents = allCaseLines.filter(
           (cl) => cl.typeComponentId && cl.quantity
         );
 
@@ -96,16 +128,14 @@ export function CreateStockTransferRequestModal({
     }
   }, [isOpen, caseLineId]);
 
-  // Fetch available components from warehouse
+  // Fetch available components
   useEffect(() => {
     const fetchComponents = async () => {
       try {
         const response = await warehouseService.getWarehouseInfo();
         const allComponents = new Map<string, TypeComponent>();
 
-        // Collect unique components from all warehouses
         response.warehouses.forEach((warehouse) => {
-          // API returns 'stocks', fallback to 'stock' for compatibility
           const stockItems = warehouse.stocks || warehouse.stock || [];
           stockItems.forEach((stock) => {
             if (stock.typeComponent) {
@@ -113,7 +143,7 @@ export function CreateStockTransferRequestModal({
                 typeComponentId: stock.typeComponent.typeComponentId,
                 name: stock.typeComponent.name,
                 category: stock.typeComponent.category,
-                price: 0, // Price not included in API response
+                price: 0,
               });
             }
           });
@@ -130,14 +160,10 @@ export function CreateStockTransferRequestModal({
     }
   }, [isOpen]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-      // Don't close if clicking inside a dropdown
-      if (target.closest(".component-dropdown")) {
-        return;
-      }
+      if (target.closest(".component-dropdown")) return;
       setShowDropdown(showDropdown.map(() => false));
     };
 
@@ -194,7 +220,6 @@ export function CreateStockTransferRequestModal({
   };
 
   const getFilteredComponents = (searchTerm: string) => {
-    if (!searchTerm) return availableComponents;
     const query = searchTerm.toLowerCase();
     return availableComponents.filter(
       (comp) =>
@@ -216,13 +241,11 @@ export function CreateStockTransferRequestModal({
   const handleCaseLineSelect = (caseLineId: string) => {
     setSelectedCaseLineId(caseLineId);
 
-    // Find the selected case line
     const selectedCaseLine = caseLines.find(
       (cl) => (cl.id || cl.caseLineId) === caseLineId
     );
 
     if (selectedCaseLine && selectedCaseLine.typeComponent) {
-      // Auto-fill the components from the case line
       const newItems: TransferItem[] = [
         {
           componentId: selectedCaseLine.typeComponentId || "",
@@ -241,7 +264,11 @@ export function CreateStockTransferRequestModal({
     e.preventDefault();
     setError(null);
 
-    // Validation
+    if (!selectedWarehouse) {
+      setError("Please select a warehouse");
+      return;
+    }
+
     const invalidItems = items.filter(
       (item) =>
         !item.componentId || !item.componentName || item.requestedQuantity < 1
@@ -252,7 +279,6 @@ export function CreateStockTransferRequestModal({
       return;
     }
 
-    // Check if caselineId is provided (required by backend)
     if (!selectedCaseLineId) {
       setError("Case Line ID is required to create a stock transfer request");
       return;
@@ -267,24 +293,20 @@ export function CreateStockTransferRequestModal({
         caselineId: selectedCaseLineId,
       }));
 
+      // ⬇⬇⬇ UPDATE: USE selectedWarehouse
       const requestPayload = {
-        requestingWarehouseId: warehouseId,
+        requestingWarehouseId: selectedWarehouse,
         items: requestItems,
       };
 
-      console.log("Creating stock transfer request:", requestPayload);
-
       await stockTransferService.createRequest(requestPayload as any);
 
-      // Success
       onSuccess?.();
       onClose();
-    } catch (err: unknown) {
+    } catch (err: any) {
       console.error("Failed to create stock transfer request:", err);
-      const error = err as { response?: { data?: { message?: string } } };
       setError(
-        error.response?.data?.message ||
-          "Failed to create stock transfer request"
+        err.response?.data?.message || "Failed to create stock transfer request"
       );
     } finally {
       setIsSubmitting(false);
@@ -294,7 +316,7 @@ export function CreateStockTransferRequestModal({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -324,7 +346,6 @@ export function CreateStockTransferRequestModal({
               </button>
             </div>
 
-            {/* Content */}
             <form
               onSubmit={handleSubmit}
               className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]"
@@ -339,7 +360,28 @@ export function CreateStockTransferRequestModal({
                 </div>
               )}
 
-              {/* Case Line Selection */}
+              {/* ⬇⬇⬇ NEW: SELECT WAREHOUSE */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Warehouse *
+                </label>
+                <select
+                  value={selectedWarehouse}
+                  onChange={(e) => setSelectedWarehouse(e.target.value)}
+                  className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg 
+                            focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                >
+                  <option value="">-- Select warehouse --</option>
+                  {warehouses.map((w) => (
+                    <option key={w.warehouseId} value={w.warehouseId}>
+                      {w.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {/* ⬆⬆⬆ END NEW */}
+
               {!caseLineId && (
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -380,11 +422,6 @@ export function CreateStockTransferRequestModal({
                       })}
                     </select>
                   )}
-                  <p className="text-xs text-gray-500 mt-1">
-                    {selectedCaseLineId
-                      ? "Components will be auto-filled from the selected case line"
-                      : "Select a case line to automatically fill component details"}
-                  </p>
                 </div>
               )}
 
@@ -397,7 +434,7 @@ export function CreateStockTransferRequestModal({
                   <button
                     type="button"
                     onClick={handleAddItem}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm  text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-100 rounded-lg"
                   >
                     <Plus className="w-4 h-4" />
                     Add Item
@@ -417,14 +454,14 @@ export function CreateStockTransferRequestModal({
                         <button
                           type="button"
                           onClick={() => handleRemoveItem(index)}
-                          className="p-1 hover:bg-red-100 rounded transition-colors"
+                          className="p-1 hover:bg-red-100 rounded"
                         >
                           <Minus className="w-4 h-4 text-red-600" />
                         </button>
                       )}
                     </div>
 
-                    {/* Component Selection with Search */}
+                    {/* Component selection */}
                     <div className="relative component-dropdown">
                       <label className="block text-xs font-medium text-gray-600 mb-1">
                         Component *
@@ -443,7 +480,7 @@ export function CreateStockTransferRequestModal({
                             setShowDropdown(newDropdown);
                           }}
                           placeholder="Search for component..."
-                          className="w-full pl-9 pr-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full pl-9 pr-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                           required
                         />
                         {showDropdown[index] && (
@@ -458,27 +495,11 @@ export function CreateStockTransferRequestModal({
                                     onClick={() =>
                                       handleComponentSelect(index, component)
                                     }
-                                    className="w-full px-3 py-2 text-left hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0"
+                                    className="w-full px-3 py-2 text-left hover:bg-blue-50 border-b last:border-0"
                                   >
-                                    <div className="flex items-center justify-between">
-                                      <div className="flex-1">
-                                        <p className="text-sm font-medium text-gray-900">
-                                          {component.name}
-                                        </p>
-                                        <div className="flex items-center gap-2 mt-0.5">
-                                          {component.sku && (
-                                            <span className="text-xs text-gray-500">
-                                              {component.sku}
-                                            </span>
-                                          )}
-                                          {component.category && (
-                                            <span className="text-xs text-gray-400">
-                                              • {component.category}
-                                            </span>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
+                                    <p className="text-sm font-medium text-gray-900">
+                                      {component.name}
+                                    </p>
                                   </button>
                                 )
                               )
@@ -490,14 +511,8 @@ export function CreateStockTransferRequestModal({
                           </div>
                         )}
                       </div>
-                      {item.componentId && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          ID: {item.componentId}
-                        </p>
-                      )}
                     </div>
 
-                    {/* Quantity */}
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">
                         Quantity *
@@ -513,7 +528,7 @@ export function CreateStockTransferRequestModal({
                             parseInt(e.target.value) || 1
                           )
                         }
-                        className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         required
                       />
                     </div>
@@ -531,24 +546,22 @@ export function CreateStockTransferRequestModal({
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Additional information about this request..."
                   rows={3}
-                  className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
                 />
               </div>
 
-              {/* Footer */}
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                  disabled={isSubmitting}
+                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                 >
                   {isSubmitting ? "Creating..." : "Create Request"}
                 </button>

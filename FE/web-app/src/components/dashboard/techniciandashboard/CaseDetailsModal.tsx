@@ -23,18 +23,16 @@ import technicianService, {
   CompatibleComponent,
 } from "@/services/technicianService";
 import caseLineService from "@/services/caseLineService";
-import { CompleteDiagnosisButton } from "./CompleteDiagnosisButton";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 
 interface CaseDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void; // Callback to refresh parent after save
   vin: string;
   recordId: string; // Processing record ID for API calls
   caseId?: string; // Optional - may not exist for new diagnoses
   caseLineId?: string; // If provided, modal will be in edit mode
-  onSuccess?: () => void;
-  onNavigateToInstall?: () => void; // Optional callback to navigate to install components
 }
 
 interface CaseLineForm extends CaseLineInput {
@@ -74,12 +72,11 @@ const COMPONENT_CATEGORIES = [
 export function CaseDetailsModal({
   isOpen,
   onClose,
+  onSuccess,
   vin,
   recordId,
   caseId,
   caseLineId, // Edit mode if provided
-  onSuccess,
-  onNavigateToInstall,
 }: CaseDetailsModalProps) {
   const isEditMode = !!caseLineId;
 
@@ -111,8 +108,6 @@ export function CaseDetailsModal({
   const [activeLineIndex, setActiveLineIndex] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  const [showCompleteDiagnosisButton, setShowCompleteDiagnosisButton] =
-    useState(false);
   const [actualCaseId, setActualCaseId] = useState<string | undefined>(caseId);
   const [isReadOnly, setIsReadOnly] = useState(false); // True if case lines are not in DRAFT status
   const [diagnosisImages, setDiagnosisImages] = useState<
@@ -180,11 +175,10 @@ export function CaseDetailsModal({
 
           // Show Complete Diagnosis button if in DRAFT status (edit mode)
           if (isDraft && recordId) {
-            console.log("✅ Setting showCompleteDiagnosisButton to true");
-            setShowCompleteDiagnosisButton(true);
+            console.log("✅ Case line is in DRAFT status");
           } else {
             console.log(
-              "❌ NOT showing Complete Diagnosis button - isDraft:",
+              "❌ Case line not in DRAFT - isDraft:",
               isDraft,
               "recordId:",
               recordId
@@ -201,7 +195,9 @@ export function CaseDetailsModal({
               componentName: caseLineData.typeComponent?.name || "",
               quantity: caseLineData.quantity || 0,
               warrantyStatus: caseLineData.warrantyStatus || "ELIGIBLE",
-              isUnderWarranty: caseLineData.warrantyStatus === "ELIGIBLE",
+              // Default to true since backend doesn't return typeComponent.isUnderWarranty
+              // This allows technician to choose warranty status when editing
+              isUnderWarranty: true,
               rejectionReason: caseLineData.rejectionReason || "",
               evidenceImageUrls: caseLineData.evidenceImageUrls || [],
             },
@@ -242,7 +238,7 @@ export function CaseDetailsModal({
                       `⏳ Fetching detailed data for case line: ${cl.id}`
                     );
                     const detailResponse =
-                      await caseLineService.getCaseLineById(cl.id, caseId);
+                      await caseLineService.getCaseLineById(cl.id);
                     const detailedData = detailResponse.data.caseLine;
                     console.log(
                       `✅ Received detailed data for case line ${cl.id}:`,
@@ -272,9 +268,9 @@ export function CaseDetailsModal({
                         detailedData.warrantyStatus ||
                         cl.warrantyStatus ||
                         "ELIGIBLE",
-                      isUnderWarranty:
-                        (detailedData.warrantyStatus || cl.warrantyStatus) ===
-                        "ELIGIBLE",
+                      // Default to true since backend doesn't return typeComponent.isUnderWarranty
+                      // This allows technician to choose warranty status
+                      isUnderWarranty: true,
                       rejectionReason:
                         detailedData.rejectionReason ||
                         cl.rejectionReason ||
@@ -301,7 +297,9 @@ export function CaseDetailsModal({
                       componentName: cl.typeComponent?.name || "",
                       quantity: cl.quantity || 0,
                       warrantyStatus: cl.warrantyStatus || "ELIGIBLE",
-                      isUnderWarranty: cl.warrantyStatus === "ELIGIBLE",
+                      // Default to true since backend doesn't return typeComponent.isUnderWarranty
+                      // This allows technician to choose warranty status
+                      isUnderWarranty: true,
                       rejectionReason: cl.rejectionReason || "",
                       status: cl.status || "DRAFT",
                       evidenceImageUrls:
@@ -330,8 +328,7 @@ export function CaseDetailsModal({
               );
 
               if (allDraft && recordId) {
-                console.log("✅ Showing Complete Diagnosis button");
-                setShowCompleteDiagnosisButton(true);
+                console.log("✅ All case lines in DRAFT status");
                 setIsReadOnly(false); // Allow editing
               } else {
                 console.log("❌ Case lines not all DRAFT, read-only mode");
@@ -369,6 +366,59 @@ export function CaseDetailsModal({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
+
+  // Background fetch: Update isUnderWarranty for loaded case lines
+  useEffect(() => {
+    const updateWarrantyStatus = async () => {
+      // Only run if we have case lines with components and all components are loaded
+      if (
+        !isOpen ||
+        !recordId ||
+        allComponents.length === 0 ||
+        caseLines.length === 0 ||
+        !caseLines.some((cl) => cl.typeComponentId)
+      ) {
+        return;
+      }
+
+      console.log(
+        "🔄 Background: Updating warranty status for existing case lines"
+      );
+
+      try {
+        // Create a map of typeComponentId -> isUnderWarranty from loaded components
+        const warrantyMap = new Map<string, boolean>();
+        allComponents.forEach((comp) => {
+          warrantyMap.set(comp.typeComponentId, comp.isUnderWarranty || false);
+        });
+
+        // Update case lines with accurate warranty status
+        setCaseLines((prevLines) =>
+          prevLines.map((line) => {
+            if (!line.typeComponentId) return line;
+
+            const actualWarrantyStatus = warrantyMap.get(line.typeComponentId);
+            if (actualWarrantyStatus !== undefined) {
+              console.log(
+                `✅ Updated ${line.componentName}: isUnderWarranty = ${actualWarrantyStatus}`
+              );
+              return {
+                ...line,
+                isUnderWarranty: actualWarrantyStatus,
+              };
+            }
+            return line;
+          })
+        );
+      } catch (error) {
+        console.error("Error updating warranty status:", error);
+        // Non-critical error, don't show to user
+      }
+    };
+
+    updateWarrantyStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, recordId, allComponents.length, caseLines.length]);
 
   // Filter components when search query changes
   useEffect(() => {
@@ -530,7 +580,60 @@ export function CaseDetailsModal({
     const files = Array.from(event.target.files || []);
     if (files.length === 0) return;
 
-    const newImages = files.map((file) => ({
+    // Validation constants
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    const ALLOWED_TYPES = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+    ];
+
+    // Validate files
+    const invalidFiles: string[] = [];
+    const validFiles: File[] = [];
+
+    files.forEach((file) => {
+      // Check file type
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        invalidFiles.push(
+          `${file.name}: Invalid file type (only JPG, PNG, GIF, WebP allowed)`
+        );
+        return;
+      }
+
+      // Check file size
+      if (file.size > MAX_FILE_SIZE) {
+        invalidFiles.push(
+          `${file.name}: File too large (max 5MB, got ${(
+            file.size /
+            1024 /
+            1024
+          ).toFixed(2)}MB)`
+        );
+        return;
+      }
+
+      validFiles.push(file);
+    });
+
+    // Show error message if there are invalid files
+    if (invalidFiles.length > 0) {
+      setErrorMessage(
+        `Some files could not be uploaded:\n${invalidFiles.join("\n")}`
+      );
+
+      // Clear error after 5 seconds
+      setTimeout(() => {
+        setErrorMessage("");
+      }, 5000);
+    }
+
+    // Only process valid files
+    if (validFiles.length === 0) return;
+
+    const newImages = validFiles.map((file) => ({
       file,
       preview: URL.createObjectURL(file),
     }));
@@ -541,6 +644,9 @@ export function CaseDetailsModal({
       updated.set(lineIndex, [...existing, ...newImages]);
       return updated;
     });
+
+    // Reset the input value to allow re-uploading the same file
+    event.target.value = "";
   };
 
   const handleRemoveImage = (lineIndex: number, imgIndex: number) => {
@@ -643,7 +749,7 @@ export function CaseDetailsModal({
         setSuccessMessage(
           `${updatePromises.length} case line(s) updated successfully!`
         );
-        setShowCompleteDiagnosisButton(true); // Show complete diagnosis button after update
+        onSuccess?.(); // Refresh parent dashboard
       } else {
         // Create mode - create new case lines
         console.log("✨ Creating new case lines...");
@@ -712,12 +818,12 @@ export function CaseDetailsModal({
         }
 
         setSuccessMessage("Case lines created successfully!");
-        setShowCompleteDiagnosisButton(true); // Show complete diagnosis button after creation
       }
+
+      onSuccess?.(); // Refresh parent dashboard
 
       // Don't close modal automatically - let user click Complete Diagnosis button
       // setTimeout(() => {
-      //   onSuccess?.();
       //   onClose();
       // }, 1500);
     } catch (error: unknown) {
@@ -750,7 +856,7 @@ export function CaseDetailsModal({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -1277,11 +1383,11 @@ export function CaseDetailsModal({
                         {!isReadOnly && (
                           <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors border border-gray-300">
                             <Upload className="w-4 h-4" />
-                            Upload Images
+                            Upload Images (Max 5MB each)
                             <input
                               type="file"
                               multiple
-                              accept="image/*"
+                              accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
                               onChange={(e) => handleImageSelect(index, e)}
                               className="hidden"
                             />
@@ -1407,26 +1513,13 @@ export function CaseDetailsModal({
           </div>
 
           {/* Footer */}
-          <div className="p-6 border-t border-gray-200 flex items-center justify-between gap-3">
-            {/* Left side - Complete Diagnosis Button (shown after successful save) */}
-            <div>
-              {showCompleteDiagnosisButton && recordId && (
-                <CompleteDiagnosisButton
-                  recordId={recordId}
-                  onNavigateToInstall={onNavigateToInstall}
-                  onSuccess={() => {
-                    onSuccess?.();
-                    onClose();
-                  }}
-                />
-              )}
-            </div>
-
-            {/* Right side - Cancel and Save buttons */}
+          <div className="p-6 border-t border-gray-200 flex items-center justify-end gap-3">
+            {/* Cancel and Save buttons */}
             <div className="flex items-center gap-3">
               <button
                 onClick={onClose}
-                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+                disabled={isSaving}
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isReadOnly ? "Close" : "Cancel"}
               </button>
@@ -1434,10 +1527,13 @@ export function CaseDetailsModal({
                 <button
                   onClick={handleSubmit}
                   disabled={isSaving || isLoading}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                  className="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
                 >
                   {isSaving ? (
-                    <>{isEditMode ? "Updating..." : "Saving..."}</>
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      {isEditMode ? "Updating..." : "Saving..."}
+                    </>
                   ) : (
                     <>
                       <Save className="w-4 h-4" />

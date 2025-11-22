@@ -14,24 +14,30 @@ export const getMyConversations = async (
   offset = 0
 ) => {
   try {
-    // ✅ backend dùng chữ in hoa (WAITING / ACTIVE / CLOSED)
-    const upperStatus = status.toUpperCase();
+    const mapStatusForBackend = (s) => {
+      const upper = s.toUpperCase();
+      if (upper === "WAITING") return "UNASSIGNED"; // 🔥 Back-end true status
+      return upper;
+    };
+
+    const backendStatus = mapStatusForBackend(status);
     const url = `/chats/my-conversations`;
 
-    console.log("📡 Fetching conversations:", `${url}?status=${upperStatus}`);
+    console.log("📡 Fetching conversations:", `${url}?status=${backendStatus}`);
 
     const res = await api.get(url, {
       headers: { Authorization: `Bearer ${token}` },
-      params: { status: upperStatus, limit, offset },
+      params: { status: backendStatus, limit, offset },
     });
 
     const conversations =
       res.data?.data?.conversations || res.data?.conversations || [];
 
     console.log(
-      `✅ [${upperStatus}] conversations loaded:`,
+      `✅ [${status.toUpperCase()} → ${backendStatus}] loaded:`,
       conversations.length
     );
+
     if (conversations.length > 0)
       console.log("🧾 Sample conversation:", conversations[0]);
 

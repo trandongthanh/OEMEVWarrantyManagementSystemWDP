@@ -38,7 +38,15 @@ export function StockTransferReceiving() {
       const response = await stockTransferService.getRequests({
         status: "SHIPPED",
       });
-      setIncomingShipments(response.data?.requests || []);
+
+      // Handle both response formats: requests or stockTransferRequests
+      const shipments =
+        response.data?.requests || response.data?.stockTransferRequests || [];
+
+      console.log("Incoming shipments response:", response);
+      console.log("Parsed shipments:", shipments);
+
+      setIncomingShipments(shipments);
     } catch (error) {
       console.error("Error loading incoming shipments:", error);
       toast.error("Failed to load incoming shipments");
@@ -154,6 +162,7 @@ export function StockTransferReceiving() {
                           </p>
                           <p className="text-sm font-medium text-gray-900">
                             {request.requestingWarehouse?.warehouseName ||
+                              request.requestingWarehouse?.name ||
                               "Unknown"}
                           </p>
                         </div>
@@ -163,7 +172,9 @@ export function StockTransferReceiving() {
                         <div>
                           <p className="text-xs text-gray-500">Requested By</p>
                           <p className="text-sm font-medium text-gray-900">
-                            {request.requestedBy?.name || "Unknown"}
+                            {request.requestedBy?.name ||
+                              request.requester?.name ||
+                              "Unknown"}
                           </p>
                         </div>
                       </div>
@@ -230,7 +241,7 @@ export function StockTransferReceiving() {
 
       {/* Receive Confirmation Modal */}
       {showReceiveModal && selectedRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -311,7 +322,8 @@ export function StockTransferReceiving() {
                     Requesting Warehouse
                   </p>
                   <p className="text-sm font-medium text-gray-900">
-                    {selectedRequest.requestingWarehouse?.warehouseName}
+                    {selectedRequest.requestingWarehouse?.warehouseName ||
+                      selectedRequest.requestingWarehouse?.name}
                   </p>
                 </div>
               </div>

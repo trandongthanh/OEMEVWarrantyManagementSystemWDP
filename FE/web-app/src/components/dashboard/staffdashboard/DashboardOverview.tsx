@@ -74,7 +74,7 @@ export function DashboardOverview({
       return recordsArray;
     },
     {
-      interval: 30000, // Poll every 30 seconds
+      interval: 120000, // Poll every 2 minutes
       enabled: !loading,
       onError: (err) => {
         console.error("❌ Dashboard polling error:", err);
@@ -315,19 +315,27 @@ export function DashboardOverview({
                         </div>
                         <div>
                           <p className="font-medium text-gray-900 text-sm">
-                            {record.vin || "N/A"}
+                            {record.vehicle?.vin || record.vin || "N/A"}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {record.status?.replace(/_/g, " ").toLowerCase() ||
-                              "N/A"}
+                            {record.visitorInfo?.fullName ||
+                              (typeof record.vehicle?.model === "object"
+                                ? record.vehicle.model.name
+                                : record.vehicle?.model) ||
+                              "No visitor info"}
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-semibold text-gray-900">
-                          {record.vehicle?.licensePlate || "N/A"}
+                          {record.status === "WAITING_FOR_PARTS"
+                            ? "Waiting Parts"
+                            : record.status
+                                ?.replace(/_/g, " ")
+                                .replace(/\b\w/g, (c) => c.toUpperCase()) ||
+                              "N/A"}
                         </p>
-                        <p className="text-xs text-gray-500">License Plate</p>
+                        <p className="text-xs text-gray-500">Status</p>
                       </div>
                     </div>
                   ))

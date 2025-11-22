@@ -216,7 +216,8 @@ export default function VehicleInfoModal({ visible, vehicle, onClose }) {
         visible={showWarrantyModal}
         warranty={warranty}
         vehicle={vehicle}
-        odometer={odometer} // ✅ truyền odo qua
+        odometer={odometer}
+        owner={vehicle?.owner} // ⭐ THÊM DÒNG NÀY
         onClose={() => setShowWarrantyModal(false)}
       />
     </>

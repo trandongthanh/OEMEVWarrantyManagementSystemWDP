@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import type { ProcessingRecord } from "@/services/processingRecordService";
 import { useState, useEffect } from "react";
-import { WorkflowTimeline } from "../shared";
 import { caseLineService, type CaseLine as CaseLineType } from "@/services";
 
 interface CaseLineDetailModalProps {
@@ -36,6 +35,7 @@ interface CaseLine {
   warrantyStatus: string;
   status: string;
   evidenceImageUrls?: string[];
+  rejectionReason?: string;
 }
 
 export function CaseLineDetailModal({
@@ -98,8 +98,7 @@ export function CaseLineDetailModal({
                 `⏳ Fetching details for case line: ${caseLineId}, case: ${guaranteeCaseId}`
               );
               const response = await caseLineService.getCaseLineById(
-                caseLineId,
-                guaranteeCaseId
+                caseLineId
               );
               console.log(
                 `✅ Received data for case line ${caseLineId}:`,
@@ -196,21 +195,40 @@ export function CaseLineDetailModal({
 
   const handleBulkApprove = () => {
     if (selectedCaseLines.size > 0 && onApproveCaseLines) {
-      onApproveCaseLines(Array.from(selectedCaseLines));
+      // Filter to only include PENDING_APPROVAL case lines
+      const validIds = Array.from(selectedCaseLines).filter((id) => {
+        const caseLine = allCaseLines.find((cl) => cl.id === id);
+        return caseLine?.status === "PENDING_APPROVAL";
+      });
+      if (validIds.length > 0) {
+        onApproveCaseLines(validIds);
+      }
       setSelectedCaseLines(new Set()); // Clear selection after action
     }
   };
 
   const handleBulkReject = () => {
     if (selectedCaseLines.size > 0 && onRejectCaseLines) {
-      onRejectCaseLines(Array.from(selectedCaseLines));
+      // Filter to only include PENDING_APPROVAL case lines
+      const validIds = Array.from(selectedCaseLines).filter((id) => {
+        const caseLine = allCaseLines.find((cl) => cl.id === id);
+        return caseLine?.status === "PENDING_APPROVAL";
+      });
+      if (validIds.length > 0) {
+        onRejectCaseLines(validIds);
+      }
       setSelectedCaseLines(new Set()); // Clear selection after action
     }
   };
 
   const selectAll = () => {
-    const allIds = new Set(allCaseLines.map((cl) => cl.id));
-    setSelectedCaseLines(allIds);
+    // Only select PENDING_APPROVAL case lines
+    const pendingIds = new Set(
+      allCaseLines
+        .filter((cl) => cl.status === "PENDING_APPROVAL")
+        .map((cl) => cl.id)
+    );
+    setSelectedCaseLines(pendingIds);
   };
 
   const clearSelection = () => {
@@ -242,7 +260,7 @@ export function CaseLineDetailModal({
         );
     }
   };
-
+  /** Test */
   const getCaseLineStatusBadge = (status?: string) => {
     if (!status) return null;
 
@@ -250,6 +268,11 @@ export function CaseLineDetailModal({
       string,
       { label: string; className: string; icon: typeof Clock }
     > = {
+      DRAFT: {
+        label: "Draft",
+        className: "bg-gray-100 text-gray-800",
+        icon: FileText,
+      },
       PENDING_APPROVAL: {
         label: "Pending Approval",
         className: "bg-yellow-100 text-yellow-800",
@@ -265,9 +288,39 @@ export function CaseLineDetailModal({
         className: "bg-red-100 text-red-800",
         icon: XCircle,
       },
+      REJECTED_BY_TECH: {
+        label: "Rejected by Tech",
+        className: "bg-orange-100 text-orange-800",
+        icon: XCircle,
+      },
+      REJECTED_BY_OUT_OF_WARRANTY: {
+        label: "Out of Warranty",
+        className: "bg-gray-100 text-gray-800",
+        icon: AlertCircle,
+      },
+      REJECTED_BY_OEM: {
+        label: "Rejected by OEM",
+        className: "bg-red-100 text-red-800",
+        icon: XCircle,
+      },
+      WAITING_FOR_PARTS: {
+        label: "Waiting for Parts",
+        className: "bg-orange-100 text-orange-800",
+        icon: Package,
+      },
+      PARTS_AVAILABLE: {
+        label: "Parts Available",
+        className: "bg-teal-100 text-teal-800",
+        icon: CheckSquare,
+      },
       READY_FOR_REPAIR: {
         label: "Ready for Repair",
         className: "bg-purple-100 text-purple-800",
+        icon: Wrench,
+      },
+      IN_REPAIR: {
+        label: "In Repair",
+        className: "bg-indigo-100 text-indigo-800",
         icon: Wrench,
       },
       IN_PROGRESS: {
@@ -279,6 +332,11 @@ export function CaseLineDetailModal({
         label: "Completed",
         className: "bg-green-100 text-green-800",
         icon: CheckCircle,
+      },
+      CANCELLED: {
+        label: "Cancelled",
+        className: "bg-red-100 text-red-800",
+        icon: XCircle,
       },
     };
 
@@ -306,7 +364,7 @@ export function CaseLineDetailModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
           onClick={onClose}
         >
           <motion.div
@@ -593,55 +651,66 @@ export function CaseLineDetailModal({
                           </p>
                         </div>
 
-                        {/* Workflow Timeline */}
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                          <div className="flex items-center gap-2 mb-3">
-                            <Clock className="w-4 h-4 text-blue-600" />
-                            <h5 className="text-xs font-semibold text-gray-900 uppercase tracking-wide">
-                              Status Progression
-                            </h5>
+                        {/* Rejection Reason - Show for all rejection statuses */}
+                        {(caseLine.status?.includes("REJECTED") ||
+                          caseLine.warrantyStatus === "INELIGIBLE") && (
+                          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                            <div className="flex items-start gap-2">
+                              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                              <div className="flex-1">
+                                <h5 className="text-sm font-semibold text-red-900 mb-1">
+                                  Rejection Reason
+                                </h5>
+                                <p className="text-sm text-red-700 leading-relaxed">
+                                  {caseLineDetails.get(caseLine.id)
+                                    ?.rejectionReason ||
+                                    caseLine.rejectionReason ||
+                                    "No reason provided"}
+                                </p>
+                              </div>
+                            </div>
                           </div>
-                          <WorkflowTimeline
-                            events={[
-                              {
-                                status: "PENDING_APPROVAL",
-                                timestamp: null,
-                                label: "Pending Approval",
-                                description:
-                                  "Awaiting customer approval for repair",
-                              },
-                              {
-                                status: "CUSTOMER_APPROVED",
-                                timestamp: null,
-                                label: "Customer Approved",
-                                description: "Customer has approved the repair",
-                              },
-                              {
-                                status: "READY_FOR_REPAIR",
-                                timestamp: null,
-                                label: "Ready for Repair",
-                                description:
-                                  "All parts available, ready to start",
-                              },
-                              {
-                                status: "IN_PROGRESS",
-                                timestamp: null,
-                                label: "In Progress",
-                                description: "Repair work is underway",
-                              },
-                              {
-                                status: "COMPLETED",
-                                timestamp: null,
-                                label: "Completed",
-                                description:
-                                  "Repair completed and quality checked",
-                              },
-                            ]}
-                            currentStatus={
-                              caseLine.status || "PENDING_APPROVAL"
-                            }
-                            variant="horizontal"
-                          />
+                        )}
+
+                        {/* Status Information */}
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Clock className="w-4 h-4 text-blue-600" />
+                              <h5 className="text-xs font-semibold text-gray-900 uppercase tracking-wide">
+                                Current Status
+                              </h5>
+                            </div>
+                            {(() => {
+                              const detailedInfo = caseLineDetails.get(
+                                caseLine.id
+                              );
+                              const updatedAt = (
+                                detailedInfo as { updatedAt?: string }
+                              )?.updatedAt;
+
+                              if (updatedAt) {
+                                return (
+                                  <span className="text-xs text-gray-600">
+                                    Updated:{" "}
+                                    {new Date(updatedAt).toLocaleString(
+                                      "en-US",
+                                      {
+                                        month: "short",
+                                        day: "numeric",
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      }
+                                    )}
+                                  </span>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </div>
+                          <div className="mt-2">
+                            {getCaseLineStatusBadge(caseLine.status)}
+                          </div>
                         </div>
 
                         {/* Quantity & Actions */}

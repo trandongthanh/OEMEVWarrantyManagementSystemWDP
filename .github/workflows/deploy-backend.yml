@@ -26,10 +26,13 @@ jobs:
 
       - name: 🔁 Install & Restart via PM2
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          BACKEND_ENV: ${{ secrets.BACKEND_ENV }}
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: BACKEND_ENV
           script: |
             set -e
             export NVM_DIR="$HOME/.nvm"
@@ -37,8 +40,51 @@ jobs:
             command -v pm2 >/dev/null 2>&1 || npm i -g pm2
 
             cd ~/myapp/backend
-            npm ci --omit=dev || npm install --production
 
-            # đổi index.js nếu entry khác (vd: src/server.js)
-            pm2 describe backend-app >/dev/null 2>&1 && pm2 restart backend-app || pm2 start server.js --name backend-app
+            echo "=== Writing .env from GitHub secret BACKEND_ENV ==="
+            printf '%s\n' "$BACKEND_ENV" | sudo tee .env > /dev/null
+
+            echo "=== .env preview (first lines) ==="
+            head -n 5 .env || true
+            
+            # Verify uploaded file has the fix
+            echo "=== Checking user.repository.js for SQL subquery fix ==="
+            grep -A 5 "Fixed SQL subquery" src/repository/user.repository.js || echo "WARNING: Fix comment not found!"
+            grep "db.sequelize.literal" src/repository/user.repository.js || echo "ERROR: SQL literal not found!"
+            
+            echo "=== Current directory ==="
+            pwd
+            ls -la
+            
+            echo "=== Checking all PM2 processes ==="
+            pm2 list
+            
+            echo "=== Stopping ALL PM2 processes ==="
+            pm2 delete all || true
+            pm2 flush
+            pm2 kill
+
+            # Clean install dependencies
+            rm -rf node_modules package-lock.json
+            npm install --production
+
+            # Start fresh PM2 process with explicit path
+            echo "=== Starting PM2 from $(pwd) ==="
+            pm2 start server.js --name backend-app --cwd ~/myapp/backend
             pm2 save
+            
+            echo "=== Final PM2 status ==="
+            pm2 list
+            pm2 info backend-app
+            
+            # Clear nginx cache and restart
+            echo "=== Clearing nginx cache and restarting ==="
+            sudo rm -rf /var/cache/nginx/* 2>/dev/null || echo "No nginx cache to clear"
+            sudo systemctl restart nginx 2>/dev/null || sudo service nginx restart 2>/dev/null || echo "Could not restart nginx - may need manual intervention"
+            
+            echo "=== Testing backend directly ==="
+            sleep 2
+            curl -s http://localhost:3000/health || curl -s http://localhost:8080/health || echo "Health check endpoint not available"
+            
+            # Force nginx to reload if it exists
+            sudo systemctl reload nginx 2>/dev/null || echo "Nginx not found or no sudo access"

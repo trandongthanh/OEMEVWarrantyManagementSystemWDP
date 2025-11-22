@@ -9,6 +9,7 @@ export type NotificationType =
   | "stock_transfer_request"
   | "stock_transfer_approved"
   | "stock_transfer_rejected"
+  | "stock_transfer_cancelled"
   | "component_reserved"
   | "new_message"
   | "appointment_scheduled"

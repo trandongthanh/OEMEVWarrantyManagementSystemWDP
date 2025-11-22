@@ -79,13 +79,7 @@ interface StockTransferRequestDetail {
     typeComponentId: string;
     quantityRequested: number;
     quantityApproved?: number;
-    typeComponent?: {
-      typeComponentId: string;
-      name: string;
-      partNumber?: string;
-      sku?: string;
-      price?: number;
-    };
+    caselineId?: string | null;
   }>;
 }
 
@@ -173,7 +167,7 @@ export default function StockTransferRequestDetailModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/20 bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[70] p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
@@ -442,12 +436,10 @@ export default function StockTransferRequestDetailModal({
                           className="hover:bg-gray-100"
                         >
                           <td className="px-4 py-3 text-sm text-gray-900">
-                            {item.typeComponent?.name || "Unknown"}
+                            {item.typeComponentId?.substring(0, 8) || "Unknown"}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-600 font-mono">
-                            {item.typeComponent?.partNumber ||
-                              item.typeComponent?.sku ||
-                              "N/A"}
+                            {item.typeComponentId || "N/A"}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-900 text-right font-medium">
                             {item.quantityRequested}

@@ -12,7 +12,6 @@ import {
   Database,
   FileText,
   ArrowLeftRight,
-  AlertTriangle,
 } from "lucide-react";
 import { authService } from "@/services";
 import {
@@ -22,7 +21,6 @@ import {
 } from "@/components/dashboard";
 import StockTransferRequestManager from "@/components/dashboard/companydashboard/StockTransferRequestManager";
 import EMVStaffDashboardOverview from "@/components/dashboard/emvstaffdashboard/EMVStaffDashboardOverview";
-import RecallCampaignList from "@/components/dashboard/emvstaffdashboard/RecallCampaignList";
 import { useRoleProtection } from "@/hooks/useRoleProtection";
 
 interface CurrentUser {
@@ -65,7 +63,6 @@ export default function EMVStaffDashboard() {
       icon: ArrowLeftRight,
       label: "Transfer Requests",
     },
-    { id: "recall-campaigns", icon: AlertTriangle, label: "Recall Campaigns" },
   ];
 
   const renderContent = () => {
@@ -98,15 +95,6 @@ export default function EMVStaffDashboard() {
                   <StockTransferRequestManager />
                 </div>
               </div>
-            </div>
-          </div>
-        );
-
-      case "recall-campaigns":
-        return (
-          <div className="flex-1 overflow-auto">
-            <div className="p-8">
-              <RecallCampaignList />
             </div>
           </div>
         );

@@ -45,6 +45,33 @@ export interface CaseLine {
     reservationId: string;
     quantity: number;
     status: string;
+    component?: {
+      serialNumber: string;
+      componentId: string;
+      warehouseId?: string;
+      status?: string;
+      warehouse?: {
+        warehouseId: string;
+        name: string;
+        address?: string;
+      };
+      stockTransferRequest?: {
+        id?: string;
+        requestId?: string;
+        requestingWarehouseId?: string;
+        requestingWarehouse?: {
+          warehouseId: string;
+          name: string;
+          address?: string;
+        };
+      };
+    };
+    warehouse?: {
+      warehouseId: string;
+      name?: string;
+      warehouseName?: string;
+      address?: string;
+    };
   }>;
 }
 
@@ -76,7 +103,6 @@ export interface UpdateCaseLineResponse {
 export interface ApproveCaseLinesData {
   approvedCaseLineIds?: { id: string }[];
   rejectedCaseLineIds?: { id: string }[];
-  approverEmail: string; // Required for OTP verification
 }
 
 export interface ApproveCaseLinesResponse {
@@ -225,16 +251,9 @@ class CaseLineService {
    * Get case line details by ID
    * GET /case-lines/{caselineId}
    */
-  async getCaseLineById(
-    caselineId: string,
-    caseId?: string
-  ): Promise<CaseLineDetailResponse> {
+  async getCaseLineById(caselineId: string): Promise<CaseLineDetailResponse> {
     try {
-      // If caseId is provided, use it in the URL path (backend validator requires it)
-      const url = caseId
-        ? `/guarantee-cases/${caseId}/case-lines/${caselineId}`
-        : `/case-lines/${caselineId}`;
-      const response = await apiClient.get(url);
+      const response = await apiClient.get(`/case-lines/${caselineId}`);
       return response.data;
     } catch (error: unknown) {
       console.error("Error fetching case line details:", error);
@@ -245,14 +264,13 @@ class CaseLineService {
   /**
    * Update case line information
    * PATCH /guarantee-cases/{caseId}/case-lines/{caselineId}
-   * Note: Backend validator requires both caseId and caselineId in URL params
+   * Note: Backend controller requires both caseId and caselineId in URL params
    */
   async updateCaseLine(
     caselineId: string,
     data: UpdateCaseLineData
   ): Promise<UpdateCaseLineResponse> {
     try {
-      // Backend validator requires caseId in URL path, extract from data
       const { caseId, ...bodyData } = data;
       if (!caseId) {
         throw new Error("caseId is required to update case line");
@@ -333,13 +351,17 @@ class CaseLineService {
    *
    * @role service_center_technician
    */
-  async markRepairComplete(caselineId: string): Promise<{
+  async markRepairComplete(
+    caselineId: string,
+    installationImageUrls?: string[]
+  ): Promise<{
     status: "success";
     data: { caseline: CaseLine };
   }> {
     try {
       const response = await apiClient.patch(
-        `/case-lines/${caselineId}/mark-repair-complete`
+        `/case-lines/${caselineId}/mark-repair-complete`,
+        { installationImageUrls }
       );
       return response.data;
     } catch (error: unknown) {

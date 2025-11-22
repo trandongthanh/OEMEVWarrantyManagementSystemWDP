@@ -13,12 +13,12 @@ export interface VehicleComponent {
   componentId: string;
   serialNumber: string;
   status:
-    | "IN_WAREHOUSE"
+    | "IN_STOCK"
     | "RESERVED"
     | "IN_TRANSIT"
-    | "WITH_TECHNICIAN"
+    | "PICKED_UP"
     | "INSTALLED"
-    | "RETURNED";
+    | "REMOVED";
   vehicleVin: string;
   installedAt: string;
   currentHolderId?: string;
@@ -32,9 +32,7 @@ export interface VehicleComponent {
 
 export interface VehicleComponentsResponse {
   status: "success";
-  data: {
-    components: VehicleComponent[];
-  };
+  data: VehicleComponent[];
 }
 
 export interface VehicleHistoryItem {
@@ -214,26 +212,30 @@ export const registerVehicleOwner = async (
  * including component details and installation dates.
  *
  * @param vin - Vehicle Identification Number
- * @param status - Optional filter by component status (ALL, IN_WAREHOUSE, RESERVED, IN_TRANSIT, WITH_TECHNICIAN, INSTALLED, RETURNED)
+ * @param status - Optional filter by component status (ALL, IN_STOCK, RESERVED, IN_TRANSIT, PICKED_UP, INSTALLED, REMOVED)
  * @returns List of components installed on the vehicle
  */
 export const getVehicleComponents = async (
   vin: string,
   status:
     | "ALL"
-    | "IN_WAREHOUSE"
+    | "IN_STOCK"
     | "RESERVED"
     | "IN_TRANSIT"
-    | "WITH_TECHNICIAN"
+    | "PICKED_UP"
     | "INSTALLED"
-    | "RETURNED" = "ALL"
+    | "REMOVED" = "ALL"
 ): Promise<VehicleComponentsResponse> => {
   try {
     const response = await apiClient.get(`/vehicles/${vin}/components`, {
       params: status ? { status } : undefined,
     });
 
-    return response.data;
+    // Backend returns array directly in data field, not wrapped in components property
+    return {
+      status: "success",
+      data: Array.isArray(response.data.data) ? response.data.data : [],
+    };
   } catch (error: unknown) {
     console.error("Error fetching vehicle components:", error);
     throw error;
@@ -303,16 +305,9 @@ export const bulkCreateVehicles = async (
 ): Promise<{
   status: string;
   data: {
-    summary: {
-      total: number;
-      successful: number;
-      failed: number;
-    };
-    errors?: Array<{
-      row: number;
-      vin?: string;
-      error: string;
-    }>;
+    successCount: number;
+    failureCount: number;
+    errors?: string[];
   };
 }> => {
   try {

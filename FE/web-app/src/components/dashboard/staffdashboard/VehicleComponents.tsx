@@ -7,7 +7,6 @@ import {
   Package,
   Calendar,
   CheckCircle,
-  XCircle,
   RefreshCw,
   Loader2,
   AlertCircle,
@@ -22,8 +21,8 @@ const statusConfig: Record<
   string,
   { label: string; color: string; bgColor: string; icon: LucideIcon }
 > = {
-  IN_WAREHOUSE: {
-    label: "In Warehouse",
+  IN_STOCK: {
+    label: "In Stock",
     color: "text-blue-700",
     bgColor: "bg-blue-100",
     icon: Package,
@@ -40,8 +39,8 @@ const statusConfig: Record<
     bgColor: "bg-purple-100",
     icon: RefreshCw,
   },
-  WITH_TECHNICIAN: {
-    label: "With Technician",
+  PICKED_UP: {
+    label: "Picked Up",
     color: "text-orange-700",
     bgColor: "bg-orange-100",
     icon: Loader2,
@@ -52,11 +51,11 @@ const statusConfig: Record<
     bgColor: "bg-green-100",
     icon: CheckCircle,
   },
-  RETURNED: {
-    label: "Returned",
-    color: "text-red-700",
-    bgColor: "bg-red-100",
-    icon: XCircle,
+  REMOVED: {
+    label: "Removed",
+    color: "text-gray-700",
+    bgColor: "bg-gray-100",
+    icon: Package,
   },
 };
 
@@ -75,12 +74,12 @@ export function VehicleComponents() {
   const [components, setComponents] = useState<VehicleComponent[]>([]);
   const [statusFilter, setStatusFilter] = useState<
     | "ALL"
-    | "IN_WAREHOUSE"
+    | "IN_STOCK"
     | "RESERVED"
     | "IN_TRANSIT"
-    | "WITH_TECHNICIAN"
+    | "PICKED_UP"
     | "INSTALLED"
-    | "RETURNED"
+    | "REMOVED"
   >("ALL");
 
   const handleSearch = async () => {
@@ -96,8 +95,8 @@ export function VehicleComponents() {
         statusFilter
       );
       if (response.status === "success") {
-        setComponents(response.data.components);
-        toast.success(`Found ${response.data.components.length} components`);
+        setComponents(response.data);
+        toast.success(`Found ${response.data.length} components`);
       }
     } catch (error: unknown) {
       console.error("Error fetching components:", error);
@@ -151,23 +150,23 @@ export function VehicleComponents() {
                 setStatusFilter(
                   e.target.value as
                     | "ALL"
-                    | "IN_WAREHOUSE"
+                    | "IN_STOCK"
                     | "RESERVED"
                     | "IN_TRANSIT"
-                    | "WITH_TECHNICIAN"
+                    | "PICKED_UP"
                     | "INSTALLED"
-                    | "RETURNED"
+                    | "REMOVED"
                 )
               }
               className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
             >
               <option value="ALL">All Status</option>
-              <option value="IN_WAREHOUSE">In Warehouse</option>
+              <option value="IN_STOCK">In Stock</option>
               <option value="RESERVED">Reserved</option>
               <option value="IN_TRANSIT">In Transit</option>
-              <option value="WITH_TECHNICIAN">With Technician</option>
+              <option value="PICKED_UP">Picked Up</option>
               <option value="INSTALLED">Installed</option>
-              <option value="RETURNED">Returned</option>
+              <option value="REMOVED">Removed</option>
             </select>
             <button
               onClick={handleSearch}
@@ -218,13 +217,10 @@ export function VehicleComponents() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-medium text-blue-600 uppercase tracking-wide">
-                      In Warehouse
+                      In Stock
                     </p>
                     <p className="text-2xl font-bold text-blue-900 mt-1">
-                      {
-                        components.filter((c) => c.status === "IN_WAREHOUSE")
-                          .length
-                      }
+                      {components.filter((c) => c.status === "IN_STOCK").length}
                     </p>
                   </div>
                   <Package className="w-8 h-8 text-blue-600 opacity-60" />
@@ -281,11 +277,11 @@ export function VehicleComponents() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-medium text-orange-600 uppercase tracking-wide">
-                      With Technician
+                      Picked Up
                     </p>
                     <p className="text-2xl font-bold text-orange-900 mt-1">
                       {
-                        components.filter((c) => c.status === "WITH_TECHNICIAN")
+                        components.filter((c) => c.status === "PICKED_UP")
                           .length
                       }
                     </p>
@@ -313,25 +309,6 @@ export function VehicleComponents() {
                     </p>
                   </div>
                   <CheckCircle className="w-8 h-8 text-green-600 opacity-60" />
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.35 }}
-                className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-4 border border-red-200"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-medium text-red-600 uppercase tracking-wide">
-                      Returned
-                    </p>
-                    <p className="text-2xl font-bold text-red-900 mt-1">
-                      {components.filter((c) => c.status === "RETURNED").length}
-                    </p>
-                  </div>
-                  <XCircle className="w-8 h-8 text-red-600 opacity-60" />
                 </div>
               </motion.div>
             </div>

@@ -28,17 +28,11 @@ export default function VehicleBulkUpload({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [uploadResult, setUploadResult] = useState<{
-    summary: {
-      total: number;
-      successful: number;
-      failed: number;
-    };
-    errors?: Array<{
-      row: number;
-      vin?: string;
-      error: string;
-    }>;
+    successCount: number;
+    failureCount: number;
+    errors?: string[];
   } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -53,6 +47,58 @@ export default function VehicleBulkUpload({
         !file.name.endsWith(".csv")
       ) {
         toast.error("Please select an Excel file (.xlsx, .xls, or .csv)");
+        return;
+      }
+
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("File size must be less than 10MB");
+        return;
+      }
+
+      setSelectedFile(file);
+      setUploadResult(null);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!uploading) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!uploading) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    if (uploading) return;
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      // Validate file type
+      if (
+        !file.name.endsWith(".xlsx") &&
+        !file.name.endsWith(".xls") &&
+        !file.name.endsWith(".csv")
+      ) {
+        toast.error("Please drop an Excel file (.xlsx, .xls, or .csv)");
         return;
       }
 
@@ -101,17 +147,23 @@ export default function VehicleBulkUpload({
       setUploading(true);
       const result = await vehicleService.bulkCreateVehicles(selectedFile);
 
-      setUploadResult(result.data);
+      if (result?.data) {
+        setUploadResult(result.data);
 
-      if (result.data.summary.failed === 0) {
-        toast.success(
-          `Successfully created ${result.data.summary.successful} vehicles!`
-        );
-        onSuccess?.();
+        if (result.data.failureCount === 0) {
+          toast.success(
+            `Successfully created ${result.data.successCount} vehicles!`
+          );
+          onSuccess?.();
+        } else {
+          toast.warning(
+            `Created ${result.data.successCount || 0} vehicles, ${
+              result.data.failureCount || 0
+            } failed`
+          );
+        }
       } else {
-        toast.warning(
-          `Created ${result.data.summary.successful} vehicles, ${result.data.summary.failed} failed`
-        );
+        toast.error("Invalid response from server");
       }
     } catch (error: unknown) {
       console.error("Error uploading vehicles:", error);
@@ -137,7 +189,7 @@ export default function VehicleBulkUpload({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
         {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -188,11 +240,19 @@ export default function VehicleBulkUpload({
                 <ol className="list-decimal list-inside space-y-1 text-xs">
                   <li>Download the Excel template below</li>
                   <li>
-                    Fill in vehicle data (VIN, Model SKU, Date of Manufacture,
-                    Place of Manufacture)
+                    <strong>Important:</strong> Replace the sample data with
+                    your actual vehicle information
+                  </li>
+                  <li>
+                    Use real Model SKUs from your vehicle models (the template
+                    contains fake examples)
+                  </li>
+                  <li>
+                    Fill in: VIN, Model SKU, Date of Manufacture, Place of
+                    Manufacture
                   </li>
                   <li>Upload the completed file</li>
-                  <li>Review the results</li>
+                  <li>Review the results and fix any errors</li>
                 </ol>
               </div>
             </div>
@@ -224,12 +284,18 @@ export default function VehicleBulkUpload({
 
               <div
                 onClick={() => !uploading && fileInputRef.current?.click()}
+                onDragOver={handleDragOver}
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
                 className={`
                   border-2 border-dashed rounded-xl p-8 text-center cursor-pointer
                   transition-colors
                   ${
                     selectedFile
                       ? "border-blue-300 bg-blue-50"
+                      : isDragging
+                      ? "border-blue-500 bg-blue-100"
                       : "border-gray-300 hover:border-blue-400 hover:bg-gray-50"
                   }
                   ${uploading ? "opacity-50 cursor-not-allowed" : ""}
@@ -296,25 +362,26 @@ export default function VehicleBulkUpload({
                   <div className="p-4 bg-gray-50 rounded-lg">
                     <p className="text-xs text-gray-600 mb-1">Total</p>
                     <p className="text-2xl font-bold text-gray-900">
-                      {uploadResult.summary.total}
+                      {(uploadResult?.successCount || 0) +
+                        (uploadResult?.failureCount || 0)}
                     </p>
                   </div>
                   <div className="p-4 bg-green-50 rounded-lg">
                     <p className="text-xs text-green-600 mb-1">Successful</p>
                     <p className="text-2xl font-bold text-green-600">
-                      {uploadResult.summary.successful}
+                      {uploadResult?.successCount || 0}
                     </p>
                   </div>
                   <div className="p-4 bg-red-50 rounded-lg">
                     <p className="text-xs text-red-600 mb-1">Failed</p>
                     <p className="text-2xl font-bold text-red-600">
-                      {uploadResult.summary.failed}
+                      {uploadResult?.failureCount || 0}
                     </p>
                   </div>
                 </div>
 
                 {/* Error Details */}
-                {uploadResult.errors && uploadResult.errors.length > 0 && (
+                {uploadResult?.errors && uploadResult.errors.length > 0 && (
                   <div className="max-h-48 overflow-y-auto space-y-2">
                     <p className="text-sm font-medium text-gray-700">Errors:</p>
                     {uploadResult.errors.map((error, index) => (
@@ -324,11 +391,7 @@ export default function VehicleBulkUpload({
                       >
                         <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
                         <div className="text-xs text-red-700">
-                          <p className="font-medium">Row {error.row}</p>
-                          {error.vin && (
-                            <p className="text-red-600">VIN: {error.vin}</p>
-                          )}
-                          <p>{error.error}</p>
+                          <p>{error}</p>
                         </div>
                       </div>
                     ))}

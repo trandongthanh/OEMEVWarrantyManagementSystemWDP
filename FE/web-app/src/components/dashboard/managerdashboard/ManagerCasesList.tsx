@@ -18,7 +18,8 @@ import {
   ProcessingRecord,
   userService,
   Technician,
-} from "@/services";
+} from "@/services/index";
+import { toast } from "sonner";
 import { Pagination } from "@/components/ui";
 import { LucideIcon } from "lucide-react";
 
@@ -148,9 +149,10 @@ export function ManagerCasesList({}: ManagerCasesListProps) {
       setSelectedRecord(null);
       setSelectedTechnician("");
       fetchRecords(); // Refresh list
+      toast.success("Technician assigned successfully");
     } catch (error) {
       console.error("Error assigning technician:", error);
-      alert("Failed to assign technician. Please try again.");
+      toast.error("Failed to assign technician. Please try again.");
     } finally {
       setAssigning(false);
     }
@@ -161,10 +163,12 @@ export function ManagerCasesList({}: ManagerCasesListProps) {
         const matchesSearch =
           searchQuery === "" ||
           record.vin?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          record.vehicle?.licensePlate
-            ?.toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          record.vehicle?.owner?.fullName
+          (
+            record.vehicle &&
+            (typeof record.vehicle.model === "object"
+              ? record.vehicle.model?.name
+              : record.vehicle.model)
+          )
             ?.toLowerCase()
             .includes(searchQuery.toLowerCase());
 
@@ -182,9 +186,30 @@ export function ManagerCasesList({}: ManagerCasesListProps) {
   return (
     <div className="flex-1 overflow-auto">
       <div className="p-8">
+        {/* Info Banner */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-indigo-600 rounded-lg p-4 mb-6">
+          <div className="flex items-start gap-3">
+            <UserCheck className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-1">
+                Main Technician Assignment
+              </h3>
+              <p className="text-xs text-gray-600">
+                Assign or reassign the{" "}
+                <strong>primary diagnostic technician</strong> responsible for
+                the entire vehicle. For individual case line repairs and stock
+                allocation, use <strong>Case Line Operations</strong>. For task
+                tracking, see <strong>Task Assignments</strong>.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Header */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900">Task Assignment</h2>
+          <h2 className="text-2xl font-bold text-gray-900">
+            Assign Technicians
+          </h2>
           <p className="text-gray-600 mt-1">
             Assign technicians to processing records
           </p>
@@ -264,9 +289,11 @@ export function ManagerCasesList({}: ManagerCasesListProps) {
                             {record.vin}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {typeof record.vehicle.model === "string"
-                              ? record.vehicle.model
-                              : record.vehicle.model?.name || "N/A"}
+                            {record.vehicle
+                              ? typeof record.vehicle.model === "string"
+                                ? record.vehicle.model
+                                : record.vehicle.model?.name || "N/A"
+                              : "N/A"}
                           </p>
                         </div>
 
@@ -277,7 +304,7 @@ export function ManagerCasesList({}: ManagerCasesListProps) {
                             <span className="text-xs text-gray-500">Owner</span>
                           </div>
                           <p className="text-sm font-medium text-gray-900">
-                            {record.vehicle.owner?.fullName || "N/A"}
+                            {record.vehicle?.owner?.fullName || "N/A"}
                           </p>
                         </div>
 
@@ -328,7 +355,25 @@ export function ManagerCasesList({}: ManagerCasesListProps) {
                       {/* Assign Button */}
                       <button
                         onClick={() => handleAssignClick(record)}
-                        className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2"
+                        disabled={[
+                          "COMPLETED",
+                          "CANCELLED",
+                          "READY_FOR_PICKUP",
+                        ].includes(record.status)}
+                        title={
+                          [
+                            "COMPLETED",
+                            "CANCELLED",
+                            "READY_FOR_PICKUP",
+                          ].includes(record.status)
+                            ? `Cannot reassign - Record is ${record.status
+                                .toLowerCase()
+                                .replace(/_/g, " ")}`
+                            : record.mainTechnician
+                            ? "Reassign technician"
+                            : "Assign technician"
+                        }
+                        className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:hover:bg-gray-400"
                       >
                         <UserCheck className="w-4 h-4" />
                         {record.mainTechnician ? "Reassign" : "Assign"}
@@ -362,7 +407,7 @@ export function ManagerCasesList({}: ManagerCasesListProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[70] p-4"
             onClick={() => setShowAssignModal(false)}
           >
             <motion.div

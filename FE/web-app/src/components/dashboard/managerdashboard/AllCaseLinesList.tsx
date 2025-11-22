@@ -16,6 +16,9 @@ import {
   XCircle,
   LucideIcon,
   Image as ImageIcon,
+  PackageCheck,
+  Wrench,
+  FilePenLine,
 } from "lucide-react";
 import caseLineService, {
   CaseLine,
@@ -27,38 +30,58 @@ const statusConfig: Record<
   string,
   { label: string; color: string; icon: LucideIcon }
 > = {
+  DRAFT: {
+    label: "Draft",
+    color: "bg-gray-100 text-gray-800 border-gray-200",
+    icon: FilePenLine,
+  },
   PENDING_APPROVAL: {
-    label: "Pending",
+    label: "Pending Approval",
     color: "bg-yellow-100 text-yellow-800 border-yellow-200",
     icon: Clock,
   },
   CUSTOMER_APPROVED: {
-    label: "Approved",
+    label: "Customer Approved",
     color: "bg-green-100 text-green-800 border-green-200",
     icon: CheckCircle,
   },
-  READY_FOR_REPAIR: {
-    label: "Ready",
-    color: "bg-blue-100 text-blue-800 border-blue-200",
+  WAITING_FOR_PARTS: {
+    label: "Waiting for Parts",
+    color: "bg-orange-100 text-orange-800 border-orange-200",
     icon: Package,
   },
-  IN_PROGRESS: {
-    label: "In Progress",
+  PARTS_AVAILABLE: {
+    label: "Parts Available",
+    color: "bg-teal-100 text-teal-800 border-teal-200",
+    icon: PackageCheck,
+  },
+  READY_FOR_REPAIR: {
+    label: "Ready for Repair",
+    color: "bg-blue-100 text-blue-800 border-blue-200",
+    icon: Wrench,
+  },
+  IN_REPAIR: {
+    label: "In Repair",
     color: "bg-purple-100 text-purple-800 border-purple-200",
-    icon: Clock,
+    icon: Wrench,
   },
   COMPLETED: {
     label: "Completed",
     color: "bg-emerald-100 text-emerald-800 border-emerald-200",
     icon: CheckCircle,
   },
+  CANCELLED: {
+    label: "Cancelled",
+    color: "bg-gray-100 text-gray-800 border-gray-200",
+    icon: XCircle,
+  },
   REJECTED_BY_CUSTOMER: {
-    label: "Rejected",
+    label: "Rejected by Customer",
     color: "bg-red-100 text-red-800 border-red-200",
     icon: XCircle,
   },
   REJECTED_BY_TECH: {
-    label: "Tech Rejected",
+    label: "Rejected by Tech",
     color: "bg-orange-100 text-orange-800 border-orange-200",
     icon: XCircle,
   },
@@ -66,6 +89,11 @@ const statusConfig: Record<
     label: "Out of Warranty",
     color: "bg-gray-100 text-gray-800 border-gray-200",
     icon: AlertCircle,
+  },
+  REJECTED_BY_OEM: {
+    label: "Rejected by OEM",
+    color: "bg-red-100 text-red-800 border-red-200",
+    icon: XCircle,
   },
 };
 
@@ -160,15 +188,23 @@ export function AllCaseLinesList() {
                   className="w-full px-3 py-2 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-colors"
                 >
                   <option value="">All Status</option>
+                  <option value="DRAFT">Draft</option>
                   <option value="PENDING_APPROVAL">Pending Approval</option>
                   <option value="CUSTOMER_APPROVED">Customer Approved</option>
+                  <option value="WAITING_FOR_PARTS">Waiting for Parts</option>
+                  <option value="PARTS_AVAILABLE">Parts Available</option>
                   <option value="READY_FOR_REPAIR">Ready for Repair</option>
-                  <option value="IN_PROGRESS">In Progress</option>
+                  <option value="IN_REPAIR">In Repair</option>
                   <option value="COMPLETED">Completed</option>
+                  <option value="CANCELLED">Cancelled</option>
                   <option value="REJECTED_BY_CUSTOMER">
                     Rejected by Customer
                   </option>
                   <option value="REJECTED_BY_TECH">Rejected by Tech</option>
+                  <option value="REJECTED_BY_OUT_OF_WARRANTY">
+                    Out of Warranty
+                  </option>
+                  <option value="REJECTED_BY_OEM">Rejected by OEM</option>
                 </select>
               </div>
 
@@ -323,6 +359,25 @@ export function AllCaseLinesList() {
                             </div>
                           </div>
 
+                          {/* Rejection Reason - Show for rejected case lines */}
+                          {(caseLine.status?.includes("REJECTED") ||
+                            caseLine.warrantyStatus === "INELIGIBLE") &&
+                            caseLine.rejectionReason && (
+                              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                <div className="flex items-start gap-2">
+                                  <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                                  <div className="flex-1">
+                                    <p className="text-xs font-semibold text-red-900 mb-1">
+                                      Rejection Reason:
+                                    </p>
+                                    <p className="text-sm text-red-700">
+                                      {caseLine.rejectionReason}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
                           {/* Evidence Images */}
                           {caseLine.evidenceImageUrls &&
                             caseLine.evidenceImageUrls.length > 0 && (
@@ -340,15 +395,35 @@ export function AllCaseLinesList() {
                                         href={url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="relative group aspect-square rounded-lg overflow-hidden border border-gray-300 bg-white hover:border-blue-400 transition-colors"
+                                        className="relative group aspect-square rounded-lg overflow-hidden border border-gray-300 bg-gray-100 hover:border-blue-400 transition-colors"
                                       >
                                         {/* eslint-disable-next-line @next/next/no-img-element */}
                                         <img
                                           src={url}
                                           alt={`Evidence ${idx + 1}`}
                                           className="w-full h-full object-cover"
+                                          onError={(e) => {
+                                            const target =
+                                              e.target as HTMLImageElement;
+                                            target.style.display = "none";
+                                            const parent = target.parentElement;
+                                            if (
+                                              parent &&
+                                              !parent.querySelector(
+                                                ".error-placeholder"
+                                              )
+                                            ) {
+                                              const placeholder =
+                                                document.createElement("div");
+                                              placeholder.className =
+                                                "error-placeholder absolute inset-0 flex flex-col items-center justify-center bg-gray-50 text-gray-400";
+                                              placeholder.innerHTML =
+                                                '<svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg><span class="text-xs">Failed to load</span>';
+                                              parent.appendChild(placeholder);
+                                            }
+                                          }}
                                         />
-                                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity flex items-center justify-center">
+                                        <div className="absolute inset-0 bg-opacity-0 group-hover:bg-opacity-30 transition-opacity flex items-center justify-center pointer-events-none">
                                           <ImageIcon className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                                         </div>
                                       </a>

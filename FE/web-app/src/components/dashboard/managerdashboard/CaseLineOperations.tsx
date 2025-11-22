@@ -26,6 +26,7 @@ import caseLineService from "@/services/caseLineService";
 import userService from "@/services/userService";
 import warehouseService from "@/services/warehouseService";
 import { Pagination } from "@/components/ui";
+import { toast } from "sonner";
 
 // Status configuration with modern styling
 const STATUS_CONFIG: Record<
@@ -55,6 +56,12 @@ const STATUS_CONFIG: Record<
     color: "text-yellow-700",
     bgColor: "bg-yellow-100",
     icon: AlertTriangle,
+  },
+  PARTS_AVAILABLE: {
+    label: "Part Available",
+    color: "text-teal-700",
+    bgColor: "bg-teal-100",
+    icon: CheckCircle,
   },
   READY_FOR_REPAIR: {
     label: "Ready",
@@ -90,6 +97,12 @@ const STATUS_CONFIG: Record<
     label: "Out of Warranty",
     color: "text-gray-700",
     bgColor: "bg-gray-100",
+    icon: XCircle,
+  },
+  REJECTED_BY_OEM: {
+    label: "Rejected by OEM",
+    color: "text-red-700",
+    bgColor: "bg-red-100",
     icon: XCircle,
   },
   CANCELLED: {
@@ -211,10 +224,10 @@ export function CaseLineOperations() {
       // Check if we have warehouse data to validate stock availability
       try {
         const warehouseResponse = await warehouseService.getWarehouses();
-        const warehouses = warehouseResponse.data.warehouses || [];
+        const warehouses = warehouseResponse.warehouses || [];
 
         // Find if any warehouse has stock for this component
-        const hasStock = warehouses.some((warehouse: any) =>
+        const warehouseWithStock = warehouses.find((warehouse: any) =>
           warehouse.stocks?.some(
             (stock: any) =>
               stock.typeComponentId === caseLine.typeComponentId &&
@@ -222,7 +235,7 @@ export function CaseLineOperations() {
           )
         );
 
-        if (!hasStock) {
+        if (!warehouseWithStock) {
           setErrorMessage(
             `Cannot allocate stock: No warehouse has sufficient stock (${
               caseLine.quantity
@@ -231,6 +244,14 @@ export function CaseLineOperations() {
             }". Please create a stock transfer request from the company warehouse.`
           );
           return;
+        } else {
+          // Stock exists in Stock table, but we'll proceed to check if Component records exist
+          console.log(
+            `Stock available in ${warehouseWithStock.name}:`,
+            warehouseWithStock.stocks.find(
+              (s: any) => s.typeComponentId === caseLine.typeComponentId
+            )
+          );
         }
       } catch (warehouseError) {
         console.warn(
@@ -261,6 +282,36 @@ export function CaseLineOperations() {
       setSuccessMessage(
         `✓ Stock allocated successfully! Reserved ${reservedQty} component(s).`
       );
+      toast.success(`Stock allocated! Reserved ${reservedQty} component(s)`);
+
+      // Auto-assign diagnostic tech as repair tech after successful allocation
+      // This handles both flows:
+      // 1. CUSTOMER_APPROVED → READY_FOR_REPAIR (stock available immediately)
+      // 2. PARTS_AVAILABLE → READY_FOR_REPAIR (after stock transfer received)
+      try {
+        const diagnosticTechId =
+          caseLine.diagnosticTechId || caseLine.diagnosticTechnician?.userId;
+        const newStatus = response.data.formattedCaselineStatus?.[0]?.status;
+
+        if (diagnosticTechId && newStatus === "READY_FOR_REPAIR") {
+          console.log(
+            "Auto-assigning diagnostic tech as repair tech:",
+            diagnosticTechId
+          );
+
+          await caseLineService.assignTechnicianToRepair(
+            caseLine.guaranteeCaseId,
+            caseLineId,
+            { technicianId: diagnosticTechId }
+          );
+
+          toast.success("✓ Diagnostic technician auto-assigned for repair");
+        }
+      } catch (assignError: any) {
+        console.warn("Auto-assignment failed (non-critical):", assignError);
+        // Don't show error to user since stock allocation succeeded
+        // They can manually assign if needed
+      }
 
       await fetchCaseLines();
     } catch (error: any) {
@@ -270,33 +321,54 @@ export function CaseLineOperations() {
         error.message ||
         "Failed to allocate stock";
 
-      let helpText = "";
+      // Get the case line for better error messages
+      const caseLine = caseLines.find(
+        (cl: any) => cl.id === caseLineId || cl.caseLineId === caseLineId
+      );
+
+      let userFriendlyMessage = errorMsg;
+
       if (error?.response?.status === 409) {
         if (
           errorMsg.includes("Available: 0") ||
           errorMsg.includes("Insufficient available components")
         ) {
-          helpText =
-            " → Stock appears available in inventory, but individual component records are missing from the database. This is a backend data seeding issue - the Component table needs to be populated with individual component items that match the stock quantities.";
+          // Extract component name if available
+          const componentName =
+            caseLine?.typeComponent?.name || "this component";
+
+          userFriendlyMessage =
+            `Database inconsistency detected: Stock shows available quantity, but individual component records are missing. This means:\n\n` +
+            `• Stock table shows quantity available for "${componentName}"\n` +
+            `• But Component table has no individual items with status "IN_STOCK"\n\n` +
+            `Solution: Contact system administrator to run the database seeder script to populate Component records that match Stock quantities.\n\n` +
+            `Technical details: ${errorMsg}`;
         } else if (errorMsg.includes("No component specified")) {
-          helpText =
-            " → This case line doesn't have a component type assigned.";
+          userFriendlyMessage =
+            "This case line doesn't have a component type assigned. Please update the case line first.";
         } else if (errorMsg.includes("already allocated")) {
-          helpText = " → Stock has already been allocated for this case line.";
-        } else {
-          helpText =
-            " → Possible issue: Component inventory data missing or insufficient stock.";
+          userFriendlyMessage =
+            "Stock has already been allocated for this case line.";
+        } else if (errorMsg.includes("No stock available")) {
+          userFriendlyMessage =
+            "Insufficient stock available. Please request a stock transfer from the company warehouse.";
         }
       }
 
-      setErrorMessage(`${errorMsg}${helpText}`);
+      setErrorMessage(userFriendlyMessage);
+      toast.error("Failed to allocate stock");
     }
   };
 
   const handleOpenTechnicianModal = (caseLineId: string) => {
+    const caseLine = caseLines.find(
+      (cl: any) => cl.id === caseLineId || cl.caseLineId === caseLineId
+    );
+
     setSelectedCaseLineForAssignment(caseLineId);
     setShowTechnicianModal(true);
-    setSelectedTechnician("");
+    // Pre-select current technician if already assigned
+    setSelectedTechnician(caseLine?.repairTechnician?.userId || "");
   };
 
   const handleAssignTechnician = async () => {
@@ -327,15 +399,17 @@ export function CaseLineOperations() {
       );
 
       setSuccessMessage("✓ Technician assigned successfully!");
+      toast.success("Technician assigned successfully!");
       setShowTechnicianModal(false);
       setSelectedCaseLineForAssignment(null);
 
       await fetchCaseLines();
     } catch (error: any) {
       console.error("Error assigning technician:", error);
-      setErrorMessage(
-        error?.response?.data?.message || "Failed to assign technician"
-      );
+      const errorMsg =
+        error?.response?.data?.message || "Failed to assign technician";
+      setErrorMessage(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
@@ -383,12 +457,13 @@ export function CaseLineOperations() {
       const errors: string[] = [];
 
       for (const caseLineId of Array.from(selectedCaseLineIds)) {
-        try {
-          const caseLine = caseLines.find(
-            (cl: any) => cl.id === caseLineId || cl.caseLineId === caseLineId
-          );
+        // Find case line for this iteration
+        const currentCaseLine = caseLines.find(
+          (cl: any) => cl.id === caseLineId || cl.caseLineId === caseLineId
+        );
 
-          if (!caseLine || !caseLine.guaranteeCaseId) {
+        try {
+          if (!currentCaseLine || !currentCaseLine.guaranteeCaseId) {
             errors.push(
               `${caseLineId.substring(0, 8)}...: Guarantee case not found`
             );
@@ -396,7 +471,10 @@ export function CaseLineOperations() {
             continue;
           }
 
-          if (!caseLine.typeComponentId && !caseLine.typeComponent) {
+          if (
+            !currentCaseLine.typeComponentId &&
+            !currentCaseLine.typeComponent
+          ) {
             errors.push(
               `${caseLineId.substring(0, 8)}...: No component specified`
             );
@@ -405,39 +483,79 @@ export function CaseLineOperations() {
           }
 
           await caseLineService.allocateStock(
-            caseLine.guaranteeCaseId,
+            currentCaseLine.guaranteeCaseId,
             caseLineId
           );
           successCount++;
+
+          // Auto-assign diagnostic tech as repair tech after successful allocation
+          try {
+            const diagnosticTechId =
+              currentCaseLine.diagnosticTechId ||
+              currentCaseLine.diagnosticTechnician?.userId;
+
+            if (diagnosticTechId) {
+              await caseLineService.assignTechnicianToRepair(
+                currentCaseLine.guaranteeCaseId,
+                caseLineId,
+                { technicianId: diagnosticTechId }
+              );
+            }
+          } catch (assignError) {
+            console.warn("Auto-assignment failed for", caseLineId, assignError);
+            // Continue with next allocation even if assignment fails
+          }
         } catch (error: any) {
           failedCount++;
-          const errorMsg = error?.response?.data?.message || error.message;
+          let errorMsg = error?.response?.data?.message || error.message;
+
+          // Simplify error messages for bulk operations
+          if (error?.response?.status === 409) {
+            if (
+              errorMsg.includes("Available: 0") ||
+              errorMsg.includes("Insufficient available components")
+            ) {
+              errorMsg = `No stock available for ${
+                currentCaseLine?.typeComponent?.name || "component"
+              }`;
+            } else if (errorMsg.includes("already allocated")) {
+              errorMsg = "Already allocated";
+            }
+          }
+
           const shortId = caseLineId.substring(0, 8);
           errors.push(`${shortId}...: ${errorMsg}`);
         }
       }
 
       if (successCount > 0) {
-        setSuccessMessage(
-          `✓ Allocated stock for ${successCount} case line${
+        const msg = `✓ Allocated stock for ${successCount} case line${
+          successCount !== 1 ? "s" : ""
+        }!${failedCount > 0 ? ` ${failedCount} failed.` : ""}`;
+        setSuccessMessage(msg);
+        toast.success(
+          `Allocated stock for ${successCount} case line${
             successCount !== 1 ? "s" : ""
-          }!${failedCount > 0 ? ` ${failedCount} failed.` : ""}`
+          }!`
         );
       }
 
       if (failedCount > 0 && successCount === 0) {
         setErrorMessage(`All allocations failed: ${errors.join("; ")}`);
+        toast.error("All stock allocations failed");
       } else if (failedCount > 0) {
         setErrorMessage(`Some failed: ${errors.join("; ")}`);
+        toast.warning(`${failedCount} allocation(s) failed`);
       }
 
       setSelectedCaseLineIds(new Set());
       await fetchCaseLines();
     } catch (error: any) {
       console.error("Error bulk allocating stock:", error);
-      setErrorMessage(
-        error?.response?.data?.message || "Failed to bulk allocate stock"
-      );
+      const errorMsg =
+        error?.response?.data?.message || "Failed to bulk allocate stock";
+      setErrorMessage(errorMsg);
+      toast.error("Bulk allocation failed");
     } finally {
       setBulkAllocating(false);
     }
@@ -477,6 +595,28 @@ export function CaseLineOperations() {
   return (
     <div className="flex-1 overflow-auto bg-gray-50">
       <div className="p-8">
+        {/* Info Banner */}
+        <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-l-4 border-purple-600 rounded-lg p-4 mb-6">
+          <div className="flex items-start gap-3">
+            <Layers className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-1">
+                Case Line Management
+              </h3>
+              <p className="text-xs text-gray-600">
+                Use this page to <strong>allocate stock</strong> for approved
+                case lines. After stock allocation, the{" "}
+                <strong>
+                  diagnostic technician is automatically assigned as repair
+                  technician
+                </strong>
+                . For overall vehicle technician reassignment, use{" "}
+                <strong>Processing Records</strong>.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Header with Stats */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
@@ -749,7 +889,10 @@ export function CaseLineOperations() {
                   const statusConfig =
                     STATUS_CONFIG[caseLine.status] || STATUS_CONFIG.DRAFT;
                   const StatusIcon = statusConfig.icon;
-                  const isApproved = caseLine.status === "CUSTOMER_APPROVED";
+                  const isApproved =
+                    caseLine.status === "CUSTOMER_APPROVED" ||
+                    caseLine.status === "WAITING_FOR_PARTS" ||
+                    caseLine.status === "PARTS_AVAILABLE";
                   const isSelected = selectedCaseLineIds.has(caseLine.id);
                   const quantityReserved = getQuantityReserved(caseLine);
                   const isFullyReserved =
@@ -905,6 +1048,25 @@ export function CaseLineOperations() {
                             </div>
                           </div>
 
+                          {/* Rejection Reason - Show for rejected case lines */}
+                          {(caseLine.status?.includes("REJECTED") ||
+                            caseLine.warrantyStatus === "INELIGIBLE") &&
+                            caseLine.rejectionReason && (
+                              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                <div className="flex items-start gap-2">
+                                  <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                                  <div className="flex-1">
+                                    <p className="text-xs font-semibold text-red-900 mb-1">
+                                      REJECTION REASON
+                                    </p>
+                                    <p className="text-sm text-red-700">
+                                      {caseLine.rejectionReason}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
                           {/* Action Buttons */}
                           <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
                             <button
@@ -930,21 +1092,31 @@ export function CaseLineOperations() {
                                 ? "Stock Allocated"
                                 : "Allocate Stock"}
                             </button>
-                            <button
-                              onClick={() =>
-                                handleOpenTechnicianModal(caseLine.id)
-                              }
-                              disabled={caseLine.status !== "READY_FOR_REPAIR"}
-                              className="flex-1 px-4 py-2.5 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                              title={
-                                caseLine.status !== "READY_FOR_REPAIR"
-                                  ? "Stock must be allocated first"
-                                  : "Assign technician"
-                              }
-                            >
-                              <UserPlus className="w-4 h-4" />
-                              Assign Technician
-                            </button>
+                            {/* Repair Technician Assignment - Auto-assigned after stock allocation */}
+                            {caseLine.repairTechnician ? (
+                              <div className="flex-1 px-4 py-2.5 text-sm rounded-lg flex items-center justify-center gap-2 bg-green-50 border-2 border-green-200 text-green-700 font-medium">
+                                <UserPlus className="w-4 h-4" />
+                                {caseLine.repairTechnician.name}
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() =>
+                                  handleOpenTechnicianModal(caseLine.id)
+                                }
+                                disabled={
+                                  caseLine.status !== "READY_FOR_REPAIR"
+                                }
+                                className="flex-1 px-4 py-2.5 text-sm rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium bg-gray-900 text-white hover:bg-gray-800"
+                                title={
+                                  caseLine.status !== "READY_FOR_REPAIR"
+                                    ? "Stock must be allocated first (tech will be auto-assigned)"
+                                    : "Assign technician for repair"
+                                }
+                              >
+                                <UserPlus className="w-4 h-4" />
+                                Assign Technician
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -977,7 +1149,7 @@ export function CaseLineOperations() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[70]"
             onClick={() => setShowTechnicianModal(false)}
           >
             <motion.div

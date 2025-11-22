@@ -40,12 +40,11 @@ export interface AvailableTechnician {
 export interface UploadSchedulesResponse {
   status: "success";
   data: {
-    imported: number;
-    failed: number;
-    errors?: Array<{
-      row: number;
-      message: string;
-    }>;
+    totalProcessed: number;
+    created: number;
+    updated: number;
+    errorCount: number;
+    errors?: string[];
   };
 }
 

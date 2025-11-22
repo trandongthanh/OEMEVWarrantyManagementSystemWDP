@@ -13,6 +13,7 @@ import {
   Package,
   Layers,
   Warehouse,
+  AlertCircle,
 } from "lucide-react";
 import { authService, userService, Technician } from "@/services";
 import { useRoleProtection } from "@/hooks/useRoleProtection";
@@ -26,10 +27,11 @@ import {
   StockTransferRequestList,
   AllCaseLinesList,
   WarehouseOverview,
-  CreateUserAccount,
+  ManagerCreateUserAccount,
 } from "@/components/dashboard";
 import TaskAssignmentList from "@/components/dashboard/managerdashboard/TaskAssignmentList";
-
+import { ManagerCasesList } from "@/components/dashboard/managerdashboard/ManagerCasesList";
+import { MostProblematicModels } from "@/components/dashboard/managerdashboard";
 interface CurrentUser {
   userId: string;
   roleName: string;
@@ -85,7 +87,13 @@ export default function ManagerDashboard() {
     { id: "customers", icon: UserCog, label: "Customers" },
     { id: "caselines", icon: CheckSquare, label: "Case Lines" },
     { id: "all-caselines", icon: Layers, label: "All Case Lines" },
-    { id: "tasks", icon: ClipboardList, label: "Task Assignment" },
+    { id: "assign-tasks", icon: ClipboardList, label: "Assign Technicians" },
+    { id: "tasks", icon: CheckSquare, label: "Task Assignments" },
+    {
+      id: "most-problematic",
+      icon: AlertCircle,
+      label: "Most Problematic Models",
+    },
     { id: "schedules", icon: Calendar, label: "Schedules" },
     { id: "warehouse", icon: Warehouse, label: "Warehouse Stock" },
     { id: "transfers", icon: Package, label: "Stock Transfers" },
@@ -104,13 +112,18 @@ export default function ManagerDashboard() {
         return <CaseLineOperations />;
       case "all-caselines":
         return <AllCaseLinesList />;
+      case "assign-tasks":
+        return <ManagerCasesList />;
       case "tasks":
         return <TaskAssignmentList />;
+      case "most-problematic":
+        return <MostProblematicModels />;
       case "schedules":
         return <ScheduleManagement />;
       case "warehouse":
         return <WarehouseOverview />;
       case "transfers":
+      case "stock-transfers": // Support both nav IDs for notification compatibility
         return (
           <StockTransferRequestList
             userRole="service_center_manager"
@@ -121,7 +134,7 @@ export default function ManagerDashboard() {
           />
         );
       case "create-user":
-        return <CreateUserAccount />;
+        return <ManagerCreateUserAccount />;
       default:
         return null;
     }

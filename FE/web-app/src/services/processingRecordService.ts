@@ -11,6 +11,7 @@ export interface ProcessingRecord {
   vehicle: {
     vin: string;
     licensePlate?: string;
+    ownerId?: string;
     model:
       | {
           name: string;
@@ -226,6 +227,34 @@ const completeRecord = async (
   }
 };
 
+/**
+ * Cancel a processing record
+ * PATCH /processing-records/{id}/cancel
+ *
+ * Cancels the processing record and all associated case lines, guarantee cases, and tasks.
+ * Can only cancel records that haven't reached repair completion stage.
+ *
+ * @role service_center_staff, service_center_manager
+ */
+const cancelRecord = async (
+  recordId: string,
+  reason: string
+): Promise<{
+  status: "success";
+  data: { record: ProcessingRecord };
+}> => {
+  try {
+    const response = await apiClient.patch(
+      `/processing-records/${recordId}/cancel`,
+      { reason }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error cancelling record:", error);
+    throw error;
+  }
+};
+
 const processingRecordService = {
   getAllRecords,
   getRecordById,
@@ -233,6 +262,7 @@ const processingRecordService = {
   assignTechnician,
   completeDiagnosis,
   completeRecord,
+  cancelRecord,
 };
 
 export default processingRecordService;
