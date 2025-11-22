@@ -90,7 +90,7 @@ class WarrantyComponentRepository {
         {
           model: VehicleModel,
           as: "vehicleModel",
-          attributes: ["name"],
+          attributes: ["vehicleModelName", "vehicleModelId"],
         },
       ],
     });
