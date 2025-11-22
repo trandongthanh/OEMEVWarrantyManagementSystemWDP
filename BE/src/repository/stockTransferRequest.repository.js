@@ -10,6 +10,8 @@ const {
   StockReservation,
   Stock,
   TypeComponent,
+  StockTransferComponent,
+  Component,
 } = db;
 
 class StockTransferRequestRepository {
@@ -87,6 +89,12 @@ class StockTransferRequestRepository {
             "vehicleCompanyId",
           ],
           required: true,
+        },
+        {
+          model: Warehouse,
+          as: "sourceWarehouse",
+          attributes: ["warehouseId", "name", "vehicleCompanyId"],
+          required: false,
         },
         {
           model: User,
@@ -171,6 +179,12 @@ class StockTransferRequestRepository {
           required: true,
         },
         {
+          model: Warehouse,
+          as: "sourceWarehouse",
+          attributes: ["warehouseId", "name", "vehicleCompanyId"],
+          required: false,
+        },
+        {
           model: User,
           as: "approver",
           attributes: ["userId", "name"],
@@ -208,11 +222,29 @@ class StockTransferRequestRepository {
         },
         {
           model: StockReservation,
-          as: "reservations",
+          as: "stockReservations",
           include: [
             {
               model: Stock,
               as: "stock",
+              include: [
+                {
+                  model: TypeComponent,
+                  as: "typeComponent",
+                  attributes: ["typeComponentId", "name", "sku"],
+                },
+              ],
+            },
+          ],
+          required: false,
+        },
+        {
+          model: StockTransferComponent,
+          as: "transferComponents",
+          include: [
+            {
+              model: Component,
+              as: "component",
               include: [
                 {
                   model: TypeComponent,

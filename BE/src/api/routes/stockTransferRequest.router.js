@@ -364,14 +364,29 @@ router.get(
  * @swagger
  * /stock-transfer-requests/{id}/approve:
  *   patch:
- *     summary: Duyệt yêu cầu chuyển kho (EMV Staff)
+ *     summary: Duyệt yêu cầu chuyển kho (Parts Coordinator Company)
  *     description: |-
- *       EMV Staff duyệt yêu cầu và tự động reserve stock từ kho hãng. Hệ thống kiểm tra tồn kho và phân bổ theo FIFO.
+ *       Parts Coordinator Company duyệt yêu cầu, chọn kho nguồn và hệ thống tự động reserve stock từ kho hãng đó.
+ *       Hệ thống kiểm tra tồn kho và phân bổ theo FIFO.
  *       Sau khi duyệt thành công, server phát sự kiện socket `stock_transfer_request_approved`
- *       tới phòng `parts_coordinator_company_{companyId}`.
+ *       tới phòng service center liên quan.
  *     tags: [StockTransferRequest]
  *     security:
  *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - sourceWarehouseId
+ *             properties:
+ *               sourceWarehouseId:
+ *                 type: string
+ *                 format: uuid
+ *                 description: ID kho nguồn (company warehouse) để lấy hàng
+ *                 example: "550e8400-e29b-41d4-a716-446655440001"
  *     parameters:
  *       - in: path
  *         name: id
@@ -449,12 +464,12 @@ router.get(
  *       401:
  *         description: Chưa xác thực
  *       403:
- *         description: Không có quyền (chỉ EMV Staff)
+ *         description: Không có quyền (chỉ Parts Coordinator Company)
  */
 router.patch(
   "/:id/approve",
   authentication,
-  authorizationByRole(["emv_staff"]),
+  authorizationByRole(["parts_coordinator_company"]),
   attachCompanyContext,
   async (req, res, next) => {
     const stockTransferRequestController = req.container.resolve(

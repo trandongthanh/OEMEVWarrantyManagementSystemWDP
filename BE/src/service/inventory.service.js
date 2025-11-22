@@ -6,6 +6,16 @@ import {
   NotFoundError,
 } from "../error/index.js";
 
+const VALID_COMPONENT_STATUSES = new Set([
+  "IN_STOCK",
+  "IN_WAREHOUSE",
+  "RESERVED",
+  "IN_TRANSIT",
+  "WITH_TECHNICIAN",
+  "INSTALLED",
+  "RETURNED",
+]);
+
 class InventoryService {
   #inventoryRepository;
   #inventoryAdjustmentRepository;
@@ -56,7 +66,7 @@ class InventoryService {
     } = query;
 
     const whereCondition = {};
-    const { Op } = db.Sequelize;
+    const { Op } = this.#db.Sequelize;
 
     if (warehouseId) {
       whereCondition.warehouseId = warehouseId;

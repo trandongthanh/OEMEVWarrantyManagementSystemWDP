@@ -71,9 +71,9 @@ const router = express.Router();
  *         description: Chưa xác thực
  */
 router.get("/", authentication, async (req, res, next) => {
-  const componentController = req.container.resolve("componentController");
+  const inventoryController = req.container.resolve("inventoryController");
 
-  await InventoryController.listComponents(req, res, next);
+  await inventoryController.listComponents(req, res, next);
 });
 
 export default router;

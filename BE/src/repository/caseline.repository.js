@@ -10,6 +10,9 @@ const {
   Component,
   VehicleProcessingRecord,
   ServiceCenter,
+  Warehouse,
+  StockTransferComponent,
+  StockTransferRequest,
 } = db;
 
 class CaseLineRepository {
@@ -39,6 +42,7 @@ class CaseLineRepository {
         {
           model: GuaranteeCase,
           as: "guaranteeCase",
+          attributes: ["guaranteeCaseId", "vehicleProcessingRecordId"],
           required: true,
 
           include: [
@@ -120,7 +124,12 @@ class CaseLineRepository {
         {
           model: GuaranteeCase,
           as: "guaranteeCase",
-          attributes: ["guaranteeCaseId", "contentGuarantee", "status"],
+          attributes: [
+            "guaranteeCaseId",
+            "contentGuarantee",
+            "status",
+            "vehicleProcessingRecordId",
+          ],
           required: true,
 
           include: [
@@ -323,7 +332,7 @@ class CaseLineRepository {
         {
           model: GuaranteeCase,
           as: "guaranteeCase",
-          attributes: ["guaranteeCaseId"],
+          attributes: ["guaranteeCaseId", "vehicleProcessingRecordId"],
           required: true,
           include: [
             {
@@ -391,7 +400,12 @@ class CaseLineRepository {
         {
           model: GuaranteeCase,
           as: "guaranteeCase",
-          attributes: ["guaranteeCaseId", "contentGuarantee", "status"],
+          attributes: [
+            "guaranteeCaseId",
+            "contentGuarantee",
+            "status",
+            "vehicleProcessingRecordId",
+          ],
           where:
             Object.keys(guaranteeCaseWhere).length > 0
               ? guaranteeCaseWhere
@@ -443,6 +457,71 @@ class CaseLineRepository {
           as: "reservations",
           attributes: ["reservationId", "status"],
           required: false,
+          include: [
+            {
+              model: Component,
+              as: "component",
+              attributes: [
+                "componentId",
+                "serialNumber",
+                "status",
+                "warehouseId",
+              ],
+              required: false,
+              include: [
+                {
+                  model: Warehouse,
+                  as: "warehouse",
+                  attributes: ["warehouseId", "name", "address"],
+                  required: false,
+                },
+                {
+                  model: StockTransferComponent,
+                  as: "transferHistory",
+                  attributes: ["requestId", "componentId"],
+                  required: false,
+                  include: [
+                    {
+                      model: StockTransferRequest,
+                      as: "request",
+                      attributes: [
+                        "id",
+                        "sourceWarehouseId",
+                        "requestingWarehouseId",
+                        "shippedAt",
+                        "receivedAt",
+                        "status",
+                      ],
+                      required: false,
+                      include: [
+                        {
+                          model: Warehouse,
+                          as: "sourceWarehouse",
+                          attributes: [
+                            "warehouseId",
+                            "name",
+                            "vehicleCompanyId",
+                          ],
+                          required: false,
+                        },
+                        {
+                          model: Warehouse,
+                          as: "requestingWarehouse",
+                          attributes: [
+                            "warehouseId",
+                            "name",
+                            "serviceCenterId",
+                            "address",
+                          ],
+                          required: false,
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
         },
       ],
       limit,
@@ -473,7 +552,7 @@ class CaseLineRepository {
           model: GuaranteeCase,
           as: "guaranteeCase",
           where: { vehicleProcessingRecordId },
-          attributes: ["guaranteeCaseId"],
+          attributes: ["guaranteeCaseId", "vehicleProcessingRecordId"],
         },
       ],
       transaction,
@@ -497,7 +576,7 @@ class CaseLineRepository {
         {
           model: GuaranteeCase,
           as: "guaranteeCase",
-          attributes: [],
+          attributes: ["vehicleProcessingRecordId"],
           where: { vehicleProcessingRecordId },
           required: true,
         },
@@ -585,13 +664,13 @@ class CaseLineRepository {
         {
           model: GuaranteeCase,
           as: "guaranteeCase",
-          attributes: [],
+          attributes: ["vehicleProcessingRecordId"],
           required: true,
           include: [
             {
               model: VehicleProcessingRecord,
               as: "vehicleProcessingRecord",
-              attributes: [],
+              attributes: ["vehicleProcessingRecordId"],
               required: true,
               include: [
                 {
