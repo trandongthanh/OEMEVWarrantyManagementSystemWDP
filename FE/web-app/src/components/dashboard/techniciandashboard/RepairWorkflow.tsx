@@ -18,6 +18,10 @@ import caseLineService, { CaseLine } from "@/services/caseLineService";
 import componentReservationService, {
   ComponentReservation,
 } from "@/services/componentReservationService";
+import {
+  getVehicleComponents,
+  VehicleComponent,
+} from "@/services/vehicleService";
 import { toast } from "sonner";
 import { usePolling } from "@/hooks/usePolling";
 import { getCurrentUser } from "@/services/authService";
@@ -36,15 +40,29 @@ interface ComponentWithReservation extends CaseLine {
         name: string;
         address?: string;
       };
-      stockTransferRequest?: {
+      transferHistory?: Array<{
         requestId: string;
-        requestingWarehouseId: string;
-        requestingWarehouse?: {
-          warehouseId: string;
-          name: string;
-          address?: string;
+        componentId: string;
+        request?: {
+          id: string;
+          sourceWarehouseId: string;
+          requestingWarehouseId: string;
+          shippedAt: string;
+          receivedAt: string;
+          status: string;
+          sourceWarehouse?: {
+            warehouseId: string;
+            name: string;
+            vehicleCompanyId?: string;
+          };
+          requestingWarehouse?: {
+            warehouseId: string;
+            name: string;
+            serviceCenterId?: string;
+            address?: string;
+          };
         };
-      };
+      }>;
     };
   }>;
 }
@@ -65,10 +83,36 @@ export function RepairWorkflow() {
   const [selectedItem, setSelectedItem] = useState<CaseLine | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [processingItem, setProcessingItem] = useState<string | null>(null);
-  const [selectedForBulkInstall, setSelectedForBulkInstall] = useState<
-    Set<string>
-  >(new Set());
-  const [isBulkInstalling, setIsBulkInstalling] = useState(false);
+
+  // Image upload for repair completion
+  const [showImageUploadModal, setShowImageUploadModal] = useState(false);
+  const [selectedCaseLineForCompletion, setSelectedCaseLineForCompletion] =
+    useState<CaseLine | null>(null);
+  const [installationImages, setInstallationImages] = useState<File[]>([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
+
+  // Old component serial number for quantity > 1 installations
+  const [showOldSerialModal, setShowOldSerialModal] = useState(false);
+  const [oldComponentSerial, setOldComponentSerial] = useState("");
+  const [pendingInstallReservation, setPendingInstallReservation] = useState<{
+    reservationId: string;
+    component: ComponentWithReservation;
+  } | null>(null);
+  const [vehicleComponents, setVehicleComponents] = useState<
+    Array<{
+      componentId: string;
+      serialNumber: string;
+      typeComponentId?: string;
+      status: string;
+      typeComponent?: {
+        typeComponentId: string;
+        name: string;
+      };
+    }>
+  >([]);
+  const [loadingVehicleComponents, setLoadingVehicleComponents] =
+    useState(false);
+  const [showManualEntry, setShowManualEntry] = useState(false);
 
   const loadComponentsToInstall = async () => {
     try {
@@ -81,15 +125,19 @@ export function RepairWorkflow() {
 
       const caseLines = response.data.caseLines || [];
       const componentsReady = caseLines.filter((cl) => {
+        // Exclude completed repairs
+        if (cl.status === "COMPLETED" || cl.status === "CLOSED") {
+          return false;
+        }
+
         if (cl.reservations && cl.reservations.length > 0) {
           // Only show case lines with reservations that are PICKED_UP
           // and not yet fully installed (component status != INSTALLED)
           return cl.reservations.some(
             (res) =>
-              res.status === "PICKED_UP" ||
-              (res.status === "INSTALLED" &&
-                res.component?.status !== "INSTALLED" &&
-                res.component?.status !== "REMOVED")
+              res.status === "PICKED_UP" &&
+              res.component?.status !== "INSTALLED" &&
+              res.component?.status !== "REMOVED"
           );
         }
         return false;
@@ -206,15 +254,48 @@ export function RepairWorkflow() {
       return;
     }
 
-    const caseLineId = component.id || component.caseLineId || "";
-    setProcessingItem(caseLineId);
+    // Check if warranty component has quantity > 1 (multiple components of same type)
+    // If quantity > 1, we need to collect the old component serial number
+    if (requiresOldSerial(component)) {
+      // Show modal to collect old component serial
+      setPendingInstallReservation({
+        reservationId: reservation.reservationId,
+        component,
+      });
+      setOldComponentSerial("");
+      setShowManualEntry(false);
+      setVehicleComponents([]);
+
+      // Fetch vehicle's installed components if VIN is available
+      const vin = component.guaranteeCase?.vehicleProcessingRecord?.vin;
+      const typeComponentId = component.typeComponentId;
+      if (vin && typeComponentId) {
+        fetchVehicleComponents(vin, typeComponentId);
+      }
+
+      setShowOldSerialModal(true);
+      return;
+    }
+
+    // Proceed with installation without old serial
+    await performInstall(reservation.reservationId);
+  };
+
+  const performInstall = async (reservationId: string, oldSerial?: string) => {
+    setProcessingItem(reservationId);
 
     try {
       await componentReservationService.installComponent(
-        reservation.reservationId
+        reservationId,
+        oldSerial
       );
       toast.success("Component installed successfully!");
       await loadData();
+
+      // Close modal if open
+      setShowOldSerialModal(false);
+      setOldComponentSerial("");
+      setPendingInstallReservation(null);
     } catch (error: unknown) {
       console.error("Failed to install component:", error);
       const err = error as { response?: { data?: { message?: string } } };
@@ -224,140 +305,131 @@ export function RepairWorkflow() {
     }
   };
 
-  const toggleSelection = (reservationId: string) => {
-    const newSelected = new Set(selectedForBulkInstall);
-    if (newSelected.has(reservationId)) {
-      newSelected.delete(reservationId);
-    } else {
-      newSelected.add(reservationId);
-    }
-    setSelectedForBulkInstall(newSelected);
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedForBulkInstall.size === componentsToInstall.length) {
-      setSelectedForBulkInstall(new Set());
-    } else {
-      // Only select one PICKED_UP reservation per case line (not already fully installed)
-      const allReservationIds = componentsToInstall
-        .map((c) => {
-          const pickedUpReservation = c.reservations?.find(
-            (r) =>
-              r.status === "PICKED_UP" ||
-              (r.status === "INSTALLED" &&
-                r.component?.status !== "INSTALLED" &&
-                r.component?.status !== "REMOVED")
-          );
-          return pickedUpReservation?.reservationId;
-        })
-        .filter(Boolean) as string[];
-      setSelectedForBulkInstall(new Set(allReservationIds));
-    }
-  };
-
-  const handleBulkInstall = async () => {
-    if (selectedForBulkInstall.size === 0) {
-      toast.error("Please select components to install");
+  const confirmInstallWithOldSerial = async () => {
+    if (!oldComponentSerial.trim()) {
+      toast.error("Please enter the old component serial number");
       return;
     }
 
-    // Group selected reservations by case line to check for conflicts
-    const reservationsByCaseLine = new Map<string, string[]>();
-    for (const reservationId of Array.from(selectedForBulkInstall)) {
-      const caseLine = componentsToInstall.find((cl) =>
-        cl.reservations?.some((r) => r.reservationId === reservationId)
-      );
-      if (caseLine) {
-        const caseLineId = caseLine.id || caseLine.caseLineId || "";
-        if (!reservationsByCaseLine.has(caseLineId)) {
-          reservationsByCaseLine.set(caseLineId, []);
-        }
-        reservationsByCaseLine.get(caseLineId)?.push(reservationId);
-      }
-    }
-
-    // Check if any case line has multiple reservations selected
-    const conflictingCaseLines: string[] = [];
-    for (const [caseLineId, reservations] of reservationsByCaseLine) {
-      if (reservations.length > 1) {
-        const caseLine = componentsToInstall.find(
-          (cl) => (cl.id || cl.caseLineId) === caseLineId
-        );
-        if (caseLine) {
-          conflictingCaseLines.push(
-            `${caseLine.typeComponent?.name || "Component"} (${
-              reservations.length
-            } selected)`
-          );
-        }
-      }
-    }
-
-    // Warn user about component replacement behavior
-    if (conflictingCaseLines.length > 0) {
-      toast.error(
-        `Cannot bulk install multiple components of the same type. Only one component can be installed per vehicle at a time. Conflicting: ${conflictingCaseLines.join(
-          ", "
-        )}`,
-        { duration: 10000 }
-      );
+    if (!pendingInstallReservation) {
+      toast.error("No pending installation found");
       return;
     }
 
-    setIsBulkInstalling(true);
-    let successCount = 0;
-    let errorCount = 0;
-    const failedComponents: string[] = [];
+    await performInstall(
+      pendingInstallReservation.reservationId,
+      oldComponentSerial.trim()
+    );
+  };
 
+  // Helper function to check if component requires old serial number
+  const requiresOldSerial = (component: ComponentWithReservation): boolean => {
+    const componentName = component.typeComponent?.name?.toLowerCase() || "";
+    const hasNumbersInName = component.typeComponent?.name
+      ? /\d+/.test(component.typeComponent.name)
+      : false;
+    return (
+      componentName.includes("tire") ||
+      componentName.includes("wheel") ||
+      componentName.includes("seat") ||
+      componentName.includes("battery") ||
+      hasNumbersInName
+    );
+  };
+
+  // Fetch vehicle's installed components of the same type
+  const fetchVehicleComponents = async (
+    vin: string,
+    typeComponentId: string
+  ) => {
+    setLoadingVehicleComponents(true);
     try {
-      // Install components one by one using for loop
-      for (const reservationId of Array.from(selectedForBulkInstall)) {
-        try {
-          await componentReservationService.installComponent(reservationId);
-          successCount++;
-        } catch (err) {
-          console.error(`Failed to install reservation ${reservationId}:`, err);
-          const error = err as { response?: { data?: { message?: string } } };
-          failedComponents.push(
-            error.response?.data?.message || `Reservation ${reservationId}`
-          );
-          errorCount++;
-        }
-      }
-
-      // Show results
-      if (successCount > 0) {
-        toast.success(`Successfully installed ${successCount} component(s)`);
-      }
-      if (errorCount > 0) {
-        toast.error(
-          `Failed to install ${errorCount} component(s)${
-            failedComponents.length > 0
-              ? ": " + failedComponents.join(", ")
-              : ""
-          }`,
-          { duration: 8000 }
-        );
-      }
-
-      // Clear selection and reload
-      setSelectedForBulkInstall(new Set());
-      await loadData();
+      // Fetch components installed on this vehicle using the vehicle endpoint
+      const response = await getVehicleComponents(vin, "INSTALLED");
+      // Filter by typeComponentId to get only the same component type
+      const filteredComponents = (response.data || []).filter(
+        (comp: VehicleComponent) =>
+          comp.typeComponent?.typeComponentId === typeComponentId
+      );
+      setVehicleComponents(filteredComponents);
     } catch (error) {
-      console.error("Bulk install error:", error);
-      toast.error("Failed to complete bulk installation");
+      console.error("Error fetching vehicle components:", error);
+      setVehicleComponents([]);
     } finally {
-      setIsBulkInstalling(false);
+      setLoadingVehicleComponents(false);
     }
   };
 
   const handleMarkComplete = async (caseLine: CaseLine) => {
-    const caseLineId = caseLine.id || caseLine.caseLineId || "";
+    // Open image upload modal instead of directly completing
+    setSelectedCaseLineForCompletion(caseLine);
+    setShowImageUploadModal(true);
+  };
+
+  const confirmMarkComplete = async () => {
+    if (!selectedCaseLineForCompletion) return;
+
+    // Validate that at least one image is uploaded
+    if (installationImages.length === 0) {
+      toast.error(
+        "Please upload at least one installation image before completing the repair"
+      );
+      return;
+    }
+
+    const caseLineId =
+      selectedCaseLineForCompletion.id ||
+      selectedCaseLineForCompletion.caseLineId ||
+      "";
     setProcessingItem(caseLineId);
+    setUploadingImages(true);
 
     try {
-      await caseLineService.markRepairComplete(caseLineId);
-      toast.success("Repair marked as complete!");
+      const imageUrls: string[] = [];
+
+      // Upload images to Cloudinary
+      if (installationImages.length > 0) {
+        toast.info(`Uploading ${installationImages.length} image(s)...`);
+
+        for (const imageFile of installationImages) {
+          const formData = new FormData();
+          formData.append("file", imageFile);
+
+          try {
+            const response = await fetch("/api/upload", {
+              method: "POST",
+              body: formData,
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error || "Failed to upload image");
+            }
+
+            const data = await response.json();
+            imageUrls.push(data.url);
+          } catch (uploadError) {
+            console.error("Image upload error:", uploadError);
+            toast.error("Failed to upload one or more images");
+            setUploadingImages(false);
+            setProcessingItem(null);
+            return;
+          }
+        }
+      }
+
+      // Mark repair as complete with image URLs
+      await caseLineService.markRepairComplete(caseLineId, imageUrls);
+
+      toast.success(
+        `Repair marked as complete with ${imageUrls.length} installation image(s)!`
+      );
+
+      // Reset state
+      setInstallationImages([]);
+      setSelectedCaseLineForCompletion(null);
+      setShowImageUploadModal(false);
+
       await loadData();
     } catch (error: unknown) {
       console.error("Failed to mark repair complete:", error);
@@ -367,6 +439,7 @@ export function RepairWorkflow() {
       );
     } finally {
       setProcessingItem(null);
+      setUploadingImages(false);
     }
   };
 
@@ -513,47 +586,6 @@ export function RepairWorkflow() {
                 </button>
               </div>
 
-              {/* Bulk Install Controls */}
-              {activeView === "install" && componentsToInstall.length > 0 && (
-                <div className="flex items-center justify-between gap-4 p-3 bg-gray-50 rounded-lg mb-4">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={
-                        selectedForBulkInstall.size ===
-                        componentsToInstall.length
-                      }
-                      onChange={toggleSelectAll}
-                      className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
-                    />
-                    <span className="text-sm font-medium text-gray-700">
-                      {selectedForBulkInstall.size > 0
-                        ? `${selectedForBulkInstall.size} selected`
-                        : "Select All"}
-                    </span>
-                  </div>
-                  {selectedForBulkInstall.size > 0 && (
-                    <button
-                      onClick={handleBulkInstall}
-                      disabled={isBulkInstalling}
-                      className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
-                    >
-                      {isBulkInstalling ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          Installing...
-                        </>
-                      ) : (
-                        <>
-                          <Package className="w-4 h-4" />
-                          Install Selected ({selectedForBulkInstall.size})
-                        </>
-                      )}
-                    </button>
-                  )}
-                </div>
-              )}
-
               {/* Search Bar */}
               <div className="flex items-center gap-2">
                 <Filter className="w-5 h-5 text-gray-600" />
@@ -650,24 +682,6 @@ export function RepairWorkflow() {
                       className="p-6 hover:bg-gray-50 transition-colors"
                     >
                       <div className="flex items-start gap-4">
-                        {/* Checkbox for bulk install */}
-                        {activeView === "install" && pickedUpReservation && (
-                          <div className="flex items-start pt-1">
-                            <input
-                              type="checkbox"
-                              checked={selectedForBulkInstall.has(
-                                pickedUpReservation.reservationId || ""
-                              )}
-                              onChange={() =>
-                                toggleSelection(
-                                  pickedUpReservation.reservationId || ""
-                                )
-                              }
-                              className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500 cursor-pointer"
-                            />
-                          </div>
-                        )}
-
                         <div className="flex-1 flex items-start justify-between gap-6">
                           {/* Left: Main Info */}
                           <div className="flex-1 min-w-0">
@@ -734,10 +748,12 @@ export function RepairWorkflow() {
                                           </div>
                                         )}
                                         {(() => {
-                                          const warehouse =
+                                          // Try to get warehouse from transfer request or direct warehouse
+                                          const transferRequest =
                                             reservedReservation.component
-                                              ?.stockTransferRequest
-                                              ?.requestingWarehouse ||
+                                              ?.transferHistory?.[0]?.request;
+                                          const warehouse =
+                                            transferRequest?.requestingWarehouse ||
                                             reservedReservation.component
                                               ?.warehouse;
 
@@ -798,10 +814,12 @@ export function RepairWorkflow() {
                                         <span className="font-medium">
                                           Serial Number:
                                         </span>{" "}
-                                        {
-                                          pickedUpReservation.component
-                                            .serialNumber
-                                        }
+                                        <span className="font-mono">
+                                          {
+                                            pickedUpReservation.component
+                                              .serialNumber
+                                          }
+                                        </span>
                                       </div>
                                     )}
                                   {item.diagnosisText && (
@@ -1045,8 +1063,8 @@ export function RepairWorkflow() {
                                 <div>
                                   {(() => {
                                     const warehouse =
-                                      res.component?.stockTransferRequest
-                                        ?.requestingWarehouse;
+                                      res.component?.transferHistory?.[0]
+                                        ?.request?.requestingWarehouse;
 
                                     if (warehouse) {
                                       return (
@@ -1111,9 +1129,9 @@ export function RepairWorkflow() {
                               <Warehouse className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
                               <div>
                                 {(() => {
-                                  // Try to get warehouse from stockTransferRequest (requesting warehouse)
+                                  // Try to get warehouse from transferHistory (requesting warehouse)
                                   const requestingWarehouse =
-                                    res.component?.stockTransferRequest
+                                    res.component?.transferHistory?.[0]?.request
                                       ?.requestingWarehouse;
                                   // Fallback to component's current warehouse
                                   const currentWarehouse =
@@ -1233,6 +1251,384 @@ export function RepairWorkflow() {
                     )}
                   </button>
                 )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Installation Image Upload Modal */}
+      <AnimatePresence>
+        {showImageUploadModal && selectedCaseLineForCompletion && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !uploadingImages && setShowImageUploadModal(false)}
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl max-h-[90vh] overflow-hidden flex flex-col"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    Upload Installation Images
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {selectedCaseLineForCompletion.typeComponent?.name}
+                  </p>
+                </div>
+                <button
+                  onClick={() =>
+                    !uploadingImages && setShowImageUploadModal(false)
+                  }
+                  disabled={uploadingImages}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="p-6 space-y-6 overflow-y-auto flex-1">
+                {/* Instructions */}
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-blue-700">
+                    <p className="font-medium mb-1">
+                      Installation Photo Guidelines:
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 text-xs">
+                      <li>Take clear photos of the installed component</li>
+                      <li>Include serial number if visible</li>
+                      <li>Show component properly connected/mounted</li>
+                      <li>Optional but recommended for quality assurance</li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Image Upload Area */}
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Installation Images <span className="text-red-600">*</span>
+                  </label>
+                  <p className="text-sm text-gray-500">
+                    At least one image is required to document the repair work
+                  </p>
+
+                  {/* Selected Images Preview */}
+                  {installationImages.length > 0 && (
+                    <div className="grid grid-cols-3 gap-3">
+                      {installationImages.map((file, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={URL.createObjectURL(file)}
+                            alt={`Installation ${index + 1}`}
+                            className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                          />
+                          <button
+                            onClick={() => {
+                              const newImages = installationImages.filter(
+                                (_, i) => i !== index
+                              );
+                              setInstallationImages(newImages);
+                            }}
+                            disabled={uploadingImages}
+                            className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-full hover:bg-red-700 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Upload Button */}
+                  <label
+                    className={`
+                    block w-full p-8 border-2 border-dashed rounded-xl text-center cursor-pointer transition-colors
+                    ${
+                      installationImages.length > 0
+                        ? "border-blue-300 bg-blue-50"
+                        : "border-gray-300 hover:border-blue-400 hover:bg-gray-50"
+                    }
+                    ${uploadingImages ? "opacity-50 cursor-not-allowed" : ""}
+                  `}
+                  >
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => {
+                        if (e.target.files) {
+                          const newFiles = Array.from(e.target.files);
+                          setInstallationImages([
+                            ...installationImages,
+                            ...newFiles,
+                          ]);
+                        }
+                      }}
+                      disabled={uploadingImages}
+                      className="hidden"
+                    />
+                    <Package className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-600 font-medium">
+                      Click to select installation photos
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {installationImages.length > 0
+                        ? `${installationImages.length} image(s) selected`
+                        : "PNG, JPG up to 10MB each"}
+                    </p>
+                  </label>
+                </div>
+
+                {/* Vehicle Info */}
+                {selectedCaseLineForCompletion.guaranteeCase
+                  ?.vehicleProcessingRecord?.vin && (
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-500 mb-1">Vehicle VIN</p>
+                    <p className="font-medium text-gray-900">
+                      {
+                        selectedCaseLineForCompletion.guaranteeCase
+                          .vehicleProcessingRecord.vin
+                      }
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
+                <button
+                  onClick={() => setShowImageUploadModal(false)}
+                  disabled={uploadingImages}
+                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-white transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmMarkComplete}
+                  disabled={uploadingImages || installationImages.length === 0}
+                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium"
+                  title={
+                    installationImages.length === 0
+                      ? "Please upload at least one image"
+                      : ""
+                  }
+                >
+                  {uploadingImages ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4" />
+                      Mark Repair Complete
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Old Component Serial Number Modal */}
+      <AnimatePresence>
+        {showOldSerialModal && pendingInstallReservation && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowOldSerialModal(false)}
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    Old Component Serial Number
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {pendingInstallReservation.component.typeComponent?.name}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowOldSerialModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="p-6 space-y-4">
+                {/* Info Box */}
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-blue-700">
+                    <p className="font-medium mb-1">
+                      Multiple Component Installation
+                    </p>
+                    <p className="text-xs">
+                      This component type has multiple units per vehicle. Please
+                      select the component being replaced.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Vehicle Info */}
+                {pendingInstallReservation.component.guaranteeCase
+                  ?.vehicleProcessingRecord?.vin && (
+                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-xs text-gray-500 mb-1">Vehicle VIN</p>
+                    <p className="font-mono text-sm font-semibold text-gray-900">
+                      {
+                        pendingInstallReservation.component.guaranteeCase
+                          .vehicleProcessingRecord.vin
+                      }
+                    </p>
+                  </div>
+                )}
+
+                {/* Loading State */}
+                {loadingVehicleComponents && (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+
+                {/* Installed Components Selection */}
+                {!loadingVehicleComponents &&
+                  vehicleComponents.length > 0 &&
+                  !showManualEntry && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-3">
+                        Select Component Being Replaced{" "}
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {vehicleComponents.map((comp) => (
+                          <button
+                            key={comp.componentId}
+                            onClick={() =>
+                              setOldComponentSerial(comp.serialNumber)
+                            }
+                            className={`w-full p-4 border-2 rounded-xl text-left transition-all hover:border-blue-400 hover:bg-blue-50 $\{
+                            oldComponentSerial === comp.serialNumber
+                              ? "border-blue-600 bg-blue-50 ring-2 ring-blue-200"
+                              : "border-gray-200 bg-white"
+                          }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <p className="font-mono text-sm font-semibold text-gray-900">
+                                  {comp.serialNumber}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Currently Installed
+                                </p>
+                              </div>
+                              {oldComponentSerial === comp.serialNumber && (
+                                <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Manual Entry Toggle */}
+                      <button
+                        onClick={() => {
+                          setShowManualEntry(true);
+                          setOldComponentSerial("");
+                        }}
+                        className="mt-3 w-full text-sm text-blue-600 hover:text-blue-700 font-medium py-2 hover:bg-blue-50 rounded-lg transition-colors"
+                      >
+                        or Enter Serial Manually
+                      </button>
+                    </div>
+                  )}
+
+                {/* Manual Entry or No Components Found */}
+                {!loadingVehicleComponents &&
+                  (vehicleComponents.length === 0 || showManualEntry) && (
+                    <div>
+                      {vehicleComponents.length === 0 && (
+                        <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg mb-4">
+                          <p className="text-xs text-yellow-700">
+                            No installed components found. Please enter the
+                            serial number manually.
+                          </p>
+                        </div>
+                      )}
+
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Old Component Serial Number{" "}
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={oldComponentSerial}
+                        onChange={(e) => setOldComponentSerial(e.target.value)}
+                        placeholder="Enter serial number..."
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                        autoFocus
+                      />
+
+                      {/* Back to Selection */}
+                      {showManualEntry && vehicleComponents.length > 0 && (
+                        <button
+                          onClick={() => {
+                            setShowManualEntry(false);
+                            setOldComponentSerial("");
+                          }}
+                          className="mt-3 w-full text-sm text-gray-600 hover:text-gray-700 font-medium py-2 hover:bg-gray-50 rounded-lg transition-colors"
+                        >
+                          ← Back to Component Selection
+                        </button>
+                      )}
+                    </div>
+                  )}
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
+                <button
+                  onClick={() => {
+                    setShowOldSerialModal(false);
+                    setOldComponentSerial("");
+                    setPendingInstallReservation(null);
+                  }}
+                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmInstallWithOldSerial}
+                  disabled={!oldComponentSerial.trim()}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium"
+                >
+                  <Wrench className="w-4 h-4" />
+                  Install Component
+                </button>
               </div>
             </motion.div>
           </div>

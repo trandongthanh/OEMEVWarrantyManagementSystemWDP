@@ -16,7 +16,8 @@ import * as authService from "./authService";
 
 export interface ComponentReservation {
   reservationId: string;
-  caselineId: string;
+  caseLineId: string;
+  caselineId: string; // Legacy field
   stockId: string;
   warehouseId: string;
   componentId: string;
@@ -44,6 +45,9 @@ export interface ComponentReservation {
   } | null;
   caseLine?: {
     id: string;
+    guaranteeCaseId: string;
+    typeComponentId: string;
+    quantity: number;
     status: string;
     repairTechId?: string;
     repairTechnician?: {
@@ -247,13 +251,17 @@ class ComponentReservationService {
    * - Reservation: PICKED_UP → INSTALLED
    * - Component: status → INSTALLED, links to vehicle VIN
    *
+   * @param reservationId - The reservation ID to install
+   * @param oldComponentSerialNumber - Required when quantityLimit > 1 (multiple components of same type allowed)
+   *
    * Note: Backend does not accept installationImageUrls parameter.
    * Images should be uploaded when marking repair complete via markRepairCompleted endpoint.
    *
    * @role service_center_technician
    */
   async installComponent(
-    reservationId: string
+    reservationId: string,
+    oldComponentSerialNumber?: string
   ): Promise<InstallComponentResponse> {
     try {
       // Get userId from auth token
@@ -262,9 +270,17 @@ class ComponentReservationService {
         throw new Error("User not authenticated");
       }
 
+      const body: { userId: string; oldComponentSerialNumber?: string } = {
+        userId: user.userId,
+      };
+
+      if (oldComponentSerialNumber) {
+        body.oldComponentSerialNumber = oldComponentSerialNumber;
+      }
+
       const response = await apiClient.patch(
         `/reservations/${reservationId}/installComponent`,
-        { userId: user.userId }
+        body
       );
       return response.data;
     } catch (error: unknown) {

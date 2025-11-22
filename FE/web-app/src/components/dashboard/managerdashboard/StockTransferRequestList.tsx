@@ -75,9 +75,25 @@ export function StockTransferRequestList({
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [confirmReceiveDialogOpen, setConfirmReceiveDialogOpen] =
     useState(false);
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [pendingActionRequestId, setPendingActionRequestId] = useState<
     string | null
   >(null);
+
+  // Approve modal - warehouse selection
+  const [companyWarehouses, setCompanyWarehouses] = useState<
+    Array<{
+      warehouseId: string;
+      name?: string;
+      warehouseName?: string;
+      vehicleCompanyId?: string;
+      serviceCenterId?: string;
+    }>
+  >([]);
+  const [selectedSourceWarehouseId, setSelectedSourceWarehouseId] =
+    useState<string>("");
+  const [loadingWarehouses, setLoadingWarehouses] = useState(false);
+  const [approveError, setApproveError] = useState<string | null>(null);
 
   const fetchRequests = async (status?: string) => {
     try {
@@ -140,14 +156,69 @@ export function StockTransferRequestList({
   };
 
   const handleApprove = async (requestId: string) => {
+    setPendingActionRequestId(requestId);
+    setSelectedSourceWarehouseId("");
+    setApproveError(null);
+    setApproveDialogOpen(true);
+    await fetchCompanyWarehouses();
+  };
+
+  const fetchCompanyWarehouses = async () => {
     try {
-      setActionLoading(requestId);
-      await stockTransferService.approveRequest(requestId);
+      setLoadingWarehouses(true);
+      const response = await fetch("/api/warehouse", {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+      });
+      if (!response.ok) throw new Error("Failed to fetch warehouses");
+      const data = await response.json();
+      const warehouses = data.data?.warehouses || [];
+      setCompanyWarehouses(
+        warehouses.filter(
+          (w: {
+            warehouseId: string;
+            vehicleCompanyId?: string;
+            serviceCenterId?: string;
+          }) => w.vehicleCompanyId
+        )
+      ); // Filter company warehouses
+
+      if (warehouses.length === 1) {
+        setSelectedSourceWarehouseId(warehouses[0].warehouseId);
+      }
+    } catch (error) {
+      console.error("Failed to fetch warehouses:", error);
+      setApproveError("Failed to load warehouses");
+    } finally {
+      setLoadingWarehouses(false);
+    }
+  };
+
+  const handleApproveConfirm = async () => {
+    if (!pendingActionRequestId) return;
+
+    if (!selectedSourceWarehouseId) {
+      setApproveError("Please select a source warehouse");
+      return;
+    }
+
+    try {
+      setActionLoading(pendingActionRequestId);
+      await stockTransferService.approveRequest(
+        pendingActionRequestId,
+        selectedSourceWarehouseId
+      );
       await fetchRequests();
       toast.success("Request approved successfully");
+      setApproveDialogOpen(false);
+      setPendingActionRequestId(null);
     } catch (error) {
       console.error("Failed to approve request:", error);
-      toast.error("Failed to approve request");
+      setApproveError(
+        (error as { response?: { data?: { message?: string } } })?.response
+          ?.data?.message || "Failed to approve request"
+      );
     } finally {
       setActionLoading(null);
     }
@@ -178,27 +249,25 @@ export function StockTransferRequestList({
   };
 
   const handleShip = async (requestId: string) => {
-    setPendingActionRequestId(requestId);
-    setShipDialogOpen(true);
+    // NOTE: This function should never be called since service_center_manager cannot ship
+    // Only parts_coordinator_company can ship (via StockTransferRequestManager component)
+    toast.error(
+      "Shipping requests is only available to parts coordinators from the company."
+    );
+    console.warn(
+      "Ship action attempted by unauthorized role:",
+      userRole,
+      "Request ID:",
+      requestId
+    );
   };
 
-  const handleShipConfirm = async (deliveryDate: string) => {
-    if (!pendingActionRequestId) return;
-
-    try {
-      setActionLoading(pendingActionRequestId);
-      await stockTransferService.shipRequest(pendingActionRequestId, {
-        estimatedDeliveryDate: deliveryDate,
-      });
-      await fetchRequests();
-      toast.success("Request shipped successfully");
-    } catch (error) {
-      console.error("Failed to ship request:", error);
-      toast.error("Failed to ship request");
-    } finally {
-      setActionLoading(null);
-      setPendingActionRequestId(null);
-    }
+  const handleShipConfirm = async () => {
+    // NOTE: Deprecated - Ship functionality moved to StockTransferRequestManager
+    // Service center managers cannot ship requests
+    toast.error(
+      "Shipping requests is only available to parts coordinators from the company."
+    );
   };
 
   const handleReceive = async (requestId: string) => {
@@ -250,7 +319,8 @@ export function StockTransferRequestList({
   const canApproveReject = userRole === "emv_staff";
   const canShip = userRole === "parts_coordinator_company";
   const canReceive = userRole === "parts_coordinator_service_center";
-  const canCancel = userRole === "service_center_manager";
+  const canCancel =
+    userRole === "service_center_manager" || userRole === "emv_staff";
 
   if (loading) {
     return (
@@ -574,6 +644,92 @@ export function StockTransferRequestList({
         placeholder="Enter rejection reason..."
         required
       />
+
+      {/* Approve Dialog with Warehouse Selection */}
+      {approveDialogOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Approve Request #{pendingActionRequestId?.slice(0, 8)}
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Select the source warehouse to fulfill this request:
+            </p>
+
+            {loadingWarehouses ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+              </div>
+            ) : companyWarehouses.length === 0 ? (
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-center mb-4">
+                <p className="text-sm text-yellow-800">
+                  No company warehouses available
+                </p>
+              </div>
+            ) : (
+              <select
+                value={selectedSourceWarehouseId}
+                onChange={(e) => setSelectedSourceWarehouseId(e.target.value)}
+                className="w-full px-4 py-3 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent mb-4"
+                disabled={actionLoading !== null}
+              >
+                <option value="">Select warehouse...</option>
+                {companyWarehouses.map(
+                  (warehouse: {
+                    warehouseId: string;
+                    name?: string;
+                    warehouseName?: string;
+                  }) => (
+                    <option
+                      key={warehouse.warehouseId}
+                      value={warehouse.warehouseId}
+                    >
+                      {warehouse.name || warehouse.warehouseName}
+                    </option>
+                  )
+                )}
+              </select>
+            )}
+
+            {approveError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-800">{approveError}</p>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setApproveDialogOpen(false);
+                  setPendingActionRequestId(null);
+                }}
+                disabled={actionLoading !== null}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleApproveConfirm}
+                disabled={actionLoading !== null || !selectedSourceWarehouseId}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {actionLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Approving...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    Approve
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Ship Dialog */}
       <PromptDialog
