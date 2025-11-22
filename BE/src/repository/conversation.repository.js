@@ -91,8 +91,39 @@ class ConversationRepository {
     );
   };
 
-  getConversationsByStaffId = async (staffId, status = null, transaction = null) => {
-    const whereClause = { staffId: staffId };
+  getConversationsByStaffId = async (
+    staffId,
+    status = null,
+    transaction = null
+  ) => {
+    // Get staff's service center
+    const staff = await db.User.findByPk(staffId, {
+      attributes: ["serviceCenterId"],
+      transaction: transaction,
+    });
+
+    if (!staff || !staff.serviceCenterId) {
+      return [];
+    }
+
+    const serviceCenterId = staff.serviceCenterId;
+
+    // Build where clause with OR logic:
+    // 1. Conversations assigned to this staff (ACTIVE/CLOSED)
+    // 2. UNASSIGNED conversations for this service center (via staff's service center)
+    const { Op } = db.Sequelize;
+    const whereClause = {
+      [Op.or]: [
+        // Assigned to this staff
+        { staffId: staffId },
+        // Unassigned conversations - need to check if conversation is for this service center
+        // Since conversation doesn't store serviceCenterId, we'll fetch all UNASSIGNED
+        // and staff will see them via socket notification room
+        { status: "UNASSIGNED", staffId: null },
+      ],
+    };
+
+    // If status filter is provided, apply it
     if (status) {
       whereClause.status = status;
     }
