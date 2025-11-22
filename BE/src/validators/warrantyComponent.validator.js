@@ -16,7 +16,7 @@ const categorySchema = Joi.string().valid(
   "INFOTAINMENT_ADAS" // Thông tin giải trí & Hỗ trợ lái
 );
 
-export const warrantyComponentSchema = Joi.object({
+const warrantyComponentItemSchema = Joi.object({
   typeComponentId: Joi.string().uuid(),
   name: Joi.string().max(255),
   price: Joi.number().precision(2).min(0),
@@ -27,22 +27,24 @@ export const warrantyComponentSchema = Joi.object({
   durationMonth: Joi.number().integer().min(0).required(),
   mileageLimit: Joi.number().integer().min(0).required(),
 })
-  .when("typeComponentId", {
-    is: Joi.exist(),
+  .xor("typeComponentId", "sku")
+  .when(Joi.object({ typeComponentId: Joi.string().uuid() }).unknown(), {
     then: Joi.object({
-      typeComponentId: Joi.string().uuid().required(),
       name: Joi.forbidden(),
       price: Joi.forbidden(),
-      sku: Joi.forbidden(),
       category: Joi.forbidden(),
       makeBrand: Joi.forbidden(),
     }),
-    otherwise: Joi.object({
+  })
+  .when(Joi.object({ sku: Joi.string() }).unknown(), {
+    then: Joi.object({
       name: Joi.string().max(255).required(),
       price: Joi.number().precision(2).min(0).required(),
-      sku: Joi.string().max(255).required(),
       category: categorySchema.required(),
       makeBrand: Joi.string().max(255).required(),
     }),
-  })
-  .xor("typeComponentId", "sku");
+  });
+
+export const warrantyComponentSchema = Joi.array()
+  .items(warrantyComponentItemSchema)
+  .min(1);
