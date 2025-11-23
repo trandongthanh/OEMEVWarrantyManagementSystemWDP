@@ -878,7 +878,7 @@ class StockTransferRequestService {
       await this.#caselineRepository.bulkUpdateStatusByIds(
         {
           caseLineIds: caselineIds,
-          status: "CUSTOMER_APPROVED",
+          status: "REJECTED_BY_OEM",
           rejectionReason: rejectionReason ?? null,
         },
         transaction
