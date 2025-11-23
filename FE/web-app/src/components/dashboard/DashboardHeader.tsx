@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Search, Bell, Mail, X } from "lucide-react";
+import { Search, Bell, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { NotificationPanel } from "./NotificationPanel";
@@ -115,16 +115,6 @@ export function DashboardHeader({
         {/* Right Side Actions */}
         {showNotifications && (
           <div className="flex items-center space-x-4">
-            {/* Messages */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <Mail className="w-5 h-5 text-gray-600" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full"></span>
-            </motion.button>
-
             {/* Notifications */}
             <motion.button
               whileHover={{ scale: 1.05 }}
