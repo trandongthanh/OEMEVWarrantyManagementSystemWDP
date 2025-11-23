@@ -751,14 +751,22 @@ class CaseLineService {
         caseline.status === "DRAFT" ||
         caseline.status === "REJECTED_BY_OEM"
       ) {
-        if (
-          caseline.status === "REJECTED_BY_OEM" &&
-          warrantyStatus &&
-          warrantyStatus !== caseline.warrantyStatus
-        ) {
-          throw new ConflictError(
-            "Cannot change warranty status for a caseline rejected by OEM"
-          );
+        if (caseline.status === "REJECTED_BY_OEM") {
+          if (warrantyStatus && warrantyStatus !== caseline.warrantyStatus) {
+            throw new ConflictError(
+              "Cannot change warranty status for a caseline rejected by OEM"
+            );
+          }
+
+          if (
+            typeComponentId &&
+            String(typeComponentId).toLowerCase() !==
+              String(caseline.typeComponentId).toLowerCase()
+          ) {
+            throw new ConflictError(
+              "Cannot change component type for a rejected caseline. Please create a new caseline instead."
+            );
+          }
         }
 
         const guaranteeCase =
