@@ -26,6 +26,7 @@ class InventoryService {
   #componentRepository;
   #stockReservationRepository;
   #stockTransferRequestItemRepository;
+  #typeComponentRepository;
   #db;
 
   constructor({
@@ -38,6 +39,7 @@ class InventoryService {
     componentRepository,
     stockReservationRepository,
     stockTransferRequestItemRepository,
+    typeComponentRepository,
     db,
   }) {
     this.#inventoryRepository = inventoryRepository;
@@ -50,6 +52,7 @@ class InventoryService {
     this.#stockReservationRepository = stockReservationRepository;
     this.#stockTransferRequestItemRepository =
       stockTransferRequestItemRepository;
+    this.#typeComponentRepository = typeComponentRepository;
     this.#db = db;
   }
 
@@ -222,16 +225,33 @@ class InventoryService {
         for (const sku in componentsBySku) {
           const components = componentsBySku[sku];
 
-          const stock = await this.#warehouseRepository.findStockBySku(
+          let stock = await this.#warehouseRepository.findStockBySku(
             sku,
             warehouseId,
             transaction
           );
 
           if (!stock) {
-            throw new NotFoundError(
-              `Stock item with SKU ${sku} not found in warehouse ${warehouseId}`
+            const typeComponent = await this.#typeComponentRepository.findBySku(
+              { sku },
+              transaction
             );
+
+            if (typeComponent) {
+              stock = await this.#warehouseRepository.createStock(
+                {
+                  warehouseId,
+                  typeComponentId: typeComponent.typeComponentId,
+                  quantityInStock: 0,
+                  quantityReserved: 0,
+                },
+                transaction
+              );
+            } else {
+              throw new NotFoundError(
+                `Stock item with SKU ${sku} not found in warehouse ${warehouseId}`
+              );
+            }
           }
 
           const result = await this.#performAdjustment({

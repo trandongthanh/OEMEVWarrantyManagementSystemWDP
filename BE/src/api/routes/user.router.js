@@ -110,6 +110,11 @@ router.post("/", async (req, res, next) => {
  *       - BearerAuth: []
  *     parameters:
  *       - in: query
+ *         name: roleName
+ *         schema:
+ *           type: string
+ *         description: Filter by role name (e.g., service_center_technician, service_center_staff)
+ *       - in: query
  *         name: page
  *         schema:
  *           type: integer

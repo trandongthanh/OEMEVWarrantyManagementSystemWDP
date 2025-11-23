@@ -3,9 +3,10 @@ import * as xlsx from "xlsx";
 import { NotFoundError } from "../error/index.js";
 
 class UserService {
-  constructor({ userRepository, taskAssignmentRepository }) {
+  constructor({ userRepository, taskAssignmentRepository, roleRepository }) {
     this.userRepository = userRepository;
     this.taskAssignmentRepository = taskAssignmentRepository;
+    this.roleRepository = roleRepository;
   }
 
   getAllUsers = async ({ filters, currentUser }) => {
@@ -104,12 +105,21 @@ class UserService {
     return await this.userRepository.deleteUser(userId);
   };
 
-  exportServiceCenterUsersToExcel = async ({ serviceCenterId }) => {
-    const { rows } = await this.userRepository.findAndCountAll({
+  exportServiceCenterUsersToExcel = async ({ serviceCenterId, roleName }) => {
+    const filters = {
       serviceCenterId,
       limit: 10000, // Export limit
       offset: 0,
-    });
+    };
+
+    if (roleName) {
+      const role = await this.roleRepository.findRoleByName(roleName);
+      if (role) {
+        filters.roleId = role.roleId;
+      }
+    }
+
+    const { rows } = await this.userRepository.findAndCountAll(filters);
 
     const data = rows.map((user) => {
       const u = user.toJSON ? user.toJSON() : user;

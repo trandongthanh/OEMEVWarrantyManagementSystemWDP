@@ -66,8 +66,10 @@ class UserController {
 
   exportUsers = async (req, res, next) => {
     const { serviceCenterId } = req.user;
+    const { roleName } = req.query;
     const buffer = await this.userService.exportServiceCenterUsersToExcel({
       serviceCenterId,
+      roleName,
     });
 
     res.setHeader(
