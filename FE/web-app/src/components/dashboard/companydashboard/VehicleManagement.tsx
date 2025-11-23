@@ -1108,13 +1108,17 @@ export default function VehicleManagement() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showWarrantyModal, setShowWarrantyModal] = useState(false);
   const [showAddWarrantyModal, setShowAddWarrantyModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [warrantyComponents, setWarrantyComponents] = useState<
     WarrantyComponent[]
   >([]);
   const [loadingWarranty, setLoadingWarranty] = useState(false);
   const [addWarrantyLoading, setAddWarrantyLoading] = useState(false);
+  const [editWarrantyLoading, setEditWarrantyLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [componentToDelete, setComponentToDelete] =
+    useState<WarrantyComponent | null>(null);
+  const [componentToEdit, setComponentToEdit] =
     useState<WarrantyComponent | null>(null);
   const [newWarrantyTerm, setNewWarrantyTerm] = useState({
     isNew: false,
@@ -1971,7 +1975,8 @@ export default function VehicleManagement() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                toast.info("Edit functionality coming soon");
+                                setComponentToEdit(component);
+                                setShowEditModal(true);
                               }}
                               className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
                               title="Edit"
@@ -2172,12 +2177,6 @@ export default function VehicleManagement() {
                         },
                       ];
                     }
-
-                    console.log(
-                      "Payload being sent:",
-                      JSON.stringify(payload, null, 2)
-                    );
-                    console.log("isNew:", newWarrantyTerm.isNew);
 
                     await vehicleModelService.addWarrantyComponents(
                       selectedModel.vehicleModelId,
@@ -2409,7 +2408,7 @@ export default function VehicleManagement() {
                           })
                         }
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                        placeholder="e.g., CATL"
+                        placeholder="e.g., LG Chem"
                       />
                     </div>
                   </div>
@@ -2638,6 +2637,173 @@ export default function VehicleManagement() {
                   Delete
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Warranty Modal */}
+      <AnimatePresence>
+        {showEditModal && componentToEdit && selectedModel && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[90] p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl shadow-2xl max-w-md w-full"
+            >
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                      <Edit2 className="w-5 h-5 text-blue-600" />
+                      Edit Warranty Terms
+                    </h2>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {componentToEdit.typeComponent?.name}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setComponentToEdit(null);
+                    }}
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5 text-gray-500" />
+                  </button>
+                </div>
+              </div>
+
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+
+                  const formData = new FormData(e.currentTarget);
+                  const quantity = formData.get("quantity") as string;
+                  const durationMonth = formData.get("durationMonth") as string;
+                  const mileageLimit = formData.get("mileageLimit") as string;
+
+                  if (!quantity || parseInt(quantity) <= 0) {
+                    toast.error("Valid quantity is required");
+                    return;
+                  }
+                  if (!durationMonth || parseInt(durationMonth) <= 0) {
+                    toast.error("Valid warranty duration is required");
+                    return;
+                  }
+                  if (!mileageLimit || parseInt(mileageLimit) <= 0) {
+                    toast.error("Valid mileage limit is required");
+                    return;
+                  }
+
+                  setEditWarrantyLoading(true);
+
+                  try {
+                    const componentId =
+                      componentToEdit.warrantyComponentId || componentToEdit.id;
+
+                    await warrantyComponentService.updateWarrantyComponent(
+                      componentId,
+                      {
+                        quantity: parseInt(quantity),
+                        durationMonth: parseInt(durationMonth),
+                        mileageLimit: parseInt(mileageLimit),
+                      }
+                    );
+
+                    toast.success("Warranty terms updated successfully");
+                    setShowEditModal(false);
+                    setComponentToEdit(null);
+
+                    // Reload warranty components
+                    const response =
+                      await warrantyComponentService.getWarrantyComponents({
+                        vehicleModelId: selectedModel.vehicleModelId,
+                        page: 1,
+                        limit: 100,
+                      });
+                    setWarrantyComponents(response.data.items || []);
+                  } catch (error) {
+                    console.error("Error updating warranty terms:", error);
+                    toast.error("Failed to update warranty terms");
+                  } finally {
+                    setEditWarrantyLoading(false);
+                  }
+                }}
+                className="p-6 space-y-4"
+              >
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Quantity <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="quantity"
+                      min="1"
+                      required
+                      defaultValue={componentToEdit.quantity}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Duration (months) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="durationMonth"
+                      min="1"
+                      required
+                      defaultValue={componentToEdit.durationMonth}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Mileage Limit (km) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="mileageLimit"
+                      min="1"
+                      required
+                      defaultValue={componentToEdit.mileageLimit}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setComponentToEdit(null);
+                    }}
+                    className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={editWarrantyLoading}
+                    className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {editWarrantyLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
+                        Updating...
+                      </>
+                    ) : (
+                      "Update"
+                    )}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}

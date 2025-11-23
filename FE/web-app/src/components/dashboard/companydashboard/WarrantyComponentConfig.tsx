@@ -378,19 +378,24 @@ export default function WarrantyComponentConfig() {
 
               <div className="p-6">
                 <p className="text-gray-700 mb-4">
-                  Are you sure you want to remove the warranty configuration
-                  for:
+                  Are you sure you want to remove the warranty term for:
                 </p>
                 <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-2">
                   <p className="font-semibold text-gray-900">
                     {selectedComponent.typeComponent?.name}
                   </p>
                   <p className="text-sm text-gray-600">
-                    from{" "}
-                    <span className="font-medium">
-                      {selectedComponent.vehicleModel?.vehicleModelName}
-                    </span>
+                    SKU: {selectedComponent.typeComponent?.sku}
                   </p>
+                  <div className="flex items-center gap-4 mt-2 pt-2 border-t border-gray-200">
+                    <span className="text-xs text-gray-500">
+                      Duration: {selectedComponent.durationMonth} months
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      Mileage: {selectedComponent.mileageLimit.toLocaleString()}{" "}
+                      km
+                    </span>
+                  </div>
                 </div>
               </div>
 
