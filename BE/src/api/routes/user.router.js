@@ -378,6 +378,40 @@ router.get(
   }
 );
 
+/**
+ * @swagger
+ * /users/export:
+ *   get:
+ *     summary: Export users to Excel
+ *     description: >-
+ *       Export all users (tech, staff) belonging to the current service center as an Excel file.
+ *       Only accessible by Service Center Managers.
+ *     tags: [User]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Excel file download
+ *         content:
+ *           application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.get(
+  "/export",
+  authentication,
+  authorizationByRole(["service_center_manager"]),
+  async (req, res, next) => {
+    const userController = req.container.resolve("userController");
+    await userController.exportUsers(req, res, next);
+  }
+);
+
 router.get(
   "/:id",
   authentication,

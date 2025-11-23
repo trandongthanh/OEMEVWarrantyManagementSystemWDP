@@ -63,6 +63,23 @@ class UserController {
     await this.userService.deleteUser(id);
     res.status(204).send();
   };
+
+  exportUsers = async (req, res, next) => {
+    const { serviceCenterId } = req.user;
+    const buffer = await this.userService.exportServiceCenterUsersToExcel({
+      serviceCenterId,
+    });
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="users.xlsx"'
+    );
+    res.send(buffer);
+  };
 }
 
 export default UserController;

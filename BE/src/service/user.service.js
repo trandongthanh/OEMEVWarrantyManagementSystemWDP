@@ -1,4 +1,5 @@
 import dayjs from "dayjs";
+import * as xlsx from "xlsx";
 import { NotFoundError } from "../error/index.js";
 
 class UserService {
@@ -101,6 +102,33 @@ class UserService {
       throw new NotFoundError("User not found");
     }
     return await this.userRepository.deleteUser(userId);
+  };
+
+  exportServiceCenterUsersToExcel = async ({ serviceCenterId }) => {
+    const { rows } = await this.userRepository.findAndCountAll({
+      serviceCenterId,
+      limit: 10000, // Export limit
+      offset: 0,
+    });
+
+    const data = rows.map((user) => {
+      const u = user.toJSON ? user.toJSON() : user;
+      return {
+        "User ID": u.userId,
+        Name: u.name,
+        Email: u.email,
+        Phone: u.phone,
+        Role: u.role?.roleName || "N/A",
+        "Created At": dayjs(u.createdAt).format("YYYY-MM-DD HH:mm"),
+      };
+    });
+
+    const worksheet = xlsx.utils.json_to_sheet(data);
+    const workbook = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(workbook, worksheet, "Users");
+
+    const buffer = xlsx.write(workbook, { bookType: "xlsx", type: "buffer" });
+    return buffer;
   };
 }
 
