@@ -766,7 +766,7 @@ router.patch(
 router.patch(
   "/:id/reject",
   authentication,
-  authorizationByRole(["emv_staff"]),
+  authorizationByRole(["parts_coordinator_company"]),
   attachCompanyContext,
   async (req, res, next) => {
     const stockTransferRequestController = req.container.resolve(
