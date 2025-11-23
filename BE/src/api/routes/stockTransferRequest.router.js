@@ -469,7 +469,7 @@ router.get(
 router.patch(
   "/:id/approve",
   authentication,
-  authorizationByRole(["parts_coordinator_company"]),
+  authorizationByRole(["emv_staff"]),
   attachCompanyContext,
   async (req, res, next) => {
     const stockTransferRequestController = req.container.resolve(
