@@ -35,7 +35,8 @@ export default function InventoryBulkUpload({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
-  const [adjustmentType, setAdjustmentType] = useState<"IN" | "OUT">("IN");
+  // Always use IN adjustment type - OUT is removed
+  const adjustmentType = "IN";
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState(false);
@@ -90,7 +91,6 @@ export default function InventoryBulkUpload({
     setSelectedFile(null);
     setUploadResult(null);
     setUploadSuccess(false);
-    setAdjustmentType("IN");
     setReason("");
     setNote("");
     setSelectedWarehouseId("");
@@ -244,18 +244,11 @@ export default function InventoryBulkUpload({
         // Show success animation
         setUploadSuccess(true);
 
-        // Show success toast immediately with appropriate message based on adjustment type
-        const actionText = adjustmentType === "IN" ? "imported" : "removed";
-        const actionPastTense =
-          adjustmentType === "IN" ? "Added to" : "Removed from";
-
-        toast.success(
-          `Successfully ${actionText} ${totalComponents} components across ${successCount} SKU(s)!`,
-          {
-            duration: 5000,
-            description: `${actionPastTense} inventory | Reason: ${reason.trim()}`,
-          }
-        );
+        // Show success toast for IN adjustments only
+        toast.success(`Successfully imported ${totalComponents} component(s)`, {
+          description: `${successCount} adjustment record(s) created. Components added to inventory.`,
+          duration: 5000,
+        });
 
         // Wait 3 seconds to show success state, THEN refresh parent and close
         setTimeout(() => {
@@ -295,7 +288,6 @@ export default function InventoryBulkUpload({
       setSelectedFile(null);
       setUploadResult(null);
       setUploadSuccess(false);
-      setAdjustmentType("IN");
       setReason("");
       setNote("");
       setSelectedWarehouseId("");
@@ -371,40 +363,6 @@ export default function InventoryBulkUpload({
               </div>
             </div>
 
-            {/* Important Note for OUT adjustments */}
-            {adjustmentType === "OUT" && (
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-amber-700 space-y-2">
-                  <p className="font-medium">
-                    Important: Serial Numbers for OUT Adjustments
-                  </p>
-                  <ul className="list-disc list-inside space-y-1 text-xs">
-                    <li>
-                      You must specify the <strong>exact serial numbers</strong>{" "}
-                      of components to remove
-                    </li>
-                    <li>
-                      Only components with status{" "}
-                      <strong>&quot;IN_STOCK&quot;</strong> can be removed
-                    </li>
-                    <li>
-                      To find available serial numbers:
-                      <ol className="list-decimal list-inside ml-4 mt-1 space-y-0.5">
-                        <li>Go to the inventory list</li>
-                        <li>Click on a component to view details</li>
-                        <li>View all serial numbers currently in stock</li>
-                      </ol>
-                    </li>
-                    <li>
-                      The system will validate that each serial number exists
-                      and is available
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            )}
-
             {/* Download Template Button */}
             <button
               onClick={handleDownloadTemplate}
@@ -466,50 +424,6 @@ export default function InventoryBulkUpload({
               </div>
             )}
 
-            {/* Adjustment Type Selector */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Adjustment Type <span className="text-red-500">*</span>
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setAdjustmentType("IN")}
-                  disabled={uploading}
-                  className={`px-4 py-3 rounded-xl font-medium transition-all ${
-                    adjustmentType === "IN"
-                      ? "bg-green-600 text-white shadow-lg"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  } disabled:opacity-50`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <Upload className="w-4 h-4" />
-                    Add Stock (IN)
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAdjustmentType("OUT")}
-                  disabled={uploading}
-                  className={`px-4 py-3 rounded-xl font-medium transition-all ${
-                    adjustmentType === "OUT"
-                      ? "bg-red-600 text-white shadow-lg"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  } disabled:opacity-50`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <Download className="w-4 h-4" />
-                    Remove Stock (OUT)
-                  </div>
-                </button>
-              </div>
-              <p className="text-xs text-gray-500">
-                {adjustmentType === "IN"
-                  ? "Adds components to inventory (e.g., new shipment, returns)"
-                  : "Removes components from inventory (e.g., damaged, lost, scrapped)"}
-              </p>
-            </div>
-
             {/* Reason Input */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
@@ -519,11 +433,7 @@ export default function InventoryBulkUpload({
                 type="text"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder={
-                  adjustmentType === "IN"
-                    ? "e.g., New supplier shipment, Customer return"
-                    : "e.g., Damaged goods, Lost inventory, Quality issue"
-                }
+                placeholder="e.g., New supplier shipment, Customer return"
                 disabled={uploading}
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:bg-gray-50 text-black"
               />

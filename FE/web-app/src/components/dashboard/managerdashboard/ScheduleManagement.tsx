@@ -123,7 +123,7 @@ export function ScheduleManagement() {
     try {
       setExportingUsers(true);
       // Export only technicians for schedule management
-      const blob = await userService.exportUsers("technician");
+      const blob = await userService.exportUsers("service_center_technician");
 
       // Create download link
       const url = window.URL.createObjectURL(blob);
