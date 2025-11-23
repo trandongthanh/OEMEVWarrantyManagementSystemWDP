@@ -119,6 +119,7 @@ class CaseLineRepository {
         "evidenceImageUrls",
         "updatedAt",
         "installationImageUrls",
+        "diagnosticTechId",
       ],
       include: [
         {

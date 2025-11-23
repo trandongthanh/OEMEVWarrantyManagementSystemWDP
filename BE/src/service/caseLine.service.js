@@ -947,10 +947,8 @@ class CaseLineService {
     }
 
     const techId = caseline.diagnosticTechId;
-
     if (techId) {
       const roomName = `user_${techId}`;
-
       await this.#notificationService.sendToRoom(
         roomName,
         "revisionRequested",
