@@ -25,6 +25,7 @@ import {
 import technicianService, {
   TechnicianProcessingRecord,
 } from "@/services/technicianService";
+import { CaseDetailsModal } from "./CaseDetailsModal";
 
 const statusConfig: Record<
   string,
@@ -157,6 +158,22 @@ const caselineStatusConfig: Record<
     icon: XCircle,
     description: "Rejected by manager or technician",
   },
+  REJECTED_BY_OEM: {
+    label: "Rejected by OEM",
+    color: "text-red-600",
+    bgColor: "bg-red-50",
+    borderColor: "border-red-200",
+    icon: XCircle,
+    description: "Rejected by OEM - needs revision",
+  },
+  REJECTED_BY_CUSTOMER: {
+    label: "Rejected by Customer",
+    color: "text-red-600",
+    bgColor: "bg-red-50",
+    borderColor: "border-red-200",
+    icon: XCircle,
+    description: "Customer declined this repair",
+  },
 };
 
 export function MyTasks() {
@@ -167,6 +184,15 @@ export function MyTasks() {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+
+  // Case Details Modal state
+  const [showCaseModal, setShowCaseModal] = useState(false);
+  const [selectedCaseLineId, setSelectedCaseLineId] = useState<string | null>(
+    null
+  );
+  const [selectedVin, setSelectedVin] = useState<string>("");
+  const [selectedRecordId, setSelectedRecordId] = useState<string>("");
+  const [selectedCaseId, setSelectedCaseId] = useState<string>("");
 
   useEffect(() => {
     loadTasks();
@@ -212,6 +238,28 @@ export function MyTasks() {
     }
 
     setFilteredTasks(filtered);
+  };
+
+  const handleOpenCaseLine = (
+    caseLineId: string,
+    vin: string,
+    recordId: string,
+    caseId: string
+  ) => {
+    setSelectedCaseLineId(caseLineId);
+    setSelectedVin(vin);
+    setSelectedRecordId(recordId);
+    setSelectedCaseId(caseId);
+    setShowCaseModal(true);
+  };
+
+  const handleCloseCaseModal = () => {
+    setShowCaseModal(false);
+    setSelectedCaseLineId(null);
+    setSelectedVin("");
+    setSelectedRecordId("");
+    setSelectedCaseId("");
+    loadTasks(); // Refresh tasks after closing modal
   };
 
   // Calculate stats
@@ -460,6 +508,10 @@ export function MyTasks() {
 
                                       const StatusIcon = config.icon;
                                       const count = caselines.length;
+                                      const isRejectedByOEM =
+                                        status === "REJECTED_BY_OEM";
+                                      const isClickable =
+                                        isRejectedByOEM && count === 1;
 
                                       return (
                                         <div
@@ -467,7 +519,24 @@ export function MyTasks() {
                                           className="group relative"
                                         >
                                           <div
-                                            className={`flex items-center gap-1.5 px-2.5 py-1 bg-white border ${config.borderColor} rounded ${config.color} text-xs`}
+                                            onClick={() => {
+                                              if (isClickable) {
+                                                const caseline = caselines[0];
+                                                handleOpenCaseLine(
+                                                  caseline.id,
+                                                  task.vin,
+                                                  task.vehicleProcessingRecordId,
+                                                  gc.guaranteeCaseId
+                                                );
+                                              }
+                                            }}
+                                            className={`flex items-center gap-1.5 px-2.5 py-1 bg-white border ${
+                                              config.borderColor
+                                            } rounded ${config.color} text-xs ${
+                                              isClickable
+                                                ? "cursor-pointer hover:shadow-md hover:scale-105 transition-all"
+                                                : ""
+                                            }`}
                                           >
                                             <StatusIcon
                                               className={`w-3.5 h-3.5 ${
@@ -541,6 +610,19 @@ export function MyTasks() {
           </div>
         )}
       </div>
+
+      {/* Case Details Modal for editing REJECTED_BY_OEM caselines */}
+      {showCaseModal && selectedCaseLineId && (
+        <CaseDetailsModal
+          isOpen={showCaseModal}
+          onClose={handleCloseCaseModal}
+          onSuccess={handleCloseCaseModal}
+          vin={selectedVin}
+          recordId={selectedRecordId}
+          caseId={selectedCaseId}
+          caseLineId={selectedCaseLineId}
+        />
+      )}
     </div>
   );
 }

@@ -416,6 +416,35 @@ class CaseLineService {
       throw error;
     }
   }
+
+  /**
+   * Request revision for a rejected caseline (Manager only)
+   * PATCH /case-lines/{caselineId}/request-revision
+   *
+   * Allows service center manager to request technician to revise
+   * a caseline that was rejected by OEM.
+   *
+   * @param caselineId - Case line ID
+   * @param reason - Optional reason for revision request
+   * @returns Success message
+   *
+   * @role service_center_manager
+   */
+  async requestRevision(
+    caselineId: string,
+    reason?: string
+  ): Promise<{ status: string; message: string }> {
+    try {
+      const response = await apiClient.patch(
+        `/case-lines/${caselineId}/request-revision`,
+        { reason }
+      );
+      return response.data;
+    } catch (error: unknown) {
+      console.error("Error requesting revision:", error);
+      throw error;
+    }
+  }
 }
 
 const caseLineService = new CaseLineService();

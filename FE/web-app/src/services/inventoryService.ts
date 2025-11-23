@@ -334,10 +334,9 @@ export async function getComponentsByType(
   typeComponentId: string,
   warehouseId?: string
 ): Promise<ComponentDetail[]> {
-  const response = await apiClient.get(
-    `/inventory/type-components/${typeComponentId}/components`,
-    { params: cleanParams({ warehouseId }) }
-  );
+  const response = await apiClient.get(`/inventory/components`, {
+    params: cleanParams({ typeComponentId, warehouseId }),
+  });
 
   return response.data.data.components ?? [];
 }

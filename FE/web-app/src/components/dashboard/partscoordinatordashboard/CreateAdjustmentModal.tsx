@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import inventoryService, {
   CreateAdjustmentRequest,
   StockItemFromAPI,
+  ComponentDetail,
 } from "@/services/inventoryService";
 import { toast } from "sonner";
 
@@ -29,16 +30,35 @@ export default function CreateAdjustmentModal({
 
   const [serials, setSerials] = useState<string[]>([""]);
 
+  // For OUT mode - available components to select from
+  const [availableComponents, setAvailableComponents] = useState<
+    ComponentDetail[]
+  >([]);
+  const [loadingComponents, setLoadingComponents] = useState(false);
+  const [showComponentPicker, setShowComponentPicker] = useState(false);
+
   useEffect(() => {
     if (!isOpen) return;
 
     setReason("");
     setNote("");
     setSerials([""]);
+    setAvailableComponents([]);
+    setShowComponentPicker(false);
 
     loadStockList();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
+
+  useEffect(() => {
+    // Load available components when stock changes and in OUT mode
+    if (stockId && tab === "OUT") {
+      loadAvailableComponents();
+    } else {
+      setAvailableComponents([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stockId, tab]);
 
   const loadStockList = async () => {
     try {
@@ -53,6 +73,30 @@ export default function CreateAdjustmentModal({
     }
   };
 
+  const loadAvailableComponents = async () => {
+    if (!stockId) return;
+
+    try {
+      setLoadingComponents(true);
+      const selectedStock = stockList.find((s) => s.stockId === stockId);
+      if (!selectedStock) return;
+
+      const components = await inventoryService.getComponentsByType(
+        selectedStock.typeComponent.typeComponentId,
+        warehouseId
+      );
+
+      // Filter only AVAILABLE components for removal
+      const availableOnes = components.filter((c) => c.status === "AVAILABLE");
+      setAvailableComponents(availableOnes);
+    } catch (err) {
+      console.error("Failed to load available components:", err);
+      setAvailableComponents([]);
+    } finally {
+      setLoadingComponents(false);
+    }
+  };
+
   const updateSerial = (i: number, val: string) => {
     const updated = [...serials];
     updated[i] = val;
@@ -62,6 +106,42 @@ export default function CreateAdjustmentModal({
   const removeSerial = (index: number) => {
     const updated = serials.filter((_, i) => i !== index);
     setSerials(updated.length > 0 ? updated : [""]);
+  };
+
+  const addSelectedSerial = (serial: string) => {
+    // Check if already added
+    if (serials.some((s) => s.trim() === serial)) {
+      toast.info("Serial number already added");
+      return;
+    }
+
+    // Replace first empty slot or add new
+    const emptyIndex = serials.findIndex((s) => s.trim() === "");
+    if (emptyIndex !== -1) {
+      updateSerial(emptyIndex, serial);
+    } else {
+      setSerials([...serials, serial]);
+    }
+    toast.success(`Added ${serial}`);
+  };
+
+  const quickAddAllAvailable = () => {
+    if (availableComponents.length === 0) {
+      toast.error("No available components to add");
+      return;
+    }
+
+    const newSerials = availableComponents
+      .map((c) => c.serialNumber)
+      .filter((s) => !serials.includes(s));
+
+    if (newSerials.length === 0) {
+      toast.info("All available components already added");
+      return;
+    }
+
+    setSerials(newSerials);
+    toast.success(`Added ${newSerials.length} serial numbers`);
   };
 
   const validate = () => {
@@ -254,76 +334,212 @@ export default function CreateAdjustmentModal({
           {/* IN MODE */}
           {tab === "IN" && (
             <div className="space-y-2">
-              <label className="text-sm font-medium text-black">
-                Serial Numbers *
-              </label>
-
-              {serials.map((s, i) => (
-                <div key={i} className="flex gap-2 items-center">
-                  <input
-                    className="flex-1 border border-black rounded-lg px-3 py-2 bg-white text-black placeholder-black"
-                    value={s}
-                    placeholder="Serial Number"
-                    onChange={(e) => updateSerial(i, e.target.value)}
-                  />
-
-                  {serials.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeSerial(i)}
-                      className="px-3 text-red-500 hover:text-red-700"
-                    >
-                      ✕
-                    </button>
-                  )}
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-black">
+                  Serial Numbers *
+                </label>
+                <div className="text-xs text-gray-600">
+                  {serials.filter((s) => s.trim()).length} serial(s) added
                 </div>
-              ))}
+              </div>
 
-              <button
-                type="button"
-                onClick={() => setSerials([...serials, ""])}
-                className="text-sm text-blue-600 font-medium hover:underline"
-              >
-                + Add Serial
-              </button>
+              <div className="space-y-2 max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-3 bg-gray-50">
+                {serials.map((s, i) => (
+                  <div key={i} className="flex gap-2 items-center">
+                    <div className="flex-1 relative">
+                      <input
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-8 bg-white text-black placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-mono text-sm"
+                        value={s}
+                        placeholder={`Serial #${i + 1}`}
+                        onChange={(e) => updateSerial(i, e.target.value)}
+                      />
+                      {s.trim() && (
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-green-500 text-sm">
+                          ✓
+                        </span>
+                      )}
+                    </div>
+
+                    {serials.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeSerial(i)}
+                        className="px-3 py-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Remove serial"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSerials([...serials, ""])}
+                  className="text-sm text-blue-600 font-medium hover:underline flex items-center gap-1"
+                >
+                  <span className="text-lg">+</span> Add Serial
+                </button>
+                {serials.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setSerials([""])}
+                    className="text-sm text-gray-600 font-medium hover:underline"
+                  >
+                    Clear All
+                  </button>
+                )}
+              </div>
+
+              <div className="text-xs text-gray-500 mt-2 space-y-1">
+                <p>💡 Tip: Enter unique serial numbers for each component</p>
+                <p>• Press Tab to quickly move to next field</p>
+              </div>
             </div>
           )}
 
           {/* OUT MODE */}
           {tab === "OUT" && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-black">
-                Serial Numbers * (Components to Remove)
-              </label>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-black">
+                  Serial Numbers * (Components to Remove)
+                </label>
+                <div className="text-xs text-gray-600">
+                  {serials.filter((s) => s.trim()).length} serial(s) to remove
+                </div>
+              </div>
 
-              {serials.map((s, i) => (
-                <div key={i} className="flex gap-2 items-center">
-                  <input
-                    className="flex-1 border border-black rounded-lg px-3 py-2 bg-white text-black placeholder-black"
-                    value={s}
-                    placeholder="Serial Number"
-                    onChange={(e) => updateSerial(i, e.target.value)}
-                  />
-
-                  {serials.length > 1 && (
+              {/* Available Components Section */}
+              {availableComponents.length > 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium text-blue-900">
+                      📦 Available Components ({availableComponents.length})
+                    </div>
                     <button
                       type="button"
-                      onClick={() => removeSerial(i)}
-                      className="px-3 text-red-500 hover:text-red-700"
+                      onClick={() =>
+                        setShowComponentPicker(!showComponentPicker)
+                      }
+                      className="text-xs text-blue-600 hover:text-blue-700 font-medium"
                     >
-                      ✕
+                      {showComponentPicker ? "Hide" : "Show"} List
                     </button>
+                  </div>
+
+                  {showComponentPicker && (
+                    <>
+                      <div className="max-h-48 overflow-y-auto space-y-1 bg-white rounded border border-blue-200 p-2">
+                        {availableComponents.map((comp) => (
+                          <div
+                            key={comp.componentId}
+                            className="flex items-center justify-between p-2 hover:bg-blue-50 rounded text-sm"
+                          >
+                            <span className="font-mono text-xs text-gray-700">
+                              {comp.serialNumber}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                addSelectedSerial(comp.serialNumber)
+                              }
+                              disabled={serials.includes(comp.serialNumber)}
+                              className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                            >
+                              {serials.includes(comp.serialNumber)
+                                ? "Added"
+                                : "+ Add"}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={quickAddAllAvailable}
+                        className="w-full text-sm py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                      >
+                        Add All Available ({availableComponents.length})
+                      </button>
+                    </>
                   )}
                 </div>
-              ))}
+              )}
 
-              <button
-                type="button"
-                onClick={() => setSerials([...serials, ""])}
-                className="text-sm text-red-600 font-medium hover:underline"
-              >
-                + Add Serial
-              </button>
+              {loadingComponents && (
+                <div className="text-sm text-gray-600 text-center py-2">
+                  Loading available components...
+                </div>
+              )}
+
+              {!loadingComponents &&
+                availableComponents.length === 0 &&
+                stockId && (
+                  <div className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    ⚠️ No available components found for this stock item
+                  </div>
+                )}
+
+              {/* Manual Serial Entry */}
+              <div className="space-y-2 max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-3 bg-red-50">
+                {serials.map((s, i) => (
+                  <div key={i} className="flex gap-2 items-center">
+                    <div className="flex-1 relative">
+                      <input
+                        className="w-full border border-red-300 rounded-lg px-3 py-2 pr-8 bg-white text-black placeholder-gray-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 font-mono text-sm"
+                        value={s}
+                        placeholder={`Serial #${i + 1} to remove`}
+                        onChange={(e) => updateSerial(i, e.target.value)}
+                      />
+                      {s.trim() && (
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-red-500 text-sm">
+                          ✓
+                        </span>
+                      )}
+                    </div>
+
+                    {serials.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeSerial(i)}
+                        className="px-3 py-2 text-red-500 hover:text-red-700 hover:bg-red-100 rounded-lg transition-colors"
+                        title="Remove serial"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSerials([...serials, ""])}
+                  className="text-sm text-red-600 font-medium hover:underline flex items-center gap-1"
+                >
+                  <span className="text-lg">+</span> Add Serial
+                </button>
+                {serials.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setSerials([""])}
+                    className="text-sm text-gray-600 font-medium hover:underline"
+                  >
+                    Clear All
+                  </button>
+                )}
+              </div>
+
+              <div className="text-xs text-gray-500 mt-2 space-y-1">
+                <p>
+                  ⚠️ Warning: These components will be removed from inventory
+                </p>
+                <p>• Ensure serial numbers match existing components</p>
+              </div>
             </div>
           )}
         </div>

@@ -100,6 +100,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       case "new_task_assignment_notification":
       case "task_unassigned_notification":
       case "taskAssignmentCreated":
+      case "revisionRequested":
         if (
           userRole === "service_center_technician" ||
           userRole === "service_center_manager"
@@ -110,6 +111,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       // Case/Vehicle notifications
       case "vehicleProcessingRecordStatusUpdated":
       case "new_record_notification":
+      case "caselineUpdatedByTech":
         if (
           userRole === "service_center_staff" ||
           userRole === "service_center_manager"
@@ -326,6 +328,33 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
                     } for vehicle ${taskVin}`;
                   break;
 
+                case "revisionRequested":
+                  type = "case_updated";
+                  priority = "high";
+                  title = "Revision Requested";
+                  const revisionReason = n.data?.reason as string;
+                  const revisionCaselineId = n.data?.caselineId as string;
+                  const caselineShortId = revisionCaselineId
+                    ? `#${String(revisionCaselineId).slice(0, 8)}`
+                    : "";
+                  message = revisionReason
+                    ? `Case Line ${caselineShortId}: ${revisionReason}`
+                    : `A manager has requested you revise case line ${caselineShortId}`;
+                  break;
+
+                case "caselineUpdatedByTech":
+                  type = "case_updated";
+                  priority = "medium";
+                  title = "Case Line Updated";
+                  const updatedCaselineId = n.data?.caselineId as string;
+                  const updatedStatus = n.data?.status as string;
+                  message = `Technician has updated case line #${String(
+                    updatedCaselineId || ""
+                  ).slice(0, 8)}${
+                    updatedStatus ? ` - Status: ${updatedStatus}` : ""
+                  }`;
+                  break;
+
                 case "stock_transfer_request_approved":
                   type = "stock_transfer_approved";
                   priority = "high";
@@ -520,10 +549,19 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
                   type = "case_assigned";
                   priority = "medium";
                   title = "Task Unassigned";
-                  const vprId = n.data?.vehicleProcessingRecordId as string;
-                  message = `You have been unassigned from vehicle processing record #${String(
-                    vprId
-                  ).slice(0, 8)}`;
+                  const unassignVin = n.data?.vin as string;
+                  const unassignRecordId = n.data?.recordId as string;
+                  const unassignReason = n.data?.reason as string;
+                  message =
+                    (n.data?.message as string) ||
+                    `You have been unassigned from ${
+                      unassignVin
+                        ? `vehicle ${unassignVin}`
+                        : `record #${String(unassignRecordId || "").slice(
+                            0,
+                            8
+                          )}`
+                    }${unassignReason ? `. Reason: ${unassignReason}` : ""}`;
                   break;
 
                 case "new_record_notification":
@@ -1359,6 +1397,60 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
             });
           }
         );
+
+        // Revision requested notification (for technicians when manager requests revision on REJECTED_BY_OEM)
+        socket.on("revisionRequested", (data: Record<string, unknown>) => {
+          console.log("🔄 Revision requested notification:", data);
+          const caselineId = data.caselineId as string;
+          const reason = data.reason as string;
+          const navAction = getNavigationAction("revisionRequested", userRole);
+          const caselineShortId = caselineId
+            ? `#${String(caselineId).slice(0, 8)}`
+            : "";
+
+          addNotification({
+            notificationId: `revision_${caselineId}_${Date.now()}`,
+            type: "case_updated",
+            priority: "high",
+            title: "Revision Requested",
+            message: reason
+              ? `Case Line ${caselineShortId}: ${reason}`
+              : `A manager has requested you revise case line ${caselineShortId}`,
+            timestamp: new Date().toISOString(),
+            data: {
+              ...data,
+              navigationAction: navAction,
+              navigationId: caselineId,
+            },
+          });
+        });
+
+        // Case line updated by technician notification (for managers)
+        socket.on("caselineUpdatedByTech", (data: Record<string, unknown>) => {
+          console.log("✅ Case line updated by tech notification:", data);
+          const caselineId = data.caselineId as string;
+          const status = data.status as string;
+          const navAction = getNavigationAction(
+            "caselineUpdatedByTech",
+            userRole
+          );
+
+          addNotification({
+            notificationId: `caseline_updated_${caselineId}_${Date.now()}`,
+            type: "case_updated",
+            priority: "medium",
+            title: "Case Line Updated",
+            message: `Technician has updated case line #${String(
+              caselineId || ""
+            ).slice(0, 8)}${status ? ` - Status: ${status}` : ""}`,
+            timestamp: new Date().toISOString(),
+            data: {
+              ...data,
+              navigationAction: navAction,
+              navigationId: caselineId,
+            },
+          });
+        });
 
         // New task assignment notification
         socket.on(

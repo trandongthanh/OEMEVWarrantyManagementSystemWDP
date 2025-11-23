@@ -21,6 +21,7 @@ import {
 import workScheduleService, {
   WorkSchedule,
 } from "@/services/workScheduleService";
+import userService from "@/services/userService";
 import { toast } from "sonner";
 
 export function ScheduleManagement() {
@@ -28,6 +29,7 @@ export function ScheduleManagement() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
+  const [exportingUsers, setExportingUsers] = useState(false);
   const [filters, setFilters] = useState<{
     startDate: string;
     endDate: string;
@@ -114,6 +116,32 @@ export function ScheduleManagement() {
       toast.error("Failed to download template");
     } finally {
       setDownloadingTemplate(false);
+    }
+  };
+
+  const handleExportUsers = async () => {
+    try {
+      setExportingUsers(true);
+      // Export only technicians for schedule management
+      const blob = await userService.exportUsers("technician");
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const timestamp = new Date().toISOString().split("T")[0];
+      link.download = `technicians_${timestamp}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success("Technicians exported successfully");
+    } catch (error) {
+      console.error("Error exporting users:", error);
+      toast.error("Failed to export users");
+    } finally {
+      setExportingUsers(false);
     }
   };
 
@@ -438,13 +466,33 @@ export function ScheduleManagement() {
                 Manage technician work schedules and availability
               </p>
             </div>
-            <button
-              onClick={() => setShowUploadModal(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
-            >
-              <Upload className="w-4 h-4" />
-              Upload Excel
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleExportUsers}
+                disabled={exportingUsers}
+                className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Export all technicians and staff to Excel"
+              >
+                {exportingUsers ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <FileSpreadsheet className="w-4 h-4" />
+                    Export Center Users
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+              >
+                <Upload className="w-4 h-4" />
+                Upload Excel
+              </button>
+            </div>
           </div>
         </div>
 

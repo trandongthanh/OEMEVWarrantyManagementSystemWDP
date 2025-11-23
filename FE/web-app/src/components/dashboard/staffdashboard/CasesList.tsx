@@ -98,10 +98,13 @@ export function CasesList({ onViewDetails }: CasesListProps) {
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [approvalAction, setApprovalAction] = useState<"approve" | "reject">(
-    "approve"
-  );
+  const [approvalAction, setApprovalAction] = useState<
+    "approve" | "reject" | "mixed"
+  >("approve");
   const [selectedCaseLineIds, setSelectedCaseLineIds] = useState<string[]>([]);
+  // Track approve and reject IDs separately for combined submission
+  const [approveIds, setApproveIds] = useState<string[]>([]);
+  const [rejectIds, setRejectIds] = useState<string[]>([]);
 
   // Calculate pending approvals count across all records
   const pendingApprovalsCount = records.filter((r) =>
@@ -1050,14 +1053,13 @@ export function CasesList({ onViewDetails }: CasesListProps) {
           }}
           record={selectedRecord}
           onApproveCaseLines={(ids) => {
-            setSelectedCaseLineIds(ids);
-            setApprovalAction("approve");
-            setShowApprovalModal(true);
-            setShowCaseLineModal(false);
+            // Collect approve IDs - modal will call both callbacks
+            setApproveIds(ids);
           }}
           onRejectCaseLines={(ids) => {
-            setSelectedCaseLineIds(ids);
-            setApprovalAction("reject");
+            // Collect reject IDs and open modal
+            setRejectIds(ids);
+            setApprovalAction("mixed"); // Indicate we have both
             setShowApprovalModal(true);
             setShowCaseLineModal(false);
           }}
@@ -1069,13 +1071,19 @@ export function CasesList({ onViewDetails }: CasesListProps) {
           onClose={() => {
             setShowApprovalModal(false);
             setSelectedCaseLineIds([]);
+            setApproveIds([]);
+            setRejectIds([]);
           }}
           caseLineIds={selectedCaseLineIds}
+          approveIds={approveIds}
+          rejectIds={rejectIds}
           action={approvalAction}
           pendingApprovalsCount={pendingApprovalsCount}
           onSuccess={() => {
             setShowApprovalModal(false);
             setSelectedCaseLineIds([]);
+            setApproveIds([]);
+            setRejectIds([]);
             fetchRecords(); // Refresh the list
           }}
         />

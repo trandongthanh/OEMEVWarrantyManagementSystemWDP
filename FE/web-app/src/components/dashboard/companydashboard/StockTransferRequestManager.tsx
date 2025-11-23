@@ -74,6 +74,7 @@ export default function StockTransferRequestManager() {
 
   // Get current user role
   const currentUser = authService.getUserInfo() || authService.getCurrentUser();
+  const isEMVStaff = currentUser?.roleName === "emv_staff";
   const isPartsCoordinatorCompany =
     currentUser?.roleName === "parts_coordinator_company";
 
@@ -645,25 +646,24 @@ export default function StockTransferRequestManager() {
 
               {/* Actions */}
               <div className="pt-4 border-t border-gray-200">
-                {request.status === "PENDING_APPROVAL" &&
-                  isPartsCoordinatorCompany && (
-                    <div className="flex gap-3 mb-3">
-                      <button
-                        onClick={() => openApproveModal(request.id)}
-                        className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
-                      >
-                        <CheckCircle className="w-4 h-4" />
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => openRejectModal(request.id)}
-                        className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
-                      >
-                        <XCircle className="w-4 h-4" />
-                        Reject
-                      </button>
-                    </div>
-                  )}
+                {request.status === "PENDING_APPROVAL" && isEMVStaff && (
+                  <div className="flex gap-3 mb-3">
+                    <button
+                      onClick={() => openApproveModal(request.id)}
+                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => openRejectModal(request.id)}
+                      className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <XCircle className="w-4 h-4" />
+                      Reject
+                    </button>
+                  </div>
+                )}
 
                 {request.status === "APPROVED" && isPartsCoordinatorCompany && (
                   <div className="mb-3">

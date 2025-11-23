@@ -10,8 +10,6 @@ import {
   Clock,
   AlertCircle,
   Wrench,
-  CheckSquare,
-  Square,
   Image as ImageIcon,
 } from "lucide-react";
 import type { ProcessingRecord } from "@/services/processingRecordService";
@@ -45,15 +43,15 @@ export function CaseLineDetailModal({
   onApproveCaseLines,
   onRejectCaseLines,
 }: CaseLineDetailModalProps) {
-  const [selectedCaseLines, setSelectedCaseLines] = useState<Set<string>>(
-    new Set()
-  );
   const [caseLineDetails, setCaseLineDetails] = useState<
     Map<string, CaseLineType>
   >(new Map());
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
-  // Fetch detailed case line information when modal opens
+  // Track approve/reject decisions for each caseline
+  const [caseLineDecisions, setCaseLineDecisions] = useState<
+    Map<string, "approve" | "reject">
+  >(new Map()); // Fetch detailed case line information when modal opens
   useEffect(() => {
     console.log("🔵 CaseLineDetailModal useEffect triggered", {
       isOpen,
@@ -62,6 +60,8 @@ export function CaseLineDetailModal({
 
     if (!isOpen || !record) {
       console.log("⏹️ Skipping fetch - modal closed or no record");
+      // Reset decisions when modal closes
+      setCaseLineDecisions(new Map());
       return;
     }
 
@@ -171,68 +171,54 @@ export function CaseLineDetailModal({
 
   console.log("Final allCaseLines with images:", allCaseLines);
 
+  // Get all pending caselines
+  const pendingCaseLines = allCaseLines.filter(
+    (cl) => cl.status === "PENDING_APPROVAL"
+  );
+
+  // Check if all pending caselines have decisions
+  const allPendingDecided = pendingCaseLines.every((cl) =>
+    caseLineDecisions.has(cl.id)
+  );
+
+  // Get approve and reject arrays
+  const approveIds = Array.from(caseLineDecisions.entries())
+    .filter(([, decision]) => decision === "approve")
+    .map(([id]) => id);
+
+  const rejectIds = Array.from(caseLineDecisions.entries())
+    .filter(([, decision]) => decision === "reject")
+    .map(([id]) => id);
+
   const handleApprove = (caseId: string) => {
-    if (onApproveCaseLines) {
-      onApproveCaseLines([caseId]);
-    }
+    const newDecisions = new Map(caseLineDecisions);
+    newDecisions.set(caseId, "approve");
+    setCaseLineDecisions(newDecisions);
   };
 
   const handleReject = (caseId: string) => {
-    if (onRejectCaseLines) {
-      onRejectCaseLines([caseId]);
+    const newDecisions = new Map(caseLineDecisions);
+    newDecisions.set(caseId, "reject");
+    setCaseLineDecisions(newDecisions);
+  };
+
+  const handleSubmitDecisions = () => {
+    if (!allPendingDecided) return;
+
+    // Need to include ALL pending caselines in the request
+    if (onApproveCaseLines && onRejectCaseLines) {
+      // Call a combined handler - we need to modify the parent component
+      // For now, we'll pass both arrays separately but backend expects them together
+      // This is a temporary solution - ideally parent should have a combined handler
+      onApproveCaseLines(approveIds);
+      onRejectCaseLines(rejectIds);
     }
   };
 
-  const toggleCaseLineSelection = (caseLineId: string) => {
-    const newSelected = new Set(selectedCaseLines);
-    if (newSelected.has(caseLineId)) {
-      newSelected.delete(caseLineId);
-    } else {
-      newSelected.add(caseLineId);
-    }
-    setSelectedCaseLines(newSelected);
-  };
-
-  const handleBulkApprove = () => {
-    if (selectedCaseLines.size > 0 && onApproveCaseLines) {
-      // Filter to only include PENDING_APPROVAL case lines
-      const validIds = Array.from(selectedCaseLines).filter((id) => {
-        const caseLine = allCaseLines.find((cl) => cl.id === id);
-        return caseLine?.status === "PENDING_APPROVAL";
-      });
-      if (validIds.length > 0) {
-        onApproveCaseLines(validIds);
-      }
-      setSelectedCaseLines(new Set()); // Clear selection after action
-    }
-  };
-
-  const handleBulkReject = () => {
-    if (selectedCaseLines.size > 0 && onRejectCaseLines) {
-      // Filter to only include PENDING_APPROVAL case lines
-      const validIds = Array.from(selectedCaseLines).filter((id) => {
-        const caseLine = allCaseLines.find((cl) => cl.id === id);
-        return caseLine?.status === "PENDING_APPROVAL";
-      });
-      if (validIds.length > 0) {
-        onRejectCaseLines(validIds);
-      }
-      setSelectedCaseLines(new Set()); // Clear selection after action
-    }
-  };
-
-  const selectAll = () => {
-    // Only select PENDING_APPROVAL case lines
-    const pendingIds = new Set(
-      allCaseLines
-        .filter((cl) => cl.status === "PENDING_APPROVAL")
-        .map((cl) => cl.id)
-    );
-    setSelectedCaseLines(pendingIds);
-  };
-
-  const clearSelection = () => {
-    setSelectedCaseLines(new Set());
+  const handleClearDecision = (caseId: string) => {
+    const newDecisions = new Map(caseLineDecisions);
+    newDecisions.delete(caseId);
+    setCaseLineDecisions(newDecisions);
   };
 
   const getWarrantyStatusBadge = (status: string) => {
@@ -311,7 +297,7 @@ export function CaseLineDetailModal({
       PARTS_AVAILABLE: {
         label: "Parts Available",
         className: "bg-teal-100 text-teal-800",
-        icon: CheckSquare,
+        icon: CheckCircle,
       },
       READY_FOR_REPAIR: {
         label: "Ready for Repair",
@@ -484,61 +470,6 @@ export function CaseLineDetailModal({
                     );
                   })()}
 
-                  {/* Bulk Actions - Only show when multiple pending case lines exist */}
-                  {allCaseLines.filter((cl) => cl.status === "PENDING_APPROVAL")
-                    .length > 1 && (
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <h4 className="text-sm font-medium text-gray-900">
-                            Bulk Actions
-                          </h4>
-                          <span className="text-xs text-gray-500">
-                            {selectedCaseLines.size} of{" "}
-                            {
-                              allCaseLines.filter(
-                                (cl) => cl.status === "PENDING_APPROVAL"
-                              ).length
-                            }{" "}
-                            pending selected
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={selectAll}
-                            className="text-xs px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
-                          >
-                            Select All
-                          </button>
-                          <button
-                            onClick={clearSelection}
-                            className="text-xs px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
-                          >
-                            Clear
-                          </button>
-                        </div>
-                      </div>
-                      {selectedCaseLines.size > 0 && (
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={handleBulkApprove}
-                            className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
-                          >
-                            <CheckCircle className="w-4 h-4" />
-                            Approve Selected ({selectedCaseLines.size})
-                          </button>
-                          <button
-                            onClick={handleBulkReject}
-                            className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
-                          >
-                            <XCircle className="w-4 h-4" />
-                            Reject Selected ({selectedCaseLines.size})
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
                   {/* Case Lines List */}
                   {allCaseLines.map((caseLine, index) => (
                     <motion.div
@@ -551,24 +482,6 @@ export function CaseLineDetailModal({
                       {/* Header - Always Visible */}
                       <div className="p-4 flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                          {/* Checkbox for bulk selection - only show for pending approval items when multiple exist */}
-                          {allCaseLines.filter(
-                            (cl) => cl.status === "PENDING_APPROVAL"
-                          ).length > 1 &&
-                            caseLine.status === "PENDING_APPROVAL" && (
-                              <button
-                                onClick={() =>
-                                  toggleCaseLineSelection(caseLine.id)
-                                }
-                                className="flex-shrink-0 p-1 hover:bg-gray-100 rounded transition-colors"
-                              >
-                                {selectedCaseLines.has(caseLine.id) ? (
-                                  <CheckSquare className="w-5 h-5 text-gray-900" />
-                                ) : (
-                                  <Square className="w-5 h-5 text-gray-400" />
-                                )}
-                              </button>
-                            )}
                           <div className="w-10 h-10 bg-gray-900 rounded-lg flex items-center justify-center text-white font-bold flex-shrink-0">
                             {index + 1}
                           </div>
@@ -728,20 +641,58 @@ export function CaseLineDetailModal({
                           {/* Action Buttons - Only show for PENDING_APPROVAL status */}
                           {caseLine.status === "PENDING_APPROVAL" ? (
                             <div className="flex items-center gap-3">
-                              <button
-                                onClick={() => handleReject(caseLine.id)}
-                                className="px-5 py-2.5 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 active:bg-red-800 transition-colors flex items-center gap-2 shadow-sm hover:shadow"
-                              >
-                                <XCircle className="w-4 h-4" />
-                                Reject
-                              </button>
-                              <button
-                                onClick={() => handleApprove(caseLine.id)}
-                                className="px-5 py-2.5 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 active:bg-green-800 transition-colors flex items-center gap-2 shadow-sm hover:shadow"
-                              >
-                                <CheckCircle className="w-4 h-4" />
-                                Approve
-                              </button>
+                              {caseLineDecisions.has(caseLine.id) ? (
+                                // Show decision made
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 ${
+                                      caseLineDecisions.get(caseLine.id) ===
+                                      "approve"
+                                        ? "bg-green-100 text-green-800 border-2 border-green-300"
+                                        : "bg-red-100 text-red-800 border-2 border-red-300"
+                                    }`}
+                                  >
+                                    {caseLineDecisions.get(caseLine.id) ===
+                                    "approve" ? (
+                                      <>
+                                        <CheckCircle className="w-4 h-4" />
+                                        Will Approve
+                                      </>
+                                    ) : (
+                                      <>
+                                        <XCircle className="w-4 h-4" />
+                                        Will Reject
+                                      </>
+                                    )}
+                                  </span>
+                                  <button
+                                    onClick={() =>
+                                      handleClearDecision(caseLine.id)
+                                    }
+                                    className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                                  >
+                                    Change
+                                  </button>
+                                </div>
+                              ) : (
+                                // Show approve/reject buttons
+                                <>
+                                  <button
+                                    onClick={() => handleReject(caseLine.id)}
+                                    className="px-5 py-2.5 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 active:bg-red-800 transition-colors flex items-center gap-2 shadow-sm hover:shadow"
+                                  >
+                                    <XCircle className="w-4 h-4" />
+                                    Reject
+                                  </button>
+                                  <button
+                                    onClick={() => handleApprove(caseLine.id)}
+                                    className="px-5 py-2.5 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 active:bg-green-800 transition-colors flex items-center gap-2 shadow-sm hover:shadow"
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                    Approve
+                                  </button>
+                                </>
+                              )}
                             </div>
                           ) : (
                             <div className="text-sm text-gray-500 italic">
@@ -762,19 +713,95 @@ export function CaseLineDetailModal({
 
             {/* Footer */}
             {allCaseLines.length > 0 && (
-              <div className="border-t border-gray-200 px-6 py-4 bg-gray-50 flex items-center justify-between">
-                <div className="text-sm text-gray-600">
-                  <span className="font-medium text-gray-900">
-                    {allCaseLines.length}
-                  </span>{" "}
-                  case line{allCaseLines.length !== 1 ? "s" : ""} in this claim
-                </div>
-                <button
-                  onClick={onClose}
-                  className="px-6 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
-                >
-                  Close
-                </button>
+              <div className="border-t border-gray-200 px-6 py-4 bg-gray-50">
+                {pendingCaseLines.length > 0 ? (
+                  <>
+                    {/* Decision Progress */}
+                    <div className="mb-4 p-4 bg-white border border-gray-200 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-semibold text-gray-900">
+                          Decision Progress
+                        </span>
+                        <span className="text-sm text-gray-600">
+                          {caseLineDecisions.size} / {pendingCaseLines.length}{" "}
+                          decided
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
+                        <div
+                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                          style={{
+                            width: `${
+                              (caseLineDecisions.size /
+                                pendingCaseLines.length) *
+                              100
+                            }%`,
+                          }}
+                        />
+                      </div>
+                      <div className="flex items-center gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                          <span className="text-gray-700">
+                            {approveIds.length} to approve
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <XCircle className="w-4 h-4 text-red-600" />
+                          <span className="text-gray-700">
+                            {rejectIds.length} to reject
+                          </span>
+                        </div>
+                      </div>
+                      {!allPendingDecided && (
+                        <p className="mt-2 text-xs text-amber-600 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          You must make a decision for all pending caselines
+                          before submitting
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center justify-between gap-4">
+                      <button
+                        onClick={onClose}
+                        className="px-6 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSubmitDecisions}
+                        disabled={!allPendingDecided}
+                        className={`px-8 py-2.5 rounded-lg transition-colors font-semibold flex items-center gap-2 ${
+                          allPendingDecided
+                            ? "bg-blue-600 text-white hover:bg-blue-700"
+                            : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                        }`}
+                      >
+                        <CheckCircle className="w-5 h-5" />
+                        Submit All Decisions
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  // No pending caselines - just show close button
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-gray-600">
+                      <span className="font-medium text-gray-900">
+                        {allCaseLines.length}
+                      </span>{" "}
+                      case line{allCaseLines.length !== 1 ? "s" : ""} in this
+                      claim
+                    </div>
+                    <button
+                      onClick={onClose}
+                      className="px-6 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+                    >
+                      Close
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </motion.div>

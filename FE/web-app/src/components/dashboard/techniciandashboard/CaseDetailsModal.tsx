@@ -42,7 +42,7 @@ interface CaseLineForm extends CaseLineInput {
   componentName?: string;
   isUnderWarranty?: boolean; // Track if component is under warranty
   rejectionReason?: string; // Reason for warranty ineligibility
-  status?: string; // Case line status (DRAFT, PENDING_APPROVAL, etc.)
+  status?: string; // Case line status (DRAFT, PENDING_APPROVAL, REJECTED_BY_OEM, etc.)
   evidenceImageUrls?: string[]; // Array of evidence image URLs
 }
 
@@ -109,7 +109,8 @@ export function CaseDetailsModal({
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [actualCaseId, setActualCaseId] = useState<string | undefined>(caseId);
-  const [isReadOnly, setIsReadOnly] = useState(false); // True if case lines are not in DRAFT status
+  const [isReadOnly, setIsReadOnly] = useState(false); // True if case lines are not in DRAFT or REJECTED_BY_OEM status
+  const [isRejectedByOEM, setIsRejectedByOEM] = useState(false); // True if editing REJECTED_BY_OEM (component/warranty read-only)
   const [diagnosisImages, setDiagnosisImages] = useState<
     Map<number, { file: File; preview: string }[]>
   >(new Map());
@@ -159,27 +160,39 @@ export function CaseDetailsModal({
             setActualCaseId(caseLineData.guaranteeCaseId);
           }
 
-          // Check if case line is in DRAFT status - only DRAFT can be edited
-          const isDraft =
-            caseLineData.status === "DRAFT" || !caseLineData.status;
-          setIsReadOnly(!isDraft);
+          // Check if case line is in DRAFT or REJECTED_BY_OEM status - these can be edited
+          // REJECTED_BY_OEM allows editing diagnosis/correction but NOT warranty status or component
+          const isEditable =
+            caseLineData.status === "DRAFT" ||
+            caseLineData.status === "REJECTED_BY_OEM" ||
+            !caseLineData.status;
+          const isRejected = caseLineData.status === "REJECTED_BY_OEM";
+          setIsReadOnly(!isEditable);
+          setIsRejectedByOEM(isRejected);
 
           console.log(
             "🔍 Case line status:",
             caseLineData.status,
-            "isDraft:",
-            isDraft,
+            "isEditable:",
+            isEditable,
+            "isRejectedByOEM:",
+            isRejected,
             "recordId:",
             recordId
           );
 
           // Show Complete Diagnosis button if in DRAFT status (edit mode)
-          if (isDraft && recordId) {
-            console.log("✅ Case line is in DRAFT status");
+          if (isEditable && recordId) {
+            console.log("✅ Case line is editable");
+            if (isRejected) {
+              console.log(
+                "⚠️ REJECTED_BY_OEM: Component and warranty status are read-only"
+              );
+            }
           } else {
             console.log(
-              "❌ Case line not in DRAFT - isDraft:",
-              isDraft,
+              "❌ Case line not editable - status:",
+              caseLineData.status,
               "recordId:",
               recordId
             );
@@ -1100,7 +1113,7 @@ export function CaseDetailsModal({
                 )}
 
                 {/* Read-only notice */}
-                {isReadOnly && (
+                {isReadOnly && !isRejectedByOEM && (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-3 mb-6">
                     <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                     <div>
@@ -1110,6 +1123,27 @@ export function CaseDetailsModal({
                       <p className="text-xs text-yellow-700 mt-1">
                         This case line has been submitted and is awaiting
                         approval. No further edits can be made.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* REJECTED_BY_OEM notice - special case */}
+                {isRejectedByOEM && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3 mb-6">
+                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-red-900">
+                        Revision Requested - Rejected by OEM
+                      </p>
+                      <p className="text-xs text-red-700 mt-1">
+                        This case line was rejected by OEM. You can update the
+                        diagnosis and correction text, but{" "}
+                        <strong>
+                          component and warranty status cannot be changed
+                        </strong>
+                        . After making revisions, save and resubmit for
+                        approval.
                       </p>
                     </div>
                   </div>
@@ -1222,7 +1256,17 @@ export function CaseDetailsModal({
                             {!isReadOnly && (
                               <button
                                 onClick={() => handleOpenComponentSearch(index)}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all"
+                                disabled={isRejectedByOEM}
+                                className={`px-4 py-2 rounded-xl transition-all ${
+                                  isRejectedByOEM
+                                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                                    : "bg-blue-600 text-white hover:bg-blue-700"
+                                }`}
+                                title={
+                                  isRejectedByOEM
+                                    ? "Cannot change component for REJECTED_BY_OEM caseline"
+                                    : "Search for component"
+                                }
                               >
                                 Search
                               </button>
@@ -1264,10 +1308,15 @@ export function CaseDetailsModal({
                           <div className="flex gap-4">
                             <label
                               className={`flex items-center gap-2 ${
-                                isReadOnly
+                                isReadOnly || isRejectedByOEM
                                   ? "cursor-not-allowed opacity-60"
                                   : "cursor-pointer"
                               }`}
+                              title={
+                                isRejectedByOEM
+                                  ? "Cannot change warranty status for REJECTED_BY_OEM caseline"
+                                  : ""
+                              }
                             >
                               <input
                                 type="radio"
@@ -1280,7 +1329,7 @@ export function CaseDetailsModal({
                                     "ELIGIBLE"
                                   )
                                 }
-                                disabled={isReadOnly}
+                                disabled={isReadOnly || isRejectedByOEM}
                                 className="w-4 h-4 text-green-600"
                               />
                               <CheckCircle className="w-4 h-4 text-green-600" />
@@ -1290,10 +1339,15 @@ export function CaseDetailsModal({
                             </label>
                             <label
                               className={`flex items-center gap-2 ${
-                                isReadOnly
+                                isReadOnly || isRejectedByOEM
                                   ? "cursor-not-allowed opacity-60"
                                   : "cursor-pointer"
                               }`}
+                              title={
+                                isRejectedByOEM
+                                  ? "Cannot change warranty status for REJECTED_BY_OEM caseline"
+                                  : ""
+                              }
                             >
                               <input
                                 type="radio"
@@ -1308,7 +1362,7 @@ export function CaseDetailsModal({
                                     "INELIGIBLE"
                                   )
                                 }
-                                disabled={isReadOnly}
+                                disabled={isReadOnly || isRejectedByOEM}
                                 className="w-4 h-4 text-red-600"
                               />
                               <AlertCircle className="w-4 h-4 text-red-600" />

@@ -78,6 +78,7 @@ export function RepairWorkflow() {
     ComponentWithReservation[]
   >([]);
   const [repairsToComplete, setRepairsToComplete] = useState<CaseLine[]>([]);
+  const [allCaseLines, setAllCaseLines] = useState<CaseLine[]>([]); // Store all fetched caselines
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedItem, setSelectedItem] = useState<CaseLine | null>(null);
@@ -114,36 +115,47 @@ export function RepairWorkflow() {
     useState(false);
   const [showManualEntry, setShowManualEntry] = useState(false);
 
+  // Status filters - default to show all statuses for complete history view
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([
+    "READY_FOR_REPAIR",
+    "IN_REPAIR",
+    "PARTS_PENDING",
+    "PARTS_AVAILABLE",
+    "COMPLETED",
+    "CLOSED",
+  ]);
+  const [showStatusFilter, setShowStatusFilter] = useState(false);
+
+  const availableStatuses = [
+    { value: "READY_FOR_REPAIR", label: "Ready for Repair", color: "blue" },
+    { value: "IN_REPAIR", label: "In Repair", color: "purple" },
+    { value: "PARTS_PENDING", label: "Parts Pending", color: "yellow" },
+    { value: "PARTS_AVAILABLE", label: "Parts Available", color: "green" },
+    { value: "COMPLETED", label: "Completed", color: "gray" },
+    { value: "CLOSED", label: "Closed", color: "gray" },
+  ];
+
   const loadComponentsToInstall = async () => {
     try {
       const currentUser = getCurrentUser();
+
+      // Fetch ALL caselines for the repair tech without status filter
       const response = await caseLineService.getCaseLinesList({
-        status: "IN_REPAIR",
         repairTechId: currentUser?.userId,
-        limit: 100,
+        limit: 100, // Increased limit to get more records
       });
 
-      const caseLines = response.data.caseLines || [];
-      const componentsReady = caseLines.filter((cl) => {
-        // Exclude completed repairs
-        if (cl.status === "COMPLETED" || cl.status === "CLOSED") {
-          return false;
-        }
+      const fetchedCaseLines = response.data.caseLines || [];
+      setAllCaseLines(fetchedCaseLines);
 
-        if (cl.reservations && cl.reservations.length > 0) {
-          // Only show case lines with reservations that are PICKED_UP
-          // and not yet fully installed (component status != INSTALLED)
-          return cl.reservations.some(
-            (res) =>
-              res.status === "PICKED_UP" &&
-              res.component?.status !== "INSTALLED" &&
-              res.component?.status !== "REMOVED"
-          );
-        }
-        return false;
-      });
+      // Apply frontend status filtering - show ALL caselines with selected statuses
+      const filteredByStatus = fetchedCaseLines.filter((cl: CaseLine) =>
+        selectedStatuses.includes(cl.status || "")
+      );
 
-      setComponentsToInstall(componentsReady as ComponentWithReservation[]);
+      // For install view: show all filtered items (no reservation status filtering)
+      // This allows viewing complete history of all repairs
+      setComponentsToInstall(filteredByStatus as ComponentWithReservation[]);
     } catch (error) {
       console.error("Failed to load components to install:", error);
     }
@@ -186,26 +198,13 @@ export function RepairWorkflow() {
 
   const loadRepairsToComplete = async () => {
     try {
-      const currentUser = getCurrentUser();
-      const response = await caseLineService.getCaseLinesList({
-        status: "IN_REPAIR",
-        repairTechId: currentUser?.userId,
-        limit: 100,
-      });
+      // Use already fetched caselines and apply frontend status filtering
+      const filteredByStatus = allCaseLines.filter((cl: CaseLine) =>
+        selectedStatuses.includes(cl.status || "")
+      );
 
-      const inRepairLines = response.data?.caseLines || [];
-      const readyToComplete = inRepairLines.filter((cl) => {
-        if (!cl.reservations || cl.reservations.length === 0) return false;
-        const hasInstalled = cl.reservations.some(
-          (res) => res.status === "INSTALLED"
-        );
-        const hasPickedUp = cl.reservations.some(
-          (res) => res.status === "PICKED_UP"
-        );
-        return hasInstalled && !hasPickedUp;
-      });
-
-      setRepairsToComplete(readyToComplete);
+      // Show all filtered caselines for complete view (complete history)
+      setRepairsToComplete(filteredByStatus);
     } catch (error) {
       console.error("Failed to load repairs to complete:", error);
     }
@@ -243,6 +242,20 @@ export function RepairWorkflow() {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Reload data when status filters change
+  useEffect(() => {
+    if (selectedStatuses.length > 0 && allCaseLines.length > 0) {
+      // Re-apply filtering on already loaded data
+      const filteredByStatus = allCaseLines.filter((cl: CaseLine) =>
+        selectedStatuses.includes(cl.status || "")
+      );
+
+      // Show all filtered caselines in both views (complete history)
+      setComponentsToInstall(filteredByStatus as ComponentWithReservation[]);
+      setRepairsToComplete(filteredByStatus);
+    }
+  }, [selectedStatuses, allCaseLines]);
 
   const handleInstall = async (component: ComponentWithReservation) => {
     const reservation = component.reservations?.find(
@@ -460,29 +473,59 @@ export function RepairWorkflow() {
     );
   });
 
-  const filteredInstallComponents = componentsToInstall.filter((comp) => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      comp.typeComponent?.name?.toLowerCase().includes(query) ||
-      comp.guaranteeCaseId?.toLowerCase().includes(query) ||
-      comp.guaranteeCase?.vehicleProcessingRecord?.vin
-        ?.toLowerCase()
-        .includes(query)
-    );
-  });
+  const filteredInstallComponents = componentsToInstall
+    .filter((comp) => {
+      if (!searchQuery) return true;
+      const query = searchQuery.toLowerCase();
+      return (
+        comp.typeComponent?.name?.toLowerCase().includes(query) ||
+        comp.guaranteeCaseId?.toLowerCase().includes(query) ||
+        comp.guaranteeCase?.vehicleProcessingRecord?.vin
+          ?.toLowerCase()
+          .includes(query)
+      );
+    })
+    .sort((a, b) => {
+      // Sort by status priority: IN_REPAIR > PARTS_AVAILABLE > others
+      const statusPriority: Record<string, number> = {
+        IN_REPAIR: 1,
+        PARTS_AVAILABLE: 2,
+        READY_FOR_REPAIR: 3,
+        PARTS_PENDING: 4,
+        COMPLETED: 5,
+        CLOSED: 6,
+      };
+      const priorityA = statusPriority[a.status || ""] || 999;
+      const priorityB = statusPriority[b.status || ""] || 999;
+      return priorityA - priorityB;
+    });
 
-  const filteredCompleteRepairs = repairsToComplete.filter((repair) => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      repair.typeComponent?.name?.toLowerCase().includes(query) ||
-      repair.guaranteeCaseId?.toLowerCase().includes(query) ||
-      repair.guaranteeCase?.vehicleProcessingRecord?.vin
-        ?.toLowerCase()
-        .includes(query)
-    );
-  });
+  const filteredCompleteRepairs = repairsToComplete
+    .filter((repair) => {
+      if (!searchQuery) return true;
+      const query = searchQuery.toLowerCase();
+      return (
+        repair.typeComponent?.name?.toLowerCase().includes(query) ||
+        repair.guaranteeCaseId?.toLowerCase().includes(query) ||
+        repair.guaranteeCase?.vehicleProcessingRecord?.vin
+          ?.toLowerCase()
+          .includes(query)
+      );
+    })
+    .sort((a, b) => {
+      // Sort by status priority: IN_REPAIR > PARTS_AVAILABLE > others
+      const statusPriority: Record<string, number> = {
+        IN_REPAIR: 1,
+        PARTS_AVAILABLE: 2,
+        READY_FOR_REPAIR: 3,
+        PARTS_PENDING: 4,
+        COMPLETED: 5,
+        CLOSED: 6,
+      };
+      const priorityA = statusPriority[a.status || ""] || 999;
+      const priorityB = statusPriority[b.status || ""] || 999;
+      return priorityA - priorityB;
+    });
 
   const currentList =
     activeView === "pickup"
@@ -586,12 +629,196 @@ export function RepairWorkflow() {
                 </button>
               </div>
 
+              {/* Active Status Filters Summary */}
+              {selectedStatuses.length > 0 &&
+                selectedStatuses.length < availableStatuses.length && (
+                  <div className="flex items-center gap-2 flex-wrap mb-4 pt-3 border-t border-gray-200">
+                    <span className="text-sm text-gray-600 font-medium">
+                      Showing:
+                    </span>
+                    {selectedStatuses.map((statusValue) => {
+                      const statusConfig = availableStatuses.find(
+                        (s) => s.value === statusValue
+                      );
+                      if (!statusConfig) return null;
+
+                      return (
+                        <span
+                          key={statusValue}
+                          className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            statusConfig.color === "blue"
+                              ? "bg-blue-100 text-blue-700"
+                              : statusConfig.color === "purple"
+                              ? "bg-purple-100 text-purple-700"
+                              : statusConfig.color === "yellow"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : statusConfig.color === "green"
+                              ? "bg-green-100 text-green-700"
+                              : "bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          {statusConfig.label}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+
               {/* Search Bar */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 mb-3">
                 <Filter className="w-5 h-5 text-gray-600" />
                 <h3 className="font-semibold text-gray-900">Search & Filter</h3>
               </div>
-              <div className="mt-3 relative">
+
+              {/* Status Filter */}
+              <div className="mb-3 relative">
+                <button
+                  onClick={() => setShowStatusFilter(!showStatusFilter)}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors text-gray-900 font-medium"
+                >
+                  <Filter className="w-4 h-4" />
+                  Status Filter
+                  <span className="ml-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                    {selectedStatuses.length}
+                  </span>
+                </button>
+
+                {/* Status Filter Dropdown */}
+                <AnimatePresence>
+                  {showStatusFilter && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute top-full left-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-4"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-semibold text-gray-900">
+                          Filter by Status
+                        </h4>
+                        <button
+                          onClick={() => setShowStatusFilter(false)}
+                          className="p-1 hover:bg-gray-100 rounded"
+                        >
+                          <X className="w-4 h-4 text-gray-500" />
+                        </button>
+                      </div>
+
+                      <div className="space-y-2">
+                        {availableStatuses.map((status) => {
+                          const isSelected = selectedStatuses.includes(
+                            status.value
+                          );
+                          const statusColorMap: Record<
+                            string,
+                            { bg: string; text: string; border: string }
+                          > = {
+                            blue: {
+                              bg: "bg-blue-50",
+                              text: "text-blue-700",
+                              border: "border-blue-300",
+                            },
+                            purple: {
+                              bg: "bg-purple-50",
+                              text: "text-purple-700",
+                              border: "border-purple-300",
+                            },
+                            yellow: {
+                              bg: "bg-yellow-50",
+                              text: "text-yellow-700",
+                              border: "border-yellow-300",
+                            },
+                            green: {
+                              bg: "bg-green-50",
+                              text: "text-green-700",
+                              border: "border-green-300",
+                            },
+                            gray: {
+                              bg: "bg-gray-50",
+                              text: "text-gray-700",
+                              border: "border-gray-300",
+                            },
+                          };
+                          const colors =
+                            statusColorMap[status.color] || statusColorMap.gray;
+
+                          return (
+                            <button
+                              key={status.value}
+                              onClick={() => {
+                                if (isSelected) {
+                                  // Don't allow deselecting if it's the only one
+                                  if (selectedStatuses.length > 1) {
+                                    setSelectedStatuses(
+                                      selectedStatuses.filter(
+                                        (s) => s !== status.value
+                                      )
+                                    );
+                                  }
+                                } else {
+                                  setSelectedStatuses([
+                                    ...selectedStatuses,
+                                    status.value,
+                                  ]);
+                                }
+                              }}
+                              className={`w-full flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
+                                isSelected
+                                  ? `${colors.bg} ${colors.border}`
+                                  : "bg-white border-gray-200 hover:border-gray-300"
+                              }`}
+                            >
+                              <div
+                                className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                                  isSelected
+                                    ? `${colors.border} ${colors.bg}`
+                                    : "border-gray-300"
+                                }`}
+                              >
+                                {isSelected && (
+                                  <CheckCircle
+                                    className={`w-4 h-4 ${colors.text}`}
+                                  />
+                                )}
+                              </div>
+                              <span
+                                className={`font-medium ${
+                                  isSelected ? colors.text : "text-gray-700"
+                                }`}
+                              >
+                                {status.label}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="mt-3 pt-3 border-t border-gray-200 flex gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedStatuses(
+                              availableStatuses.map((s) => s.value)
+                            );
+                          }}
+                          className="flex-1 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          Select All
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedStatuses(["IN_REPAIR"]);
+                          }}
+                          className="flex-1 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                        >
+                          Reset
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="text"
@@ -704,10 +931,32 @@ export function RepairWorkflow() {
                                 )}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
+                                <div className="flex items-center gap-2 mb-1 flex-wrap">
                                   <h3 className="font-semibold text-gray-900">
                                     {item.typeComponent?.name || "Component"}
                                   </h3>
+
+                                  {/* Status Badge */}
+                                  {item.status && (
+                                    <span
+                                      className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                        item.status === "READY_FOR_REPAIR"
+                                          ? "bg-blue-100 text-blue-700"
+                                          : item.status === "IN_REPAIR"
+                                          ? "bg-purple-100 text-purple-700"
+                                          : item.status === "PARTS_PENDING"
+                                          ? "bg-yellow-100 text-yellow-700"
+                                          : item.status === "PARTS_AVAILABLE"
+                                          ? "bg-green-100 text-green-700"
+                                          : item.status === "COMPLETED"
+                                          ? "bg-gray-100 text-gray-700"
+                                          : "bg-gray-100 text-gray-600"
+                                      }`}
+                                    >
+                                      {item.status.replace(/_/g, " ")}
+                                    </span>
+                                  )}
+
                                   {hasMultipleReservations && (
                                     <div className="flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-800 rounded text-xs font-medium">
                                       <AlertCircle className="w-3 h-3" />
@@ -730,6 +979,7 @@ export function RepairWorkflow() {
                                     </span>{" "}
                                     {item.quantity || 1}
                                   </div>
+
                                   {activeView === "pickup" &&
                                     reservedReservation && (
                                       <>
@@ -776,6 +1026,16 @@ export function RepairWorkflow() {
                                                     )}
                                                   </div>
                                                 </div>
+                                                {activeView === "pickup" && (
+                                                  <div className="col-span-2 mt-2">
+                                                    <span className="font-medium">
+                                                      VIN:
+                                                    </span>{" "}
+                                                    {item.guaranteeCase
+                                                      ?.vehicleProcessingRecord
+                                                      ?.vin || "N/A"}
+                                                  </div>
+                                                )}
                                               </div>
                                             );
                                           }
@@ -859,33 +1119,47 @@ export function RepairWorkflow() {
                                 <Warehouse className="w-4 h-4" />
                                 Pickup Required
                               </div>
-                            ) : activeView === "install" ? (
-                              <button
-                                onClick={() =>
-                                  handleInstall(
-                                    item as ComponentWithReservation
-                                  )
-                                }
-                                disabled={isProcessing}
-                                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium shadow-sm"
-                              >
-                                <Package className="w-4 h-4" />
-                                {isProcessing
-                                  ? "Installing..."
-                                  : "Install Component"}
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => handleMarkComplete(item)}
-                                disabled={isProcessing}
-                                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium shadow-sm"
-                              >
+                            ) : item.status === "IN_REPAIR" ||
+                              item.status === "PARTS_AVAILABLE" ? (
+                              // Show Install Component button for IN_REPAIR status
+                              item.status === "IN_REPAIR" ? (
+                                <button
+                                  onClick={() =>
+                                    handleInstall(
+                                      item as ComponentWithReservation
+                                    )
+                                  }
+                                  disabled={isProcessing}
+                                  className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium shadow-sm"
+                                >
+                                  <Package className="w-4 h-4" />
+                                  {isProcessing
+                                    ? "Installing..."
+                                    : "Install Component"}
+                                </button>
+                              ) : (
+                                // Show Mark Repair Complete button for PARTS_AVAILABLE status
+                                <button
+                                  onClick={() => handleMarkComplete(item)}
+                                  disabled={isProcessing}
+                                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium shadow-sm"
+                                >
+                                  <CheckCircle className="w-4 h-4" />
+                                  {isProcessing
+                                    ? "Completing..."
+                                    : "Mark Repair Complete"}
+                                </button>
+                              )
+                            ) : // For COMPLETED, CLOSED, READY_FOR_REPAIR, PARTS_PENDING - no action buttons
+                            item.status === "COMPLETED" ||
+                              item.status === "CLOSED" ? (
+                              <div className="px-6 py-2 bg-gray-100 text-gray-600 rounded-lg flex items-center gap-2 font-medium border border-gray-300">
                                 <CheckCircle className="w-4 h-4" />
-                                {isProcessing
-                                  ? "Completing..."
-                                  : "Mark Repair Complete"}
-                              </button>
-                            )}
+                                {item.status === "COMPLETED"
+                                  ? "Completed"
+                                  : "Closed"}
+                              </div>
+                            ) : null}
                           </div>
                         </div>
                       </div>
@@ -1221,34 +1495,31 @@ export function RepairWorkflow() {
                 >
                   Close
                 </button>
-                {activeView !== "pickup" && (
+                {/* Only show action buttons for appropriate statuses */}
+                {selectedItem.status === "IN_REPAIR" && (
                   <button
                     onClick={() => {
-                      if (activeView === "install") {
-                        handleInstall(selectedItem as ComponentWithReservation);
-                      } else {
-                        handleMarkComplete(selectedItem);
-                      }
+                      handleInstall(selectedItem as ComponentWithReservation);
                       setShowDetailModal(false);
                     }}
                     disabled={processingItem !== null}
-                    className={`px-6 py-2 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium shadow-sm ${
-                      activeView === "install"
-                        ? "bg-purple-600 hover:bg-purple-700"
-                        : "bg-green-600 hover:bg-green-700"
-                    }`}
+                    className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium shadow-sm"
                   >
-                    {activeView === "install" ? (
-                      <>
-                        <Package className="w-4 h-4" />
-                        Install Component
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="w-4 h-4" />
-                        Mark Complete
-                      </>
-                    )}
+                    <Package className="w-4 h-4" />
+                    Install Component
+                  </button>
+                )}
+                {selectedItem.status === "PARTS_AVAILABLE" && (
+                  <button
+                    onClick={() => {
+                      handleMarkComplete(selectedItem);
+                      setShowDetailModal(false);
+                    }}
+                    disabled={processingItem !== null}
+                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium shadow-sm"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Mark Complete
                   </button>
                 )}
               </div>

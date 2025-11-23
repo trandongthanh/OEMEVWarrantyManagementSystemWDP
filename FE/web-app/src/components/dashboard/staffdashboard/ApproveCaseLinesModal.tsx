@@ -15,8 +15,10 @@ import caseLineService from "@/services/caseLineService";
 interface ApproveCaseLinesModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseLineIds: string[];
-  action: "approve" | "reject";
+  caseLineIds?: string[]; // Legacy: single action IDs
+  approveIds?: string[]; // Combined: approve IDs
+  rejectIds?: string[]; // Combined: reject IDs
+  action: "approve" | "reject" | "mixed";
   onSuccess?: () => void;
   pendingApprovalsCount?: number; // Number of remaining pending approvals
 }
@@ -24,7 +26,9 @@ interface ApproveCaseLinesModalProps {
 export function ApproveCaseLinesModal({
   isOpen,
   onClose,
-  caseLineIds,
+  caseLineIds = [],
+  approveIds = [],
+  rejectIds = [],
   action,
   onSuccess,
   pendingApprovalsCount = 0,
@@ -44,12 +48,18 @@ export function ApproveCaseLinesModal({
   }, [isOpen]);
 
   const handleSubmit = async () => {
-    if (!caseLineIds || caseLineIds.length === 0) {
+    // Determine which IDs to use
+    const finalApproveIds =
+      action === "mixed" ? approveIds : action === "approve" ? caseLineIds : [];
+    const finalRejectIds =
+      action === "mixed" ? rejectIds : action === "reject" ? caseLineIds : [];
+
+    if (finalApproveIds.length === 0 && finalRejectIds.length === 0) {
       setError("No case lines selected");
       return;
     }
 
-    if (action === "reject" && !reason.trim()) {
+    if (action === "reject" && !reason.trim() && finalRejectIds.length > 0) {
       setError("Please provide a reason for rejection");
       return;
     }
@@ -59,10 +69,8 @@ export function ApproveCaseLinesModal({
 
     try {
       const payload = {
-        approvedCaseLineIds:
-          action === "approve" ? caseLineIds.map((id) => ({ id })) : [],
-        rejectedCaseLineIds:
-          action === "reject" ? caseLineIds.map((id) => ({ id })) : [],
+        approvedCaseLineIds: finalApproveIds.map((id) => ({ id })),
+        rejectedCaseLineIds: finalRejectIds.map((id) => ({ id })),
       };
 
       await caseLineService.approveCaseLines(payload);
@@ -89,6 +97,11 @@ export function ApproveCaseLinesModal({
   };
 
   const isApprove = action === "approve";
+  const isMixed = action === "mixed";
+  const finalApproveIds =
+    action === "mixed" ? approveIds : action === "approve" ? caseLineIds : [];
+  const finalRejectIds =
+    action === "mixed" ? rejectIds : action === "reject" ? caseLineIds : [];
 
   return (
     <AnimatePresence>
@@ -110,18 +123,29 @@ export function ApproveCaseLinesModal({
             {/* Header */}
             <div
               className={`px-6 py-4 rounded-t-2xl ${
-                isApprove ? "bg-green-600" : "bg-red-600"
+                isMixed
+                  ? "bg-blue-600"
+                  : isApprove
+                  ? "bg-green-600"
+                  : "bg-red-600"
               }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3 text-white">
-                  {isApprove ? (
+                  {isMixed ? (
+                    <FileCheck className="w-6 h-6" />
+                  ) : isApprove ? (
                     <CheckCircle className="w-6 h-6" />
                   ) : (
                     <XCircle className="w-6 h-6" />
                   )}
                   <h3 className="text-xl font-bold">
-                    {isApprove ? "Approve" : "Reject"} Case Lines
+                    {isMixed
+                      ? "Submit Decisions"
+                      : isApprove
+                      ? "Approve"
+                      : "Reject"}{" "}
+                    Case Lines
                   </h3>
                 </div>
                 <button
@@ -142,13 +166,42 @@ export function ApproveCaseLinesModal({
                     <CheckCircle className="w-8 h-8 text-green-600" />
                   </div>
                   <h4 className="text-xl font-bold text-gray-900 mb-2">
-                    {isApprove ? "Approved!" : "Rejected"}
+                    {isMixed
+                      ? "Decisions Submitted!"
+                      : isApprove
+                      ? "Approved!"
+                      : "Rejected"}
                   </h4>
-                  <p className="text-gray-600 mb-1">
-                    {caseLineIds.length} case line
-                    {caseLineIds.length !== 1 ? "s" : ""}{" "}
-                    {isApprove ? "approved" : "rejected"} successfully
-                  </p>
+                  {isMixed ? (
+                    <div className="space-y-2 mb-4">
+                      {finalApproveIds.length > 0 && (
+                        <p className="text-gray-600">
+                          <span className="font-semibold text-green-600">
+                            {finalApproveIds.length}
+                          </span>{" "}
+                          case line
+                          {finalApproveIds.length !== 1 ? "s" : ""} approved
+                          successfully
+                        </p>
+                      )}
+                      {finalRejectIds.length > 0 && (
+                        <p className="text-gray-600">
+                          <span className="font-semibold text-red-600">
+                            {finalRejectIds.length}
+                          </span>{" "}
+                          case line
+                          {finalRejectIds.length !== 1 ? "s" : ""} rejected
+                          successfully
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-gray-600 mb-1">
+                      {caseLineIds.length} case line
+                      {caseLineIds.length !== 1 ? "s" : ""}{" "}
+                      {isApprove ? "approved" : "rejected"} successfully
+                    </p>
+                  )}
                   {pendingApprovalsCount > 0 && (
                     <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-sm text-blue-800 flex items-center justify-center gap-2">
@@ -167,61 +220,140 @@ export function ApproveCaseLinesModal({
               {step === "confirm" && (
                 <>
                   {/* Case Line IDs */}
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gray-900 mb-2">
-                      Case Line IDs to {isApprove ? "Approve" : "Reject"}:
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                      {caseLineIds && caseLineIds.length > 0 ? (
-                        caseLineIds.map((id) => (
-                          <span
-                            key={id || Math.random()}
-                            className="inline-flex items-center px-2.5 py-1 bg-white border border-gray-300 text-gray-700 text-xs font-mono rounded-md"
-                          >
-                            {id && typeof id === "string" && id.length > 12
-                              ? `${id.substring(0, 12)}...`
-                              : id || "N/A"}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-sm text-gray-500">
-                          No case lines selected
-                        </span>
+                  {isMixed ? (
+                    <div className="space-y-3">
+                      {/* Approve Section */}
+                      {finalApproveIds.length > 0 && (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                          <h4 className="text-sm font-semibold text-green-900 mb-2 flex items-center gap-2">
+                            <CheckCircle className="w-4 h-4" />
+                            To Approve ({finalApproveIds.length})
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {finalApproveIds.map((id) => (
+                              <span
+                                key={id}
+                                className="inline-flex items-center px-2.5 py-1 bg-white border border-green-300 text-gray-700 text-xs font-mono rounded-md"
+                              >
+                                {id.length > 12
+                                  ? `${id.substring(0, 12)}...`
+                                  : id}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Reject Section */}
+                      {finalRejectIds.length > 0 && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                          <h4 className="text-sm font-semibold text-red-900 mb-2 flex items-center gap-2">
+                            <XCircle className="w-4 h-4" />
+                            To Reject ({finalRejectIds.length})
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {finalRejectIds.map((id) => (
+                              <span
+                                key={id}
+                                className="inline-flex items-center px-2.5 py-1 bg-white border border-red-300 text-gray-700 text-xs font-mono rounded-md"
+                              >
+                                {id.length > 12
+                                  ? `${id.substring(0, 12)}...`
+                                  : id}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
-                  </div>
+                  ) : (
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <h4 className="text-sm font-medium text-gray-900 mb-2">
+                        Case Line IDs to {isApprove ? "Approve" : "Reject"}:
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {caseLineIds && caseLineIds.length > 0 ? (
+                          caseLineIds.map((id) => (
+                            <span
+                              key={id || Math.random()}
+                              className="inline-flex items-center px-2.5 py-1 bg-white border border-gray-300 text-gray-700 text-xs font-mono rounded-md"
+                            >
+                              {id && typeof id === "string" && id.length > 12
+                                ? `${id.substring(0, 12)}...`
+                                : id || "N/A"}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-sm text-gray-500">
+                            No case lines selected
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Info Message */}
                   <div
                     className={`flex gap-3 p-4 rounded-lg border ${
-                      isApprove
+                      isMixed
+                        ? "bg-blue-50 border-blue-200"
+                        : isApprove
                         ? "bg-green-50 border-green-200"
                         : "bg-red-50 border-red-200"
                     }`}
                   >
                     <AlertTriangle
                       className={`w-5 h-5 flex-shrink-0 ${
-                        isApprove ? "text-green-600" : "text-red-600"
+                        isMixed
+                          ? "text-blue-600"
+                          : isApprove
+                          ? "text-green-600"
+                          : "text-red-600"
                       }`}
                     />
                     <div className="flex-1">
                       <p
                         className={`text-sm font-medium ${
-                          isApprove ? "text-green-900" : "text-red-900"
+                          isMixed
+                            ? "text-blue-900"
+                            : isApprove
+                            ? "text-green-900"
+                            : "text-red-900"
                         } mb-1`}
                       >
-                        {isApprove ? "Confirm Approval" : "Confirm Rejection"}
+                        {isMixed
+                          ? "Confirm Your Decisions"
+                          : isApprove
+                          ? "Confirm Approval"
+                          : "Confirm Rejection"}
                       </p>
                       <p
                         className={`text-sm ${
-                          isApprove ? "text-green-700" : "text-red-700"
+                          isMixed
+                            ? "text-blue-700"
+                            : isApprove
+                            ? "text-green-700"
+                            : "text-red-700"
                         }`}
                       >
-                        You are about to {isApprove ? "approve" : "reject"}{" "}
-                        {(caseLineIds?.length || 0) === 1
-                          ? "this case line"
-                          : `${caseLineIds?.length || 0} case lines`}
-                        . This action will notify the technician and customer.
+                        {isMixed ? (
+                          <>
+                            You are about to approve{" "}
+                            <strong>{finalApproveIds.length}</strong> and reject{" "}
+                            <strong>{finalRejectIds.length}</strong> case
+                            line(s). This action will notify the technician and
+                            customer.
+                          </>
+                        ) : (
+                          <>
+                            You are about to {isApprove ? "approve" : "reject"}{" "}
+                            {(caseLineIds?.length || 0) === 1
+                              ? "this case line"
+                              : `${caseLineIds?.length || 0} case lines`}
+                            . This action will notify the technician and
+                            customer.
+                          </>
+                        )}
                       </p>
                     </div>
                   </div>

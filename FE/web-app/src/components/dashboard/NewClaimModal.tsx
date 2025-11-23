@@ -127,19 +127,64 @@ export function NewClaimModal({
 
       // API returns {status, data: {vehicle: {...}}}
       if (response.data?.vehicle) {
-        setVehicleData(response.data.vehicle);
+        const vehicle = response.data.vehicle as any;
+
+        // Fetch service history to get last odometer reading and check for active records
+        try {
+          const historyResponse = await vehicleService.getVehicleHistory(
+            vehicle.vin
+          );
+          const serviceHistory = historyResponse.data.serviceHistory || [];
+
+          // Check for active service record (any status except COMPLETED or CANCELLED)
+          const activeRecord = serviceHistory.find(
+            (record) =>
+              !record.checkOutDate &&
+              record.status !== "COMPLETED" &&
+              record.status !== "CANCELLED"
+          );
+
+          if (activeRecord) {
+            setError(
+              `This vehicle already has an active service record (Status: ${
+                activeRecord.status
+              }, Check-in: ${new Date(
+                activeRecord.checkInDate
+              ).toLocaleString()}). Please complete or close the existing record before creating a new claim.`
+            );
+            return;
+          }
+
+          // Find the most recent odometer reading
+          if (serviceHistory.length > 0) {
+            const sortedHistory = [...serviceHistory].sort(
+              (a, b) =>
+                new Date(b.checkInDate).getTime() -
+                new Date(a.checkInDate).getTime()
+            );
+            const lastOdometer = sortedHistory[0]?.odometer;
+
+            // Add lastOdometer to vehicle data
+            vehicle.lastOdometer = lastOdometer;
+          }
+        } catch (error) {
+          console.warn("Could not fetch service history:", error);
+          // Continue without last odometer if history fetch fails
+        }
+
+        setVehicleData(vehicle);
 
         // Check if vehicle has no owner
-        if (!response.data.vehicle.owner) {
+        if (!vehicle.owner) {
           setNoOwnerWarning(true);
         } else {
           setNoOwnerWarning(false);
 
           // Fetch customer info if owner email exists
-          if (response.data.vehicle.owner.email) {
+          if (vehicle.owner.email) {
             try {
               const customer = await customerService.searchCustomer({
-                email: response.data.vehicle.owner.email,
+                email: vehicle.owner.email,
               });
               setCustomerData(customer);
             } catch (error) {
@@ -171,6 +216,19 @@ export function NewClaimModal({
 
     if (!odometer || parseInt(odometer) < 0) {
       setError("Please enter a valid odometer reading");
+      return;
+    }
+
+    // Validate odometer is higher than previous record
+    if (
+      vehicleData.lastOdometer &&
+      parseInt(odometer) <= vehicleData.lastOdometer
+    ) {
+      setError(
+        `Current odometer (${parseInt(
+          odometer
+        ).toLocaleString()} km) must be higher than the previous record (${vehicleData.lastOdometer.toLocaleString()} km)`
+      );
       return;
     }
 
@@ -239,6 +297,19 @@ export function NewClaimModal({
   const handlePreviewWarranty = async () => {
     if (!odometer || parseInt(odometer) < 0) {
       setError("Please enter a valid odometer reading");
+      return;
+    }
+
+    // Validate odometer is higher than previous record
+    if (
+      vehicleData.lastOdometer &&
+      parseInt(odometer) <= vehicleData.lastOdometer
+    ) {
+      setError(
+        `Current odometer (${parseInt(
+          odometer
+        ).toLocaleString()} km) must be higher than the previous record (${vehicleData.lastOdometer.toLocaleString()} km)`
+      );
       return;
     }
 
@@ -652,6 +723,12 @@ export function NewClaimModal({
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Current Odometer Reading (km) *
+                        {vehicleData.lastOdometer && (
+                          <span className="ml-2 text-xs text-gray-500 font-normal">
+                            (Previous:{" "}
+                            {vehicleData.lastOdometer.toLocaleString()} km)
+                          </span>
+                        )}
                       </label>
                       <div className="relative">
                         <Gauge className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -659,14 +736,52 @@ export function NewClaimModal({
                           type="number"
                           value={odometer}
                           onChange={(e) => {
-                            setOdometer(e.target.value);
-                            if (error) setError("");
+                            const value = e.target.value;
+                            setOdometer(value);
+
+                            // Real-time validation
+                            if (
+                              value &&
+                              vehicleData.lastOdometer &&
+                              parseInt(value) <= vehicleData.lastOdometer
+                            ) {
+                              setError(
+                                `Current odometer (${parseInt(
+                                  value
+                                ).toLocaleString()} km) must be higher than the previous record (${vehicleData.lastOdometer.toLocaleString()} km)`
+                              );
+                            } else {
+                              setError("");
+                            }
                           }}
-                          placeholder="e.g., 52340"
-                          min="0"
-                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-colors"
+                          placeholder={
+                            vehicleData.lastOdometer
+                              ? `Must be > ${vehicleData.lastOdometer.toLocaleString()} km`
+                              : "e.g., 52340"
+                          }
+                          min={
+                            vehicleData.lastOdometer
+                              ? vehicleData.lastOdometer + 1
+                              : 0
+                          }
+                          className={`w-full pl-10 pr-4 py-3 border rounded-xl bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-colors ${
+                            error &&
+                            odometer &&
+                            vehicleData.lastOdometer &&
+                            parseInt(odometer) <= vehicleData.lastOdometer
+                              ? "border-red-300 focus:ring-red-500"
+                              : "border-gray-300 focus:ring-gray-900"
+                          }`}
                         />
                       </div>
+                      {odometer &&
+                        vehicleData.lastOdometer &&
+                        parseInt(odometer) <= vehicleData.lastOdometer && (
+                          <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                            <AlertCircle className="w-4 h-4" />
+                            Must be higher than previous reading
+                          </p>
+                        )}
                     </div>
 
                     {/* Purchase Date Input - Show only when previewing warranty for unregistered vehicle */}
@@ -1326,6 +1441,11 @@ export function NewClaimModal({
                       (step === "verify" &&
                         noOwnerWarning &&
                         (!odometer || !previewPurchaseDate)) ||
+                      (step === "verify" &&
+                        !noOwnerWarning &&
+                        (!odometer ||
+                          (vehicleData.lastOdometer &&
+                            parseInt(odometer) <= vehicleData.lastOdometer))) ||
                       (step === "otp" && otpSent && otp.length !== 6)
                     }
                     className="px-6 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"

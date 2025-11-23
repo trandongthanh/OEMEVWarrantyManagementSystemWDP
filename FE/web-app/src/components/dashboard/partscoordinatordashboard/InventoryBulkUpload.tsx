@@ -22,6 +22,7 @@ interface InventoryBulkUploadProps {
   onClose: () => void;
   onSuccess?: () => void;
   warehouseId?: string; // Optional now - if not provided, show warehouse selector
+  userRole?: string; // To determine warehouse filtering logic
 }
 
 export default function InventoryBulkUpload({
@@ -29,6 +30,7 @@ export default function InventoryBulkUpload({
   onClose,
   onSuccess,
   warehouseId: providedWarehouseId,
+  userRole,
 }: InventoryBulkUploadProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -54,6 +56,31 @@ export default function InventoryBulkUpload({
   // Determine the actual warehouse ID to use
   const warehouseId = providedWarehouseId || selectedWarehouseId;
 
+  // Function to load and filter warehouses
+  const loadWarehouses = async () => {
+    try {
+      setLoadingWarehouses(true);
+      const response = await warehouseService.getWarehouses();
+      let filteredWarehouses = response.warehouses || [];
+
+      // Filter warehouses based on user role
+      // Company users: only show central warehouses (kho trung tam - serviceCenterId === null)
+      // Parts coordinator: their warehouse is provided via warehouseId prop, no filtering needed here
+      if (userRole && userRole.includes("company")) {
+        filteredWarehouses = filteredWarehouses.filter(
+          (warehouse) => warehouse.serviceCenterId === null
+        );
+      }
+
+      setWarehouses(filteredWarehouses);
+    } catch (error) {
+      console.error("Error loading warehouses:", error);
+      toast.error("Failed to load warehouses");
+    } finally {
+      setLoadingWarehouses(false);
+    }
+  };
+
   // Load warehouses if no warehouseId is provided (company coordinator case)
   // Reset data + load warehouses (nếu cần) mỗi khi mở modal
   useEffect(() => {
@@ -77,20 +104,8 @@ export default function InventoryBulkUpload({
     if (!providedWarehouseId) {
       loadWarehouses();
     }
-  }, [isOpen, providedWarehouseId]);
-
-  const loadWarehouses = async () => {
-    try {
-      setLoadingWarehouses(true);
-      const response = await warehouseService.getWarehouses();
-      setWarehouses(response.warehouses || []);
-    } catch (error) {
-      console.error("Error loading warehouses:", error);
-      toast.error("Failed to load warehouses");
-    } finally {
-      setLoadingWarehouses(false);
-    }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, providedWarehouseId, userRole]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -231,8 +246,9 @@ export default function InventoryBulkUpload({
 
         // Show success toast immediately with appropriate message based on adjustment type
         const actionText = adjustmentType === "IN" ? "imported" : "removed";
-        const actionPastTense = adjustmentType === "IN" ? "Added to" : "Removed from";
-        
+        const actionPastTense =
+          adjustmentType === "IN" ? "Added to" : "Removed from";
+
         toast.success(
           `Successfully ${actionText} ${totalComponents} components across ${successCount} SKU(s)!`,
           {
@@ -637,7 +653,8 @@ export default function InventoryBulkUpload({
                       transition={{ delay: 0.4 }}
                       className="text-xl font-semibold text-gray-900 mb-2"
                     >
-                      {adjustmentType === "IN" ? "Import" : "Removal"} Successful!
+                      {adjustmentType === "IN" ? "Import" : "Removal"}{" "}
+                      Successful!
                     </motion.h3>
                     <motion.p
                       initial={{ opacity: 0 }}
@@ -645,7 +662,8 @@ export default function InventoryBulkUpload({
                       transition={{ delay: 0.5 }}
                       className="text-sm text-gray-600 mb-4"
                     >
-                      {uploadResult.successCount} SKU(s) {adjustmentType === "IN" ? "imported" : "removed"} (
+                      {uploadResult.successCount} SKU(s){" "}
+                      {adjustmentType === "IN" ? "imported" : "removed"} (
                       {uploadResult.totalComponents} components)
                     </motion.p>
                     <motion.button

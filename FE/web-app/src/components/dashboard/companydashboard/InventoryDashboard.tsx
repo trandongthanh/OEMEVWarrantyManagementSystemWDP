@@ -217,6 +217,7 @@ export default function InventoryDashboard() {
           setShowBulkUpload(false);
           fetchData(); // Refresh inventory summary
         }}
+        userRole="parts_coordinator_company"
       />
     </div>
   );

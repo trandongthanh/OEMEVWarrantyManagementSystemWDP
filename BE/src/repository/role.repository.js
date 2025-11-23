@@ -29,6 +29,16 @@ class RoleRepository {
     });
     return roles.map((role) => role.toJSON());
   }
+
+  async findRoleByName(roleName) {
+    const role = await Role.findOne({
+      where: {
+        roleName,
+      },
+      attributes: ["roleId", "roleName"],
+    });
+    return role ? role.toJSON() : null;
+  }
 }
 
 export default RoleRepository;

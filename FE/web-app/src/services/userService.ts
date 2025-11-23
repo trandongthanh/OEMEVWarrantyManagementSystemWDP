@@ -127,12 +127,32 @@ export const getUsers = async (params?: {
 };
 
 /**
+ * Export users to Excel (Manager only)
+ * @param roleName - Optional role name to filter users (e.g., 'technician')
+ * @returns Excel file blob
+ */
+export const exportUsers = async (roleName?: string): Promise<Blob> => {
+  try {
+    const params = roleName ? { roleName } : {};
+    const response = await apiClient.get<Blob>("/users/export", {
+      params,
+      responseType: "blob",
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error exporting users:", error);
+    throw error;
+  }
+};
+
+/**
  * User service object
  */
 export const userService = {
   createUser,
   getTechnicians,
   getUsers,
+  exportUsers,
 };
 
 export default userService;

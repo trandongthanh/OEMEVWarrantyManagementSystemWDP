@@ -122,6 +122,8 @@ export default function PartsCoordinatorDashboard() {
                 setShowBulkUpload(false);
                 setRefreshKey((prev) => prev + 1); // Refresh adjustments list
               }}
+              warehouseId={warehouseId}
+              userRole="parts_coordinator_service_center"
             />
           </>
         );

@@ -19,11 +19,13 @@ import {
   PackageCheck,
   Wrench,
   FilePenLine,
+  RotateCcw,
 } from "lucide-react";
 import caseLineService, {
   CaseLine,
   GetCaseLinesListParams,
 } from "@/services/caseLineService";
+import { toast } from "sonner";
 
 // Status config
 const statusConfig: Record<
@@ -108,6 +110,14 @@ export function AllCaseLinesList() {
     sortBy: "createdAt",
     sortOrder: "DESC",
   });
+  const [requestingRevision, setRequestingRevision] = useState<string | null>(
+    null
+  );
+  const [showRevisionModal, setShowRevisionModal] = useState(false);
+  const [selectedCaseLineForRevision, setSelectedCaseLineForRevision] =
+    useState<CaseLine | null>(null);
+  const [revisionReason, setRevisionReason] = useState("");
+
   useEffect(() => {
     fetchCaseLines();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -153,6 +163,61 @@ export function AllCaseLinesList() {
       sortOrder: "DESC",
     });
     setCurrentPage(1);
+  };
+
+  const handleRequestRevision = (caseLine: CaseLine) => {
+    setSelectedCaseLineForRevision(caseLine);
+    setRevisionReason("");
+    setShowRevisionModal(true);
+  };
+
+  const handleSubmitRevision = async () => {
+    if (!selectedCaseLineForRevision?.id) return;
+    if (!revisionReason.trim()) {
+      toast.error("Please provide revision instructions");
+      return;
+    }
+
+    setRequestingRevision(selectedCaseLineForRevision.id);
+    try {
+      await caseLineService.requestRevision(
+        selectedCaseLineForRevision.id,
+        revisionReason.trim()
+      );
+
+      // Show success toast
+      toast.success("Revision request sent to technician successfully", {
+        duration: 4000,
+        description: `Technician will be notified to revise case line #${selectedCaseLineForRevision.id.slice(
+          0,
+          8
+        )}`,
+      });
+
+      // Wait a bit before closing modal so user sees the success state
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Close modal and reset
+      setShowRevisionModal(false);
+      setSelectedCaseLineForRevision(null);
+      setRevisionReason("");
+
+      // Refresh the list to show updated status
+      fetchCaseLines();
+    } catch (error: unknown) {
+      console.error("Error requesting revision:", error);
+      const axiosError = error as {
+        response?: { data?: { message?: string } };
+      };
+      const errorMessage =
+        axiosError?.response?.data?.message ||
+        "Failed to request revision. Please try again.";
+      toast.error(errorMessage, {
+        duration: 5000,
+      });
+    } finally {
+      setRequestingRevision(null);
+    }
   };
 
   return (
@@ -373,6 +438,31 @@ export function AllCaseLinesList() {
                                     <p className="text-sm text-red-700">
                                       {caseLine.rejectionReason}
                                     </p>
+
+                                    {/* Request Revision Button - Only for REJECTED_BY_OEM */}
+                                    {caseLine.status === "REJECTED_BY_OEM" && (
+                                      <button
+                                        onClick={() =>
+                                          handleRequestRevision(caseLine)
+                                        }
+                                        disabled={
+                                          requestingRevision === caseLine.id
+                                        }
+                                        className="mt-3 flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                      >
+                                        {requestingRevision === caseLine.id ? (
+                                          <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Requesting...
+                                          </>
+                                        ) : (
+                                          <>
+                                            <RotateCcw className="w-4 h-4" />
+                                            Request Revision
+                                          </>
+                                        )}
+                                      </button>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -521,6 +611,123 @@ export function AllCaseLinesList() {
           </div>
         </div>
       </div>
+
+      {/* Request Revision Modal */}
+      {showRevisionModal && selectedCaseLineForRevision && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6"
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <RotateCcw className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Request Revision
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    Ask technician to revise this rejected caseline
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowRevisionModal(false);
+                  setSelectedCaseLineForRevision(null);
+                  setRevisionReason("");
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <XCircle className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Caseline Info */}
+              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <p className="text-xs font-medium text-gray-500 mb-1">
+                  Case Line
+                </p>
+                <p className="text-sm font-semibold text-gray-900">
+                  {selectedCaseLineForRevision.typeComponent?.name || "N/A"}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  ID: {selectedCaseLineForRevision.id}
+                </p>
+              </div>
+
+              {/* Current Rejection Reason */}
+              {selectedCaseLineForRevision.rejectionReason && (
+                <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                  <p className="text-xs font-medium text-red-900 mb-1">
+                    Current Rejection Reason
+                  </p>
+                  <p className="text-sm text-red-700">
+                    {selectedCaseLineForRevision.rejectionReason}
+                  </p>
+                </div>
+              )}
+
+              {/* Revision Reason Input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Revision Instructions <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={revisionReason}
+                  onChange={(e) => setRevisionReason(e.target.value)}
+                  placeholder="Provide specific instructions or guidance for the technician..."
+                  rows={4}
+                  required
+                  className="w-full px-3 py-2 border text-black border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  The technician will receive a notification to revise this
+                  caseline
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    setShowRevisionModal(false);
+                    setSelectedCaseLineForRevision(null);
+                    setRevisionReason("");
+                  }}
+                  disabled={requestingRevision !== null}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitRevision}
+                  disabled={
+                    requestingRevision !== null || !revisionReason.trim()
+                  }
+                  className="flex-1 px-4 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {requestingRevision ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <RotateCcw className="w-4 h-4" />
+                      Send Request
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
