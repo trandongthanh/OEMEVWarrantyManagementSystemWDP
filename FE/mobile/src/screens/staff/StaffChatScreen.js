@@ -50,7 +50,10 @@ export default function StaffChatScreen({ route, navigation }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
-  const [chatStatus, setChatStatus] = useState(initialStatus);
+  
+  // Chuẩn hóa status viết hoa
+  const [chatStatus, setChatStatus] = useState(initialStatus?.toUpperCase() || "UNKNOWN");
+  
   const [closing, setClosing] = useState(false);
   const [accepting, setAccepting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -64,7 +67,6 @@ export default function StaffChatScreen({ route, navigation }) {
       decoded?.staffId?.toString() ||
       decoded?.id?.toString() ||
       "";
-    console.log("👤 Decoded staffId:", staffId);
   } catch (err) {
     console.warn("⚠️ Token decode failed:", err.message);
   }
@@ -74,7 +76,6 @@ export default function StaffChatScreen({ route, navigation }) {
     joinConversation(conversationId);
 
     onNewMessage((msg) => {
-      console.log("📩 New message:", msg);
       setMessages((prev) => [...prev, msg]);
     });
 
@@ -124,11 +125,10 @@ export default function StaffChatScreen({ route, navigation }) {
   }, [messages]);
 
   const getStatusColor = () => {
-    switch (chatStatus) {
-      case "ACTIVE": return COLORS.success;
-      case "WAITING": return COLORS.waiting;
-      default: return COLORS.danger;
-    }
+    // SỬA: Thêm check UNASSIGNED vào đây để hiện màu vàng
+    if (chatStatus === "ACTIVE") return COLORS.success;
+    if (chatStatus === "WAITING" || chatStatus === "UNASSIGNED") return COLORS.waiting;
+    return COLORS.danger;
   };
 
   const handleAcceptChat = async () => {
@@ -213,20 +213,6 @@ export default function StaffChatScreen({ route, navigation }) {
             />
           </TouchableOpacity>
         )}
-
-        {chatStatus === "WAITING" && (
-          <TouchableOpacity
-            onPress={handleAcceptChat}
-            disabled={accepting}
-            style={styles.acceptBtn}
-          >
-            <Ionicons
-              name="chatbubble-ellipses-outline"
-              size={24}
-              color={accepting ? COLORS.textMuted : COLORS.success}
-            />
-          </TouchableOpacity>
-        )}
       </View>
 
       {/* MESSAGES */}
@@ -244,25 +230,40 @@ export default function StaffChatScreen({ route, navigation }) {
           keyExtractor={(item, index) =>
             item?._id?.toString() || `${item.senderType}-${index}`
           }
-          contentContainerStyle={{ padding: 12, paddingBottom: 90 }}
+          contentContainerStyle={{ padding: 12, paddingBottom: 20 }}
         />
       )}
 
-      {/* INPUT */}
+      {/* BOTTOM ACTION AREA */}
       {chatStatus === "CLOSED" ? (
         <View style={styles.closedBar}>
           <Ionicons name="lock-closed" size={16} color="#fff" />
           <Text style={styles.closedBarText}>This conversation is closed</Text>
         </View>
+        
+      ) : (chatStatus === "WAITING" || chatStatus === "UNASSIGNED") ? (
+        <View style={styles.actionContainer}>
+           <TouchableOpacity 
+              style={styles.bigAcceptButton} 
+              onPress={handleAcceptChat}
+              disabled={accepting}
+           >
+              {accepting ? (
+                 <ActivityIndicator color="#fff" />
+              ) : (
+                 <>
+                   <Ionicons name="checkmark-circle" size={22} color="#fff" style={{ marginRight: 8 }} />
+                   <Text style={styles.bigAcceptText}>Accept Chat Request</Text>
+                 </>
+              )}
+           </TouchableOpacity>
+        </View>
       ) : (
+        // INPUT TIN NHẮN (Khi ACTIVE)
         <View style={styles.inputRow}>
           <TextInput
             style={styles.input}
-            placeholder={
-              chatStatus === "WAITING"
-                ? "Accept the chat before messaging..."
-                : "Type a message..."
-            }
+            placeholder="Type a message..."
             placeholderTextColor={COLORS.textMuted}
             value={input}
             onChangeText={setInput}
@@ -271,10 +272,10 @@ export default function StaffChatScreen({ route, navigation }) {
           <TouchableOpacity
             style={[
               styles.sendBtn,
-              chatStatus !== "ACTIVE" && { opacity: 0.5 },
+              (!input.trim() || chatStatus !== "ACTIVE") && { opacity: 0.5 },
             ]}
             onPress={handleSend}
-            disabled={chatStatus !== "ACTIVE"}
+            disabled={!input.trim() || chatStatus !== "ACTIVE"}
           >
             <Ionicons name="send" size={18} color="#fff" />
           </TouchableOpacity>
@@ -337,7 +338,6 @@ const styles = StyleSheet.create({
   },
   name: { color: COLORS.text, fontWeight: "600", fontSize: 16, marginLeft: 10 },
   closeBtn: { padding: 8 },
-  acceptBtn: { padding: 8 },
   messageBubble: {
     padding: 12,
     borderRadius: 16,
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 14,
+    paddingVertical: 16,
     backgroundColor: COLORS.danger,
     borderTopWidth: 0.5,
     borderColor: "#EF4444",
@@ -401,4 +401,29 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginLeft: 8,
   },
+  actionContainer: {
+    backgroundColor: COLORS.surface,
+    padding: 12,
+    borderTopWidth: 1,
+    borderColor: COLORS.border,
+    paddingBottom: Platform.OS === "ios" ? 20 : 12, 
+  },
+  bigAcceptButton: {
+    backgroundColor: COLORS.success,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderRadius: 25,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  bigAcceptText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  }
 });
