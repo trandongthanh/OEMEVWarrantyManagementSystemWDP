@@ -664,13 +664,13 @@ class CaseLineRepository {
         {
           model: GuaranteeCase,
           as: "guaranteeCase",
-          attributes: ["vehicleProcessingRecordId"],
+          attributes: [],
           required: true,
           include: [
             {
               model: VehicleProcessingRecord,
               as: "vehicleProcessingRecord",
-              attributes: ["vehicleProcessingRecordId"],
+              attributes: [],
               required: true,
               include: [
                 {
@@ -690,7 +690,7 @@ class CaseLineRepository {
       ],
 
       group: [
-        "CaseLine.typeComponentId",
+        "CaseLine.type_component_id",
         "typeComponent.type_component_id",
         "typeComponent.name",
         "typeComponent.sku",
