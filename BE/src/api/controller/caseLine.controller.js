@@ -254,6 +254,24 @@ class CaseLineController {
       data: result,
     });
   };
+
+  requestRevision = async (req, res, next) => {
+    const { caselineId } = req.params;
+    const { reason } = req.body;
+    const { roleName, serviceCenterId } = req.user;
+
+    const result = await this.#caseLineService.requestRevision({
+      caselineId,
+      roleName,
+      serviceCenterId,
+      reason,
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: result.message,
+    });
+  };
 }
 
 export default CaseLineController;

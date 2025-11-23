@@ -12,6 +12,8 @@ import {
   getAllCaselinesQuerySchema,
   validateOldComponentSerialSchema,
   markRepairCompletedBodySchema,
+  requestRevisionParamsSchema,
+  requestRevisionBodySchema,
 } from "../../validators/caseLine.validator.js";
 
 import {
@@ -552,6 +554,58 @@ router.patch(
     const caseLineController = req.container.resolve("caseLineController");
 
     await caseLineController.validateOldComponentSerial(req, res, next);
+  }
+);
+
+/**
+ * @swagger
+ * /case-lines/{caselineId}/request-revision:
+ *   patch:
+ *     summary: Yêu cầu chỉnh sửa lại Caseline (Manager -> Tech)
+ *     description: >-
+ *       Quản lý trung tâm dịch vụ yêu cầu Kỹ thuật viên chỉnh sửa lại một Caseline đã bị Hãng từ chối (`REJECTED_BY_OEM`).
+ *       Hệ thống sẽ gửi thông báo đến Kỹ thuật viên phụ trách.
+ *     tags: [Case Line]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: caselineId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *         description: ID của mục sửa chữa.
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: Lý do yêu cầu chỉnh sửa.
+ *     responses:
+ *       200:
+ *         description: Gửi yêu cầu thành công.
+ *       401:
+ *         description: Chưa xác thực.
+ *       403:
+ *         description: Không có quyền (yêu cầu vai trò Quản lý).
+ *       404:
+ *         description: Không tìm thấy mục sửa chữa.
+ *       409:
+ *         description: Xung đột (trạng thái không phải là `REJECTED_BY_OEM`).
+ */
+router.patch(
+  "/:caselineId/request-revision",
+  authentication,
+  authorizationByRole(["service_center_manager"]),
+  validate(requestRevisionParamsSchema, "params"),
+  validate(requestRevisionBodySchema, "body"),
+  async (req, res, next) => {
+    const caseLineController = req.container.resolve("caseLineController");
+
+    await caseLineController.requestRevision(req, res, next);
   }
 );
 

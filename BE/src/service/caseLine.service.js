@@ -747,7 +747,20 @@ class CaseLineService {
 
       let updatedCaseline;
 
-      if (caseline.status === "DRAFT") {
+      if (
+        caseline.status === "DRAFT" ||
+        caseline.status === "REJECTED_BY_OEM"
+      ) {
+        if (
+          caseline.status === "REJECTED_BY_OEM" &&
+          warrantyStatus &&
+          warrantyStatus !== caseline.warrantyStatus
+        ) {
+          throw new ConflictError(
+            "Cannot change warranty status for a caseline rejected by OEM"
+          );
+        }
+
         const guaranteeCase =
           await this.#guaranteeCaseRepository.findDetailById(
             { guaranteeCaseId: guaranteeCaseId },
@@ -776,7 +789,9 @@ class CaseLineService {
 
           if (typeComponentsMap.has(normalizedId)) {
             const isUnderWarrantyByTech =
-              warrantyStatus === "ELIGIBLE" ? true : false;
+              (warrantyStatus || caseline.warrantyStatus) === "ELIGIBLE"
+                ? true
+                : false;
 
             const isUnderWarrantyBySystem = typeComponentsMap.get(normalizedId);
 
@@ -788,13 +803,18 @@ class CaseLineService {
           }
         }
 
-        if (warrantyStatus === "INELIGIBLE" && !rejectionReason) {
+        const finalWarrantyStatus = warrantyStatus || caseline.warrantyStatus;
+
+        if (finalWarrantyStatus === "INELIGIBLE" && !rejectionReason) {
           throw new ConflictError(
             `Technician must provide a rejection reason if caseline with typeComponentId ${caseline.typeComponentId} is marked as REJECTED_BY_TECH`
           );
         }
 
-        const initialStatus = "DRAFT";
+        let initialStatus = "DRAFT";
+        if (caseline.status === "REJECTED_BY_OEM") {
+          initialStatus = "CUSTOMER_APPROVED";
+        }
 
         const normalizedEvidenceImageUrls =
           typeof evidenceImageUrls === "undefined"
@@ -824,9 +844,33 @@ class CaseLineService {
         if (!updatedCaseline) {
           throw new ConflictError("Failed to update caseline");
         }
+
+        if (caseline.status === "REJECTED_BY_OEM") {
+          const guaranteeCase =
+            await this.#guaranteeCaseRepository.findDetailById(
+              { guaranteeCaseId: guaranteeCaseId },
+              transaction
+            );
+
+          const serviceCenterId =
+            guaranteeCase?.vehicleProcessingRecord?.createdByStaff
+              ?.serviceCenterId;
+
+          if (serviceCenterId) {
+            const roomName = `service_center_manager_${serviceCenterId}`;
+            this.#notificationService.sendToRoom(
+              roomName,
+              "caselineUpdatedByTech",
+              {
+                caselineId: updatedCaseline.id,
+                status: updatedCaseline.status,
+              }
+            );
+          }
+        }
       } else {
         throw new ConflictError(
-          "Caseline can only be updated when it is in DRAFT status"
+          "Caseline can only be updated when it is in DRAFT or REJECTED_BY_OEM status"
         );
       }
 
@@ -838,6 +882,50 @@ class CaseLineService {
     });
 
     return rawResult;
+  };
+
+  requestRevision = async ({
+    caselineId,
+    roleName,
+    serviceCenterId,
+    reason,
+  }) => {
+    if (roleName !== "service_center_manager") {
+      throw new ForbiddenError("Only managers can request revision");
+    }
+
+    const caseline = await this.#caselineRepository.findDetailById(caselineId);
+
+    if (!caseline) {
+      throw new NotFoundError("Caseline not found");
+    }
+
+    const recordServiceCenterId =
+      caseline.guaranteeCase?.vehicleProcessingRecord?.createdByStaff
+        ?.serviceCenterId;
+
+    if (recordServiceCenterId !== serviceCenterId) {
+      throw new ForbiddenError(
+        "You do not have permission for this service center"
+      );
+    }
+
+    if (caseline.status !== "REJECTED_BY_OEM") {
+      throw new ConflictError(
+        `Caseline must be in REJECTED_BY_OEM status to request revision. Current: ${caseline.status}`
+      );
+    }
+
+    const techId = caseline.diagnosticTechId;
+    if (techId) {
+      const roomName = `user_${techId}`;
+      this.#notificationService.sendToRoom(roomName, "revisionRequested", {
+        caselineId,
+        reason,
+      });
+    }
+
+    return { message: "Revision requested successfully" };
   };
 
   assignTechnicianToRepairCaseline = async ({

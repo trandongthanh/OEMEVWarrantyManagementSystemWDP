@@ -109,3 +109,11 @@ export const validateOldComponentSerialSchema = Joi.object({
 export const markRepairCompletedBodySchema = Joi.object({
   installationImageUrls: Joi.array().items(Joi.string().uri()).optional(),
 });
+
+export const requestRevisionParamsSchema = Joi.object({
+  caselineId: Joi.string().uuid({ version: "uuidv4" }).required(),
+});
+
+export const requestRevisionBodySchema = Joi.object({
+  reason: Joi.string().optional(),
+});
