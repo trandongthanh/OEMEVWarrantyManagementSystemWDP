@@ -125,6 +125,7 @@ class UserService {
       const u = user.toJSON ? user.toJSON() : user;
       return {
         "User ID": u.userId,
+        "Employee Code": u.employeeCode || "N/A",
         Name: u.name,
         Email: u.email,
         Phone: u.phone,
