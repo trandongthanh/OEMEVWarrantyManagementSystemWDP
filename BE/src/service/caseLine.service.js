@@ -885,7 +885,7 @@ class CaseLineService {
 
             if (serviceCenterId) {
               const roomName = `service_center_manager_${serviceCenterId}`;
-              this.#notificationService.sendToRoom(
+              await this.#notificationService.sendToRoom(
                 roomName,
                 "caselineUpdatedByTech",
                 {
